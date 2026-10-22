@@ -1,0 +1,13 @@
+{
+  "name": "midea-fort-development-tools",
+  "version": "1.0.1",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "description": "Local browser checks for the embedded ESP32 dashboard; not a firmware dependency",
+  "scripts": {
+    "test:ui": "node tools/preview-test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

@@ -1,0 +1,10 @@
+.pio/
+tmp/
+*.exe
+.vscode/
+node_modules/
+output/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

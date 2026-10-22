@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="181" height="30" viewBox="0 0 181 30" role="img" aria-labelledby="title desc"><title id="title">Espressif32 6.10.0</title><desc id="desc">Espressif32: 6.10.0. Metadata project.</desc><rect width="100%" height="100%" fill="#0e1825"/>
+<rect x="0" y="0" width="181" height="30" rx="6" fill="#172638" stroke="#31465c"/>
+<rect x="119" y="0" width="62" height="30" rx="5" fill="#ffd184" stroke="#ffd184"/>
+<polyline points="9,19 15,11 21,19 27,11" fill="none" stroke="#edf5ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="35" y="20" fill="#edf5ff" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">Espressif32</text>
+<text x="150.0" y="20" fill="#0e1825" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">6.10.0</text>
+</svg>

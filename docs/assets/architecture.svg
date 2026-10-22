@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="650" viewBox="0 0 1400 650" role="img" aria-labelledby="title desc"><title id="title">Arsitektur dua core dan jalur data</title><desc id="desc">Diagram lokal Midea Fort. Warna dan label menandai koneksi; data tampilan adalah simulasi.</desc><rect width="100%" height="100%" fill="#0e1825"/>
+<text x="45" y="60" fill="#edf5ff" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Dua core · satu sumber data konsisten</text>
+<text x="45" y="96" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">RTOS queue untuk perintah/snapshot; mutex untuk I2C dan filesystem.</text>
+<rect x="55" y="160" width="510" height="300" rx="16" fill="#172638" stroke="#31465c"/>
+<text x="80" y="204" fill="#57c7ff" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 0 / ANTARMUKA</text>
+<text x="80" y="260" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">HTTP + dashboard HP</text>
+<text x="80" y="303" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Tombol / debounce 35 ms</text>
+<text x="80" y="346" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">OLED sekitar 3 Hz + buzzer</text>
+<text x="80" y="389" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Wi-Fi tetap dikelola ESP-IDF</text>
+<rect x="835" y="160" width="510" height="300" rx="16" fill="#172638" stroke="#31465c"/>
+<text x="860" y="204" fill="#57c7ff" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 1 / AKUISISI</text>
+<text x="860" y="260" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">UART1 Modbus + CRC / retry</text>
+<text x="860" y="303" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">RTC + CT/PT + counter kWh</text>
+<text x="860" y="346" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">9 interval dengan kualitas data</text>
+<text x="860" y="389" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">NVS checkpoint + CSV LittleFS</text>
+<polyline points="565,250 835,250" fill="none" stroke="#bfabff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="700" y="228" fill="#bfabff" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="middle">Perintah →</text>
+<text x="700" y="277" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle">queue 6 item</text>
+<polyline points="835,380 565,380" fill="none" stroke="#85e3bb" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="700" y="355" fill="#85e3bb" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="middle">← Snapshot</text>
+<text x="700" y="407" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle">queue 1 item</text>
+<rect x="55" y="500" width="1290" height="100" rx="16" fill="#172638" stroke="#31465c"/>
+<text x="85" y="539" fill="#edf5ff" font-family="Arial, sans-serif" font-size="21" font-weight="600" text-anchor="start">Polling target 2 detik  ·  Refresh web 2,5 detik  ·  Watchdog 8 detik</text>
+<text x="85" y="575" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Selisih counter membentuk energi; beban CPU dibiarkan rendah agar respons, Wi-Fi dan idle task tetap lancar.</text>
+</svg>

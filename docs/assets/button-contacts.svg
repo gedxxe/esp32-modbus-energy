@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="480" viewBox="0 0 1100 480" role="img" aria-labelledby="title desc"><title id="title">Cara memilih kaki tactile switch dan menghubungkannya ke ESP32</title><desc id="desc">Diagram lokal Midea Fort. Warna dan label menandai koneksi; data tampilan adalah simulasi.</desc><rect width="100%" height="100%" fill="#0e1825"/>
+<text x="45" y="60" fill="#edf5ff" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Tombol 4 kaki · pilih dua kontak yang berbeda</text>
+<text x="45" y="96" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Ilustrasi pasangan listrik; tentukan pasangan aktual dengan continuity meter.</text>
+<rect x="355" y="155" width="330" height="230" rx="16" fill="#172638" stroke="#31465c"/>
+<text x="520" y="194" fill="#edf5ff" font-family="Arial, sans-serif" font-size="20" font-weight="700" text-anchor="middle">TACTILE SWITCH</text>
+<polyline points="355,240 355,335" fill="none" stroke="#bfabff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="355" cy="240" r="7" fill="#bfabff"/>
+<polyline points="315,240 355,240" fill="none" stroke="#bfabff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="355" cy="335" r="7" fill="#bfabff"/>
+<polyline points="315,335 355,335" fill="none" stroke="#bfabff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="290" y="291" fill="#bfabff" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">A</text>
+<polyline points="685,240 685,335" fill="none" stroke="#afbdcf" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="685" cy="240" r="7" fill="#afbdcf"/>
+<polyline points="725,240 685,240" fill="none" stroke="#afbdcf" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="685" cy="335" r="7" fill="#afbdcf"/>
+<polyline points="725,335 685,335" fill="none" stroke="#afbdcf" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="750" y="291" fill="#afbdcf" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle">B</text>
+<circle cx="460" cy="285" r="4" fill="#bfabff"/>
+<circle cx="580" cy="285" r="4" fill="#afbdcf"/>
+<polyline points="355,285 460,285 555,250" fill="none" stroke="#bfabff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="580,285 685,285" fill="none" stroke="#afbdcf" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="90,240 315,240" fill="none" stroke="#bfabff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="80" y="219" fill="#bfabff" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">GPIO4 / GPIO5 / GPIO6</text>
+<polyline points="725,335 990,335" fill="none" stroke="#afbdcf" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="855" y="371" fill="#afbdcf" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">GND</text>
+<text x="55" y="434" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">A–A selalu terhubung. B–B selalu terhubung. A–B baru terhubung saat ditekan. Gunakan satu A dan satu B.</text>
+</svg>

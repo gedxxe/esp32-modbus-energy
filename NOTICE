@@ -1,0 +1,9 @@
+Fort Energy Station — ESP32 Modbus Energy Monitor
+
+The project source code and original documentation/assets are licensed under
+the GNU General Public License, version 3 only (SPDX: GPL-3.0-only).
+See LICENSE for the complete license terms.
+
+Third-party dependencies retain their respective licenses and notices.
+The supplied Fort power meter user manual is a third-party reference document;
+it is not relicensed under the project's GPL license.

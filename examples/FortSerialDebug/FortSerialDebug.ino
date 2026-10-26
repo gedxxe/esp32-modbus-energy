@@ -36,7 +36,7 @@ ReplyKind lastReply=REPLY_NONE;
 // Per-run evidence, not a cable-presence sensor. Snapshots are user-labeled.
 struct Evidence {
   uint32_t requests=0,rxBytes=0,passiveBytes=0,staleBytes=0,data=0,exceptions=0,echoes=0;
-  uint32_t crcBad=0,shortFrames=0,wrongFrames=0,overflows=0,timeouts=0,txErrors=0;
+  uint32_t echoPrefixes=0,crcBad=0,shortFrames=0,wrongFrames=0,overflows=0,timeouts=0,txErrors=0;
   uint32_t energyOK=0,energyBad=0;
   bool aborted=false;
 } evidence;
@@ -156,6 +156,7 @@ bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *o
       } else if (overflow) { ++evidence.overflows;if (show) LOG("[RX_OVERFLOW] frame rejected; only first 64 bytes shown\n");
       } else if (size<5) { ++evidence.shortFrames;if (show) LOG("[SHORT_FRAME] rejected\n");
       } else {
+        if(size>sizeof(tx)&&memcmp(rx,tx,sizeof(tx))==0){++evidence.echoPrefixes;if(show)LOG("[TX_PREFIX_WITH_TRAILING_RX] request prefix plus more bytes; no wire-gap proof, nothing stripped or automatically accepted\n");}
         uint16_t calculated=modbusCRC(rx,size-2), received=uint16_t(rx[size-2])|(uint16_t(rx[size-1])<<8);
         if (show) LOG("CRC calculated=0x%04X received=0x%04X %s\n",calculated,received,calculated==received?"OK":"MISMATCH");
         if(calculated!=received)++evidence.crcBad;
@@ -171,7 +172,7 @@ bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *o
     }
     delay(1); // Allow USB, scheduler and watchdog/idle processing.
   }
-  if (size) hexLog("RX tail at deadline (not accepted)",rx,size);
+  if (size) {hexLog(overflow?"RX prefix at deadline (overflow, rejected)":"RX tail at deadline (not accepted)",rx,size);if(overflow)++evidence.overflows;}
   if(!sawBytes)++evidence.timeouts;
   LOG("[%s] %s%s\n",sawBytes?"NO_VALID_RESPONSE":"TIMEOUT",sawBytes?"RX activity, no accepted response":"no RX bytes",sawEcho?"; exact TX echo observed":"");
   return false;
@@ -241,9 +242,9 @@ void deepCheck(const Link &link) {
 // silence with an absent/dead module: the four-pin board has no presence input.
 void reportEvidence() {
   LOG("\n[REPORT_BEGIN] counts for last active test/scan/poll (stats clear resets); not a hardware presence detector\n");
-  LOG("[EVIDENCE] requests=%lu rx_bytes=%lu passive_bytes=%lu pre_tx_bytes=%lu valid_data=%lu valid_exception=%lu echo=%lu crc_bad=%lu short=%lu wrong=%lu overflow=%lu timeout=%lu local_uart_error=%lu energy_ok=%lu energy_failed=%lu aborted=%u\n",
+  LOG("[EVIDENCE] requests=%lu rx_bytes=%lu passive_bytes=%lu pre_tx_bytes=%lu valid_data=%lu valid_exception=%lu echo=%lu echo_prefix=%lu crc_bad=%lu short=%lu wrong=%lu overflow=%lu timeout=%lu local_uart_error=%lu energy_ok=%lu energy_failed=%lu aborted=%u\n",
       (unsigned long)evidence.requests,(unsigned long)evidence.rxBytes,(unsigned long)evidence.passiveBytes,(unsigned long)evidence.staleBytes,
-      (unsigned long)evidence.data,(unsigned long)evidence.exceptions,(unsigned long)evidence.echoes,
+      (unsigned long)evidence.data,(unsigned long)evidence.exceptions,(unsigned long)evidence.echoes,(unsigned long)evidence.echoPrefixes,
       (unsigned long)evidence.crcBad,(unsigned long)evidence.shortFrames,(unsigned long)evidence.wrongFrames,
       (unsigned long)evidence.overflows,(unsigned long)evidence.timeouts,(unsigned long)evidence.txErrors,
       (unsigned long)evidence.energyOK,(unsigned long)evidence.energyBad,evidence.aborted);

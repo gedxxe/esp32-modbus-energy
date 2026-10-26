@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="740" viewBox="0 0 1400 740" role="img" aria-labelledby="title desc"><title id="title">UART1 RTU frame and transceiver direction</title><desc id="desc">Timing is schematic, not to scale. Hardware UART generates serial bits; GPIO16 controls direction.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
-<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">RTU transaction · UART1 + GPIO16</text>
-<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Function 03 only · up to 3 attempts normally · 1 attempt per register while scanning</text>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">RTU timing · manual-direction alternative</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Default automatic module leaves GPIO16 unconnected · function 03 only · schematic timing</text>
 <rect x="45" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="59" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">ID</text>
 <text x="59" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">01</text>

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 1.3.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 Pembaca energi untuk power meter Fort existing di Midea, menggunakan ESP32-S3 N16R8. Perangkat membaca kWh impor melalui Modbus RTU, mencatat interval setengah jam terjadwal, dan menyediakan dashboard melalui hotspot ESP32. ESP32 menjadi satu-satunya master pada port RS485 Fort tersebut.
 
@@ -94,22 +94,24 @@ PlatformIO memasang dependency firmware otomatis. Versi dikunci pada [platformio
 
 1. Nyalakan ESP32. Startup tidak menunggu Serial USB. Animasi OLED dan pola buzzer berlangsung sekitar 1,5 detik; tanpa OLED pun perangkat tetap boot.
 2. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Tetap di jaringan ini walau muncul pesan tanpa internet. Buka **http://192.168.4.1**.
-3. Pastikan footer menunjukkan **Firmware 1.3.0**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
+3. Pastikan footer menunjukkan **Firmware 1.4.0**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
 4. Pada pemasangan baru, LittleFS bisa belum berformat valid. Jika mount gagal, tahan **OK / GPIO6** saat boot dan terus tahan lima detik. Tindakan ini memformat partisi arsip dan menghapus arsip. Tidak ada format otomatis saat gagal mount.
 5. Buka **Perangkat & arsip → Atur dari HP ini** untuk mengatur RTC. DS3231 menyimpan UTC; layar dan interval memakai WIB. Jam HP harus benar.
 6. Buka **Koneksi meter**. Masukkan setting Fort atau jalankan scan. Default pembaca adalah ID 1, 9600, 8N1; manual dari box tidak membuktikan slave ID unit yang sedang terpasang.
 
 ### Kontrol lokal
 
-### Diagnostik Modbus mentah dan sketch Arduino mandiri
+### Diagnostik tanpa mengganti firmware
 
-Pada firmware utama buka **Koneksi meter → Diagnostik TX/RX mentah → Rekam 12 berikutnya**. Capture mengamati polling/scan yang sudah berjalan, tanpa menambah request atau memutus interval dengan sendirinya. Jalankan Scan Fort ID 1–1 untuk pengujian singkat. Dua belas percobaan pertama dibekukan di RAM; Hentikan rekaman mempertahankan hasil parsial. **Unduh log mentah** menyimpan TX/RX hex, ID, baud/parity, register, percobaan dan hasil validasi. Reload panel tidak menghapus rekaman perangkat; restart/rekaman baru menggantikannya. Echo TX persis tetap ditolak. Angka CRC/rejected bukan bukti meter membalas.
+Buka **Koneksi meter → Konsol diagnostik → Tes bertahap → Jalankan perintah**. Tunggu `[REPORT_END]`, lalu **Unduh output**. Tes baca yang sama dengan sketch mandiri tersedia sambil AP/dashboard tetap aktif. Tes aktif memasuki maintenance; **Lanjutkan pengukuran** memulihkan setting produksi. `status`/`report` dapat dibaca tanpa menghentikan pengukuran. [Langkah lapangan, makna hasil dan seluruh perintah](docs/id/DIAGNOSTICS.md).
 
-Untuk diagnosis Arduino IDE, buka [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) dan ikuti [panduan lapangan](examples/FortSerialDebug/README.id.md). Upload satu kali; AP/dashboard/pencatat interval digantikan sementara. Buka **Tools → Serial Monitor**, **115200 baud + Newline**. **Ketik `x` di INPUT lalu Enter, `status` lalu Enter, kemudian `diagnose` lalu Enter.** Tunggu `[REPORT_END]`. **Salin OUTPUT yang bergulir, termasuk setting dan TX/RX, lalu tempel ke chat untuk analisis**; jangan tempel log kembali ke input Serial Monitor.
+Polling dan tes memakai transport ketat yang sama. Echo request persis ditolak sambil menunggu respons sah terpisah. Prefix request dengan byte tambahan dicatat, tidak dipotong sembarang. Byte sebelum TX, frame pendek/CRC/salah/terlalu panjang dan exception dipisahkan; tidak menjadi kWh rekaan. Tes pin/timing/register/scale/order hanya RAM, tidak mengubah map energi produksi atau serial tersimpan.
 
-Diagnostik 1.3.0 tetap menguji daftar raw register saat probe pertama diam. `report` memisahkan error UART lokal, tanpa RX, byte tidak sah, echo persis, exception sah, data sah dan konversi energi terkonfigurasi. `rxcheck` opsional mengamati input TTL dengan pull lemah. `check connected` / `check isolated` membandingkan label keadaan A/B dari operator setelah perubahan fisik. Tidak ada klaim modul dicabut/rusak hanya dari UART diam. [Delapan resep INPUT Serial Monitor](examples/FortSerialDebug/README.id.md#pilih-pengujian-berdasarkan-hasil) mencakup format, ambiguitas register/count, scale/order dan timing tanpa edit source. Scan mandiri mencari respons protokol/exception; scan dashboard masih mensyaratkan profil energi/rasio Fort lengkap. Scan dashboard gagal bukan bukti hardware terlepas.
+Scanner utama menerima data **atau exception sah**, terpisah dari dukungan energi/rasio. Ada pencarian cepat pada format tersimpan dan matriks 18format eksplisit. Probe/scan gagal bukan bukti hardware terlepas/rusak. [Sketch Arduino mandiri](examples/FortSerialDebug/README.id.md) tetap opsi cadangan; [delapan resep](examples/FortSerialDebug/README.id.md#pilih-pengujian-berdasarkan-hasil) juga dapat diketik satu perintah setiap kali pada input konsol web.
 
-Modul otomatis terkonfirmasi: TXD → GPIO18, RXD ← GPIO17, GPIO16 tidak disambungkan. Diagram RO/DI/DE/RE hanya alternatif manual. Sesudah diagnosis, upload firmware utama dan periksa arsip/setting sebelum melanjutkan logging produksi.
+Panel komunikasi mereplay timestamp UART 1× dengan polling 200 ms ditambah jaringan. Tanpa event tidak ada gerakan. HEX, gap urutan dan pin uji sebenarnya tersedia; jejak paket skematik, bukan waveform A/B fisik. **Perangkat & arsip → Monitor proses** menampilkan sampel aktivitas core, heap/PSRAM dan sisa stack. [Batas pengukuran](docs/id/DIAGNOSTICS.md#aliran-komunikasi-dan-monitor-proses).
+
+![Monitor proses representatif dengan API simulasi](docs/assets/ui-process-desktop.png)
 
 ### Posisi OLED dan LED RGB bawaan
 
@@ -137,15 +139,13 @@ Buzzer aktif opsional memakai pola startup sekitar 1,5 detik, kemudian alarm sin
 
 ## Scan Fort
 
-![Kontrol scan dengan respons simulasi](docs/assets/ui-scan-desktop.png)
+![Kontrol scan dengan balasan simulasi](docs/assets/ui-scan-desktop.png)
 
-Coba **1–16** dahulu. Jika belum ditemukan, pilih **Semua ID** untuk **1–247**. Jika ID sudah diketahui, isi awal dan akhir dengan ID yang sama. ID pembaca saat ini diperiksa dengan seluruh 18 format serial terlebih dahulu jika termasuk rentang, kemudian kombinasi ID lain dicoba tanpa pengulangan.
+Mulai dari ID yang diketahui atau **1–16**, memakai **Baud/parity tersimpan saat ini** serta alamat/count probe yang dapat diedit. Pada timeout800ms,16ID diam sekitar 13 detik ditambah overhead;247ID sekitar 3–4 menit. Format berasal dari koneksi produksi tersimpan, bukan draft form yang belum disimpan.
 
-Scan mencakup baud 1200, 2400, 4800, 9600, 19200, 38400 dan parity N/E/O dengan satu stop bit. Rentang penuh memiliki **4.446 kandidat**, sehingga tanpa respons bisa memerlukan sekitar **70 menit**. Kandidat harus memberi respons fungsi 03 yang valid pada register energi dan CT/PT: CRC, ID, panjang, fungsi serta rentang rasio diperiksa. Ini menunjukkan kompatibilitas protokol, bukan autentikasi model meter.
+Pilih **Seluruh 18 format baud/parity** bila diperlukan: enam baud × N/E/O,4.446kandidat untuk semua ID, sekitar 70 menit tanpa balasan. ID pembaca yang masuk rentang mendapat kombinasi serialnya lebih dulu. Batal diproses setelah satu transaksi 800 ms. Menutup browser tidak membatalkan; reload memulihkan rentang/mode/probe/progres.
 
-Klik **Terapkan hasil** untuk menyimpan setting pembaca ke NVS. Menemukan hasil saja tidak mengganti konfigurasi aktif. **Batalkan scan** diproses antarkandidat; satu kandidat maksimal dua jendela respons 800 ms. Menutup browser tidak membatalkan scan dan reload mengambil progres kembali dari perangkat. Hasil di RAM hilang setelah reboot.
-
-Selama scan, polling normal dijeda, kontinuitas interval diputus, dan alarm ditunda. Saat selesai/batal/tidak ditemukan, setting UART lama dipulihkan sampai hasil diterapkan. Sebaiknya lakukan scan di luar jam pencatatan produksi. [Commissioning](docs/id/COMMISSIONING.md) mencakup pengujian batal, reboot, meter offline dan kualitas data.
+Data FC03 atau exception dengan CRC/ID sesuai menjadi bukti komunikasi, terpisah dari kompatibilitas energi. Probe yang diabaikan tanpa exception masih bisa terlewat; gunakan diagnosis beberapa alamat sebelum menyalahkan wiring. **Terapkan hasil** hanya menyimpan serial pembaca; energi/CTPT tetap divalidasi sebelum menjadi nilai produksi. Setting lama kembali setelah selesai/batal sampai diterapkan. Scan memutus interval aktif, mempertahankan interval selesai dan menunda alarm. [Commissioning](docs/id/COMMISSIONING.md).
 
 ## 4. Perhitungan dan kualitas interval
 
@@ -207,9 +207,9 @@ Ini **target kooperatif, bukan jaminan hard real-time**. Klien aset yang lambat 
 
 Request delapan byte: ID, fungsi 03, alamat high/low, jumlah word high/low, CRC low/high. CRC16 mulai dari 0xFFFF, shift LSB-first dengan polynomial 0xA001, mencakup enam byte awal. Respons diperiksa ID, fungsi, byte count, total panjang, CRC dan exception 0x83.
 
-Untuk **alternatif modul arah manual**, urutan transaksi: buang maksimal 128 byte RX lama → tunggu minimal t3.5 → GPIO16 HIGH → delay 30 µs → `UART.write` → `UART.flush` → GPIO16 LOW → kumpulkan respons. Deadline respons 800 ms dimulai setelah TX flush. Polling normal maksimal tiga percobaan dengan backoff; scan satu percobaan per register.
+Untuk **alternatif modul arah manual**, urutan transaksi: buang/hitung maksimal 256 byte RX lama → tunggu minimal t3.5 → GPIO16 HIGH → delay 30 µs → `UART.write` → `UART.flush` → GPIO16 LOW → kumpulkan respons. Deadline respons 800 ms dimulai setelah TX flush. Polling normal maksimal tiga percobaan dengan backoff; scan satu percobaan per register.
 
-**UART dan I2C tidak memakai bit banging.** `HardwareSerial(1)` memakai UART1, sedangkan `Wire` memakai peripheral I2C hardware pada 100 kHz. GPIO16 hanya memilih arah transceiver, bukan membangkitkan bit serial. CPU membentuk frame, menghitung CRC, parsing, memperbarui tracker dan menggambar buffer OLED. Driver RX 128 byte; buffer frame 16 byte untuk respons yang dipakai maksimal 11 byte. Timestamp diambil saat buffer UART dibaca, sehingga t1.5 per byte tidak diklaim presisi.
+**UART dan I2C tidak memakai bit banging.** `HardwareSerial(1)` memakai UART1, sedangkan `Wire` memakai peripheral I2C hardware pada 100 kHz. GPIO16 hanya memilih arah transceiver, bukan membangkitkan bit serial. CPU membentuk frame, menghitung CRC, parsing, memperbarui tracker dan menggambar buffer OLED. Driver RX 256 byte; buffer frame 64 byte untuk respons yang dipakai maksimal 11 byte. Timestamp diambil saat buffer UART dibaca, sehingga t1.5 per byte tidak diklaim presisi.
 
 ## 7. Build dashboard React
 

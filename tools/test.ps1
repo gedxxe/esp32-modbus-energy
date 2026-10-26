@@ -9,4 +9,8 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & g++ -std=c++11 -Wall -Wextra -Werror -I (Join-Path $taskRoot 'firmware/test/arduino_stub') (Join-Path $taskRoot 'firmware/test/test_debug_sketch.cpp') -o (Join-Path $testOut 'test_debug_sketch.exe')
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & (Join-Path $testOut 'test_debug_sketch.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& g++ -std=c++11 -Wall -Wextra -Werror -I (Join-Path $taskRoot 'firmware/test/arduino_stub') -I (Join-Path $taskRoot 'firmware/include') (Join-Path $taskRoot 'firmware/test/test_diagnostics.cpp') -o (Join-Path $testOut 'test_diagnostics.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& (Join-Path $testOut 'test_diagnostics.exe')
 exit $LASTEXITCODE

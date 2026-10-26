@@ -17,3 +17,6 @@ constexpr uint8_t RGB_LED_DEFAULT_BRIGHTNESS = 128; // 0..255; web can override.
 constexpr uint32_t RGB_LED_DEFAULT_PERIOD_MS = 8000;
 static_assert(RGB_LED_PIN==48||RGB_LED_PIN==38,"Select the onboard LED GPIO: 48 or 38");
 static_assert(RGB_LED_DEFAULT_PERIOD_MS>=500&&RGB_LED_DEFAULT_PERIOD_MS<=30000,"LED cycle must be 500..30000 ms");
+
+// Supplied four-pin module handles direction itself; GPIO16 stays unconnected.
+constexpr bool RS485_AUTO_DIRECTION = true;

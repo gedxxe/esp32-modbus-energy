@@ -17,22 +17,23 @@ struct ScanProgress {
   ScanPhase phase=SCAN_IDLE;
   Settings candidate{},result{};
   uint16_t tested=0,total=0;
-  uint8_t first=1,last=247;
-  uint32_t elapsedMs=0,timeouts=0,crcErrors=0,rejected=0;
+  uint8_t first=1,last=247;bool currentOnly=false;
+  uint32_t elapsedMs=0,timeouts=0,crcErrors=0,rejected=0,exceptions=0;
 };
 // Bounded, allocation-free search: preferred baud/parity and ID first, no duplicates.
 class ScanController {
  public:
   ScanProgress progress{};
   bool running() const { return progress.phase==SCAN_RUNNING; }
-  bool begin(uint8_t first,uint8_t last,const Settings &preferred,uint32_t now) {
+  bool begin(uint8_t first,uint8_t last,const Settings &preferred,uint32_t now,bool currentOnly=false) {
     if(running()||first<1||last>247||first>last||!validSettings(preferred))return false;
     const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};
     const char parities[]={'N','E','O'};
     bauds[0]=preferred.baud;int i=1;for(auto b:defaults)if(b!=preferred.baud)bauds[i++]=b;
     modes[0]=preferred.parity;i=1;for(auto p:parities)if(p!=preferred.parity)modes[i++]=p;
     preferredID=preferred.slave;started=now;progress=ScanProgress{};
-    progress.first=first;progress.last=last;progress.total=(last-first+1)*18;
+    combinations=currentOnly?1:18;progress.currentOnly=currentOnly;
+    progress.first=first;progress.last=last;progress.total=(last-first+1)*combinations;
     progress.phase=SCAN_RUNNING;updateCandidate();return true;
   }
   void refresh(uint32_t now) { if(running())progress.elapsedMs=now-started; }
@@ -50,15 +51,15 @@ class ScanController {
  private:
   uint32_t bauds[6]{},started=0;
   char modes[3]{};
-  uint8_t preferredID=1;
+  uint8_t preferredID=1,combinations=18;
   void updateCandidate() {
     uint16_t count=progress.last-progress.first+1,index=progress.tested%count,combo=progress.tested/count;
     uint16_t id=progress.first+index;
     if(preferredID>=progress.first&&preferredID<=progress.last) {
       // Fast pass: all 18 serial modes at the configured ID before other IDs.
-      if(progress.tested<18){id=preferredID;combo=progress.tested;}
+      if(progress.tested<combinations){id=preferredID;combo=progress.tested;}
       else {
-        uint16_t remaining=count-1,offset=progress.tested-18;
+        uint16_t remaining=count-1,offset=progress.tested-combinations;
         combo=offset/remaining;id=progress.first+offset%remaining;if(id>=preferredID)++id;
       }
     }

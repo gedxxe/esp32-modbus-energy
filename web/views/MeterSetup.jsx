@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DiagnosticConsole from "../components/DiagnosticConsole.jsx";
 import RawTrace from "../components/RawTrace.jsx";
 import Icon from "../components/Icon.jsx";
 import { useText } from "../ui.js";
@@ -8,15 +9,32 @@ export default function MeterSetup({ device }) {
   const s = device.data;
   const scan = s?.scan || { phase: "idle", tested: 0, total: 0 };
   const running = scan.phase === "running";
-  const blocked = device.pending || !device.fresh;
+  const blocked =
+    device.pending || !device.fresh || Boolean(s?.diagnosticActive);
   const [config, setConfig] = useState({ slave: 1, baud: 9600, parity: "N" });
+  const [probe, setProbe] = useState({ address: "0034", words: 1 });
+  const [scanMode, setScanMode] = useState("current");
   const [range, setRange] = useState({ first: 1, last: 16 });
   useEffect(() => {
     if (s) setConfig({ slave: s.slave, baud: s.baud, parity: s.parity });
   }, [s?.slave, s?.baud, s?.parity]);
   useEffect(() => {
-    if (running) setRange({ first: scan.first, last: scan.last });
+    if (running) {
+      setRange({ first: scan.first, last: scan.last });
+      if (scan.mode) setScanMode(scan.mode);
+    }
   }, [running, scan.first, scan.last]);
+  useEffect(() => {
+    if (
+      scan.phase !== "idle" &&
+      Number.isInteger(scan.address) &&
+      Number.isInteger(scan.words)
+    )
+      setProbe({
+        address: scan.address.toString(16).padStart(4, "0"),
+        words: scan.words,
+      });
+  }, [scan.phase, scan.address, scan.words]);
   const applied =
     scan.result &&
     s?.slave === scan.result.slave &&
@@ -51,7 +69,27 @@ export default function MeterSetup({ device }) {
       device.setNotice({ key: "invalid_scan_range" });
       return;
     }
-    device.act("/api/scan/start", { first, last });
+    const address = /^[0-9a-fA-F]{1,4}$/.test(probe.address)
+      ? parseInt(probe.address, 16)
+      : NaN;
+    const words = Number(probe.words);
+    if (
+      !Number.isInteger(address) ||
+      !Number.isInteger(words) ||
+      words < 1 ||
+      words > 3 ||
+      address + words > 65536
+    ) {
+      device.setNotice({ key: "invalid_diagnostic_command" });
+      return;
+    }
+    device.act("/api/scan/start", {
+      first,
+      last,
+      address,
+      words,
+      mode: scanMode,
+    });
   };
   return (
     <>
@@ -170,6 +208,37 @@ export default function MeterSetup({ device }) {
                 />
               </div>
             </div>
+            <div className="form-grid">
+              <div>
+                <label htmlFor="scan-probe">{t("scan_probe")}</label>
+                <input
+                  id="scan-probe"
+                  value={probe.address}
+                  maxLength="4"
+                  pattern="[0-9a-fA-F]{1,4}"
+                  required
+                  disabled={blocked || running}
+                  onChange={(event) =>
+                    setProbe({ ...probe, address: event.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label htmlFor="scan-words">{t("scan_words")}</label>
+                <select
+                  id="scan-words"
+                  value={probe.words}
+                  disabled={blocked || running}
+                  onChange={(event) =>
+                    setProbe({ ...probe, words: event.target.value })
+                  }
+                >
+                  {[1, 2, 3].map((n) => (
+                    <option key={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="range-tools">
               <span>{t("quick_range")}</span>
               <button
@@ -187,7 +256,21 @@ export default function MeterSetup({ device }) {
                 {t("all_ids")}
               </button>
             </div>
-            <p className="small muted">{t("scan_limits")}</p>
+            <label htmlFor="scan-mode">{t("scan_formats")}</label>
+            <select
+              id="scan-mode"
+              value={scanMode}
+              disabled={blocked || running}
+              onChange={(event) => setScanMode(event.target.value)}
+            >
+              <option value="current">{t("scan_current")}</option>
+              <option value="matrix">{t("scan_matrix")}</option>
+            </select>
+            <p className="small muted">
+              {t(
+                scanMode === "current" ? "scan_current_limits" : "scan_limits",
+              )}
+            </p>
             <div className="actions">
               <button
                 id="scanstart"
@@ -261,17 +344,21 @@ export default function MeterSetup({ device }) {
               })}
             </p>
           )}
+          {scan.phase === "found" && scan.exception ? (
+            <p className="hint">{t("scan_exception")}</p>
+          ) : null}
           <div className="hint">{t("scan_pause_note")}</div>
         </section>
       </div>
+      <DiagnosticConsole device={device} />
       <RawTrace device={device} />
       <details className="wiring-help">
         <summary>{t("wiring_title")}</summary>
         <p className="small muted">{t("wiring_auto")}</p>
         <div className="pins">
-          <code>RO → GPIO18 / RX</code>
-          <code>DI ← GPIO17 / TX</code>
-          <code>DE + /RE → GPIO16</code>
+          <code>TXD → GPIO18 / RX</code>
+          <code>RXD ← GPIO17 / TX</code>
+          <code>GPIO16: unconnected</code>
           <code>A → Fort 58 / B → Fort 59</code>
         </div>
         <p className="small muted" style={{ marginTop: 12 }}>

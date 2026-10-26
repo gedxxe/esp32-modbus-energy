@@ -7,6 +7,7 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
+#include <functional>
 constexpr uint32_t SERIAL_8N1=0, SERIAL_8E1=1, SERIAL_8O1=2;
 enum hardwareSerial_error_t { UART_NO_ERROR,UART_BREAK_ERROR,UART_BUFFER_FULL_ERROR,UART_FIFO_OVF_ERROR,UART_FRAME_ERROR,UART_PARITY_ERROR };
 static uint64_t testMicros=0;
@@ -22,6 +23,8 @@ struct TestConsole {
   explicit operator bool() const{return true;}
   void begin(uint32_t){}
   int available()const{return int(input.size());}
+  int availableForWrite()const{return 2048;}
+  size_t write(const uint8_t *data,size_t size){output.append(reinterpret_cast<const char*>(data),size);return size;}
   int read(){char c=input.front();input.pop_front();return c;}
   void println(){output+='\n';}
   void printf(const char *format,...) {char buffer[1024];va_list args;va_start(args,format);vsnprintf(buffer,sizeof(buffer),format,args);va_end(args);output+=buffer;}
@@ -31,7 +34,7 @@ struct HardwareSerial {
   std::deque<uint8_t> incoming;
   std::deque<std::vector<uint8_t>> replies;
   std::vector<std::vector<uint8_t>> transmitted;
-  void (*errorCallback)(hardwareSerial_error_t)=nullptr;
+  std::function<void(hardwareSerial_error_t)> errorCallback;
   struct TimedFrame {uint64_t at;std::vector<uint8_t> bytes;};
   std::deque<TimedFrame> scheduled;
   bool ready=true;size_t writeLimit=256;
@@ -39,8 +42,10 @@ struct HardwareSerial {
   explicit HardwareSerial(int){}
   void end(){incoming.clear();}
   void setRxBufferSize(size_t){}
+  bool setRxFIFOFull(uint8_t){return true;}
+  bool setRxTimeout(uint8_t){return true;}
   void begin(uint32_t,uint32_t,int,int){}
-  void onReceiveError(void(*cb)(hardwareSerial_error_t)){errorCallback=cb;}
+  void onReceiveError(std::function<void(hardwareSerial_error_t)> cb){errorCallback=cb;}
   int available(){
     if(!scheduled.empty()&&testMicros>=scheduled.front().at){for(auto byte:scheduled.front().bytes)incoming.push_back(byte);scheduled.pop_front();}
     return int(incoming.size());

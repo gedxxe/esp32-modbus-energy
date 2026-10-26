@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 1.3.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 An ESP32-S3 reader for the existing Fort power meter at Midea. It reads imported kWh over Modbus RTU, records scheduled half-hour intervals, and serves a dashboard directly to a phone over Wi-Fi. The Fort RS485 port is dedicated to this reader; the ESP32 is its only master.
 
@@ -98,20 +98,22 @@ For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An applic
 
 1. Power the board. Startup does not wait for USB Serial. The OLED animation and buzzer pattern take about 1.5 seconds; a missing OLED does not prevent startup.
 2. Connect the phone to **Midea Engineering AP**, password **betahdijre12345**. Stay on this network when the phone reports that it has no internet. Open **http://192.168.4.1**.
-3. Check the footer reports **Firmware 1.3.0**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
+3. Check the footer reports **Firmware 1.4.0**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
 4. On a new installation, LittleFS may not yet contain a valid filesystem. If mounting fails, hold the physical **OK button (GPIO6)** during boot and keep holding for five seconds. This formats the archive partition and erases archives. Firmware never formats it automatically.
 5. In **Device & records**, choose **Set from this phone** to set the DS3231. It stores UTC; the screen and interval schedule use WIB. The phone's clock must be correct.
 6. Open **Meter setup**. Either enter the Fort communication settings or run **Scan Fort**. Defaults are slave 1, 9600 baud, 8N1. A manual supplied with the meter does not prove the installed slave ID.
 
-### Raw Modbus diagnostics and Arduino-only sketch
+### Diagnostics without replacing the firmware
 
-For the main firmware, open **Meter setup → Raw TX/RX diagnostics → Capture next 12**. Capture observes existing polling/scan attempts; it sends no extra request and does not interrupt interval tracking by itself. Run **Scan Fort** with IDs 1–1 if you want a short controlled test. Twelve attempts are retained in RAM and then frozen; Stop retains an earlier partial capture. Use **Download raw log** to share TX/RX hex, ID, baud/parity, register, attempt and validation outcome. Refresh/reopening a panel retains the device capture; restart/new capture replaces it. An exact TX echo is marked and remains rejected. CRC or rejected-byte counts alone do not establish a meter connection.
+Open **Meter setup → Diagnostic console → Staged test → Run command**. Wait for `[REPORT_END]`, then **Download output**. These controls run the same read-only tests as the standalone sketch while keeping the AP/dashboard available. Active tests enter maintenance; **Resume measurement** restores saved production settings. `status`/`report` inspection can run without pausing measurement. [Field procedure, result meanings and all commands](docs/DIAGNOSTICS.md).
 
-For a standalone Arduino IDE test, use [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) and its [field guide](examples/FortSerialDebug/README.md). Upload it once; it temporarily replaces AP/dashboard/interval recording. In Arduino IDE open **Tools → Serial Monitor**, select **115200 baud + Newline**. **Type `x` in its INPUT field and press Enter, then `status` and Enter, then `diagnose` and Enter.** Wait for `[REPORT_END]`. **Copy the scrolling OUTPUT, including settings and TX/RX, to the support chat** for analysis; do not paste logs back into Serial Monitor.
+Polling and diagnostic tests now share the same strict transport. An exact request echo is rejected while waiting for a separate valid reply. A request prefix plus trailing bytes is logged, never silently stripped. Pre-TX bytes, short/CRC/wrong/oversized frames and exceptions remain separate evidence; none becomes fabricated kWh. Runtime pin/timing/register/scale/order tests do not alter the production energy map or saved serial settings.
 
-Diagnostic 1.3.0 checks the configured raw register plan even when the first probe is silent. `report` separates local UART errors, no RX, unvalidated bytes, exact echo, valid exceptions, valid data and configured energy conversion. Optional `rxcheck` observes weak-bias TTL input behavior; `check connected` / `check isolated` compare user-labeled A/B states after a physical change. None claims to distinguish a missing/dead module from all other causes of silence. [Eight Serial Monitor recipes](examples/FortSerialDebug/README.md#choose-the-test-by-the-observation) cover formats, register/count ambiguity, scale/order and timing without source edits. The standalone scan accepts protocol replies/exceptions; the dashboard scan still requires the full configured Fort energy/ratio profile. A failed dashboard scan is not proof of disconnected hardware.
+The main scanner accepts matching data **or a valid exception**, independently of energy/ratio support. It offers a fast current-format search and an explicit 18-format matrix. A failed probe or scan does not establish disconnected/damaged hardware. The [standalone Arduino sketch](examples/FortSerialDebug/README.md) remains an optional fallback, with [eight field recipes](examples/FortSerialDebug/README.md#choose-the-test-by-the-observation) also usable one command at a time in the web console.
 
-The confirmed automatic module is TXD → GPIO18, RXD ← GPIO17; GPIO16 unconnected. Restore the main firmware after diagnostics and check retained records/settings before resuming production logging.
+The communication panel replays timestamped UART events at 1×, with 200 ms polling plus network delay; no event means no movement. It exposes HEX, sequence gaps and actual test pins. The packet trail is schematic, not a physical A/B waveform. **Device & records → Process monitor** shows sampled core activity, heap/PSRAM and task stack headroom. [Measurement limits](docs/DIAGNOSTICS.md#live-communication-and-process-monitor).
+
+![Representative process monitor with simulated API data](docs/assets/ui-process-desktop.png)
 
 ### OLED mounting and onboard RGB
 
@@ -143,15 +145,13 @@ The optional active buzzer has a roughly 1.5 s startup pattern. Afterwards it gi
 
 ### Scan Fort from the dashboard
 
-![Scan controls, with simulated responses](docs/assets/ui-scan-desktop.png)
+![Scan controls with simulated replies](docs/assets/ui-scan-desktop.png)
 
-Start with IDs **1–16** for a short search. If no result is found, select **All IDs** to search **1–247**. If the ID is known, use that value for both ends. The configured ID gets all 18 serial formats first when it is inside the range. The rest of the range is searched without repeating combinations.
+Start with a known ID or **1–16**, using **Current saved baud/parity** and the editable probe address/count. At800ms silent timeouts,16 IDs take roughly 13 seconds plus overhead. All247 IDs take about 3–4 minutes. The selected format is the saved production connection, not an unsaved form draft.
 
-There are six baud rates—1200, 2400, 4800, 9600, 19200 and 38400—and N/E/O parity with one stop bit. A full search has **4,446 candidates** and can take about **70 minutes** without a response. A candidate is accepted only after valid function-03 responses from both the energy and CT/PT registers, including CRC, length, slave ID and ratio range checks. This is protocol compatibility, not authentication of a meter model.
+Choose **All 18 baud/parity formats** only when necessary: six baud rates × N/E/O,4,446 candidates for all IDs, about 70 minutes without replies. The preferred ID gets its serial combinations first. Cancellation is handled after one bounded800ms transaction. Closing the browser does not cancel the scan; reload recovers its range/mode/probe/progress.
 
-Choose **Apply result** to store the reader settings in NVS. Scan completion alone does not replace the current settings. **Cancel scan** is processed between candidates; a candidate has at most two 800 ms response windows. Closing the browser does not cancel the scan, and reloading recovers progress from the ESP32. Results are held in RAM until reboot.
-
-Scanning pauses normal acquisition and interrupts interval continuity. The alarm is suppressed while scanning. After a match, cancellation or exhaustion, the old UART settings are restored until a result is applied. Use scan outside a production recording window when possible. [Commissioning checks](docs/COMMISSIONING.md) cover cancellation, reboot, missing meter and data quality.
+Matching FC03 data or a matching CRC-valid exception establishes communication, independently of energy compatibility. A silent unsupported probe can still be missed; use the staged multi-address diagnosis before attributing the result to wiring. **Apply result** saves only reader serial settings; normal energy/CTPT checks still gate production values. Previous settings return after match/cancel/exhaustion until applied. Active scanning interrupts the current interval, preserves completed intervals and suppresses the alarm. [Commissioning](docs/COMMISSIONING.md).
 
 ## 4. Energy calculation and recording quality
 
@@ -213,9 +213,9 @@ These are cooperative timing targets, **not hard real-time guarantees**. A slow 
 
 A request is eight bytes: slave ID, function 03, register address high/low, count high/low, CRC low/high. CRC16 starts at 0xFFFF, shifts LSB first with polynomial 0xA001, and covers the six request bytes. Responses are checked for ID, function, byte count, total length, CRC and exception 0x83.
 
-For the **manual-direction alternative**, the direction sequence is explicit: drain up to 128 stale RX bytes → wait at least the calculated t3.5 gap → GPIO16 HIGH → 30 µs turnaround delay → `UART.write` → `UART.flush` → GPIO16 LOW → collect the response. The 800 ms receive deadline starts after TX flush. Polling uses up to three attempts with bounded backoff; scan uses one attempt per register.
+For the **manual-direction alternative**, the direction sequence is explicit: drain/count up to 256 stale RX bytes → wait at least the calculated t3.5 gap → GPIO16 HIGH → 30 µs turnaround delay → `UART.write` → `UART.flush` → GPIO16 LOW → collect the response. The 800 ms receive deadline starts after TX flush. Polling uses up to three attempts with bounded backoff; scan uses one attempt per register.
 
-**There is no software bit banging for UART or I2C.** `HardwareSerial(1)` drives UART1; `Wire` drives the hardware I2C controller at 100 kHz. GPIO16 controls transceiver direction, not individual serial bits. CPU work includes framing, CRC, parsing, tracker arithmetic and composing the OLED buffer. RX uses a 128-byte driver buffer and a fixed 16-byte frame buffer for responses up to 11 bytes. Since timestamps are observed while draining the UART buffer, the firmware does not claim exact per-byte t1.5 validation.
+**There is no software bit banging for UART or I2C.** `HardwareSerial(1)` drives UART1; `Wire` drives the hardware I2C controller at 100 kHz. GPIO16 controls transceiver direction, not individual serial bits. CPU work includes framing, CRC, parsing, tracker arithmetic and composing the OLED buffer. RX uses a 256-byte driver buffer and a fixed 64-byte frame buffer for responses up to 11 bytes. Since timestamps are observed while draining the UART buffer, the firmware does not claim exact per-byte t1.5 validation.
 
 ## 7. Browser build and memory use
 

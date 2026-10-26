@@ -1,8 +1,8 @@
-# Validation record — 26 October 2026
+# Validation record — 27 October 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware **1.3.0**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
+Firmware **1.4.0**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
 
 ## Native logic — passed
 
@@ -110,3 +110,15 @@ The standalone ESP32-S3 N16R8 sketch compiled with espressif32 6.10.0 / Arduino 
 Documentation checks passed: 23 Markdown files, 197 local links/anchors, 18 SVGs and the 31-wire manual-alternative netlist. Regression checks now require the actual diagnostic version and explicit Serial Monitor INPUT/OUTPUT destinations in both field guides and all recipes. Both generated wiring SVGs were rendered in Edge and inspected. Their port locations remain schematic, not a board photograph.
 
 The main firmware 1.3.0 and browser payload were unchanged, so their previous build/browser results were not rerun or relabeled as new hardware tests. The rebuilt package validates its ZIP CRC and every manifest SHA256 against the archived bytes. UART driver timing, RX weak-pull behavior, module presence/health, differential A/B signals and physical Fort register acceptance remain untested. The software deliberately reports ambiguity where the interface lacks the telemetry to distinguish causes.
+
+## Main firmware diagnostics and instrumentation — 1.4.0
+
+The main ESP32-S3 N16R8 firmware compiled successfully with the pinned espressif32 6.10.0 / Arduino ESP32 2.0.17 toolchain: **78,496 bytes static RAM; 1,088,193 bytes program**. The embedded browser payload is **149,107 bytes gzip**, below the160KiB limit. Core0 loop stack is16KiB and acquisition stack12KiB. Runtime queues and dynamic driver allocations are not included in the static-RAM figure; on-target stack/heap headroom still requires measurement. The standalone INO also compiled:21,460 bytes static RAM,331,389 bytes program; no external libraries.
+
+All three native suites passed with C++11/-Wall/-Wextra/-Werror. The generated production engine itself is exercised against UART/console mocks: exact echo followed by a separately delimited valid reply, CRC-valid exceptions without kWh, corrupt/wrong-ID/function/count/short/oversized frames, stale bytes, incomplete writes, concatenated request-prefix rejection, valid-CRC tail arriving too close to deadline, silent-first-address fallback, ring truncation, nonblocking serial drain, partial-input cancellation and ordered/wrapping UART events. All eight field recipes run through both the independent INO and generated main engine. Current-format scanning enumerates247unique IDs at the saved format and a one-ID range terminates correctly; existing18-format tests remain. These tests do not execute the main RTOS scheduler or prove peripheral timing.
+
+The embedded-gzip browser suite passed current-format/matrix controls, diagnostic input/paste guard, pause/resume controls and log download, EN/ID labels, closed-panel polling behavior, process table/memory metrics, no packet motion without new device events, existing LED/config/CSV/time/error cases,320–2560px layout and reduced-motion checks. API fixtures and all screenshots are simulated, not hardware evidence. New representative images: [flow](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png), [phone console](assets/ui-diagnostic-mobile.png).
+
+The linked image placed the tick hooks and xTaskGetCurrentTaskHandleForCPU in IRAM0x4037xxxx. Sampling measures non-idle tick boundaries with known alias/interrupt-attribution limits; it is not an instruction runtime profiler or full task enumerator. Core0 JSON handlers read copied snapshots; no diagnostic API handler touches UART or Preferences. Provenance/web guards and documentation checks passed:25Markdown files,223 relative links/anchors,19SVGs,31manual-alternative wires. The release manifest and ZIP are checked against their actual bytes.
+
+Physical Fort reads, map/scaling agreement, auto-direction turnaround, merged-buffer timing, RX weak-pull behavior, UART driver callbacks, sustained multi-client AP load, real stack high-water values and fault recovery on the installed hardware remain unverified. No hardware-acceptance claim or passing remote-CI claim is inferred from local tests. [Field checks](DIAGNOSTICS.md) describe how to retain one bounded run and restore production measurement.

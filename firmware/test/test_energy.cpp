@@ -99,6 +99,9 @@ int main(){
   assert(scan.begin(1,2,preferred,20));scan.completeProbe(false,21);assert(scan.cancel(22));assert(scan.progress.tested==1);
   assert(scan.begin(7,7,preferred,30));while(scan.running())scan.completeProbe(false,31);
   assert(scan.progress.phase==SCAN_EXHAUSTED&&scan.progress.tested==18);
+  ScanController quick;assert(quick.begin(1,247,preferred,0,true));assert(quick.progress.total==247&&quick.progress.currentOnly);
+  std::set<unsigned> quickIDs;while(quick.running()){assert(quick.progress.candidate.baud==preferred.baud&&quick.progress.candidate.parity==preferred.parity);assert(quickIDs.insert(quick.progress.candidate.slave).second);quick.completeProbe(false,100);}assert(quickIDs.size()==247);
+  assert(quick.begin(7,7,preferred,0,true));quick.completeProbe(false,1);assert(quick.progress.tested==1&&quick.progress.phase==SCAN_EXHAUSTED);
   uint8_t ratios[]={0,1,0,1,0x27,0x0f};assert(validScanRatios(ratios));
   ratios[5]=0x10;assert(!validScanRatios(ratios));ratios[4]=0;ratios[5]=0;assert(!validScanRatios(ratios));
 

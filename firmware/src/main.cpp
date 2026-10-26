@@ -21,7 +21,11 @@
 #include "scan.h"
 #include "led.h"
 #include "trace.h"
+#include "flow.h"
+#include "process_monitor.h"
+#include "diagnostic_engine.h"
 
+SET_LOOP_TASK_STACK_SIZE(16384);
 using namespace fort;
 static_assert(ARDUINO_RUNNING_CORE==0,"UI must run on core 0");
 HardwareSerial bus(1);
@@ -33,11 +37,11 @@ bool oledOK=false,apOK=false;
 String apiToken;
 
 enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN,SET_LED,START_TRACE,STOP_TRACE };
-struct Command { CommandType type; uint32_t epoch=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; };
+struct Command { CommandType type; uint32_t epoch=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; uint16_t address=0x0034;uint8_t words=1;bool currentOnly=false; };
 struct Snapshot {
-  Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{};
+  Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false; uint16_t scanAddress=0x0034;uint8_t scanWords=1;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;
-  uint32_t utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
+  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
   double energy=0,power=0,ratio=0;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
   char error[64]="Waiting for a response";
@@ -78,6 +82,21 @@ void tickLED(const LedSettings *settings=nullptr) {
     if(rmt_write_items(LED_RMT_CHANNEL,items,24,false)==ESP_OK){previous=color;written=true;}
   }
 }
+constexpr size_t DIAGNOSTIC_LOG_SIZE=8192;
+char diagnosticLog[DIAGNOSTIC_LOG_SIZE]{};
+DiagnosticEngine normalReader(bus),diagnostic(bus,diagnosticLog,sizeof(diagnosticLog));
+struct DiagnosticInput { char line[96]={}; };
+struct DiagnosticView {
+  uint32_t generation=0,discarded=0;bool active=false,busy=false;
+  DiagnosticEngine::Evidence evidence{};
+  char log[DIAGNOSTIC_LOG_SIZE+1]={};
+};
+QueueHandle_t diagnosticInputQueue,diagnosticStopQueue,diagnosticViewQueue;
+DiagnosticView diagnosticView{}; // Core 1 writer; core 0 reads queue copies only.
+bool diagnosticActive=false,resumeRequested=false,entryRequested=false;
+uint32_t lastDiagnosticPublish=0,lastFlowPublish=0;
+void serviceDiagnostic();
+void uartEvent(uint8_t,const DiagnosticEngine::Link &,uint16_t,uint8_t,const uint8_t *,const uint8_t *,size_t,bool);
 Snapshot state{}; // UI reads queue copies. Only acquisition task mutates state.
 Tracker tracker;
 ScanController scanner;
@@ -93,58 +112,47 @@ struct Checkpoint { uint32_t magic=0x46524432; Day day{}; uint16_t crc=0; };
 struct ConfigRecord { Settings settings{};uint16_t crc=0; };
 void setError(const char *s,const char *code) { strlcpy(state.error,s,sizeof(state.error));strlcpy(state.errorCode,code,sizeof(state.errorCode)); }
 bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
-uint32_t activeBaud=0;char activeParity=0;
-void startBusFor(const Settings &config) {
-  if(activeBaud==config.baud&&activeParity==config.parity)return;
-  bus.end(); bus.setRxBufferSize(128);
-  uint32_t format=config.parity=='E'?SERIAL_8E1:config.parity=='O'?SERIAL_8O1:SERIAL_8N1;
-  bus.begin(config.baud,format,PIN_RX,PIN_TX);activeBaud=config.baud;activeParity=config.parity;
-  digitalWrite(PIN_RS485_DE,LOW);
+DiagnosticEngine::Link diagnosticLink(const Settings &settings){DiagnosticEngine::Link link;link.id=settings.slave;link.baud=settings.baud;link.parity=settings.parity;return link;}
+void startBusFor(const Settings &config){normalReader.options.rx=PIN_RX;normalReader.options.tx=PIN_TX;normalReader.openLink(diagnosticLink(config));}
+void startBus(){startBusFor(state.config);}
+uint8_t currentAttempt=1;bool readingNormally=true;
+void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,uint8_t words,const uint8_t *tx,const uint8_t *rx,size_t size,bool overflow){
+  if(!RS485_AUTO_DIRECTION){if(kind==1){digitalWrite(PIN_RS485_DE,HIGH);delayMicroseconds(30);}if(kind==2||kind==8)digitalWrite(PIN_RS485_DE,LOW);}
+  TraceResult result=kind==6?TRACE_TIMEOUT:TRACE_INVALID;
+  if(kind==4&&tx)result=inspectTrace(tx,rx,size,overflow,link.id,words);
+  if(kind==4||kind==5||kind==6){
+    if(tx)state.trace.append(tx,rx,size,overflow,millis(),link.baud,link.parity,link.id,address,words,currentAttempt,scanner.running(),diagnosticActive,kind==5);
+  }
+  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1||kind==2?tx:rx,kind==1||kind==2?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx);
 }
-void startBus() { startBusFor(state.config); }
-
-// Only core 1 owns the UART. Strict length, function, ID, CRC, exception checks.
-bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t *out,uint8_t attempts=3,bool normal=true) {
-  if(count<1||count>3) return false;
-  uint8_t tx[8]={config.slave,3,uint8_t(address>>8),uint8_t(address),0,count,0,0};
-  uint16_t c=crc16(tx,6); tx[6]=c;tx[7]=c>>8;
-  uint32_t bits=config.parity=='N'?10:11;
-  uint32_t gap=config.baud>19200?1750:(3500000UL*bits+config.baud-1)/config.baud;
-  for(int attempt=0;attempt<attempts;++attempt) {
-    esp_task_wdt_reset();
-    for(int i=0;i<128&&bus.available();++i)bus.read();
-    vTaskDelay(pdMS_TO_TICKS((gap+999)/1000+1));
-    digitalWrite(PIN_RS485_DE,HIGH); delayMicroseconds(30);
-    bus.write(tx,8); bus.flush(); digitalWrite(PIN_RS485_DE,LOW);
-    uint8_t rx[16]; size_t n=0; uint32_t start=millis(),lastByte=micros(); bool overflow=false;
-    while(millis()-start<800) {
-      while(bus.available()) {
-        uint32_t now=micros();
-        int v=bus.read(); if(n<sizeof(rx))rx[n++]=v;else {overflow=true;break;}
-        lastByte=now;
-      }
-      if(overflow || (n && uint32_t(micros()-lastByte)>=gap)) break;
-      vTaskDelay(1);
+// Production polling and diagnostics use the identical strict FC03 transport.
+// Whole echo frames remain rejected; a later separately delimited reply can pass.
+bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t *out,uint8_t attempts=3,bool normal=true){
+  if(count<1||count>3||uint32_t(address)+count>65536UL)return false;
+  readingNormally=normal;
+  for(uint8_t attempt=0;attempt<attempts;++attempt){
+    currentAttempt=attempt+1;normalReader.abortRequested=false;
+    const auto before=normalReader.evidence;
+    bool ok=normalReader.readRegisters(diagnosticLink(config),address,count,out);
+    uint32_t badCRC=(normalReader.evidence.crcBad-before.crcBad)+(normalReader.evidence.shortFrames-before.shortFrames);
+    uint32_t rejected=(normalReader.evidence.echoes-before.echoes)+(normalReader.evidence.wrongFrames-before.wrongFrames)+(normalReader.evidence.overflows-before.overflows);
+    uint32_t timeouts=normalReader.evidence.timeouts-before.timeouts;
+    if(normal){state.crcErrors+=badCRC;state.rejected+=rejected;state.timeouts+=timeouts;}
+    else{scanner.progress.crcErrors+=badCRC;scanner.progress.rejected+=rejected;scanner.progress.timeouts+=timeouts;}
+    if(ok)return true;
+    if(normalReader.lastReply==DiagnosticEngine::REPLY_EXCEPTION){
+      if(normal)setError("Modbus exception; register not read","modbus_exception");else ++scanner.progress.exceptions;
+      return false;
     }
-    state.trace.append(tx,rx,n,overflow,start,config.baud,config.parity,config.slave,address,count,uint8_t(attempt+1),!normal);
-    if(!n) {
-      if(normal){++state.timeouts;setError("Modbus response timeout","modbus_timeout");}else ++scanner.progress.timeouts;
-    }else if(!overflow&&n>=5&&crc16(rx,n-2)==(uint16_t(rx[n-2])|(uint16_t(rx[n-1])<<8))) {
-      if(validFrame(rx,n,config.slave,count)){memcpy(out,rx+3,count*2);return true;}
-      if(normal&&rx[0]==config.slave&&rx[1]==0x83&&n==5){snprintf(state.error,sizeof(state.error),"Modbus exception 0x%02X",rx[2]);strlcpy(state.errorCode,"modbus_exception",sizeof(state.errorCode));return false;}
-      if(normal)setError("Wrong ID, function or response length","invalid_frame");else ++scanner.progress.rejected;
-    }else if(overflow) {
-      if(normal)setError("RTU response exceeds the buffer","response_overflow");else ++scanner.progress.rejected;
-    }else {
-      if(normal){++state.crcErrors;setError("Response CRC mismatch","crc_mismatch");}else ++scanner.progress.crcErrors;
-    }
+    if(normalReader.evidence.txErrors!=before.txErrors){if(normal)setError("Local UART initialization or write failed","local_uart_error");else ++scanner.progress.rejected;}
+    else if(normalReader.evidence.timeouts!=before.timeouts){if(normal)setError("Modbus response timeout","modbus_timeout");}
+    else if(normalReader.evidence.crcBad!=before.crcBad||normalReader.evidence.shortFrames!=before.shortFrames){if(normal)setError("Untrusted CRC or short frame","crc_mismatch");}
+    else{if(!rejected){if(normal)++state.rejected;else ++scanner.progress.rejected;}if(normal)setError("RX did not contain an accepted response","invalid_frame");}
     if(attempt+1<attempts)vTaskDelay(pdMS_TO_TICKS(30*(attempt+1)));
   }
   return false;
 }
-bool readWords(uint16_t address,uint8_t count,uint8_t *out) {
-  return readWordsFor(state.config,address,count,out);
-}
+bool readWords(uint16_t address,uint8_t count,uint8_t *out){return readWordsFor(state.config,address,count,out);}
 void restoreAfterScan() {
   startBus();state.ratios=false;haveSample=false;rawKnown=false;state.power=NAN;
   lastRatio=0;lastPoll=millis();
@@ -153,10 +161,10 @@ void restoreAfterScan() {
 }
 void scanStep() {
   const Settings candidate=scanner.progress.candidate;
-  startBusFor(candidate);uint8_t energy[4],ratios[6];
-  // Two different known read-only registers must validate, including CRC and ratio range.
-  bool found=readWordsFor(candidate,0x0082,2,energy,1,false)&&readWordsFor(candidate,0x002c,3,ratios,1,false);
-  if(found&&!validScanRatios(ratios)){found=false;++scanner.progress.rejected;}
+  startBusFor(candidate);uint8_t data[6];
+  bool dataRead=readWordsFor(candidate,state.scanAddress,state.scanWords,data,1,false);
+  bool found=dataRead||normalReader.lastReply==DiagnosticEngine::REPLY_EXCEPTION;
+  if(found)state.scanException=!dataRead;
   scanner.completeProbe(found,millis());
   if(!scanner.running())restoreAfterScan();
 }
@@ -236,6 +244,56 @@ void publish() {
   xQueueOverwrite(snapshotQueue,&state);
 }
 
+void publishDiagnostic(){
+  diagnosticView.active=diagnosticActive;diagnosticView.busy=diagnostic.busy();diagnosticView.evidence=diagnostic.evidence;
+  diagnosticView.discarded=diagnostic.logDiscarded;diagnostic.copyLog(diagnosticView.log,sizeof(diagnosticView.log));
+  xQueueOverwrite(diagnosticViewQueue,&diagnosticView);lastDiagnosticPublish=millis();
+}
+void serviceDiagnostic(){
+  esp_task_wdt_reset();diagnostic.drainSerial();uint8_t stop=0;
+  if(xQueueReceive(diagnosticStopQueue,&stop,0)==pdTRUE){diagnostic.emergencyStop();if(stop==2)resumeRequested=true;}
+  if(uint32_t(millis()-lastFlowPublish)>=50){publish();lastFlowPublish=millis();}
+  if(diagnosticActive){
+    DiagnosticInput input;
+    for(uint8_t n=0;n<4&&diagnostic.consoleCount<DiagnosticEngine::CONSOLE_CAPACITY&&xQueueReceive(diagnosticInputQueue,&input,0)==pdTRUE;++n){
+      if(!strcmp(input.line,"resume")){resumeRequested=true;diagnostic.emergencyStop();}
+      else if(!diagnostic.submit(input.line))diagnostic.logf("[CONSOLE_FULL] command refused; wait for queued work\n");
+    }
+    if(uint32_t(millis()-lastDiagnosticPublish)>=100){publishDiagnostic();publish();}
+  }
+}
+void enterDiagnostic(){
+  if(diagnosticActive||scanner.running()||uxQueueMessagesWaiting(commandQueue))return;
+  tracker.interrupt();saveCheckpoint(true);haveSample=false;rawKnown=false;state.ratios=false;state.power=NAN;
+  currentAttempt=1;diagnosticActive=true;entryRequested=false;resumeRequested=false;state.diagnosticActive=true;diagnostic.activeBaud=0;
+  // Normal reader retains the generated defaults; do not duplicate register maps.
+  diagnostic.options=normalReader.options;diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;
+  memcpy(diagnostic.auditPlan,normalReader.auditPlan,sizeof(diagnostic.auditPlan));diagnostic.auditCount=normalReader.auditCount;
+  memcpy(diagnostic.BAUDS,normalReader.BAUDS,sizeof(diagnostic.BAUDS));memcpy(diagnostic.PARITIES,normalReader.PARITIES,sizeof(diagnostic.PARITIES));
+  diagnostic.baudCount=normalReader.baudCount;diagnostic.parityCount=normalReader.parityCount;diagnostic.firstID=normalReader.firstID;diagnostic.lastID=normalReader.lastID;
+  diagnostic.connectedCapture=DiagnosticEngine::Capture{};diagnostic.isolatedCapture=DiagnosticEngine::Capture{};
+  diagnostic.current=diagnosticLink(state.config);diagnostic.evidence=DiagnosticEngine::Evidence{};diagnostic.clearLog();
+  diagnostic.parityErrors.store(0);diagnostic.frameErrors.store(0);diagnostic.fifoErrors.store(0);diagnostic.bufferErrors.store(0);diagnostic.breakErrors.store(0);
+  diagnostic.serialInputEnabled=true;diagnostic.serialOutput=true;++diagnosticView.generation;
+  diagnostic.logf("[MAINTENANCE] Scheduled recording interrupted. Test settings RAM-only; type resume or choose Resume measurement when finished.\n");diagnostic.help();diagnostic.showStatus();publishDiagnostic();publish();
+}
+void leaveDiagnostic(){
+  diagnostic.emergencyStop();diagnostic.serialInputEnabled=false;
+  diagnosticActive=false;state.diagnosticActive=false;resumeRequested=false;
+  DiagnosticInput discarded;while(xQueueReceive(diagnosticInputQueue,&discarded,0)==pdTRUE){}
+  diagnostic.activeBaud=0;normalReader.activeBaud=0;normalReader.options=DiagnosticEngine::DebugOptions{};startBus();
+  haveSample=false;rawKnown=false;state.ratios=false;state.power=NAN;lastRatio=0;lastPoll=millis();
+  diagnostic.logf("[RESUMED] Saved production settings restored; test readings were never fed into interval records.\n");publishDiagnostic();publish();
+}
+char serialControl[16]={};uint8_t serialControlUsed=0;
+void pollDebugEntry(){
+  if(diagnosticActive||entryRequested)return;
+  for(unsigned i=0;i<32&&Serial.available();++i){char ch=char(Serial.read());if(ch=='\r')continue;
+    if(ch=='\n'){serialControl[serialControlUsed]=0;if(!strcmp(serialControl,"debug")){entryRequested=true;serialControlUsed=0;break;}else if(serialControlUsed)Serial.println("Main firmware: type debug + Enter to enter diagnostics; web: Meter setup / Diagnostic console.");serialControlUsed=0;}
+    else if(serialControlUsed<sizeof(serialControl)-1)serialControl[serialControlUsed++]=ch;
+  }
+}
+
 void acquisition(void *) {
   esp_task_wdt_add(nullptr);
   nvsOK=prefs.begin("fort",false);Settings config{};
@@ -257,9 +315,28 @@ void acquisition(void *) {
     if(c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))) {tracker.day=c.day;tracker.interrupt();}
     else checkpointOK=false;
   }
-  startBus();uint32_t lastRatioTry=0;bool previousRTC=false;
+  normalReader.service=serviceDiagnostic;normalReader.event=uartEvent;diagnostic.service=serviceDiagnostic;diagnostic.event=uartEvent;diagnostic.directionPinReserved=!RS485_AUTO_DIRECTION;diagnostic.onResume=[](){resumeRequested=true;diagnostic.emergencyStop();};
+  startBus();uint32_t previousCycle=millis(),lastRatioTry=0;bool previousRTC=false;
   while(true) {
-    esp_task_wdt_reset();Command cmd;
+    state.acquisitionCycleMs=millis()-previousCycle;previousCycle=millis();
+    esp_task_wdt_reset();pollDebugEntry();
+    if(!diagnosticActive){
+      DiagnosticInput next;
+      if(xQueuePeek(diagnosticInputQueue,&next,0)==pdTRUE&&(!strcmp(next.line,"report")||!strcmp(next.line,"status")||!strcmp(next.line,"help")||!strcmp(next.line,"compare")||!strcmp(next.line,"plan show"))){
+        xQueueReceive(diagnosticInputQueue,&next,0);
+        if(!diagnosticView.generation){diagnostic.current=diagnosticLink(state.config);diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;}
+        diagnostic.logf("[PRODUCTION_SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d; test settings below are RAM only\n",state.config.slave,(unsigned long)state.config.baud,state.config.parity,PIN_RX,PIN_TX);
+        diagnostic.command(next.line);publishDiagnostic();
+      }
+    }
+    if(!diagnosticActive&&(entryRequested||uxQueueMessagesWaiting(diagnosticInputQueue))&&!scanner.running())enterDiagnostic();
+    if(!diagnosticActive&&scanner.running()&&uxQueueMessagesWaiting(diagnosticInputQueue)){
+      DiagnosticInput rejected;while(xQueueReceive(diagnosticInputQueue,&rejected,0)==pdTRUE){}
+      diagnostic.logf("[COMMAND_REJECTED] Production scan owns UART. Cancel it, then run the diagnostic command again.\n");publishDiagnostic();
+    }
+    serviceDiagnostic();
+    if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
+    Command cmd;
     while(xQueueReceive(commandQueue,&cmd,0)==pdTRUE) {
       if(cmd.type==TOGGLE_MUTE)muted=!muted;
       if(cmd.type==START_TRACE&&!state.trace.active){state.trace.begin();publish();}
@@ -274,13 +351,14 @@ void acquisition(void *) {
         if(!rtcWrite(cmd.epoch))setError("RTC write or verification failed","rtc_write_failed");
         saveCheckpoint(true);
       }
-      if(cmd.type==START_SCAN&&!scanner.running()&&scanner.begin(cmd.first,cmd.last,state.config,millis())) {
+      if(cmd.type==START_SCAN&&!diagnosticActive&&!scanner.running()&&scanner.begin(cmd.first,cmd.last,state.config,millis(),cmd.currentOnly)) {
+        state.scanAddress=cmd.address;state.scanWords=cmd.words;state.scanException=false;
         tracker.interrupt();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
         setError("Scan running; recording paused","scanning");publish();
       }
       if(cmd.type==CANCEL_SCAN&&scanner.cancel(millis())){restoreAfterScan();publish();}
       if(cmd.type==APPLY_SCAN&&scanner.progress.phase==SCAN_FOUND) {cmd.type=SET_CONFIG;cmd.config=scanner.progress.result;}
-      if(cmd.type==SET_CONFIG&&!scanner.running()&&validSettings(cmd.config)) {
+      if(cmd.type==SET_CONFIG&&!diagnosticActive&&!scanner.running()&&validSettings(cmd.config)) {
         tracker.interrupt();state.config=cmd.config;state.ratios=false;rawKnown=false;haveSample=false;
         ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
         configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
@@ -412,17 +490,18 @@ void webSetup() {
     led["brightness"]=s.led.brightness;led["period"]=s.led.periodMs;
     led["red"]=s.led.red;led["green"]=s.led.green;led["blue"]=s.led.blue;
     led["stored"]=s.ledStored;led["storageOK"]=s.ledStorageOK;
-    d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
+    d["diagnosticActive"]=s.diagnosticActive;d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
     bool online=s.online&&millis()-s.lastGoodMs<=15000;
     d["online"]=online;d["energy"]=nullptr;d["power"]=nullptr;d["age"]=nullptr;
     if(s.haveEnergy){d["energy"]=s.energy;d["age"]=(millis()-s.lastGoodMs)/1000;}
     if(online&&isfinite(s.power))d["power"]=s.power;
     d["ratio"]=s.ratio;d["slave"]=s.config.slave;d["baud"]=s.config.baud;d["parity"]=String(s.config.parity);
     JsonObject scan=d["scan"].to<JsonObject>();
+    scan["mode"]=s.scan.currentOnly?"current":"matrix";scan["address"]=s.scanAddress;scan["words"]=s.scanWords;scan["exception"]=s.scanException;scan["profileVerified"]=false;
     scan["phase"]=scanName(s.scan.phase);scan["tested"]=s.scan.tested;scan["total"]=s.scan.total;
     scan["first"]=s.scan.first;scan["last"]=s.scan.last;scan["elapsed"]=s.scan.elapsedMs/1000;
     scan["slave"]=s.scan.candidate.slave;scan["baud"]=s.scan.candidate.baud;scan["parity"]=String(s.scan.candidate.parity);
-    scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
+    scan["exceptions"]=s.scan.exceptions;scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
     if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);}
     d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
@@ -430,6 +509,50 @@ void webSetup() {
     JsonArray rows=d["slots"].to<JsonArray>();
     for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["quality_code"]=qualityCode(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  // Short event pages preserve order and make loss explicit. No UART reads here.
+  server.on("/api/system",HTTP_GET,[]{
+    static CoreLoadSample samples;samples.update(millis());Snapshot s{};readSnapshot(s);JsonDocument d;
+    d["uptime"]=millis()/1000;d["cpuMHz"]=getCpuFrequencyMhz();d["heapFree"]=ESP.getFreeHeap();d["heapMin"]=ESP.getMinFreeHeap();d["heapLargest"]=ESP.getMaxAllocHeap();d["heapTotal"]=ESP.getHeapSize();d["psramFree"]=ESP.getFreePsram();d["psramTotal"]=ESP.getPsramSize();d["taskCount"]=uxTaskGetNumberOfTasks();d["sampledAt"]=samples.sampledAt;
+    d["diagnosticActive"]=s.diagnosticActive;d["scanActive"]=s.scan.phase==SCAN_RUNNING;d["uiCycleMs"]=uiCycleMs;d["acquisitionCycleMs"]=s.acquisitionCycleMs;
+    d["commandQueue"]=uxQueueMessagesWaiting(commandQueue);d["diagnosticQueue"]=uxQueueMessagesWaiting(diagnosticInputQueue);
+    JsonArray cores=d["cores"].to<JsonArray>();for(unsigned i=0;i<2;++i){JsonObject core=cores.add<JsonObject>();core["id"]=i;core["load"]=nullptr;if(samples.ready[i])core["load"]=samples.percent[i];core["method"]="sampled_non_idle_ticks";}
+    JsonArray tasks=d["tasks"].to<JsonArray>();
+    TaskHandle_t handles[]={uiTask,acquisitionTask,idleHandles[0],idleHandles[1]};const char *names[]={"loopTask / HTTP + UI","fort-acquisition / UART","IDLE0","IDLE1"};const uint8_t pinned[]={0,1,0,1};const char *states[]={"running","ready","blocked","suspended","deleted","invalid"};
+    for(unsigned i=0;i<4;++i)if(handles[i]){JsonObject task=tasks.add<JsonObject>();task["name"]=names[i];task["core"]=pinned[i];task["priority"]=uxTaskPriorityGet(handles[i]);task["stackFreeMin"]=uxTaskGetStackHighWaterMark(handles[i])*sizeof(StackType_t);unsigned state=unsigned(eTaskGetState(handles[i]));task["state"]=states[state<6?state:5];}
+    d["taskListScope"]="owned_and_idle";
+    String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/uart",HTTP_GET,[]{
+    Snapshot s{};readSnapshot(s);uint32_t after=0;
+    if(server.hasArg("after")&&!parseNumber(server.arg("after"),after)){jsonReply(400,"Invalid event cursor","invalid_cursor");return;}
+    JsonDocument d;d["boot"]=s.flow.boot;d["sequence"]=s.flow.sequence;d["nowUs"]=micros();d["diagnosticActive"]=s.diagnosticActive;
+    d["autoDirection"]=RS485_AUTO_DIRECTION;d["capacity"]=FLOW_CAPACITY;d["oldest"]=s.flow.count?s.flow.at(0).seq:0;
+    d["gap"]=s.flow.count&&after&&int32_t(s.flow.at(0).seq-after)>1;
+    JsonArray rows=d["events"].to<JsonArray>();
+    for(uint8_t i=0;i<s.flow.count;++i){const FlowEvent &e=s.flow.at(i);if(after&&int32_t(e.seq-after)<=0)continue;
+      JsonObject row=rows.add<JsonObject>();row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
+    }
+    String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/diagnostic",HTTP_GET,[]{
+    static DiagnosticView view; // UI core only; avoid an 8 KiB stack frame.
+    if(xQueuePeek(diagnosticViewQueue,&view,0)!=pdTRUE){view.active=false;view.busy=false;view.log[0]=0;}
+    JsonDocument d;d["pendingCommands"]=uxQueueMessagesWaiting(diagnosticInputQueue);d["version"]=FIRMWARE_VERSION;d["active"]=view.active;d["busy"]=view.busy;d["generation"]=view.generation;d["discardedBytes"]=view.discarded;d["log"]=view.log;
+    const auto &e=view.evidence;JsonObject counts=d["evidence"].to<JsonObject>();
+    counts["requests"]=e.requests;counts["rxBytes"]=e.rxBytes;counts["passiveBytes"]=e.passiveBytes;counts["preTxBytes"]=e.staleBytes;counts["data"]=e.data;counts["exceptions"]=e.exceptions;counts["echoes"]=e.echoes;counts["echoPrefixes"]=e.echoPrefixes;counts["crcBad"]=e.crcBad;counts["shortFrames"]=e.shortFrames;counts["wrongFrames"]=e.wrongFrames;counts["overflows"]=e.overflows;counts["timeouts"]=e.timeouts;counts["localErrors"]=e.txErrors;counts["energyOK"]=e.energyOK;counts["energyBad"]=e.energyBad;counts["aborted"]=e.aborted;
+    String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/diagnostic",HTTP_POST,[]{
+    if(!authorizePost())return;String line=server.arg("command");
+    if(!line.length()||line.length()>95){jsonReply(400,"Use one ASCII command, at most 95 characters","invalid_diagnostic_command");return;}
+    for(size_t i=0;i<line.length();++i)if(line[i]<32||line[i]>126){jsonReply(400,"One printable ASCII command per request","invalid_diagnostic_command");return;}
+    if(line=="x"||line=="stop"||line=="resume"){
+      uint8_t stop=line=="resume"?2:1;xQueueOverwrite(diagnosticStopQueue,&stop);xQueueReset(diagnosticInputQueue);jsonReply(202,"Stop/resume queued","accepted");return;
+    }
+    Snapshot s{};readSnapshot(s);if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel production scan first","scan_busy");return;}
+    DiagnosticInput input;strlcpy(input.line,line.c_str(),sizeof(input.line));
+    if(xQueueSend(diagnosticInputQueue,&input,0)==pdTRUE)jsonReply(202,"Diagnostic command queued; recording will pause","accepted");else jsonReply(503,"Diagnostic queue full","queue_busy");
   });
   server.on("/api/trace",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);JsonDocument d;
@@ -440,7 +563,7 @@ void webSetup() {
       const TraceFrame &frame=s.trace.frames[i];JsonObject row=frames.add<JsonObject>();
       row["atMs"]=frame.atMs;row["baud"]=frame.baud;row["parity"]=String(frame.parity);
       row["slave"]=frame.slave;row["address"]=frame.address;row["words"]=frame.words;row["attempt"]=frame.attempt;
-      row["scan"]=frame.scan;row["overflow"]=frame.overflow;row["result"]=traceResultName(frame.result);
+      row["diagnostic"]=frame.diagnostic;row["incomplete"]=frame.incomplete;row["scan"]=frame.scan;row["overflow"]=frame.overflow;row["result"]=traceResultName(frame.result);
       row["tx"]=hexFrame(frame.tx,sizeof(frame.tx));row["rx"]=hexFrame(frame.rx,frame.size);
       row["rxBytes"]=frame.size;
     }
@@ -466,6 +589,7 @@ void webSetup() {
   });
   server.on("/api/config",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.diagnosticActive){jsonReply(409,"Resume measurement before changing saved settings","diagnostic_busy");return;}
     if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel the scan before changing the connection","scan_busy");return;}
     uint32_t slave=0,baud=0;String parity=server.arg("parity");
     if(!parseNumber(server.arg("slave"),slave)||!parseNumber(server.arg("baud"),baud)||slave<1||slave>247||parity.length()!=1){jsonReply(400,"Invalid serial settings","invalid_config");return;}
@@ -474,19 +598,27 @@ void webSetup() {
   });
   server.on("/api/scan/start",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.diagnosticActive){jsonReply(409,"Resume measurement before starting production scan","diagnostic_busy");return;}
     if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"A scan is already running","scan_running_error");return;}
     uint32_t first=0,last=0;
     if(!parseNumber(server.arg("first"),first)||!parseNumber(server.arg("last"),last)||first<1||last>247||first>last){jsonReply(400,"Use IDs 1-247, with first ID <= last ID","invalid_scan_range");return;}
-    Command c{};c.type=START_SCAN;c.first=first;c.last=last;enqueueCommand(c);
+    Command c{};c.type=START_SCAN;c.first=first;c.last=last;
+    uint32_t address=0x0034,words=1;
+    if(server.hasArg("address")&&!parseNumber(server.arg("address"),address)){jsonReply(400,"Invalid probe address","invalid_diagnostic_command");return;}
+    if(server.hasArg("words")&&!parseNumber(server.arg("words"),words)){jsonReply(400,"Invalid word count","invalid_diagnostic_command");return;}
+    if(address>65535||words<1||words>3||address+words>65536){jsonReply(400,"Probe outside supported register bounds","invalid_diagnostic_command");return;}
+    String mode=server.arg("mode");if(mode.length()&&mode!="current"&&mode!="matrix"){jsonReply(400,"Invalid scan mode","invalid_diagnostic_command");return;}
+    c.currentOnly=mode=="current";c.address=address;c.words=words;enqueueCommand(c);
   });
   server.on("/api/scan/cancel",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=CANCEL_SCAN;enqueueCommand(c);});
   server.on("/api/scan/apply",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.diagnosticActive){jsonReply(409,"Resume measurement before applying production settings","diagnostic_busy");return;}
     if(s.scan.phase!=SCAN_FOUND){jsonReply(409,"No scan result is available","no_scan_result");return;}
     Command c{};c.type=APPLY_SCAN;enqueueCommand(c);
   });
   server.on("/api/time",HTTP_POST,[]{
-    if(!authorizePost())return;uint32_t epoch=0;
+    if(!authorizePost())return;Snapshot active{};readSnapshot(active);if(active.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
     if(!parseNumber(server.arg("epoch"),epoch)||epoch<1704067200UL||epoch>4102444799UL-LOCAL_OFFSET){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
     Snapshot s{};readSnapshot(s);
     if(s.rtc&&s.day.number&&(epoch+LOCAL_OFFSET)/86400<s.day.number){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
@@ -545,6 +677,7 @@ void drawOLED(const Snapshot &s) {
     if(showCredentials){oled.println("Password:");oled.println(AP_PASSWORD);}else{oled.println("Midea Engineering");oled.println("AP");}
     oled.setCursor(0,42);oled.println(apOK?WiFi.softAPIP().toString():"AP START FAILED");oled.println("OK: password");
   }else{
+    if(s.diagnosticActive){oled.println("UART DIAGNOSTICS");oled.println("Recording paused");oled.println("Resume via web");oled.display();xSemaphoreGive(i2cMutex);return;}
     oled.print("CRC:");oled.print(s.crcErrors);oled.print(" T/O:");oled.println(s.timeouts);
     oled.print("RTC:");oled.print(s.rtc?"OK":"ERR");oled.print(" FS:");oled.println(s.storage?"OK":"ERR");
     oled.print("ID:");oled.print(s.config.slave);oled.print(" ");oled.print(s.config.baud);oled.println(s.config.parity);
@@ -563,12 +696,14 @@ void bootAnimation() {
 }
 void setup() {
   Serial.begin(115200); // Native USB: never block waiting for a PC.
-  pinMode(PIN_RS485_DE,OUTPUT);digitalWrite(PIN_RS485_DE,LOW);
+  if(!RS485_AUTO_DIRECTION){pinMode(PIN_RS485_DE,OUTPUT);digitalWrite(PIN_RS485_DE,LOW);}
   pinMode(PIN_BUZZER,OUTPUT);digitalWrite(PIN_BUZZER,LOW);
   for(auto &b:buttons)pinMode(b.pin,INPUT_PULLUP);
   i2cMutex=xSemaphoreCreateMutex();fsMutex=xSemaphoreCreateMutex();
   snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));
-  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
+  diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(uint8_t));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));
+  state.flow.boot=esp_random();
+  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
   Wire.begin(PIN_SDA,PIN_SCL,100000);Wire.setTimeOut(40);
   Wire.beginTransmission(OLED_ADDRESS);bool present=Wire.endTransmission()==0;
   oledOK=present&&oled.begin(SSD1306_SWITCHCAPVCC,OLED_ADDRESS,false,false);
@@ -586,11 +721,12 @@ void setup() {
   apOK=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(AP_SSID,AP_PASSWORD,6,false,4);
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
-  webSetup();esp_task_wdt_init(8,true);esp_task_wdt_add(nullptr);
-  if(xTaskCreatePinnedToCore(acquisition,"fort-acquisition",12288,nullptr,2,nullptr,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
+  initProcessMonitor();webSetup();esp_task_wdt_init(8,true);esp_task_wdt_add(nullptr);
+  if(xTaskCreatePinnedToCore(acquisition,"fort-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
   Serial.printf("Midea Fort ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }
 void loop() {
+  static uint32_t previousCycle=millis();uiCycleMs=millis()-previousCycle;previousCycle=millis();
   esp_task_wdt_reset();server.handleClient();Snapshot s{};readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
   for(int i=0;i<3;++i){uint8_t event=buttons[i].update(now);if(!event)continue;
     if(i==0){page=(page+4)%5;showCredentials=false;}
@@ -598,7 +734,7 @@ void loop() {
     if(i==2&&event==1){if(page==1||page==2)++slotPage;else if(page==3)showCredentials=!showCredentials;else{Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}}
     if(i==2&&event==2){Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}
   }
-  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&now>20000&&(!s.rtc||!s.online||!s.storage);
+  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&!s.diagnosticActive&&now>20000&&(!s.rtc||!s.online||!s.storage);
   digitalWrite(PIN_BUZZER,alarm&&now%10000<120?HIGH:LOW);
   if(now-lastPaint>=300){lastPaint=now;drawOLED(s);}
   delay(5); // Both idle tasks must run; Wi-Fi needs scheduler headroom.

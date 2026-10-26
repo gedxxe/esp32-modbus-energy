@@ -6,6 +6,15 @@
 
 
 
+## 1.4.0 — 2026-10-27
+
+- Semua perintah diagnostik mandiri tersedia di firmware utama melalui satu engine yang juga dipakai polling. Setting/data uji hanya RAM; resume mengembalikan pin/serial produksi tersimpan.
+- Discovery menerima data/exception sah, terpisah dari kompatibilitas energi. Tambah scan format tersimpan, probe/count yang dapat diedit dan matriks penuh eksplisit.
+- Echo utuh ditolak sambil menunggu balasan terpisah. Prefix dengan byte tambahan, RX sebelum TX, frame rusak/deadline/overflow dan CRC gagal sebelum respons valid tetap terlihat. Buffer RX dituning tanpa klaim timing waveform.
+- Tambah konsol HP, log USB terbatas tanpa blocking, unduh log, mailbox stop/resume dan backpressure antrean tanpa membuang perintah diterima.
+- Tambah ring event UART bertimestamp, jejak paket berbasis event tanpa gerak idle, sampling core dan monitor task/heap/PSRAM/stack.
+- Perluas tes engine sebenarnya, browser gzip dan panduan bilingual. Kesehatan modul serta penerimaan register Fort terpasang tetap memerlukan bukti hardware.
+
 ## Diagnostik mandiri 1.3.0 — 2026-10-26
 
 - Plan raw terkonfigurasi tetap berjalan saat probe pertama diam; bukti protokol dipisahkan dari decode kWh.

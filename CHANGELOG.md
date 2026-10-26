@@ -5,6 +5,15 @@
 
 
 
+## 1.4.0 — 2026-10-27
+
+- Put all standalone diagnostic commands in the main firmware through one generated/tested engine shared by production polling and active tests. Keep trial settings/data in RAM and restore saved production pins/serial settings on resume.
+- Accept matching valid data or exceptions during discovery, independently of energy compatibility. Add current-format search and editable probe/count; keep full matrix explicit.
+- Reject exact echo while waiting for a separate reply; expose request prefixes with trailing bytes, pre-TX activity, malformed/deadline/overflow evidence and corrupt frames preceding a valid response. Tune RX buffering without claiming wire-level timing.
+- Add a phone diagnostic console, bounded nonblocking USB log output, downloadable logs and stop/resume mailboxes. Keep accepted commands queued under internal backpressure.
+- Add a timestamped UART event ring and event-driven packet trails with no idle motion; add core tick sampling, owned/idle task state and heap/PSRAM/stack monitoring.
+- Expand real-engine native tests, embedded-gzip browser tests and bilingual operator/technical/acceptance guides. Physical module health and installed Fort register acceptance still require hardware evidence.
+
 ## Standalone diagnostic 1.3.0 — 2026-10-26
 
 - Continue the configurable raw register plan after a silent first probe; report protocol evidence independently of configured kWh decoding.

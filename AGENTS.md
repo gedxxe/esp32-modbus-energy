@@ -19,6 +19,9 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
 - `firmware/include/energy.h`: interval schedule, continuity and quality logic, CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
+- `firmware/include/diagnostic_engine.h` and `tools/build-diagnostic.py`: generated production class from the independent INO; regenerate and verify after INO edits. Normal polling and main diagnostics must share this transport.
+- `firmware/include/flow.h`: bounded timestamped UART-event ring; preserve sequence gaps and distinguish observed events from schematic animation.
+- `firmware/include/process_monitor.h`: bounded IRAM tick sampling; do not present tick samples as exact instruction-time CPU accounting.
 - `firmware/include/trace.h`: fixed-size passive UART capture and diagnostic classification; never bypass CRC/frame validation or silently strip echo bytes in the main firmware.
 - `examples/FortSerialDebug/`: standalone Arduino diagnostic; keep it read-only and independent of external libraries. Runtime options and the eight cases/*.txt recipes must match both language guides and the actual-INO host tests. Do not collapse transport detection into energy-profile acceptance.
 - `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding.
@@ -37,11 +40,12 @@ Keep the README, wiring SVG, netlist, diagrams, tests and release package consis
 6. Core 1 exclusively owns UART, Preferences and tracker mutation. Core 0 handles HTTP/UI. Exchange copies through RTOS queues; lock I2C and filesystem access. Keep waits bounded and leave time for idle/Wi-Fi tasks.
 7. Do not automatically format a failed filesystem. Retain the documented physical confirmation procedure and preserve recoverable backup files on failed operations.
 8. Core 0 exclusively owns RGB RMT channel 0. Keep transmission asynchronous, skip busy frames and write LED Preferences only on core 1. GPIO48 is the confirmed onboard LED pin for this installation.
-9. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
+9. Active diagnostics must interrupt interval continuity, keep trial settings/values out of production persistence and restore board pins/saved serial configuration on resume. Stop/resume stays bounded; never drop an accepted queued command silently. Read-only report/status inspection must not pause recording.
+10. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
 
 ## Diagnostic evidence and operator instructions
 
-- Every field command example must say **type into Arduino IDE Serial Monitor INPUT, press Enter/Send**, with baud/line ending. Explicitly distinguish copying resulting OUTPUT to the support chat. Do not use an unqualified “send this block”. Label computer-terminal commands separately.
+- Every field command example must name its destination: **web Command input + Run command**, or **Arduino IDE Serial Monitor INPUT + Enter/Send** with baud/line ending. Explicitly distinguish copying resulting OUTPUT to the support chat. Do not use an unqualified “send this block”. Label computer-terminal commands separately.
 - Never infer module absent, unpowered or damaged solely from UART silence or weak-pull sampling. The four-pin module exposes no presence/power-good telemetry. Keep measured observations, user-labeled connection states and physical hypotheses separate.
 - Diagnostic multi-address plans must continue after a silent first probe. Keep production map acceptance separate from a valid Modbus data/exception response. Compare snapshots only for matching settings and completed tests.
 

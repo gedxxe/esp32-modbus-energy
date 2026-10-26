@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware **1.3.0**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
+Firmware **1.4.0**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
 
 ## Logika native — lulus
 
@@ -75,3 +75,15 @@ Sketch ESP32-S3 N16R8 lulus kompilasi espressif32 6.10.0 / Arduino ESP32 2.0.17 
 Pemeriksaan dokumentasi lulus: 23 Markdown, 197 link/anchor lokal, 18 SVG dan netlist 31 kabel alternatif manual. Regresi mewajibkan versi diagnostik sesuai serta tujuan INPUT/OUTPUT Serial Monitor pada dua panduan dan semua resep. Kedua SVG wiring dirender di Edge dan diperiksa visual; posisi port tetap skematik.
 
 Firmware utama 1.3.0 dan payload browser tidak berubah, sehingga hasil build/browser sebelumnya tidak diulang atau diklaim sebagai uji hardware baru. Paket dibangun ulang dengan pemeriksaan CRC ZIP dan SHA256 setiap file manifest. Timing driver UART, pull RX fisik, keberadaan/kesehatan modul, sinyal diferensial A/B dan penerimaan register Fort fisik belum diuji. Kode mempertahankan hasil belum terpecahkan saat telemetry tidak cukup.
+
+## Diagnostik dan instrumentasi firmware utama — 1.4.0
+
+Firmware ESP32-S3 N16R8 lulus kompilasi toolchain espressif32 6.10.0 / Arduino ESP32 2.0.17: **RAM statis78.496byte; program1.088.193byte**. Payload browser **149.107byte gzip**, di bawah160KiB. Stack loop core0 sebesar16KiB, akuisisi12KiB. Queue/runtime driver tidak termasuk RAM statis; sisa stack/heap fisik tetap perlu diukur. INO mandiri juga lulus:RAM statis21.460byte/program331.389byte tanpa library eksternal.
+
+Tiga suite native lulus C++11/-Wall/-Wextra/-Werror. Engine produksi generated diuji langsung: echo lalu respons sah terpisah, exception CRC sah tanpa kWh, CRC/ID/fungsi/count/short/oversized salah, byte lama, TX parsial, prefix request gabungan ditolak, tail berCRC sah terlalu dekat deadline ditolak, probe pertama diam lalu fallback, ring/log USB tanpa blocking, pembatalan input parsial dan urutan/rollover event. Delapan resep dijalankan melalui INO dan engine utama. Scan format tersimpan mencakup247ID unik dan rentang satuID; tes matriks18format tetap lulus. Ini bukan eksekusi scheduler/peripheral hardware.
+
+Suite browser gzip lulus mode current/matrix, input/paste guard, pause/resume/unduh diagnostik, EN/ID, polling panel tertutup, tabel proses/memori, tanpa gerak paket jika tidak ada event baru, kasus LED/config/CSV/waktu/error sebelumnya, layout320–2560px dan reduced motion. API/screenshot adalah simulasi. Gambar: [flow](../assets/ui-flow-desktop.png), [monitor proses](../assets/ui-process-desktop.png), [konsol HP](../assets/ui-diagnostic-mobile.png).
+
+Hook tick dan xTaskGetCurrentTaskHandleForCPU berada di IRAM0x4037xxxx pada image ter-link. Sampling mengukur batas tick non-idle dengan batas alias/atribusi interrupt, bukan profiler instruksi/daftar seluruh task. Handler JSON core0 hanya membaca snapshot, tidak UART/Preferences. Guard provenance/web serta pemeriksaan dokumen lulus:25Markdown,223 link/anchor relatif,19SVG,31kabel alternatif manual. Manifest/ZIP diperiksa terhadap byte sebenarnya.
+
+Fort fisik, map/skala, turnaround modul otomatis, timing buffer gabungan, pull RX, callback driver, beban AP banyak klien, stack high-water dan fault recovery instalasi belum diverifikasi. Tidak ada klaim penerimaan hardware/CI remote lulus dari tes lokal. [Panduan lapangan](DIAGNOSTICS.md) menjelaskan penyimpanan satu run terbatas dan pemulihan pengukuran.

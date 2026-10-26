@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ProcessMonitor from "../components/ProcessMonitor.jsx";
 import LedControls from "../components/LedControls.jsx";
 import Icon from "../components/Icon.jsx";
 import { useText } from "../ui.js";
@@ -148,6 +149,7 @@ export default function DeviceRecords({ device }) {
           {historyError && <p className="hint">{t("history_failed")}</p>}
         </section>
       </div>
+      <ProcessMonitor />
     </div>
   );
 }

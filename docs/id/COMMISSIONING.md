@@ -40,7 +40,7 @@
 - Uji interval pagi/sore serta gangguan daya/komunikasi memenuhi perilaku di atas.
 - Panel, kabel, isolasi, suplai dan pemasangan disetujui teknisi fasilitas.
 
-## Uji Scan Fort (firmware 1.3.0)
+## Uji Scan Fort (firmware 1.4.0)
 
 1. Di luar interval produksi, catat setting Fort dan setting pembaca yang lama. Buka Koneksi meter → Scan Fort.
 2. Untuk uji cepat, batasi ID awal/akhir pada ID meter yang diketahui. Jalankan Scan Fort. Periksa progres, web dan OLED tetap merespons; CRC/timeout scan terpisah dari penghitung pembacaan normal.
@@ -49,7 +49,7 @@
 5. Uji meter dilepas/rentang ID salah: scan selesai tanpa hasil; jangan menganggapnya bukti kerusakan meter. Periksa A/B dan koneksi.
 6. Scan di tengah interval uji harus menghasilkan interval parsial, dengan interval selesai tetap tersimpan. Hasil scan tidak bertahan setelah reboot dan tidak dijalankan otomatis.
 
-Rentang penuh 1–247 memiliki 4.446 kandidat; kondisi tanpa respons dapat membutuhkan sekitar 70 menit. Tombol batal diproses antarkandidat; kandidat terdiri dari maksimal dua transaksi 800 ms, dengan watchdog/yield di jalur UART.
+Rentang penuh 1–247 memiliki 4.446 kandidat; kondisi tanpa respons dapat membutuhkan sekitar 70 menit. Tombol batal diproses antarkandidat; kandidat terdiri dari satu transaksi 800 ms, dengan watchdog/yield di jalur UART.
 
 ## Pemeriksaan UI bilingual
 
@@ -70,3 +70,7 @@ Pastikan English muncul pertama kali, pilihan Indonesia bertahan setelah reload,
 3. Modul yang difoto memakai arah otomatis dan empat pin TTL; GPIO16 tidak disambungkan. Periksa arah input/output TTL sebelum mengubah kabel. Wiring terlapor: TXD modul ke GPIO18, RXD modul ke GPIO17.
 4. Untuk Arduino mandiri ikuti [panduan lapangan](../../examples/FortSerialDebug/README.id.md). Arduino IDE **Tools → Serial Monitor**, pilih **115200/Newline**. Ketik `x`, Enter; `status`, Enter; `diagnose`, Enter. Tunggu `[REPORT_END]`. Salin **OUTPUT** bergulir (setting/TX/RX/CRC/report) ke chat. Perintah masuk INPUT Serial Monitor; log dikirim ke chat. Uji dua keadaan opsional memerlukan perubahan fisik hanya A/B pada sisi modul di antara `check connected` dan `check isolated`; keadaan itu label operator. Sketch menggantikan aplikasi utama sementara.
 5. Upload firmware utama lagi, periksa arsip/waktu/setting sebelum melanjutkan penerimaan interval. Kompilasi atau mock tidak membuktikan meter pengguna ditemukan.
+
+## Penerimaan diagnostik firmware utama — 1.4.0
+
+Mulai dari [langkah HP](DIAGNOSTICS.md). Periksa lingkup format saat ini/matriks18format, probe/count yang dapat diedit dan exception CRC sah ditemukan tanpa menganggap energi valid. Uji tanpa RX, echo lalu balasan terpisah, frame rusak/terlalu panjang dan raw map gagal; simpan output. Stop saat wait, tutup/buka panel, lalu resume: pin/serial tersimpan, pembacaan produksi dan interval parsial harus benar. Setting/nilai uji tidak masuk NVS/rekaman energi. Periksa gap event, tidak ada gerak tanpa traffic, reduced motion, high-water/heap dan sampel core di bawah beban scan/jaringan. Tes software bukan bukti modul sehat, waveform A/B atau skala meter.

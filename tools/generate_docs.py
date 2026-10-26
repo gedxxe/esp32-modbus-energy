@@ -132,6 +132,22 @@ s.text(45,530,'Arrows show signal direction. Positions are logical ports; follow
 s.text(45,565,'Fort 70 / COM belongs to switch inputs. Do not connect it as RS485 ground.',18,MUTED)
 s.save('rs485-auto.svg')
 
+# Production diagnostics ownership and data isolation.
+s=SVG(1400,760,'Main firmware diagnostic ownership','Logical RTOS ownership. Core1 alone drives UART and persistence; tests never enter production energy records.')
+s.heading('Diagnostics · one UART owner','Phone dashboard + USB console · same strict transport as production polling · bounded RAM')
+for x,title,sub in [(45,'CORE 0','HTTP / UI / OLED / RGB'),(535,'RTOS MAILBOXES','Commands and copied snapshots'),(1010,'CORE 1','UART / tracker / persistence')]:
+    s.rect(x,160,345,160);s.text(x+22,200,title,23,weight=700);s.text(x+22,237,sub,16,MUTED)
+s.wire([(390,220),(535,220)],BLUE);s.text(462,205,'16 lines',15,BLUE,anchor='middle')
+s.wire([(880,220),(1010,220)],GREEN);s.text(945,205,'FC03 only',15,GREEN,anchor='middle')
+s.rect(45,390,600,205);s.text(70,430,'OBSERVED EVIDENCE',21,weight=700)
+for y,line in [(466,'32 timestamped UART events; gaps stay explicit'),(501,'8 KiB diagnostic log; export from the phone'),(536,'Core samples / heap / PSRAM / stack high-water')]:s.text(70,y,line,17,MUTED)
+s.rect(745,390,610,205);s.text(770,430,'MAINTENANCE BOUNDARY',21,weight=700)
+for y,line in [(466,'Interrupt active interval; preserve completed records'),(501,'RAM-only test settings; no trial values in Tracker'),(536,'Resume restores board pins + saved production UART')]:s.text(770,y,line,17,MUTED)
+s.wire([(1182,320),(1182,365),(1045,365),(1045,390)],GREEN)
+s.wire([(535,280),(462,280),(462,365),(345,365),(345,390)],BLUE)
+s.rect(45,645,1310,70);s.text(70,675,'UART-buffer timestamps are observations; packet trails are schematic. No presence or power-good sensor exists.',16,MUTED)
+s.save('diagnostic-flow.svg')
+
 # Separate tactile contact illustration.
 s=SVG(1100,480,'Tactile contact pairs and ESP32 connection')
 s.heading('4-leg switch · use two different contact pairs','Electrical contact illustration; identify the actual pairs with a continuity meter.')
@@ -186,7 +202,7 @@ write_generated(ROOT/'docs/wiring-netlist.csv',stream.getvalue())
 
 
 s=SVG(1400,740,'UART1 RTU frame and transceiver direction','Timing is schematic, not to scale. Hardware UART generates serial bits; GPIO16 controls direction.')
-s.heading('RTU transaction · UART1 + GPIO16','Function 03 only · up to 3 attempts normally · 1 attempt per register while scanning')
+s.heading('RTU timing · manual-direction alternative','Default automatic module leaves GPIO16 unconnected · function 03 only · schematic timing')
 labels=[('ID','01'),('FUNCTION','03'),('ADDR HI','00'),('ADDR LO','82'),('COUNT HI','00'),('COUNT LO','02'),('CRC LO','CRC[7:0]'),('CRC HI','CRC[15:8]')]
 for i,(a,b) in enumerate(labels):
  x=45+i*164;s.rect(x,135,153,86);s.text(x+14,163,a,12,MUTED,600);s.text(x+14,199,b,22,BLUE,600,mono=True)

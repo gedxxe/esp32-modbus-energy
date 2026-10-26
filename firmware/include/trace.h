@@ -30,7 +30,7 @@ struct TraceFrame {
   uint8_t tx[8] = {}, rx[TRACE_RX_CAPACITY] = {};
   uint8_t size = 0, slave = 0, words = 0, attempt = 0;
   char parity = 'N';
-  bool scan = false, overflow = false;
+  bool scan = false, diagnostic = false, incomplete = false, overflow = false;
   TraceResult result = TRACE_TIMEOUT;
 };
 // Fixed RAM, first 12 attempts then frozen. Core 1 is the only writer.
@@ -43,17 +43,17 @@ struct TraceCapture {
   void stop() { active = false; }
   void append(const uint8_t *tx, const uint8_t *rx, size_t size, bool overflow,
               uint32_t atMs, uint32_t baud, char parity, uint8_t slave,
-              uint16_t address, uint8_t words, uint8_t attempt, bool scan) {
+              uint16_t address, uint8_t words, uint8_t attempt, bool scan, bool diagnostic=false, bool incomplete=false) {
     if (!active || count >= TRACE_CAPACITY) return;
     TraceFrame frame{};
     frame.atMs = atMs; frame.baud = baud; frame.parity = parity;
     frame.slave = slave; frame.address = address; frame.words = words;
-    frame.attempt = attempt; frame.scan = scan;
+    frame.attempt = attempt; frame.scan = scan;frame.diagnostic=diagnostic;frame.incomplete=incomplete;
     frame.overflow = overflow || size > TRACE_RX_CAPACITY;
     frame.size = size > TRACE_RX_CAPACITY ? TRACE_RX_CAPACITY : uint8_t(size);
     memcpy(frame.tx, tx, sizeof(frame.tx));
     if (frame.size) memcpy(frame.rx, rx, frame.size);
-    frame.result = inspectTrace(frame.tx, frame.rx, frame.size, frame.overflow, slave, words);
+    frame.result = incomplete?TRACE_INVALID:inspectTrace(frame.tx, frame.rx, frame.size, frame.overflow, slave, words);
     frames[count++] = frame;
     if (count == TRACE_CAPACITY) active = false;
   }

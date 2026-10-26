@@ -53,7 +53,7 @@ function TraceData({ device }) {
     ];
     capture.frames.forEach((frame, index) =>
       lines.push(
-        `#${index + 1} t=${frame.atMs}ms ID=${frame.slave} ${frame.baud} 8${frame.parity}1 address=0x${frame.address.toString(16).padStart(4, "0")} words=${frame.words} attempt=${frame.attempt} source=${frame.scan ? "scan" : "poll"} result=${frame.result} overflow=${frame.overflow}`,
+        `#${index + 1} t=${frame.atMs}ms ID=${frame.slave} ${frame.baud} 8${frame.parity}1 address=0x${frame.address.toString(16).padStart(4, "0")} words=${frame.words} attempt=${frame.attempt} source=${frame.diagnostic ? "diagnostic" : frame.scan ? "scan" : "poll"} result=${frame.result} overflow=${frame.overflow}`,
         `TX (${frame.tx.split(" ").length} bytes): ${frame.tx}`,
         `RX (${frame.rxBytes} captured bytes): ${frame.rx || "<none>"}`,
         "",
@@ -127,8 +127,14 @@ function TraceData({ device }) {
             <p className="small muted mono">
               {frame.atMs} ms · 0x
               {frame.address.toString(16).padStart(4, "0").toUpperCase()} ·{" "}
-              {t(frame.scan ? "trace_scan" : "trace_poll")} ·{" "}
-              {t("trace_attempt", { count: frame.attempt })}
+              {t(
+                frame.diagnostic
+                  ? "trace_diagnostic"
+                  : frame.scan
+                    ? "trace_scan"
+                    : "trace_poll",
+              )}{" "}
+              · {t("trace_attempt", { count: frame.attempt })}
             </p>
             <div className="trace-bytes">
               <b>TX</b>

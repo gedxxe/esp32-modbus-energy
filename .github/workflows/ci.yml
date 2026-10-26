@@ -24,6 +24,8 @@ jobs:
           ./tmp/fort-test
           g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/test/arduino_stub firmware/test/test_debug_sketch.cpp -o tmp/fort-debug-test
           ./tmp/fort-debug-test
+          g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/test/arduino_stub -Ifirmware/include firmware/test/test_diagnostics.cpp -o tmp/fort-main-debug-test
+          ./tmp/fort-main-debug-test
       - name: Check generated assets and documentation
         run: |
           python tools/generate_docs.py

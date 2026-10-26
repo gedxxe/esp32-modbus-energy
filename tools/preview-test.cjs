@@ -123,6 +123,49 @@ const state = {
   })),
   scan: { phase: "idle", tested: 0, total: 0 },
 };
+// Simulated instrumentation only; exported screenshots are representative.
+let flowBoot = 1;
+let flowSequence = 0,
+  flowEvents = [],
+  flowAuto = true,
+  flowGap = false,
+  lastFlowFrame = 0,
+  diagnosticRequests = 0,
+  systemRequests = 0;
+const diagnostic = {
+  version,
+  generation: 0,
+  active: false,
+  busy: false,
+  discardedBytes: 0,
+  evidence: { requests: 0 },
+  log: "",
+};
+function appendFlow() {
+  const now = Math.floor((Date.now() % 1000000) * 1000);
+  for (const [kind, offset, result] of [
+    [1, 80000, "invalid"],
+    [2, 70000, "invalid"],
+    [3, 60000, "invalid"],
+    [4, 50000, "valid"],
+  ])
+    flowEvents.push({
+      seq: ++flowSequence,
+      atUs: (now - offset) >>> 0,
+      kind,
+      baud: 9600,
+      parity: "N",
+      slave: 1,
+      address: 130,
+      words: 2,
+      diagnostic: diagnostic.active,
+      overflow: false,
+      result,
+      bytes:
+        kind < 3 ? "01 03 00 82 00 02 64 23" : "01 03 04 00 00 03 E8 FA 84",
+    });
+  flowEvents = flowEvents.slice(-32);
+}
 const server = http.createServer((req, res) => {
   const asset = manifest.assets[req.url];
   if (asset) {
@@ -136,6 +179,86 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.setHeader("Content-Type", "application/json");
+  if (req.url.startsWith("/api/uart?")) {
+    if (flowAuto && Date.now() - lastFlowFrame > 1200) {
+      lastFlowFrame = Date.now();
+      appendFlow();
+    }
+    const after = Number(
+      new URL(req.url, "http://localhost").searchParams.get("after"),
+    );
+    res.end(
+      JSON.stringify({
+        boot: flowBoot,
+        sequence: flowSequence,
+        nowUs: Math.floor((Date.now() % 1000000) * 1000),
+        capacity: 32,
+        gap: flowGap,
+        diagnosticActive: diagnostic.active,
+        events: flowEvents.filter((e) => !after || e.seq > after),
+      }),
+    );
+    return;
+  }
+  if (req.url === "/api/diagnostic" && req.method === "GET") {
+    ++diagnosticRequests;
+    res.end(JSON.stringify(diagnostic));
+    return;
+  }
+  if (req.url === "/api/system") {
+    ++systemRequests;
+    res.end(
+      JSON.stringify({
+        cpuMHz: 240,
+        taskCount: 18,
+        heapFree: 143360,
+        heapMin: 122880,
+        heapLargest: 102400,
+        heapTotal: 250000,
+        psramFree: 8000000,
+        psramTotal: 8388608,
+        uiCycleMs: 5,
+        acquisitionCycleMs: 101,
+        commandQueue: 0,
+        diagnosticQueue: 0,
+        cores: [
+          { id: 0, load: 17.4 },
+          { id: 1, load: 6.2 },
+        ],
+        tasks: [
+          {
+            name: "loopTask / HTTP + UI",
+            core: 0,
+            state: "running",
+            priority: 1,
+            stackFreeMin: 9216,
+          },
+          {
+            name: "fort-acquisition / UART",
+            core: 1,
+            state: "blocked",
+            priority: 2,
+            stackFreeMin: 8192,
+          },
+          {
+            name: "IDLE0",
+            core: 0,
+            state: "ready",
+            priority: 0,
+            stackFreeMin: 1024,
+          },
+          {
+            name: "IDLE1",
+            core: 1,
+            state: "ready",
+            priority: 0,
+            stackFreeMin: 1024,
+          },
+        ],
+      }),
+    );
+    return;
+  }
   if (req.url === "/api/status") {
     if (fail) {
       res.statusCode = 503;
@@ -145,7 +268,8 @@ const server = http.createServer((req, res) => {
     res.end(
       JSON.stringify({
         ...state,
-        online: online && state.scan.phase !== "running",
+        online: online && state.scan.phase !== "running" && !diagnostic.active,
+        diagnosticActive: diagnostic.active,
       }),
     );
     return;
@@ -196,6 +320,26 @@ const server = http.createServer((req, res) => {
         );
         return;
       }
+      if (req.url === "/api/diagnostic") {
+        const command = data.get("command");
+        if (command === "resume") {
+          diagnostic.active = false;
+          diagnostic.log += "[RESUMED] Production settings restored.\n";
+        } else if (command === "x") {
+          diagnostic.busy = false;
+          diagnostic.log += "Stopped; queued commands cancelled.\n";
+        } else {
+          if (!diagnostic.active) ++diagnostic.generation;
+          diagnostic.active = true;
+          diagnostic.log += `[SERIAL_INPUT] ${command}\n`;
+          if (command === "diagnose")
+            diagnostic.log +=
+              "[REPORT_BEGIN]\n[EVIDENCE] requests=8 valid_data=0\n[NO_RX_UNRESOLVED] No accepted reply.\n[REPORT_END]\n";
+          else
+            diagnostic.log +=
+              "[SETTINGS] ID=1 baud=9600 8N1 RX=18 TX=17; RAM only\n";
+        }
+      }
       if (req.url === "/api/trace/start") {
         ++trace.generation;
         trace.active = true;
@@ -236,8 +380,21 @@ const server = http.createServer((req, res) => {
       if (req.url === "/api/scan/start")
         state.scan = {
           phase: scanMode,
-          tested: scanMode === "running" ? 2 : 18,
-          total: 18,
+          tested:
+            scanMode === "running"
+              ? Math.min(
+                  2,
+                  (Number(data.get("last")) - Number(data.get("first")) + 1) *
+                    (data.get("mode") === "current" ? 1 : 18),
+                )
+              : (Number(data.get("last")) - Number(data.get("first")) + 1) *
+                (data.get("mode") === "current" ? 1 : 18),
+          total:
+            (Number(data.get("last")) - Number(data.get("first")) + 1) *
+            (data.get("mode") === "current" ? 1 : 18),
+          mode: data.get("mode") || "matrix",
+          address: Number(data.get("address") || 52),
+          words: Number(data.get("words") || 1),
           first: Number(data.get("first")),
           last: Number(data.get("last")),
           elapsed: 3,
@@ -473,7 +630,9 @@ async function checkVectors(browser, out) {
     );
     await page.locator("#raw-trace summary").click();
     await page.waitForFunction(
-      () => document.getElementById("trace-start") && !document.getElementById("trace-start").disabled,
+      () =>
+        document.getElementById("trace-start") &&
+        !document.getElementById("trace-start").disabled,
     );
     await page.locator("#trace-start").click();
     await page.waitForFunction(
@@ -519,7 +678,9 @@ async function checkVectors(browser, out) {
     assert(await page.locator("#trace-start").isDisabled());
     traceFail = false;
     await page.waitForFunction(
-      () => document.getElementById("trace-start") && !document.getElementById("trace-start").disabled,
+      () =>
+        document.getElementById("trace-start") &&
+        !document.getElementById("trace-start").disabled,
     );
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
@@ -574,12 +735,13 @@ async function checkVectors(browser, out) {
     );
     assert.equal(scanCalls()[0].data.get("first"), "7");
     assert.equal(scanCalls()[0].data.get("last"), "7");
+    assert.equal(scanCalls()[0].data.get("mode"), "current");
     assert(await page.locator("#slave").isDisabled());
     assert(await page.locator("#scanstart").isDisabled());
     assert(await page.locator("#scanapply").isDisabled());
     assert.equal(
       await page.locator("#scanprogress").getAttribute("value"),
-      "2",
+      "1",
     );
     await page.locator("#language").selectOption("id");
     assert(
@@ -605,6 +767,7 @@ async function checkVectors(browser, out) {
       document.getElementById("scanstatus")?.textContent.includes("cancelled"),
     );
     assert.equal(await page.locator("#slave").inputValue(), "3");
+    await page.locator("#scan-mode").selectOption("matrix");
     scanMode = "found";
     await page.locator("#scanstart").click();
     await page.waitForFunction(
@@ -624,7 +787,7 @@ async function checkVectors(browser, out) {
     await page.waitForFunction(() =>
       document
         .getElementById("scanstatus")
-        ?.textContent.includes("No meter found"),
+        ?.textContent.includes("No validated reply"),
     );
     rejectScan = true;
     await page.locator("#scanstart").click();
@@ -723,6 +886,140 @@ async function checkVectors(browser, out) {
         "overview overflow at " + width,
       );
     }
+    await page.locator("#language").selectOption("en");
+    await page.evaluate(() => {
+      window.flowAdded = 0;
+      const svg = document.querySelector("#uart-flow svg");
+      window.flowObserver = new MutationObserver((records) => {
+        for (const record of records)
+          for (const node of record.addedNodes)
+            if (node.nodeType === 1 && node.hasAttribute("data-event"))
+              ++window.flowAdded;
+      });
+      window.flowObserver.observe(svg, { childList: true });
+    });
+    flowAuto = true;
+    lastFlowFrame = 0;
+    await page.waitForFunction(() => window.flowAdded > 0);
+    flowAuto = false;
+    await page.waitForTimeout(600);
+    const observed = await page.evaluate(() => window.flowAdded);
+    await page.waitForTimeout(600);
+    assert.equal(
+      await page.evaluate(() => window.flowAdded),
+      observed,
+      "No idle/decorative packet animation without a new device event",
+    );
+    flowBoot++;
+    flowSequence = 0;
+    flowEvents = [];
+    appendFlow();
+    await page.waitForTimeout(900);
+    assert.equal(
+      await page.evaluate(() => window.flowAdded),
+      observed,
+      "Reboot history must not animate as newly observed packets",
+    );
+    flowAuto = true;
+    await page.locator("#nav-setup").click();
+    const beforeDiagnostic = diagnosticRequests;
+    await page.waitForTimeout(1100);
+    assert.equal(
+      diagnosticRequests,
+      beforeDiagnostic,
+      "Closed diagnostic panel must not fetch logs",
+    );
+    await page.locator("#diagnostic-console > summary").click();
+    await page.waitForSelector("#diagnostic-command");
+    await page.locator("#diagnostic-command").evaluate((node) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text", "x\nstatus");
+      node.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    assert.equal(
+      await page.locator("#diagnostic-command").inputValue(),
+      "diagnose",
+    );
+    await page.locator("#diagnostic-send").click();
+    await page.waitForFunction(() =>
+      document
+        .getElementById("diagnostic-output")
+        ?.textContent.includes("REPORT_END"),
+    );
+    await refresh();
+    assert(await page.locator("#scanstart").isDisabled());
+    assert(await page.locator("#slave").isDisabled());
+    assert((await page.locator("#health").innerText()).includes("Maintenance"));
+    const commandCall = calls.find(
+      (c) =>
+        c.url === "/api/diagnostic" && c.data.get("command") === "diagnose",
+    );
+    assert(commandCall);
+    const downloadPromise = page.waitForEvent("download");
+    await page.locator("#diagnostic-download").click();
+    const logDownload = await downloadPromise;
+    assert(logDownload.suggestedFilename().startsWith("fort-diagnostic-"));
+    await page.locator("#language").selectOption("id");
+    assert(
+      (await page.locator("#diagnostic-resume").innerText()).includes(
+        "Lanjutkan",
+      ),
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .locator("#diagnostic-console")
+      .screenshot({ path: path.join(assets, "ui-diagnostic-mobile.png") });
+    await page.locator("#diagnostic-resume").click();
+    await page.waitForFunction(() =>
+      document
+        .getElementById("diagnostic-status")
+        ?.textContent.includes("produksi"),
+    );
+    await refresh();
+    assert(!(await page.locator("#scanstart").isDisabled()));
+    await page.locator("#diagnostic-console > summary").click();
+    await page.waitForTimeout(100);
+    const closedDiagnostic = diagnosticRequests;
+    await page.waitForTimeout(1100);
+    assert.equal(diagnosticRequests, closedDiagnostic);
+    await page.locator("#nav-device").click();
+    const beforeSystem = systemRequests;
+    await page.waitForTimeout(1600);
+    assert.equal(
+      systemRequests,
+      beforeSystem,
+      "Closed process monitor must not poll",
+    );
+    await page.locator("#process-monitor summary").click();
+    await page.waitForSelector("#process-monitor tbody tr");
+    assert.equal(await page.locator("#process-monitor tbody tr").count(), 4);
+    assert(
+      (await page.locator("#process-monitor").innerText()).includes("17.4%"),
+    );
+    await page.setViewportSize({ width: 1440, height: 1050 });
+    await page
+      .locator("#process-monitor")
+      .screenshot({ path: path.join(assets, "ui-process-desktop.png") });
+    await page
+      .locator("#uart-flow")
+      .screenshot({ path: path.join(assets, "ui-flow-desktop.png") });
+    for (const width of [320, 390, 768, 1440, 2560]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        "instrumentation overflow at " + width,
+      );
+    }
+    await page.locator("#nav-overview").click();
+    await page.locator("#language").selectOption("id");
     online = false;
     await refresh();
     await page.waitForFunction(() =>
@@ -780,7 +1077,7 @@ async function checkVectors(browser, out) {
     await page.close();
     const vectors = await checkVectors(browser, out);
     console.log(
-      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
+      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; event-driven UART motion/no idle animation; diagnostic commands/export/pause/resume; process metrics/closed polling; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
     );
   } catch (error) {
     const failed = browser?.contexts()[0]?.pages()[0];

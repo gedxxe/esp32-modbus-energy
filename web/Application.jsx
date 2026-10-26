@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import FadeContent from "./vendor/react-bits/FadeContent.jsx";
+import UartFlow from "./components/UartFlow.jsx";
 import Icon from "./components/Icon.jsx";
 import Overview from "./views/Overview.jsx";
 import MeterSetup from "./views/MeterSetup.jsx";
@@ -27,15 +28,17 @@ function Health({ device }) {
   if (s)
     key = !device.fresh
       ? "health_stale"
-      : s.scan?.phase === "running"
-        ? "health_scan"
-        : !s.storage
-          ? "health_storage"
-          : !s.rtc
-            ? "health_rtc"
-            : !s.online
-              ? "health_offline"
-              : "health_ok";
+      : s.diagnosticActive
+        ? "health_diagnostic"
+        : s.scan?.phase === "running"
+          ? "health_scan"
+          : !s.storage
+            ? "health_storage"
+            : !s.rtc
+              ? "health_rtc"
+              : !s.online
+                ? "health_offline"
+                : "health_ok";
   return (
     <div
       id="health"
@@ -197,6 +200,7 @@ export default function Application() {
           ))}
         </nav>
         <Health device={device} />
+        <UartFlow />
         {reducedMotion ? (
           <div key={view}>{content}</div>
         ) : (

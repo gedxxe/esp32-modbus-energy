@@ -1,13 +1,114 @@
 export const catalog = {
   en: {
+    diag_queued: "Command queued · waiting for the UART owner",
+    scan_formats: "Serial formats",
+    scan_current: "Current saved baud/parity",
+    scan_matrix: "All 18 baud/parity formats",
+    scan_current_limits:
+      "One request per ID with the saved connection format. Try this bounded search first; 247 silent IDs take roughly 3–4 minutes.",
+    scan_exception:
+      "The peer returned a CRC-valid exception. Communication replied; this register and the energy profile remain unverified.",
+    trace_diagnostic: "Diagnostic",
+    flow_title: "Live communication",
+    flow_diagram: "Observed UART request and response direction",
+    flow_disconnected: "Event stream unavailable",
+    flow_waiting: "Waiting for UART events",
+    flow_transmitting: "TX queued",
+    flow_waiting_rx: "TX complete · awaiting RX",
+    flow_receiving: "RX bytes observed",
+    flow_idle: "No new transaction",
+    flow_diagnostic: "Diagnostic traffic · recording paused",
+    flow_production: "Production polling / scan",
+    flow_note:
+      "Device timestamps · 1× observed timing replay · 200 ms polling plus network delay. The packet trail is schematic; A/B voltage and remote delivery are not measured. No event, no motion.",
+    flow_gap:
+      "Some events fell outside the 32-event buffer. The view does not reconstruct missing traffic.",
+    flow_events: "Inspect timestamped frames",
+    diag_title: "Diagnostic console",
+    diag_intro:
+      "Run the same read-only field diagnostics inside the main firmware. Select a test below, then choose Run command. The AP remains available.",
+    diag_pause:
+      "Active tests and configuration changes enter maintenance: scheduled recording pauses and the interrupted interval becomes partial. Test settings stay in RAM. Choose Resume measurement to restore saved production settings.",
+    diag_input: "Command input · one line",
+    diag_output: "Device diagnostic output",
+    diag_run: "Run command",
+    diag_stop: "Stop test",
+    diag_resume: "Resume measurement",
+    diag_download: "Download output",
+    diag_failed: "Cannot refresh diagnostic output. Reconnect to the device.",
+    diag_busy: "Diagnostic command running",
+    diag_ready: "Maintenance active · ready for another command",
+    diag_inactive: "Production measurement active",
+    diag_truncated:
+      "The oldest {count} log bytes were discarded. Download output between tests to retain it.",
+    diag_empty: "No diagnostic output yet.",
+    diag_commands: "Command reference",
+    diag_reference:
+      "Type commands in the input above and run one at a time. Addresses are hexadecimal PDU values; counts are 16-bit words. Scan can take a long time: start with a known ID/current format. Connected/isolated are operator labels; physically change only A/B at the module between those two tests.",
+    diag_limits:
+      "UART silence cannot distinguish a missing, unpowered or failed module from every other silent path. Valid communication and verified energy scaling are separate findings. Test values never enter production records.",
+    diagnostic_busy:
+      "Resume measurement before changing production settings or time.",
+    invalid_diagnostic_command:
+      "Use one printable command within the supported bounds.",
+    invalid_cursor: "Invalid event cursor.",
+    local_uart_error: "Local UART initialization or write failed.",
+    health_diagnostic:
+      "Maintenance active. Measurement and scheduled recording are paused; use Resume measurement in the diagnostic console.",
+    process_title: "Process monitor",
+    process_intro:
+      "Two-core activity, memory headroom and the firmware tasks. Refreshed every 1.5 seconds while this panel is open.",
+    process_failed: "Metrics are stale; cannot reach the device.",
+    process_core0: "HTTP · OLED · buttons · RGB",
+    process_core1: "UART · tracker · storage",
+    process_heap: "Free heap",
+    process_lowheap: "Minimum free heap",
+    process_largest: "Largest free block",
+    process_psram: "Free PSRAM",
+    process_task: "Task",
+    process_core: "Core",
+    process_state: "State",
+    process_priority: "Priority",
+    process_stack: "Minimum free stack",
+    process_runtime:
+      "{mhz} MHz · {tasks} total system tasks · UI cycle {ui} ms · acquisition cycle {uart} ms · queues {queue} / {debug}",
+    process_limits:
+      "Core percentages are non-idle task samples at FreeRTOS tick boundaries over roughly one second, not instruction-time accounting. Interrupt work is attributed to the interrupted task. The table covers owned and idle tasks; the system count also includes Wi-Fi/USB tasks. Stack values are historical minimum free bytes, not current usage.",
+    scan_probe: "Probe address · HEX",
+    scan_words: "Register words",
+    flow_kind_1: "Queued TX",
+    flow_kind_2: "TX complete",
+    flow_kind_3: "First RX bytes",
+    flow_kind_4: "Frame complete",
+    flow_kind_5: "Tail at deadline",
+    flow_kind_6: "No-byte timeout",
+    flow_kind_7: "RX before TX",
+    flow_kind_8: "Local UART error",
+    flow_kind_9: "Passive RX",
+    diag_diagnose: "Staged test",
+    diag_basic: "Passive RX",
+    diag_probe: "One probe",
+    diag_map: "Raw map",
+    diag_rx: "RX input",
+    diag_report: "Report",
+    diag_connected: "A/B connected",
+    diag_isolated: "A/B isolated",
+    diag_compare: "Compare",
+    task_running: "running",
+    task_ready: "ready",
+    task_blocked: "blocked",
+    task_suspended: "suspended",
+    task_deleted: "deleted",
+    task_invalid: "invalid",
+
     trace_title: "Raw TX/RX diagnostics",
     trace_intro:
-      "Capture the next 12 existing Modbus attempts. No extra requests are sent. Open this panel, start capture, then run a scan if needed.",
+      "Capture the next 12 observed Modbus frames. No extra requests are sent. Open this panel, start capture, then run a scan if needed.",
     trace_start: "Capture next 12",
     trace_stop: "Stop capture",
     trace_download: "Download raw log",
-    trace_recording: "Capturing {count}/{capacity} attempts…",
-    trace_frozen: "Capture stopped · {count}/{capacity} attempts retained",
+    trace_recording: "Capturing {count}/{capacity} frames…",
+    trace_frozen: "Capture stopped · {count}/{capacity} frames retained",
     trace_empty: "No capture yet. Start to record existing UART traffic.",
     trace_failed: "Cannot refresh capture. Reconnect or reopen this panel.",
     trace_busy: "A raw capture is already running.",
@@ -26,7 +127,7 @@ export const catalog = {
     trace_note:
       "Exact echo means the captured RX equals the complete 8-byte request; it does not prove where the loopback occurs. CRC/rejected traffic does not prove the meter replied. The first 12 attempts are frozen in RAM until a new capture or restart; closing this panel does not stop capture. Raw bytes are UART-buffer observations, not oscilloscope timings.",
     wiring_auto:
-      "Your pictured 4-pin VCC/TXD/RXD/GND module controls direction automatically: leave GPIO16 unconnected. ESP32 GPIO17 must reach the module TTL input and GPIO18 its output. The reported crossed TXD/RXD wiring is not independently verified. The RO/DI/DE/RE reference below applies to manual-direction modules.",
+      "Your pictured 4-pin VCC/TXD/RXD/GND module controls direction automatically: leave GPIO16 unconnected. ESP32 GPIO17 must reach the module TTL input and GPIO18 its output. The confirmed crossed TXD/RXD wiring is not independently verified. The RO/DI/DE/RE reference below applies to manual-direction modules.",
 
     led_title: "Onboard RGB LED",
     led_intro: "Choose the light pattern on the ESP32 board.",
@@ -128,12 +229,12 @@ export const catalog = {
     scan_running:
       "Reading ID {slave} at {baud}, 8{parity}1. Recording is paused.",
     scan_found:
-      "Compatible response at ID {slave} · {baud} · 8{parity}1. Apply this result to save the reader settings.",
+      "Validated Modbus reply at ID {slave} · {baud} · 8{parity}1. Energy profile is checked separately after applying the connection.",
     scan_applied: "The reader is already using this result.",
     scan_cancelled:
       "Scan cancelled. The previous connection has been restored.",
     scan_exhausted:
-      "No meter found in IDs {first}–{last}. Check A/B wiring or try a wider ID range.",
+      "No validated reply in IDs {first}–{last} for this probe. Check reader settings or run the diagnostic console; this does not prove a cable fault.",
     scan_limits:
       "6 baud rates × 3 parity modes. All 247 IDs can take about 70 minutes without a response.",
     scan_pause_note:
@@ -220,14 +321,116 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
+    diag_queued: "Perintah diantre · menunggu pemilik UART",
+    scan_formats: "Format serial",
+    scan_current: "Baud/parity tersimpan saat ini",
+    scan_matrix: "Seluruh 18 format baud/parity",
+    scan_current_limits:
+      "Satu request per ID memakai format koneksi tersimpan. Mulai dari pencarian terbatas ini; 247 ID tanpa balasan sekitar 3–4 menit.",
+    scan_exception:
+      "Peer mengirim exception ber-CRC sah. Komunikasi membalas; register ini dan profil energi belum terverifikasi.",
+    trace_diagnostic: "Diagnostik",
+    flow_title: "Komunikasi langsung",
+    flow_diagram: "Arah request dan respons UART yang diamati",
+    flow_disconnected: "Stream event tidak tersedia",
+    flow_waiting: "Menunggu event UART",
+    flow_transmitting: "TX masuk antrean",
+    flow_waiting_rx: "TX selesai · menunggu RX",
+    flow_receiving: "Byte RX diamati",
+    flow_idle: "Tidak ada transaksi baru",
+    flow_diagnostic: "Traffic diagnostik · pencatatan dijeda",
+    flow_production: "Polling / scan produksi",
+    flow_note:
+      "Timestamp perangkat · replay timing teramati 1× · polling 200 ms ditambah jeda jaringan. Jejak paket skematik; tegangan A/B dan penerimaan di meter tidak diukur. Tanpa event, tanpa gerakan.",
+    flow_gap:
+      "Sebagian event terlewat dari buffer 32 event. Tampilan tidak merekonstruksi traffic yang hilang.",
+    flow_events: "Periksa frame bertimestamp",
+    diag_title: "Konsol diagnostik",
+    diag_intro:
+      "Jalankan diagnostik lapangan yang sama pada firmware utama. Pilih tes di bawah, lalu Jalankan perintah. AP tetap tersedia.",
+    diag_pause:
+      "Tes aktif dan perubahan konfigurasi memasuki maintenance: pencatatan dijeda dan interval terputus menjadi parsial. Setting uji hanya RAM. Pilih Lanjutkan pengukuran untuk memulihkan setting produksi tersimpan.",
+    diag_input: "Input perintah · satu baris",
+    diag_output: "Output diagnostik perangkat",
+    diag_run: "Jalankan perintah",
+    diag_stop: "Hentikan tes",
+    diag_resume: "Lanjutkan pengukuran",
+    diag_download: "Unduh output",
+    diag_failed:
+      "Output diagnostik tidak dapat disegarkan. Sambungkan kembali ke perangkat.",
+    diag_busy: "Perintah diagnostik berjalan",
+    diag_ready: "Maintenance aktif · siap perintah berikutnya",
+    diag_inactive: "Pengukuran produksi aktif",
+    diag_truncated:
+      "Sebanyak {count} byte log terlama dibuang. Unduh output di antara tes untuk menyimpannya.",
+    diag_empty: "Belum ada output diagnostik.",
+    diag_commands: "Referensi perintah",
+    diag_reference:
+      "Ketik perintah pada input di atas dan jalankan satu per satu. Alamat berupa HEX PDU; count adalah word 16-bit. Scan dapat lama: mulai dari ID yang diketahui/format saat ini. Connected/isolated adalah label operator; ubah fisik hanya A/B pada modul di antara kedua tes.",
+    diag_limits:
+      "UART diam tidak dapat membedakan modul dicabut, tanpa daya atau rusak dari semua jalur diam lain. Komunikasi valid dan skala energi terverifikasi adalah bukti berbeda. Nilai uji tidak masuk arsip produksi.",
+    diagnostic_busy:
+      "Lanjutkan pengukuran sebelum mengubah setting produksi atau waktu.",
+    invalid_diagnostic_command:
+      "Gunakan satu perintah yang dapat dicetak dan sesuai batas.",
+    invalid_cursor: "Cursor event tidak valid.",
+    local_uart_error: "Inisialisasi atau penulisan UART lokal gagal.",
+    health_diagnostic:
+      "Maintenance aktif. Pengukuran dan pencatatan dijeda; gunakan Lanjutkan pengukuran di konsol diagnostik.",
+    process_title: "Monitor proses",
+    process_intro:
+      "Aktivitas dua core, sisa memori dan task firmware. Disegarkan setiap 1,5 detik saat panel terbuka.",
+    process_failed: "Metrik sudah lama; perangkat tidak terjangkau.",
+    process_core0: "HTTP · OLED · tombol · RGB",
+    process_core1: "UART · tracker · storage",
+    process_heap: "Heap bebas",
+    process_lowheap: "Heap bebas minimum",
+    process_largest: "Blok bebas terbesar",
+    process_psram: "PSRAM bebas",
+    process_task: "Task",
+    process_core: "Core",
+    process_state: "State",
+    process_priority: "Prioritas",
+    process_stack: "Stack bebas minimum",
+    process_runtime:
+      "{mhz} MHz · total {tasks} task sistem · siklus UI {ui} ms · siklus akuisisi {uart} ms · antrean {queue} / {debug}",
+    process_limits:
+      "Persentase core adalah sampel task non-idle pada batas tick FreeRTOS selama sekitar satu detik, bukan hitungan waktu instruksi. Kerja interrupt teratribusi ke task yang diinterupsi. Tabel mencakup task milik aplikasi dan idle; jumlah sistem juga meliputi Wi-Fi/USB. Stack menunjukkan minimum byte bebas historis, bukan pemakaian saat ini.",
+    scan_probe: "Alamat probe · HEX",
+    scan_words: "Jumlah word register",
+    flow_kind_1: "TX masuk antrean",
+    flow_kind_2: "TX selesai",
+    flow_kind_3: "Byte RX pertama",
+    flow_kind_4: "Frame selesai",
+    flow_kind_5: "Tail saat deadline",
+    flow_kind_6: "Timeout tanpa byte",
+    flow_kind_7: "RX sebelum TX",
+    flow_kind_8: "Error UART lokal",
+    flow_kind_9: "RX pasif",
+    diag_diagnose: "Tes bertahap",
+    diag_basic: "RX pasif",
+    diag_probe: "Satu probe",
+    diag_map: "Map mentah",
+    diag_rx: "Input RX",
+    diag_report: "Laporan",
+    diag_connected: "A/B tersambung",
+    diag_isolated: "A/B terisolasi",
+    diag_compare: "Bandingkan",
+    task_running: "running",
+    task_ready: "ready",
+    task_blocked: "blocked",
+    task_suspended: "suspended",
+    task_deleted: "deleted",
+    task_invalid: "invalid",
+
     trace_title: "Diagnostik TX/RX mentah",
     trace_intro:
       "Rekam 12 percobaan Modbus berikutnya dari polling/scan yang sudah berjalan. Tidak mengirim request tambahan. Buka panel, mulai rekam, lalu jalankan scan bila diperlukan.",
     trace_start: "Rekam 12 berikutnya",
     trace_stop: "Hentikan rekaman",
     trace_download: "Unduh log mentah",
-    trace_recording: "Merekam {count}/{capacity} percobaan…",
-    trace_frozen: "Rekaman berhenti · {count}/{capacity} percobaan tersimpan",
+    trace_recording: "Merekam {count}/{capacity} frame…",
+    trace_frozen: "Rekaman berhenti · {count}/{capacity} frame tersimpan",
     trace_empty:
       "Belum ada rekaman. Mulai untuk merekam lalu lintas UART yang berjalan.",
     trace_failed:
@@ -246,9 +449,9 @@ export const catalog = {
     trace_result_exception: "Exception Modbus",
     trace_result_invalid: "ID/fungsi/panjang respons tidak sesuai",
     trace_note:
-      "Echo persis berarti RX sama dengan seluruh request 8 byte; belum menentukan lokasi loopback. CRC/rejected bukan bukti meter membalas. Sebanyak 12 percobaan pertama dibekukan di RAM sampai rekaman baru atau restart; menutup panel tidak menghentikan rekaman. Byte berasal dari buffer UART, bukan pengukuran timing osiloskop.",
+      "Echo persis berarti RX sama dengan seluruh request 8 byte; belum menentukan lokasi loopback. CRC/rejected bukan bukti meter membalas. Sebanyak 12 frame pertama dibekukan di RAM sampai rekaman baru atau restart; menutup panel tidak menghentikan rekaman. Byte berasal dari buffer UART, bukan pengukuran timing osiloskop.",
     wiring_auto:
-      "Modul 4 pin VCC/TXD/RXD/GND pada fotomu mengatur arah otomatis: GPIO16 tidak disambungkan. GPIO17 ESP32 harus ke input TTL modul, GPIO18 ke output. Wiring TXD/RXD bersilangan yang dilaporkan belum diverifikasi secara independen. Referensi RO/DI/DE/RE di bawah berlaku untuk modul arah manual.",
+      "Modul 4 pin VCC/TXD/RXD/GND pada fotomu mengatur arah otomatis: GPIO16 tidak disambungkan. GPIO17 ESP32 harus ke input TTL modul, GPIO18 ke output. Gunakan wiring terkonfirmasi TXD modul → GPIO18 dan RXD modul ← GPIO17. Referensi RO/DI/DE/RE di bawah berlaku untuk modul arah manual.",
 
     led_title: "LED RGB bawaan",
     led_intro: "Pilih pola lampu pada board ESP32.",
@@ -351,11 +554,11 @@ export const catalog = {
     scan_running:
       "Membaca ID {slave} pada {baud}, 8{parity}1. Pencatatan dijeda.",
     scan_found:
-      "Respons kompatibel pada ID {slave} · {baud} · 8{parity}1. Terapkan hasil untuk menyimpan setting pembaca.",
+      "Balasan Modbus sah pada ID {slave} · {baud} · 8{parity}1. Profil energi diperiksa terpisah setelah koneksi diterapkan.",
     scan_applied: "Pembaca sudah memakai hasil ini.",
     scan_cancelled: "Scan dibatalkan. Koneksi sebelumnya dipulihkan.",
     scan_exhausted:
-      "Meter tidak ditemukan pada ID {first}–{last}. Periksa kabel A/B atau perluas rentang ID.",
+      "Tidak ada balasan sah pada ID {first}–{last} untuk probe ini. Periksa setting pembaca atau konsol diagnostik; belum membuktikan kabel bermasalah.",
     scan_limits:
       "6 baud rate × 3 mode parity. Seluruh 247 ID dapat memerlukan sekitar 70 menit tanpa respons.",
     scan_pause_note:

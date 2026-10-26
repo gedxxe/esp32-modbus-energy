@@ -1210,3 +1210,254 @@ footer a {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+/* Instrument panels: event-driven movement, restrained color and explicit evidence. */
+.flow-panel {
+  background: #102726;
+  color: #e4f3ef;
+  border: 1px solid #24413d;
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin: 22px 0;
+  overflow: hidden;
+}
+.flow-head,
+.flow-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.flow-panel .eyebrow {
+  color: #8dac9f;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+.flow-panel h2 {
+  color: #edf6f1;
+  margin: 7px 0 0;
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+.flow-phase {
+  color: #92dfcd;
+  font-size: 12px;
+  max-width: 100%;
+}
+.flow-phase.failed {
+  color: #efb276;
+}
+.flow-panel svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+}
+.flow-panel svg rect {
+  fill: #142f2d;
+  stroke: #3b5952;
+}
+.flow-panel svg text {
+  fill: #e0eee7;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 600;
+}
+.flow-panel svg .flow-sub {
+  fill: #8ba99b;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  font-weight: 400;
+}
+.flow-foot {
+  font-size: 11px;
+  color: #aec6ba;
+}
+.flow-note {
+  font-size: 10px;
+  line-height: 1.65;
+  color: #93afa0;
+  max-width: 92ch;
+  margin: 10px 0;
+}
+.flow-panel summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: #c4d8ce;
+  padding-top: 10px;
+}
+.flow-events {
+  max-height: 250px;
+  overflow: auto;
+  margin-top: 14px;
+}
+.flow-event {
+  display: grid;
+  gap: 5px;
+  padding: 12px 0;
+  border-top: 1px solid #29413b;
+  font-size: 10px;
+}
+.flow-event code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #a2e2cd;
+}
+.diag-recipes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 20px 0;
+}
+.diag-recipes button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--deep);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.diag-recipes button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.diag-input > div {
+  display: flex;
+  gap: 10px;
+}
+.diag-input input {
+  flex: 1;
+  min-width: 0;
+}
+.diagnostic-output {
+  max-height: 460px;
+  overflow: auto;
+  background: #102726;
+  color: #c0e1d3;
+  border: 1px solid #29483e;
+  border-radius: 10px;
+  padding: 18px;
+  font:
+    11px/1.8 Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.diagnostic-output:focus-visible {
+  outline: 2px solid var(--deep);
+  outline-offset: 3px;
+}
+.diag-reference code {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 2;
+}
+.core-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 20px 0;
+}
+.core-cards article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+.core-cards strong {
+  font-size: 32px;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+.core-cards progress {
+  margin: 0;
+  width: 100%;
+  height: 5px;
+}
+.process-memory {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.process-memory > div {
+  display: grid;
+  gap: 7px;
+  font-size: 11px;
+}
+.process-table {
+  overflow-x: auto;
+}
+.process-table table {
+  width: 100%;
+  font-size: 12px;
+}
+.process-table th {
+  white-space: nowrap;
+}
+.process-table td {
+  padding: 12px 10px;
+}
+.process-table td:first-child {
+  min-width: 180px;
+}
+@media (max-width: 600px) {
+  .flow-panel {
+    padding: 20px 15px;
+  }
+  .flow-panel h2 {
+    font-size: 19px;
+  }
+  .flow-panel svg {
+    min-height: 105px;
+  }
+  .flow-foot {
+    font-size: 10px;
+  }
+  .diag-input > div {
+    flex-direction: column;
+  }
+  .core-cards {
+    gap: 10px;
+  }
+  .core-cards article {
+    padding: 13px;
+  }
+  .process-memory {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-panel * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.flow-panel svg {
+  height: 160px;
+}
+.flow-node-labels {
+  display: none;
+}
+@media (max-width: 600px) {
+  .flow-panel svg {
+    height: 95px;
+    min-height: 0;
+  }
+  .flow-panel svg text {
+    display: none;
+  }
+  .flow-node-labels {
+    display: flex;
+    justify-content: space-around;
+    font-size: 10px;
+    color: #c3d7ca;
+    margin: -10px 0 17px;
+  }
+}

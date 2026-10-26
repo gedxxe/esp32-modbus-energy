@@ -1,89 +1,55 @@
-# Hasil validasi — 26 Oktober 2026
+# Catatan validasi — 27 Oktober 2026
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware **1.4.0**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
+Firmware **1.4.1**, diagnostik mandiri **FortSerialDebug 1.3.1**. Ini hasil pemeriksaan software lokal. Penerimaan Fort terpasang tetap memerlukan [commissioning](COMMISSIONING.md) dan [diagnostik lapangan](DIAGNOSTICS.md). Detail ukuran aset dan batas teknis tercatat di [laporan English](../VALIDATION.md).
 
-## Logika native — lulus
+## Build firmware — lulus
 
-`tools/test.ps1`, g++ C++11 dengan `-Wall -Wextra -Werror`. Pengujian mencakup CRC/manual/frame rusak, sembilan interval, interpolasi, gap dan startup terlambat, reboot/clock/reset, kualitas data hilang, debounce/long press/rollover, retry CT/PT, fault injection filesystem, enumerasi 4.446 kandidat scan, prioritas ID, batal/restart/selesai/ditemukan, rentang satu ID dan kompatibilitas kode kualitas API. Header yang diuji adalah kode yang dipakai firmware; driver ESP-IDF tidak dijalankan oleh tes ini.
+espressif32 **6.10.0** / Arduino ESP32 **2.0.17**, target fisik ESP32-S3 N16R8 (flash 16 MB / OPI PSRAM). Output akhir tanpa warning/error compiler.
 
-## Browser — lulus
-
-Playwright dengan Microsoft Edge melayani **array gzip header firmware**, dengan JSON/CSV API simulasi. English default, pilihan Indonesia/format angka, persistensi reload, fallback storage terblokir, enam/tiga interval, config/time/token/CSV, scan/batal/reload/terapkan/hasil kosong, HTTP error dan timeout request lima detik telah diuji. Data hilang tidak dianggap nol. Status stale/offline dan tombol mutasi saat putus koneksi ikut diperiksa.
-
-Lebar 320–2560 px tidak mengalami overflow dokumen; reduced motion bekerja, tidak ada page error JavaScript atau request aset eksternal. Hash Git blob React Bits sesuai provenance upstream. Seluruh **17 SVG** dirender dengan teks di dalam viewBox. Screenshot desktop/HP diperiksa visual, termasuk [HP Indonesia](../assets/ui-mobile-id.png); semuanya memakai data simulasi.
-
-## Build dan payload — lulus
-
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0**. Build/check web berhasil: total **136669 byte gzip**, di bawah batas 160 KiB. Hash source/header diperiksa oleh guard Python sebelum PlatformIO, sehingga build firmware biasa tidak memerlukan Node.
-
-| Target | RAM statis / 327.680 byte | Program / partisi aplikasi |
+| Build | RAM statis | Program |
 | --- | ---: | ---: |
-| ESP32-S3 N16R8, flash 16 MB / OPI PSRAM | 47.088 (14,4%) | 996.293 / 6.553.600 (15,2%) |
+| Firmware utama `esp32s3` | 79.328 byte | 1.094.969 byte |
+| INO mandiri tanpa library eksternal | 21.476 byte | 332.101 byte |
 
-Build hardware exit code 0, tanpa warning/error compiler. RAM statis tidak mencakup seluruh heap/stack runtime. Kompilasi tidak mengukur latency HTTP atau turnaround UART fisik.
+RAM statis bukan total heap/stack runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi 12 KiB; alokasi antrean/driver, high-water aktual dan latensi banyak klien perlu pengukuran fisik. GUI Arduino IDE dan versi core lain belum diuji.
 
-## Dokumentasi dan paket
+## Regresi native — lulus
 
-Checker memeriksa link/anchor English–Indonesia bertingkat, 17 SVG, 31 sambungan netlist, pin, versi, lisensi dan hash web. Paket memuat source React/notice dependency, firmware/panduan/aset; app/factory dibandingkan dengan build, CRC ZIP dan SHA-256 manifest diverifikasi. Cache pip CI sebelumnya mencari file yang salah; workflow sekarang menunjuk requirements-dev.txt dan memeriksa aset React dengan Node terkunci. Status remote dibaca dari Actions untuk commit terkait, bukan diasumsikan dari tes lokal.
+Tiga suite C++11 dengan `-Wall -Wextra -Werror` melalui `tools/test.ps1`. Tes INO mengeksekusi file sebenarnya; tes produksi mengeksekusi engine generated yang dipakai firmware utama.
 
-## Belum diuji secara fisik
+- CRC/ID/fungsi/count/panjang salah, exception, echo, prefix gabungan, overflow, tail terlambat dan respons valid. Exception membuktikan transport saja, bukan kWh.
+- Byte valid terlambat selama guard sebelum TX dibuang. RX terus aktif menghasilkan bus-busy terbatas tanpa TX. Echo diikuti respons byte-per-byte pada turnaround minimum 19200/8E1 diterima sebagai frame terpisah. Inisialisasi UART gagal dicoba lagi. Kasus baru dijalankan pada INO serta engine produksi.
+- Fallback multi-alamat, plan raw, pin/ID/format/timing/profil runtime, scan current/matrix, observasi pull lemah, capture berpasangan dengan guard konfigurasi/abort, input antrean dan delapan resep lapangan. Semua request yang terkirim tetap FC03/CRC sah/nonbroadcast.
+- Enumerator 4.446 kandidat matriks dan 247 kandidat current, prioritas ID/format, rentang satu ID, cancel/restart dan rollover millis.
+- Sembilan interval, interpolasi, gap, data hilang, reboot/RTC/reset/CTPT, NaN/negatif dan pelestarian interval lengkap. Hari mundur ditolak walau RTC invalid. Waktu HP antre dikompensasi dan diperiksa ulang pada batas/rollover.
+- Guard mode/revisi/umur perintah, batas 10 detik dan pergantian scan/maintenance. Tes helper tidak menjalankan antrean FreeRTOS secara paralel; integrasi utama ditinjau dan dikompilasi.
+- Writer HTTP diuji dengan progres parsial, tanpa progres, error fatal dan rollover. Chunk maksimal 1 KiB, callback layanan aktif; progres tidak memperpanjang deadline. Ini injeksi fault socket tiruan, bukan saturasi Wi-Fi fisik.
+- Pemulihan arsip saat operasi gagal, mode/NVS CRC RGB, debounce, raw capture serta urutan/wrap event UART.
 
-Pengguna mengonfirmasi GPIO48 sebagai pin RGB board pada 26 Oktober 2026. Uji penerimaan hardware lengkap versi 1.3.0 belum dicatat di sini. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
+Jeda frame tetap observasi buffer oleh task, bukan timestamp wire. Latensi RTOS dapat menyembunyikan gap. RTU tidak membawa transaction ID; asal setiap respons tertunda tidak selalu dapat dipastikan dari byte saja.
 
-## Pemeliharaan repository
+## Browser gzip — lulus
 
-Setelah target/tooling uji lama dan banner yang tidak dipakai dihapus, `pio run -e esp32s3` lulus dengan RAM statis 47.088 byte dan program 996.293 byte. Seluruh 17 SVG tersisa dirender tanpa overflow. Guard Python untuk hash source/header juga lulus setelah dependency Node lokal dihapus.
+Playwright/Microsoft Edge menguji byte gzip dalam header firmware dengan API simulasi.
 
-Packager memilih lima BIN N16R8 secara eksplisit. Hasil render/build sementara, dependency terpasang dan arsip versi lama dibersihkan setelah verifikasi. Paket hardware terbaru, source/header browser, aset dokumentasi dan manual Fort asli dipertahankan; proses build berikutnya membuat ulang cache yang diperlukan.
+- EN/ID, penyimpanan bahasa/fallback, tabel interval, config, waktu, LED, mute, scan/probe/cancel/apply, CSV dan raw capture/export.
+- HTTP 202 tidak melepas kontrol sebelum hasil eksekusi ID tepat. Tes mencakup completion tertunda/rejection. Sinkronisasi waktu diblokir saat maintenance; Run menunggu status konsol awal. Stop prioritas tetap tersedia saat kontrol biasa menunggu.
+- Slot/status, baris arsip/proses/core, frame trace dan event UART rusak tidak menjatuhkan aplikasi; snapshot terakhir dipertahankan sebagai stale/unavailable.
+- Konsol, paste satu baris, pause/resume/unduh log, polling panel tertutup, tabel proses/memori serta motion hanya saat event baru. Riwayat setelah reboot tidak dianimasikan sebagai paket baru.
+- Lebar 320–2560 px, reduced motion, tanpa overflow dokumen/error JS/request eksternal. Hash komponen React Bits cocok upstream. Seluruh 19 SVG dirender tanpa teks keluar viewBox.
 
-## Tambahan verifikasi OLED/RGB 1.2.1
+Semua screenshot berdata simulasi: [dashboard](../assets/ui-desktop.png), [HP](../assets/ui-mobile-id.png), [scan](../assets/ui-scan-desktop.png), [diagnostik HP](../assets/ui-diagnostic-mobile.png). Bukan bukti penerimaan hardware.
 
-Tes native lulus untuk lima mode LED, scaling brightness, record NVS ber-CRC, kerusakan/panjang/range dan rollover millis. Tes browser byte gzip final lulus untuk payload POST termasuk token, semua mode, draft tetap saat polling, reload status, peringatan storage, driver tidak tersedia, kontrol saat terputus dan label Indonesia. API/NVS browser adalah simulasi, bukan bukti persistensi board.
+## Aset dan dokumentasi — lulus
 
-Build N16R8 final lulus: static RAM 47.240/327.680 byte; program 1.002.577/6.553.600 byte. Payload web 138.395 byte gzip. Tidak ada peringatan kompilator pada log build final. Tampilan RGB desktop/mobile diperiksa secara visual dengan data simulasi. OLED fisik 180°, cahaya GPIO48, timing RMT/jitter dan pengaturan pulih sesudah restart tetap memerlukan commissioning hardware.
+Node 24.22.1 / esbuild 0.28.2 / React 19.3.1 / GSAP 3.15.0. Source, header dan manifest sinkron; total **150.594 byte gzip**, di bawah 160 KiB. Guard Python lolos dalam build PlatformIO; build firmware biasa tidak memerlukan Node. Tes negatif dengan input web tambahan benar-benar dijalankan melalui PlatformIO: guard menolak dengan petunjuk pemulihan tanpa traceback. Input sementara dihapus dan provenance kembali lolos.
 
-## Koreksi dokumentasi GPIO48 — 26 Oktober 2026
+Checker memvalidasi **25 Markdown, 221 link/anchor relatif, 19 SVG dan 31 koneksi alternatif manual**, GPIO/versi/lisensi dan provenance. Wiring terkonfirmasi tetap TXD modul → GPIO18, RXD ← GPIO17, GPIO16 tidak dipakai modul otomatis, Fort 58/A dan 59/B. Audit ini tidak mengubah alamat register/skala/terminal.
 
-Nilai RGB_LED_PIN=48 yang diubah pengguna tetap dipertahankan. README/desain/commissioning, instruksi agent, fallback UI dan screenshot RGB simulasi diselaraskan. Mock browser membaca pin langsung dari board.h; GPIO38 hanya disebut sebagai alternatif revisi board.
+Packager memeriksa kesamaan app dengan build terakhir, komponen/offset factory, SHA256 seluruh file dan CRC ZIP. Source/docs/notices/tools/manual ikut paket; cache/dependency tidak ikut. Status CI remote harus dibaca dari commit yang benar; hasil lokal bukan klaim CI lulus.
 
-Pemeriksaan dokumentasi/hash, tes browser aset firmware, dan build N16R8 lulus tanpa warning kompilator. Ukuran tetap: RAM statis 47.240 byte, program 1.002.577 byte, web gzip 138.395 byte. Binary dan paket diperbarui bersama source. Konfirmasi pin pengguna tidak dianggap uji penerimaan seluruh sistem.
+## Batas pengujian
 
-## Diagnostik mentah dan sketch mandiri — 1.3.0
-
-Tes native capture/classifier lulus: batas 12, freeze/stop/reset, echo persis, CRC/short/overflow/exception/ID salah dan respons valid. Echo/prefix overflow tidak dianggap data valid. Tes browser byte gzip lulus untuk panel tertutup tanpa polling, capture/stop, ekspor TXT, label bilingual, API gagal dan layout mobile. Screenshot raw memakai fixture simulasi, bukan rekaman Fort pengguna.
-
-Firmware utama lulus build tanpa warning: RAM statis 47.784/327.680 byte, program 1.010.581/6.553.600 byte. Payload web 140.866 byte gzip. Stack high-water mark, latensi empat klien dan sumber echo belum diukur di hardware.
-
-FortSerialDebug.ino berhasil dikompilasi sebagai sketch Arduino dengan core 2.0.17 / espressif32 6.10.0 tanpa dependensi library eksternal. RAM statis sketch 19.372 byte, program 317.213 byte; konfigurasi PlatformIO yang disertakan juga lulus setelah filter hasil konversi INO diperiksa. GUI Arduino IDE, versi core lain, interaksi Serial serta pembacaan Fort fisik belum diuji. Build opsional PlatformIO ditambahkan ke CI dengan target board N16R8 yang sama. Sketch tidak menulis storage; pemilihan partisi/erase uploader dibahas terpisah pada panduan dan CSV yang disertakan.
-
-## Diagnostik mandiri berlapis 1.1.0 — diuji lokal
-
-Gambar manual PDF18,27,30 diperiksa visual; ambiguitas panjang energi tetap dicatat. Sketch lulus kompilasi core2.0.17 tanpa warning, RAM19.396 byte/program320.741 byte. tools/test.ps1 juga menjalankan INO sebenarnya dengan UART/Serial tiruan: RX pasif tanpa TX, respons/exception sah, tolak ID/CRC/echo salah, scan transport terpisah dari profil energi, exception tidak menghasilkan kWh, konversi valid, hanyaFC03, batasregister/abort/counter UART. Ini bukti perilaku kode, bukan bukti sinyal A/B atau mapping hardware sudah benar. Firmware utama tetap1.3.0.
-
-## Diagnostik runtime 1.2.0 — diuji lokal
-
-Suite INO sebenarnya lulus untuk konfigurasi probe/pin/timeout/interval, mode/daftarscan, tolakduplikat/inputinvalid, batasplan, decodeoff tanpaTX/kWh, perubahan alamat/scale/order, antreansaatUARTsibuk, komentar/prefixHEX, overflow/stop serta delapan resepTXT. Semua resep selesai tanpa unknown-command/antreanpenuh; semua request tetap8byteFC03 berCRCvalid dan IDnonbroadcast. Sketch S3 lulus tanpa warning: RAMstatis21.068byte, program323.793byte. Firmwareutama1.3.0/asetbrowser tidak berubah; kualitas sinyal/timing/maphardware belum dibuktikan.
-
-## Diagnostik berbasis bukti 1.3.0 — 2026-10-26
-
-Suite host INO asli lulus untuk probe pertama diam lalu alamat lain membalas; laporan data versus exception; echo lalu respons sah terpisah; UART tidak tersedia/penulisan parsial; byte RX sebelum TX; input mengikuti bias/HIGH/LOW/berubah; pemulihan UART saat abort; pasangan capture sama/berbeda/abort; isolasi kontradiktif; serta aktivitas RX yang muncul saat terisolasi. Delapan resep lulus kembali, termasuk audit energi raw satu/dua/tiga word. Tes logika native produksi juga lulus.
-
-Sketch ESP32-S3 N16R8 lulus kompilasi espressif32 6.10.0 / Arduino ESP32 2.0.17 tanpa warning: **RAM statis 21.452 byte; program 331.109 byte**, tanpa library eksternal. Gambar PDF27/30 diperiksa langsung; ketidakcocokan panjang energi tetap belum terpecahkan. Ini bukan verifikasi map/skala unit terpasang.
-
-Pemeriksaan dokumentasi lulus: 23 Markdown, 197 link/anchor lokal, 18 SVG dan netlist 31 kabel alternatif manual. Regresi mewajibkan versi diagnostik sesuai serta tujuan INPUT/OUTPUT Serial Monitor pada dua panduan dan semua resep. Kedua SVG wiring dirender di Edge dan diperiksa visual; posisi port tetap skematik.
-
-Firmware utama 1.3.0 dan payload browser tidak berubah, sehingga hasil build/browser sebelumnya tidak diulang atau diklaim sebagai uji hardware baru. Paket dibangun ulang dengan pemeriksaan CRC ZIP dan SHA256 setiap file manifest. Timing driver UART, pull RX fisik, keberadaan/kesehatan modul, sinyal diferensial A/B dan penerimaan register Fort fisik belum diuji. Kode mempertahankan hasil belum terpecahkan saat telemetry tidak cukup.
-
-## Diagnostik dan instrumentasi firmware utama — 1.4.0
-
-Firmware ESP32-S3 N16R8 lulus kompilasi toolchain espressif32 6.10.0 / Arduino ESP32 2.0.17: **RAM statis78.496byte; program1.088.193byte**. Payload browser **149.107byte gzip**, di bawah160KiB. Stack loop core0 sebesar16KiB, akuisisi12KiB. Queue/runtime driver tidak termasuk RAM statis; sisa stack/heap fisik tetap perlu diukur. INO mandiri juga lulus:RAM statis21.460byte/program331.389byte tanpa library eksternal.
-
-Tiga suite native lulus C++11/-Wall/-Wextra/-Werror. Engine produksi generated diuji langsung: echo lalu respons sah terpisah, exception CRC sah tanpa kWh, CRC/ID/fungsi/count/short/oversized salah, byte lama, TX parsial, prefix request gabungan ditolak, tail berCRC sah terlalu dekat deadline ditolak, probe pertama diam lalu fallback, ring/log USB tanpa blocking, pembatalan input parsial dan urutan/rollover event. Delapan resep dijalankan melalui INO dan engine utama. Scan format tersimpan mencakup247ID unik dan rentang satuID; tes matriks18format tetap lulus. Ini bukan eksekusi scheduler/peripheral hardware.
-
-Suite browser gzip lulus mode current/matrix, input/paste guard, pause/resume/unduh diagnostik, EN/ID, polling panel tertutup, tabel proses/memori, tanpa gerak paket jika tidak ada event baru, kasus LED/config/CSV/waktu/error sebelumnya, layout320–2560px dan reduced motion. API/screenshot adalah simulasi. Gambar: [flow](../assets/ui-flow-desktop.png), [monitor proses](../assets/ui-process-desktop.png), [konsol HP](../assets/ui-diagnostic-mobile.png).
-
-Hook tick dan xTaskGetCurrentTaskHandleForCPU berada di IRAM0x4037xxxx pada image ter-link. Sampling mengukur batas tick non-idle dengan batas alias/atribusi interrupt, bukan profiler instruksi/daftar seluruh task. Handler JSON core0 hanya membaca snapshot, tidak UART/Preferences. Guard provenance/web serta pemeriksaan dokumen lulus:25Markdown,223 link/anchor relatif,19SVG,31kabel alternatif manual. Manifest/ZIP diperiksa terhadap byte sebenarnya.
-
-Fort fisik, map/skala, turnaround modul otomatis, timing buffer gabungan, pull RX, callback driver, beban AP banyak klien, stack high-water dan fault recovery instalasi belum diverifikasi. Tidak ada klaim penerimaan hardware/CI remote lulus dari tes lokal. [Panduan lapangan](DIAGNOSTICS.md) menjelaskan penyimpanan satu run terbatas dan pemulihan pengukuran.
+Pembacaan Fort nyata/kesesuaian display, turnaround/noise RS485, OLED/RTC/baterai, tombol/buzzer, LED GPIO48, pemulihan putus daya dan banyak klien AP belum diuji pada instalasi ini. Writer respons HTTP dibatasi, tetapi parser request upstream tidak diganti atau diklaim tahan semua request rusak/besar. Modul empat pin tidak menyediakan sinyal hadir/power-good; UART diam tidak cukup untuk menentukan komponen fisik mana yang hilang/rusak.

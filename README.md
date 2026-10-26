@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 1.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.4.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 An ESP32-S3 reader for the existing Fort power meter at Midea. It reads imported kWh over Modbus RTU, records scheduled half-hour intervals, and serves a dashboard directly to a phone over Wi-Fi. The Fort RS485 port is dedicated to this reader; the ESP32 is its only master.
 
@@ -98,7 +98,7 @@ For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An applic
 
 1. Power the board. Startup does not wait for USB Serial. The OLED animation and buzzer pattern take about 1.5 seconds; a missing OLED does not prevent startup.
 2. Connect the phone to **Midea Engineering AP**, password **betahdijre12345**. Stay on this network when the phone reports that it has no internet. Open **http://192.168.4.1**.
-3. Check the footer reports **Firmware 1.4.0**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
+3. Check the footer reports **Firmware 1.4.1**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
 4. On a new installation, LittleFS may not yet contain a valid filesystem. If mounting fails, hold the physical **OK button (GPIO6)** during boot and keep holding for five seconds. This formats the archive partition and erases archives. Firmware never formats it automatically.
 5. In **Device & records**, choose **Set from this phone** to set the DS3231. It stores UTC; the screen and interval schedule use WIB. The phone's clock must be correct.
 6. Open **Meter setup**. Either enter the Fort communication settings or run **Scan Fort**. Defaults are slave 1, 9600 baud, 8N1. A manual supplied with the meter does not prove the installed slave ID.
@@ -234,6 +234,20 @@ The build writes [web_ui.h](firmware/include/web_ui.h) and a [bundle manifest](w
 Actual React Bits `FadeContent` and `SpotlightCard` are vendored at commit `e12c22192ac7b4b452c5e2feb9b586d74765d696`. Page reveals respect reduced motion; the energy panel uses pointer/focus lighting without a continuous ambient animation. Numeric readings are displayed directly, without counting up through values the meter never reported. [Component provenance and license](web/vendor/react-bits/README.md).
 
 For technical changes, edit the web source and rebuild before PlatformIO. `tools/pio_web.py` rejects stale assets, preventing a successful firmware build from silently carrying the previous UI. [VALIDATION](docs/VALIDATION.md) records actual payload and firmware sizes.
+
+### If PlatformIO reports stale web inputs
+
+The release includes matching generated assets. If you edit `web/`, `package.json` or the lockfile, run these commands **from the repository root** (the folder containing `package.json`), using Node 24.22.1:
+
+```sh
+npm ci
+npm run build:web
+npm run check:web
+cd firmware
+pio run -e esp32s3
+```
+
+Keep `firmware/include/web_ui.h` and `web/bundle.json` in the same commit as the input changes. Do not remove the pre-build guard: it prevents a firmware build from serving an older UI. The error concerns generated asset provenance, not SSD1306 or other firmware libraries.
 
 ## 8. Tests and maintenance
 

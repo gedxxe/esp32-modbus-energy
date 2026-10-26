@@ -2,11 +2,11 @@
 
 **English** · [Bahasa Indonesia](id/DIAGNOSTICS.md) · [Overview](../README.md)
 
-Firmware **1.4.0** includes the standalone diagnostic capabilities. You do not need to replace the application with an INO. The access point, dashboard, buttons and RGB renderer stay available while the UART owner on core 1 runs tests.
+Firmware **1.4.1** includes the standalone diagnostic capabilities. You do not need to replace the application with an INO. The access point, dashboard, buttons and RGB renderer stay available while the UART owner on core 1 runs tests.
 
 ## First run at the panel
 
-1. Upload the main `esp32s3` firmware. On your phone, join **Midea Engineering AP**, password **betahdijre12345**, then open **http://192.168.4.1**. Check the footer says Firmware 1.4.0.
+1. Upload the main `esp32s3` firmware. On your phone, join **Midea Engineering AP**, password **betahdijre12345**, then open **http://192.168.4.1**. Check the footer says Firmware 1.4.1.
 2. Open **Meter setup → Diagnostic console**. The field **Command input** is where web commands go. Commands are not messages for a support chat.
 3. Select **Staged test**. It fills `diagnose` in Command input; it does not run yet. Choose **Run command**.
 4. Wait for `[REPORT_END]` in **Device diagnostic output**. With default silent settings this usually takes about 10 seconds. The test listens passively for 3 seconds, probes communication, continues through its raw-register plan even if the first address is silent, then attempts configured energy/ratios. It does not automatically scan every ID/format.
@@ -46,7 +46,7 @@ The energy table in the scanned manual contains an unresolved length discrepancy
 
 In **Meter setup → Find your Fort meter**, start with a known ID or a small range and **Current saved baud/parity**. This tests one selected probe per ID. IDs 1–16 take roughly 13 seconds when silent at 800 ms; all 247 IDs take about 3–4 minutes including overhead. The menu's actual ID/baud/parity is better evidence than defaults.
 
-If required choose **All 18 baud/parity formats**. A full 1–247 matrix has 4,446 candidates and can take about 70 minutes when silent. Cancellation is processed after the current single 800 ms transaction. Do not start a full matrix as the first response to a single failed reading.
+If required choose **All 18 baud/parity formats**. A full 1–247 matrix has 4,446 candidates and can take about 70 minutes when silent. Cancellation is processed at the next transaction boundary: normally one 800 ms response budget, up to about twice that if a late pre-TX activity burst nearly exhausts the quiet guard. Do not start a full matrix as the first response to a single failed reading.
 
 The probe address/count is editable. The default is 0x0034/1 word; a silently unsupported address can still be missed, so use the multi-address staged test or another manual-based probe. Both a matching data reply and a matching CRC-valid exception can stop discovery. A found connection is not an authenticated model or a verified energy profile. Apply result saves reader serial settings only; normal energy/ratio validation remains mandatory. Exact echo does not prematurely end the search, because some modules can echo requests at serial settings the meter does not answer.
 
@@ -77,3 +77,10 @@ Open Arduino IDE/PlatformIO **Serial Monitor, 115200 baud, Newline**. **Type `de
 ![Diagnostic ownership and event path](assets/diagnostic-flow.svg)
 
 `tools/build-diagnostic.py` generates a committed C++ class from the independent INO. The main compiler includes `firmware/include/diagnostic_engine.h`, not the example file. Both normal polling and active tests call its same transport. Plain PlatformIO builds verify provenance without Node. Host tests execute the generated production engine, including all eight recipes and CRC/ID/function/count/echo/exception cases. Browser tests use the generated gzip bytes and simulated APIs. See [validation](VALIDATION.md); none establishes physical meter acceptance.
+## What changed in 1.4.1
+
+`BUS_NOT_QUIET` / a nonzero bus-busy count means RX never provided the required idle guard; that probe was **not transmitted**. Save `report` output and pre-TX HEX. CRC/echo/rejected counts still do not establish a Fort response. Bytes arriving during the pre-TX wait are discarded rather than reused as a new reply.
+
+Web controls wait for core-1 execution, not merely HTTP acceptance. Clock/config/production scan changes are rechecked if the mode changes while queued. LED/mute/raw-capture changes wait for a safe transaction boundary during long diagnostics. Stop test and Resume measurement remain usable while another ordinary action waits. Stop/Resume cancels older tests; commands submitted afterward belong to the next generation. If execution is unconfirmed, check the current settings before retrying.
+
+An RTC date before the retained record day is rejected even when the RTC is invalid. Correct the phone date, then sync from Device & records after resuming measurement. This preserves existing completed rows.

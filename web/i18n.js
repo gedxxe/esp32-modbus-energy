@@ -283,7 +283,11 @@ export const catalog = {
       "Connection lost. Values shown are the last received sample, not live readings.",
     mute: "Mute alarm",
     unmute: "Enable alarm",
-    request_timeout: "No reply yet. Check the device status before retrying.",
+    rtc_before_records: "RTC date is earlier than retained records. Correct the phone date and sync after resuming measurement.",
+    bus_not_quiet: "RX stayed active before TX; no request was sent.",
+    scan_bus_busy: "{count} probes withheld: RX did not become quiet before transmission.",
+    mode_changed: "Device mode changed. Refresh status, then retry.",
+    request_timeout: "Execution is not confirmed yet. The request may still be queued. Check device status before retrying.",
     request_failed:
       "Could not reach the device. Reconnect to the ESP32 access point.",
     history_failed: "Archive list could not be loaded.",
@@ -607,8 +611,12 @@ export const catalog = {
       "Koneksi terputus. Angka yang terlihat adalah sampel terakhir, bukan pembacaan langsung.",
     mute: "Senyapkan alarm",
     unmute: "Aktifkan alarm",
+    rtc_before_records: "Tanggal RTC mendahului rekaman tersimpan. Benarkan tanggal HP lalu sinkronkan setelah Resume measurement.",
+    bus_not_quiet: "RX terus aktif sebelum TX; permintaan tidak dikirim.",
+    scan_bus_busy: "{count} probe tidak dikirim: RX belum tenang sebelum transmisi.",
+    mode_changed: "Mode perangkat berubah. Segarkan status, lalu coba lagi.",
     request_timeout:
-      "Belum ada balasan. Periksa status perangkat sebelum mengulang.",
+      "Eksekusi belum terkonfirmasi. Perintah mungkin masih di antrean. Periksa status perangkat sebelum mengulang.",
     request_failed:
       "Perangkat tidak dapat dihubungi. Sambungkan kembali ke access point ESP32.",
     history_failed: "Daftar arsip belum dapat dimuat.",

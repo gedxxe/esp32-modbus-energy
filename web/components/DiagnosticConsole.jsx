@@ -51,6 +51,7 @@ function ConsoleData({ device }) {
     };
   }, []);
   const blocked =
+    !view ||
     !device.fresh ||
     device.pending ||
     device.data?.scan?.phase === "running" ||
@@ -58,7 +59,7 @@ function ConsoleData({ device }) {
     view?.pendingCommands > 0 ||
     failed;
   function send(line) {
-    device.act("/api/diagnostic", { command: line });
+    device.act("/api/diagnostic", { command: line }, { priority: ["x", "stop", "resume"].includes(line) });
   }
   function download() {
     const url = URL.createObjectURL(
@@ -133,7 +134,7 @@ function ConsoleData({ device }) {
           id="diagnostic-stop"
           type="button"
           className="button danger"
-          disabled={!device.fresh || device.pending}
+          disabled={!device.fresh || device.priorityPending}
           onClick={() => send("x")}
         >
           {t("diag_stop")}
@@ -142,7 +143,7 @@ function ConsoleData({ device }) {
           id="diagnostic-resume"
           type="button"
           className="button"
-          disabled={!device.fresh || device.pending || !view?.active}
+          disabled={!device.fresh || device.priorityPending || !view?.active}
           onClick={() => send("resume")}
         >
           {t("diag_resume")}

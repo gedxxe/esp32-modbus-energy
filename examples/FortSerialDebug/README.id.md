@@ -1,4 +1,4 @@
-# FortSerialDebug 1.3.0 — panduan diagnosis lapangan
+# FortSerialDebug 1.3.1 — panduan diagnosis lapangan
 
 [English](README.md) · **Bahasa Indonesia** · [Firmware utama](../../README.id.md)
 
@@ -9,7 +9,7 @@ Sketch Arduino mandiri dengan core Espressif, **tanpa library eksternal**. Saat 
 1. Unduh ZIP repo dan ekstrak atau perbarui checkout. Buka file lokal [FortSerialDebug.ino](FortSerialDebug.ino) di Arduino IDE; biarkan [partitions.csv](partitions.csv) di sebelahnya. Halaman source GitHub bukan tempat mengetik perintah.
 2. Pilih **ESP32S3 Dev Module**, COM board yang benar, **flash 16 MB**, **OPI PSRAM**, **Erase All Flash: Disabled**. USB native: **Hardware CDC and JTAG**, **USB CDC On Boot: Enabled**.
 3. Klik Upload. Sesudah selesai, buka **Tools → Serial Monitor** pada COM yang sama. Pilih **115200 baud** dan **Newline**. `Both NL & CR` juga diterima; jangan pilih `No line ending`.
-4. Banner harus menunjukkan **FortSerialDebug 1.3.0**. Jika belum terlihat, ketik `help` di input Serial Monitor dan Enter. Boot tidak menunggu USB.
+4. Banner harus menunjukkan **FortSerialDebug 1.3.1**. Jika belum terlihat, ketik `help` di input Serial Monitor dan Enter. Boot tidak menunggu USB.
 
 Build lokal memakai Arduino ESP32 **2.0.17** melalui PlatformIO. GUI IDE, core lain dan Fort terpasang belum diuji penerimaan. Alternatif `pio run -d examples/FortSerialDebug` diketik di **terminal komputer** dari root repo, bukan Serial Monitor.
 
@@ -192,3 +192,7 @@ Default mengikuti manual yang diperiksa visual: energi 0x0082–83,PT/CT 0x002C�
 Tanpa write register, broadcast, reset meter, NVS atau filesystem. GPIO16 tidak dipakai modul otomatis. RX 64 byte/frame; detail 4 frame/request dan 8 chunk pasif; traffic lain tetap dihitung/divalidasi. Counter callback atomik; console dicetak di loop. Timing bufferUART bukan logic analyzer, RX kosong bukan bukti A/B tidak bersinyal. Log Serial memengaruhi timing.
 
 Tes menjalankan INO sebenarnya dengan UART/console tiruan: setting runtime, nilai invalid, berbagai hasil, antrean, stop dan konversi. PlatformIO mengompilasi sketch terpisah (`pio run -d examples/FortSerialDebug`). Timing/map hardware dan GUI IDE belum diuji. Setelah pengujian upload kembali firmware utama; pertahankan CSV partisi dan pengaturan erase sesuai panduannya.
+
+### Koreksi transport pada 1.3.1
+
+Guard sebelum TX mengamati jeda tenang kontinu dan membuang byte yang datang selama penantian. `[BUS_NOT_QUIET]` berarti permintaan tidak dikirim dalam budget guard; periksa aktivitas RX tercatat tanpa menyimpulkan modul hilang/rusak. Polling frame pendek lebih rapat di sekitar gap agar echo tidak tergabung dengan respons cepat yang sah. Inisialisasi UART gagal dicoba lagi. Ini observasi buffer software; task terlambat masih dapat melewatkan gap fisik dan RTU tidak memiliki transaction ID untuk memastikan asal setiap respons tertunda.

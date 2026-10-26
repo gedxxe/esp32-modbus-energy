@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
+import { validTrace } from "../validation.js";
 
 function TraceData({ device }) {
   const { t } = useText();
@@ -19,12 +20,7 @@ function TraceData({ device }) {
         });
         if (!response.ok) throw new Error("trace");
         const next = await response.json();
-        if (
-          !Array.isArray(next.frames) ||
-          next.frames.length > 12 ||
-          typeof next.active !== "boolean"
-        )
-          throw new Error("schema");
+        if (!validTrace(next)) throw new Error("schema");
         if (alive) {
           setCapture(next);
           setFailed(false);
@@ -47,7 +43,7 @@ function TraceData({ device }) {
   const download = () => {
     const lines = [
       `Fort raw capture | firmware ${capture.version} | capture ${capture.generation}`,
-      `ESP32 TX GPIO${capture.txPin} / RX GPIO${capture.rxPin}`,
+      `Production pins: ESP32 TX GPIO${capture.txPin} / RX GPIO${capture.rxPin}; diagnostic frames may use trial pins.`,
       "Times are milliseconds since boot; UART-buffer observations, not a wire-level trace.",
       "",
     ];

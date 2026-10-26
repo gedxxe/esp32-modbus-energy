@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useText } from "../ui.js";
+import { validFlow } from "../validation.js";
 
 // Fetch only new device events. Animation never starts without a new UART event.
 export default function UartFlow() {
@@ -81,8 +82,7 @@ export default function UartFlow() {
         });
         if (!response.ok) throw new Error("flow");
         const next = await response.json();
-        if (!Array.isArray(next.events) || next.events.length > 32)
-          throw new Error("schema");
+        if (!validFlow(next)) throw new Error("schema");
         if (!alive) return;
         const initial = !warmed.current || boot.current !== next.boot;
         if (boot.current !== next.boot) {

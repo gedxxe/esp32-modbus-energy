@@ -65,7 +65,15 @@ let online = true,
   fail = false,
   scanMode = "running",
   rejectScan = false,
-  hangScan = false;
+  hangScan = false,
+  malformedStatus = false,
+  malformedFlow = false,
+  malformedTrace = false,
+  malformedHistory = false,
+  malformedSystem = false,
+  diagnosticHold = false,
+  delayedControls = 0,
+  rejectNextControl = false;
 let traceFail = false,
   traceRequests = 0;
 const trace = {
@@ -83,6 +91,7 @@ const calls = [],
 const state = {
   version,
   token: "test-session",
+  control: { accepted: 0, completed: 0, rejected: 0, lastError: "", pending: 0, results: [] },
   rtc: true,
   storage: true,
   ratios: true,
@@ -195,18 +204,20 @@ const server = http.createServer((req, res) => {
         capacity: 32,
         gap: flowGap,
         diagnosticActive: diagnostic.active,
-        events: flowEvents.filter((e) => !after || e.seq > after),
+        events: malformedFlow ? [null] : flowEvents.filter((e) => !after || e.seq > after),
       }),
     );
     return;
   }
   if (req.url === "/api/diagnostic" && req.method === "GET") {
     ++diagnosticRequests;
+    if (diagnosticHold) return;
     res.end(JSON.stringify(diagnostic));
     return;
   }
   if (req.url === "/api/system") {
     ++systemRequests;
+    if (malformedSystem) { res.end(JSON.stringify({ cores: [null], tasks: [null] })); return; }
     res.end(
       JSON.stringify({
         cpuMHz: 240,
@@ -268,6 +279,7 @@ const server = http.createServer((req, res) => {
     res.end(
       JSON.stringify({
         ...state,
+        slots: malformedStatus ? Array(9).fill(null) : state.slots,
         online: online && state.scan.phase !== "running" && !diagnostic.active,
         diagnosticActive: diagnostic.active,
       }),
@@ -281,10 +293,11 @@ const server = http.createServer((req, res) => {
       res.end("{}");
       return;
     }
-    res.end(JSON.stringify(trace));
+    res.end(JSON.stringify(malformedTrace ? { ...trace, frames: [null] } : trace));
     return;
   }
   if (req.url === "/api/history") {
+    if (malformedHistory) { res.end("[null]"); return; }
     res.end(
       JSON.stringify([
         { day: 20752, date: "2026-10-26" },
@@ -320,6 +333,18 @@ const server = http.createServer((req, res) => {
         );
         return;
       }
+      const normalControl = req.url !== "/api/diagnostic";
+      const commandId = normalControl ? ++state.control.accepted : null;
+      const reject = normalControl && rejectNextControl;
+      if (normalControl) {
+        ++state.control.pending;
+        rejectNextControl = false;
+      }
+      const apply = () => {
+        if (reject) {
+          state.control.rejected = commandId;
+          state.control.lastError = "scan_busy";
+        } else {
       if (req.url === "/api/diagnostic") {
         const command = data.get("command");
         if (command === "resume") {
@@ -423,8 +448,18 @@ const server = http.createServer((req, res) => {
           storageOK: true,
         });
       if (req.url === "/api/mute") state.muted = !state.muted;
+        }
+        if (normalControl) {
+          state.control.completed = commandId;
+          state.control.results.push({ id: commandId, error: reject ? "scan_busy" : "" });
+          state.control.results = state.control.results.slice(-8);
+          --state.control.pending;
+        }
+      };
+      if (normalControl && delayedControls) setTimeout(apply, delayedControls);
+      else apply();
       res.statusCode = 202;
-      res.end(JSON.stringify({ code: "accepted", message: "Command queued." }));
+      res.end(JSON.stringify({ code: "accepted", message: "Command queued.", ...(normalControl ? { accepted: true, commandId } : {}) }));
     });
     return;
   }
@@ -519,6 +554,13 @@ async function checkVectors(browser, out) {
     );
     assert.equal(await page.locator("html").getAttribute("lang"), "en");
     assert.equal(await page.locator("#energy").textContent(), "128,432.728");
+    malformedStatus = true;
+    await refresh();
+    await page.waitForFunction(() => document.getElementById("health")?.textContent.includes("Connection lost"));
+    assert.equal(await page.locator("#energy").textContent(), "128,432.728", "Malformed status retains the accepted snapshot");
+    malformedStatus = false;
+    await refresh();
+    await page.waitForFunction(() => !document.getElementById("health")?.textContent.includes("Connection lost"));
     assert.equal(
       await page.locator("#version").textContent(),
       "Firmware " + version,
@@ -528,7 +570,25 @@ async function checkVectors(browser, out) {
     assert((await page.locator("#intervals").innerText()).includes("16:30"));
     assert((await page.locator(".shift-total").innerText()).includes("—")); // No complete samples, not zero energy.
     await page.locator('[data-shift="0"]').click();
+    malformedHistory = true;
     await page.locator("#nav-device").click();
+    await page.getByText("Archive list could not be loaded.", { exact: true }).waitFor();
+    assert(await page.locator("#mute").isVisible(), "Malformed history must not crash the device page");
+    malformedHistory = false;
+    await page.locator("#nav-overview").click();
+    await page.locator("#nav-device").click();
+    await page.waitForFunction(() => document.querySelectorAll("#history option").length === 2);
+    delayedControls = 1200;
+    await page.locator("#mute").click();
+    await page.waitForTimeout(300);
+    assert(await page.locator("#mute").isDisabled(), "202 admission must not unlock controls before UART-owner completion");
+    await page.waitForFunction(() => document.getElementById("mute")?.textContent.includes("Enable alarm"));
+    await page.waitForFunction(() => !document.getElementById("mute")?.disabled);
+    delayedControls = 0;
+    rejectNextControl = true;
+    await page.locator("#mute").click();
+    await page.waitForFunction(() => document.getElementById("message")?.textContent.includes("Cancel the scan"));
+    assert((await page.locator("#mute").innerText()).includes("Enable alarm"), "Rejected commands must not appear applied");
     assert.equal(await page.locator("#led-mode").inputValue(), "hue");
     assert.equal(await page.locator("#led-brightness").inputValue(), "128");
     assert(await page.locator("#led-color").isDisabled());
@@ -669,6 +729,11 @@ async function checkVectors(browser, out) {
         rawText.includes("GPIO17 / RX GPIO18") &&
         rawText.includes("RX (8 captured bytes)"),
     );
+    malformedTrace = true;
+    await page.waitForFunction(() => document.getElementById("trace-status")?.textContent.includes("Cannot"));
+    assert(await page.locator("#trace-start").isDisabled(), "Malformed raw frames must disable capture controls without a render error");
+    malformedTrace = false;
+    await page.waitForFunction(() => !document.getElementById("trace-status")?.textContent.includes("Cannot"));
     traceFail = true;
     await page.waitForFunction(() =>
       document
@@ -804,7 +869,7 @@ async function checkVectors(browser, out) {
       () =>
         document
           .getElementById("message")
-          ?.textContent.includes("No reply yet"),
+          ?.textContent.includes("Execution is not confirmed yet"),
       null,
       { timeout: 8000 },
     );
@@ -910,6 +975,11 @@ async function checkVectors(browser, out) {
       observed,
       "No idle/decorative packet animation without a new device event",
     );
+    malformedFlow = true;
+    await page.waitForFunction(() => document.getElementById("flow-phase")?.textContent.includes("unavailable"));
+    assert(await page.locator("#nav-setup").isVisible(), "Malformed flow rows must not crash the dashboard");
+    malformedFlow = false;
+    await page.waitForFunction(() => !document.getElementById("flow-phase")?.textContent.includes("unavailable"));
     flowBoot++;
     flowSequence = 0;
     flowEvents = [];
@@ -929,8 +999,12 @@ async function checkVectors(browser, out) {
       beforeDiagnostic,
       "Closed diagnostic panel must not fetch logs",
     );
+    diagnosticHold = true;
     await page.locator("#diagnostic-console > summary").click();
     await page.waitForSelector("#diagnostic-command");
+    assert(await page.locator("#diagnostic-send").isDisabled(), "Do not run diagnostics before loading current UART-owner state");
+    diagnosticHold = false;
+    await page.waitForFunction(() => !document.getElementById("diagnostic-send").disabled, null, { timeout: 8000 });
     await page.locator("#diagnostic-command").evaluate((node) => {
       const clipboardData = new DataTransfer();
       clipboardData.setData("text", "x\nstatus");
@@ -956,6 +1030,26 @@ async function checkVectors(browser, out) {
     assert(await page.locator("#scanstart").isDisabled());
     assert(await page.locator("#slave").isDisabled());
     assert((await page.locator("#health").innerText()).includes("Maintenance"));
+    await page.locator("#nav-device").click();
+    assert(await page.locator("#sync").isDisabled(), "RTC sync must stay blocked during maintenance");
+    delayedControls = 2000;
+    await page.locator("#mute").click();
+    await page.waitForTimeout(100);
+    assert(await page.locator("#mute").isDisabled());
+    await page.locator("#nav-setup").click();
+    await page.locator("#diagnostic-console > summary").click();
+    await page.waitForFunction(() => !document.getElementById("diagnostic-stop")?.disabled);
+    const beforePriority = calls.length;
+    await page.locator("#diagnostic-stop").click();
+    await page.waitForFunction(() => !document.getElementById("diagnostic-stop")?.disabled);
+    assert(calls.slice(beforePriority).some((c) => c.url === "/api/diagnostic" && c.data.get("command") === "x"), "Priority stop must be sent while ordinary control is awaiting completion");
+    await page.waitForTimeout(2200);
+    delayedControls = 0;
+    await page.locator("#nav-device").click();
+
+    await page.locator("#nav-setup").click();
+    await page.locator("#diagnostic-console > summary").click();
+    await page.waitForFunction(() => !document.getElementById("diagnostic-resume")?.disabled);
     const commandCall = calls.find(
       (c) =>
         c.url === "/api/diagnostic" && c.data.get("command") === "diagnose",
@@ -999,6 +1093,12 @@ async function checkVectors(browser, out) {
     await page.locator("#process-monitor summary").click();
     await page.waitForSelector("#process-monitor tbody tr");
     assert.equal(await page.locator("#process-monitor tbody tr").count(), 4);
+    malformedSystem = true;
+    await page.locator("#process-monitor [role=status].warning").waitFor();
+    assert.equal(await page.locator("#process-monitor tbody tr").count(), 4, "Malformed process metrics must retain the previous table");
+    malformedSystem = false;
+    await page.locator("#process-monitor [role=status].warning").waitFor({ state: "hidden" });
+
     assert(
       (await page.locator("#process-monitor").innerText()).includes("17.4%"),
     );

@@ -24,24 +24,48 @@
 #include "flow.h"
 #include "process_monitor.h"
 #include "diagnostic_engine.h"
+#include "clock_guard.h"
+#include "command_policy.h"
+#include "bounded_write.h"
 
 SET_LOOP_TASK_STACK_SIZE(16384);
 using namespace fort;
 static_assert(ARDUINO_RUNNING_CORE==0,"UI must run on core 0");
 HardwareSerial bus(1);
 Adafruit_SSD1306 oled(128,64,&Wire,-1);
-WebServer server(80);
+void serviceHTTP();
+class BoundedWebServer:public WebServer {
+ public:
+  explicit BoundedWebServer(uint16_t port):WebServer(port){}
+  void handleClient()override{requestStarted=millis();WebServer::handleClient();}
+ protected:
+  uint32_t requestStarted=0;
+  size_t _currentClientWrite(const char *data,size_t size)override{
+    size_t sent=boundedWrite(data,size,requestStarted,5000,[](){return millis();},
+      [this](){return bool(_currentClient.connected());},
+      [this](const char *bytes,size_t count){int n=::send(_currentClient.fd(),bytes,count,MSG_DONTWAIT);return n>=0?n:(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR?0:-1);},
+      [](){serviceHTTP();});
+    if(sent<size)_currentClient.stop();return sent;
+  }
+  size_t _currentClientWrite_P(PGM_P data,size_t size)override{return _currentClientWrite(data,size);}
+};
+BoundedWebServer server(80);
 SemaphoreHandle_t i2cMutex,fsMutex;
 QueueHandle_t snapshotQueue,commandQueue;
 bool oledOK=false,apOK=false;
 String apiToken;
 
-enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN,SET_LED,START_TRACE,STOP_TRACE };
-struct Command { CommandType type; uint32_t epoch=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; uint16_t address=0x0034;uint8_t words=1;bool currentOnly=false; };
+struct Command { CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; uint16_t address=0x0034;uint8_t words=1;bool currentOnly=false; };
+struct CommandResult { uint32_t id=0;char error[80]={}; };
+constexpr uint8_t COMMAND_RESULTS=8;
+uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
 struct Snapshot {
+  uint32_t modeRevision=0,completedCommand=0,rejectedCommand=0;
+  char commandError[80]={};
+  CommandResult commandResults[COMMAND_RESULTS]={};uint8_t commandResultNext=0;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false; uint16_t scanAddress=0x0034;uint8_t scanWords=1;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;
-  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
+  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=0,ratio=0;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
   char error[64]="Waiting for a response";
@@ -82,10 +106,14 @@ void tickLED(const LedSettings *settings=nullptr) {
     if(rmt_write_items(LED_RMT_CHANNEL,items,24,false)==ESP_OK){previous=color;written=true;}
   }
 }
+void serviceHTTP(){esp_task_wdt_reset();tickLED();vTaskDelay(1);}
 constexpr size_t DIAGNOSTIC_LOG_SIZE=8192;
 char diagnosticLog[DIAGNOSTIC_LOG_SIZE]{};
 DiagnosticEngine normalReader(bus),diagnostic(bus,diagnosticLog,sizeof(diagnosticLog));
-struct DiagnosticInput { char line[96]={}; };
+struct DiagnosticInput { uint32_t generation=0;char line[96]={}; };
+struct DiagnosticStop { uint32_t generation=0;uint8_t action=0; };
+uint32_t diagnosticInputGeneration=0; // Core 0 writer; copied in each message.
+uint32_t diagnosticActiveGeneration=0; // Core 1 only.
 struct DiagnosticView {
   uint32_t generation=0,discarded=0;bool active=false,busy=false;
   DiagnosticEngine::Evidence evidence{};
@@ -135,16 +163,18 @@ bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t 
     const auto before=normalReader.evidence;
     bool ok=normalReader.readRegisters(diagnosticLink(config),address,count,out);
     uint32_t badCRC=(normalReader.evidence.crcBad-before.crcBad)+(normalReader.evidence.shortFrames-before.shortFrames);
-    uint32_t rejected=(normalReader.evidence.echoes-before.echoes)+(normalReader.evidence.wrongFrames-before.wrongFrames)+(normalReader.evidence.overflows-before.overflows);
+    uint32_t busy=normalReader.evidence.busBusy-before.busBusy;
+    uint32_t rejected=(normalReader.evidence.echoes-before.echoes)+(normalReader.evidence.wrongFrames-before.wrongFrames)+(normalReader.evidence.overflows-before.overflows)+busy;
     uint32_t timeouts=normalReader.evidence.timeouts-before.timeouts;
-    if(normal){state.crcErrors+=badCRC;state.rejected+=rejected;state.timeouts+=timeouts;}
-    else{scanner.progress.crcErrors+=badCRC;scanner.progress.rejected+=rejected;scanner.progress.timeouts+=timeouts;}
+    if(normal){state.crcErrors+=badCRC;state.rejected+=rejected;state.timeouts+=timeouts;state.busBusy+=busy;}
+    else{scanner.progress.crcErrors+=badCRC;scanner.progress.rejected+=rejected;scanner.progress.timeouts+=timeouts;scanner.progress.busBusy+=busy;}
     if(ok)return true;
     if(normalReader.lastReply==DiagnosticEngine::REPLY_EXCEPTION){
       if(normal)setError("Modbus exception; register not read","modbus_exception");else ++scanner.progress.exceptions;
       return false;
     }
-    if(normalReader.evidence.txErrors!=before.txErrors){if(normal)setError("Local UART initialization or write failed","local_uart_error");else ++scanner.progress.rejected;}
+    if(busy){if(normal)setError("RX did not become quiet; request not transmitted","bus_not_quiet");}
+    else if(normalReader.evidence.txErrors!=before.txErrors){if(normal)setError("Local UART initialization or write failed","local_uart_error");else ++scanner.progress.rejected;}
     else if(normalReader.evidence.timeouts!=before.timeouts){if(normal)setError("Modbus response timeout","modbus_timeout");}
     else if(normalReader.evidence.crcBad!=before.crcBad||normalReader.evidence.shortFrames!=before.shortFrames){if(normal)setError("Untrusted CRC or short frame","crc_mismatch");}
     else{if(!rejected){if(normal)++state.rejected;else ++scanner.progress.rejected;}if(normal)setError("RX did not contain an accepted response","invalid_frame");}
@@ -154,7 +184,7 @@ bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t 
 }
 bool readWords(uint16_t address,uint8_t count,uint8_t *out){return readWordsFor(state.config,address,count,out);}
 void restoreAfterScan() {
-  startBus();state.ratios=false;haveSample=false;rawKnown=false;state.power=NAN;
+  ++state.modeRevision;startBus();state.ratios=false;haveSample=false;rawKnown=false;state.power=NAN;
   lastRatio=0;lastPoll=millis();
   setError(scanner.progress.phase==SCAN_FOUND?"Scan finished; result not applied":scanner.progress.phase==SCAN_CANCELLED?"Scan cancelled; previous settings restored":"Scan finished without a match",
     scanner.progress.phase==SCAN_FOUND?"scan_result_pending":scanner.progress.phase==SCAN_CANCELLED?"scan_was_cancelled":"scan_no_meter");
@@ -249,13 +279,17 @@ void publishDiagnostic(){
   diagnosticView.discarded=diagnostic.logDiscarded;diagnostic.copyLog(diagnosticView.log,sizeof(diagnosticView.log));
   xQueueOverwrite(diagnosticViewQueue,&diagnosticView);lastDiagnosticPublish=millis();
 }
+void serviceDiagnosticStop(){
+  DiagnosticStop stop;
+  if(xQueueReceive(diagnosticStopQueue,&stop,0)==pdTRUE){diagnosticActiveGeneration=stop.generation;diagnostic.emergencyStop();if(stop.action==2){resumeRequested=true;entryRequested=false;}}
+}
 void serviceDiagnostic(){
-  esp_task_wdt_reset();diagnostic.drainSerial();uint8_t stop=0;
-  if(xQueueReceive(diagnosticStopQueue,&stop,0)==pdTRUE){diagnostic.emergencyStop();if(stop==2)resumeRequested=true;}
+  esp_task_wdt_reset();diagnostic.drainSerial();serviceDiagnosticStop();
   if(uint32_t(millis()-lastFlowPublish)>=50){publish();lastFlowPublish=millis();}
-  if(diagnosticActive){
+  if(diagnosticActive&&!resumeRequested){
     DiagnosticInput input;
     for(uint8_t n=0;n<4&&diagnostic.consoleCount<DiagnosticEngine::CONSOLE_CAPACITY&&xQueueReceive(diagnosticInputQueue,&input,0)==pdTRUE;++n){
+      if(input.generation!=diagnosticActiveGeneration)continue;
       if(!strcmp(input.line,"resume")){resumeRequested=true;diagnostic.emergencyStop();}
       else if(!diagnostic.submit(input.line))diagnostic.logf("[CONSOLE_FULL] command refused; wait for queued work\n");
     }
@@ -264,8 +298,9 @@ void serviceDiagnostic(){
 }
 void enterDiagnostic(){
   if(diagnosticActive||scanner.running()||uxQueueMessagesWaiting(commandQueue))return;
+  ++state.modeRevision;diagnosticActive=true;state.diagnosticActive=true;publish();
   tracker.interrupt();saveCheckpoint(true);haveSample=false;rawKnown=false;state.ratios=false;state.power=NAN;
-  currentAttempt=1;diagnosticActive=true;entryRequested=false;resumeRequested=false;state.diagnosticActive=true;diagnostic.activeBaud=0;
+  currentAttempt=1;entryRequested=false;resumeRequested=false;diagnostic.activeBaud=0;
   // Normal reader retains the generated defaults; do not duplicate register maps.
   diagnostic.options=normalReader.options;diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;
   memcpy(diagnostic.auditPlan,normalReader.auditPlan,sizeof(diagnostic.auditPlan));diagnostic.auditCount=normalReader.auditCount;
@@ -279,8 +314,7 @@ void enterDiagnostic(){
 }
 void leaveDiagnostic(){
   diagnostic.emergencyStop();diagnostic.serialInputEnabled=false;
-  diagnosticActive=false;state.diagnosticActive=false;resumeRequested=false;
-  DiagnosticInput discarded;while(xQueueReceive(diagnosticInputQueue,&discarded,0)==pdTRUE){}
+  ++state.modeRevision;diagnosticActive=false;state.diagnosticActive=false;resumeRequested=false;
   diagnostic.activeBaud=0;normalReader.activeBaud=0;normalReader.options=DiagnosticEngine::DebugOptions{};startBus();
   haveSample=false;rawKnown=false;state.ratios=false;state.power=NAN;lastRatio=0;lastPoll=millis();
   diagnostic.logf("[RESUMED] Saved production settings restored; test readings were never fed into interval records.\n");publishDiagnostic();publish();
@@ -291,6 +325,66 @@ void pollDebugEntry(){
   for(unsigned i=0;i<32&&Serial.available();++i){char ch=char(Serial.read());if(ch=='\r')continue;
     if(ch=='\n'){serialControl[serialControlUsed]=0;if(!strcmp(serialControl,"debug")){entryRequested=true;serialControlUsed=0;break;}else if(serialControlUsed)Serial.println("Main firmware: type debug + Enter to enter diagnostics; web: Meter setup / Diagnostic console.");serialControlUsed=0;}
     else if(serialControlUsed<sizeof(serialControl)-1)serialControl[serialControlUsed++]=ch;
+  }
+}
+
+// Runs only at core-1 transaction boundaries, never from the UART service hook.
+// 202 acknowledges admission; each completion/rejection is visible in status.
+void completeCommand(const Command &cmd,const char *error=""){
+  if(!cmd.id)return; // Physical buttons do not have an HTTP acknowledgement.
+  state.completedCommand=cmd.id;
+  if(*error){state.rejectedCommand=cmd.id;strlcpy(state.commandError,error,sizeof(state.commandError));}
+  CommandResult &result=state.commandResults[state.commandResultNext];
+  result.id=cmd.id;strlcpy(result.error,error,sizeof(result.error));
+  state.commandResultNext=(state.commandResultNext+1)%COMMAND_RESULTS;publish();
+}
+void processCommands(){
+  Command cmd;
+  for(uint8_t handled=0;handled<6&&xQueueReceive(commandQueue,&cmd,0)==pdTRUE;++handled){
+    esp_task_wdt_reset();
+    if(!commandContextValid(cmd.type,cmd.modeRevision,state.modeRevision,cmd.queuedAt,millis(),diagnosticActive,scanner.running(),scanner.progress.phase==SCAN_FOUND)){
+      completeCommand(cmd,"Device mode changed or command expired; refresh status and retry");continue;
+    }
+    const char *error="";
+    switch(cmd.type){
+      case TOGGLE_MUTE:muted=!muted;break;
+      case START_TRACE:
+        if(state.trace.active)error="A raw capture is already running";else state.trace.begin();break;
+      case STOP_TRACE:state.trace.stop();break;
+      case SET_LED:{
+        if(!RGB_LED_ENABLED||!validLed(cmd.led)){error="Invalid or unavailable LED configuration";break;}
+        state.led=cmd.led;uint8_t bytes[LED_RECORD_SIZE];encodeLed(state.led,bytes);
+        state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);state.ledStorageOK=state.ledStored;
+        if(!state.ledStored)error="LED changed in RAM; saving settings failed";break;
+      }
+      case SET_TIME:{
+        uint32_t effectiveUTC=0;
+        auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,tracker.day.number,effectiveUTC);
+        if(result!=CLOCK_ACCEPTED){error="RTC request expired or precedes retained records; sync again";break;}
+        tracker.interrupt();clockKnown=false;rawKnown=false;
+        if(!rtcWrite(effectiveUTC)){error="RTC write or verification failed";setError(error,"rtc_write_failed");}
+        saveCheckpoint(true);break;
+      }
+      case START_SCAN:
+        if(!scanner.begin(cmd.first,cmd.last,state.config,millis(),cmd.currentOnly)){error="Invalid scan request";break;}
+        ++state.modeRevision;state.scanAddress=cmd.address;state.scanWords=cmd.words;state.scanException=false;
+        tracker.interrupt();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
+        setError("Scan running; recording paused","scanning");break;
+      case CANCEL_SCAN:
+        if(scanner.cancel(millis()))restoreAfterScan();else error="Scan already finished";break;
+      case APPLY_SCAN:
+      case SET_CONFIG:{
+        Settings settings=cmd.type==APPLY_SCAN?scanner.progress.result:cmd.config;
+        if(!validSettings(settings)){error="Invalid serial configuration";break;}
+        ++state.modeRevision;tracker.interrupt();state.config=settings;state.ratios=false;rawKnown=false;haveSample=false;
+        ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
+        configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
+        if(!configOK)error="Connection changed in RAM; saving settings failed";
+        saveCheckpoint(true);startBus();lastRatio=0;lastPoll=0;break;
+      }
+      default:error="Unsupported command";break;
+    }
+    completeCommand(cmd,error);publish();
   }
 }
 
@@ -310,7 +404,7 @@ void acquisition(void *) {
     state.ledStored=prefs.getBytesLength("led")==sizeof(bytes)&&prefs.getBytes("led",bytes,sizeof(bytes))==sizeof(bytes)&&decodeLed(bytes,sizeof(bytes),state.led);
     state.ledStorageOK=state.ledStored;
   }
-  if(nvsOK&&prefs.getBytesLength("day")==sizeof(Checkpoint)) {
+  if(nvsOK&&prefs.isKey("day")&&prefs.getBytesLength("day")==sizeof(Checkpoint)) {
     Checkpoint c{};prefs.getBytes("day",&c,sizeof(c));
     if(c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))) {tracker.day=c.day;tracker.interrupt();}
     else checkpointOK=false;
@@ -320,52 +414,30 @@ void acquisition(void *) {
   while(true) {
     state.acquisitionCycleMs=millis()-previousCycle;previousCycle=millis();
     esp_task_wdt_reset();pollDebugEntry();
-    if(!diagnosticActive){
-      DiagnosticInput next;
-      if(xQueuePeek(diagnosticInputQueue,&next,0)==pdTRUE&&(!strcmp(next.line,"report")||!strcmp(next.line,"status")||!strcmp(next.line,"help")||!strcmp(next.line,"compare")||!strcmp(next.line,"plan show"))){
-        xQueueReceive(diagnosticInputQueue,&next,0);
-        if(!diagnosticView.generation){diagnostic.current=diagnosticLink(state.config);diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;}
-        diagnostic.logf("[PRODUCTION_SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d; test settings below are RAM only\n",state.config.slave,(unsigned long)state.config.baud,state.config.parity,PIN_RX,PIN_TX);
-        diagnostic.command(next.line);publishDiagnostic();
-      }
-    }
-    if(!diagnosticActive&&(entryRequested||uxQueueMessagesWaiting(diagnosticInputQueue))&&!scanner.running())enterDiagnostic();
-    if(!diagnosticActive&&scanner.running()&&uxQueueMessagesWaiting(diagnosticInputQueue)){
-      DiagnosticInput rejected;while(xQueueReceive(diagnosticInputQueue,&rejected,0)==pdTRUE){}
-      diagnostic.logf("[COMMAND_REJECTED] Production scan owns UART. Cancel it, then run the diagnostic command again.\n");publishDiagnostic();
-    }
     serviceDiagnostic();
-    if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
-    Command cmd;
-    while(xQueueReceive(commandQueue,&cmd,0)==pdTRUE) {
-      if(cmd.type==TOGGLE_MUTE)muted=!muted;
-      if(cmd.type==START_TRACE&&!state.trace.active){state.trace.begin();publish();}
-      if(cmd.type==STOP_TRACE){state.trace.stop();publish();}
-      if(cmd.type==SET_LED&&RGB_LED_ENABLED&&validLed(cmd.led)) {
-        state.led=cmd.led;uint8_t bytes[LED_RECORD_SIZE];encodeLed(state.led,bytes);
-        state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);
-        state.ledStorageOK=state.ledStored;publish();
-      }
-      if(cmd.type==SET_TIME) {
-        tracker.interrupt();clockKnown=false;rawKnown=false;
-        if(!rtcWrite(cmd.epoch))setError("RTC write or verification failed","rtc_write_failed");
-        saveCheckpoint(true);
-      }
-      if(cmd.type==START_SCAN&&!diagnosticActive&&!scanner.running()&&scanner.begin(cmd.first,cmd.last,state.config,millis(),cmd.currentOnly)) {
-        state.scanAddress=cmd.address;state.scanWords=cmd.words;state.scanException=false;
-        tracker.interrupt();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
-        setError("Scan running; recording paused","scanning");publish();
-      }
-      if(cmd.type==CANCEL_SCAN&&scanner.cancel(millis())){restoreAfterScan();publish();}
-      if(cmd.type==APPLY_SCAN&&scanner.progress.phase==SCAN_FOUND) {cmd.type=SET_CONFIG;cmd.config=scanner.progress.result;}
-      if(cmd.type==SET_CONFIG&&!diagnosticActive&&!scanner.running()&&validSettings(cmd.config)) {
-        tracker.interrupt();state.config=cmd.config;state.ratios=false;rawKnown=false;haveSample=false;
-        ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
-        configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
-        saveCheckpoint(true);startBus();lastRatio=0;lastPoll=0;publish();
+    DiagnosticInput next;bool haveNext=false;
+    if(!diagnosticActive){
+      for(uint8_t handled=0;handled<16&&xQueueReceive(diagnosticInputQueue,&next,0)==pdTRUE;++handled){
+        if(next.generation!=diagnosticActiveGeneration)continue;
+        bool passive=!strcmp(next.line,"report")||!strcmp(next.line,"status")||!strcmp(next.line,"help")||!strcmp(next.line,"compare")||!strcmp(next.line,"plan show");
+        if(passive){
+          if(!diagnosticView.generation){diagnostic.current=diagnosticLink(state.config);diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;}
+          diagnostic.logf("[PRODUCTION_SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d; test settings below are RAM only\n",state.config.slave,(unsigned long)state.config.baud,state.config.parity,PIN_RX,PIN_TX);
+          diagnostic.command(next.line);publishDiagnostic();
+        }else{haveNext=true;break;}
       }
     }
+    processCommands();
+    if(!diagnosticActive&&(entryRequested||haveNext)&&!scanner.running())enterDiagnostic();
+    if(haveNext){
+      serviceDiagnosticStop(); // Preserve FIFO: submit the held first input before transferring later lines.
+      if(next.generation!=diagnosticActiveGeneration||resumeRequested){diagnostic.logf("[CANCELLED] Pending command cancelled by stop/resume\n");}
+      else if(diagnosticActive){if(!diagnostic.submit(next.line))diagnostic.logf("[CONSOLE_FULL] Command refused; retry after current work.\n");}
+      else{diagnostic.logf("[COMMAND_REJECTED] Production scan or pending controls own UART. Retry after they finish.\n");publishDiagnostic();}
+    }
+    if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
     uint32_t utc=0;bool rtcOK=rtcRead(utc);
+    if(rtcOK&&!protectsRecordedDay(utc,LOCAL_OFFSET,tracker.day.number)){rtcOK=false;tracker.interrupt();rawKnown=false;setError("RTC date precedes retained records; correct RTC via web","rtc_before_records");}
     if(!rtcOK&&previousRTC)tracker.interrupt();previousRTC=rtcOK;state.rtc=rtcOK;
     if(rtcOK) {
       if(clockKnown) {
@@ -450,9 +522,16 @@ bool parseNumber(const String &s,uint32_t &value) {
   for(size_t i=0;i<s.length();++i){if(s[i]<'0'||s[i]>'9')return false;v=v*10+s[i]-'0';if(v>UINT32_MAX)return false;}
   value=v;return true;
 }
-void enqueueCommand(const Command &c) {
-  if(xQueueSend(commandQueue,&c,0)==pdTRUE)jsonReply(202,"Command queued. Check the device status in a moment.","accepted");
-  else jsonReply(503,"Command queue is busy. Try again.","queue_busy");
+void enqueueCommand(const Command &input) {
+  Snapshot s{};readSnapshot(s);
+  if(!commandModeAllowed(input.type,s.diagnosticActive,s.scan.phase==SCAN_RUNNING,s.scan.phase==SCAN_FOUND)){
+    jsonReply(409,"Device mode changed; refresh status and retry","mode_changed");return;
+  }
+  Command c=input;c.id=acceptedCommand+1;if(!c.id)c.id=1;c.queuedAt=millis();c.modeRevision=s.modeRevision;
+  if(xQueueSend(commandQueue,&c,0)==pdTRUE){
+    acceptedCommand=c.id;JsonDocument d;d["accepted"]=true;d["code"]="accepted";d["commandId"]=c.id;
+    String out;serializeJson(d,out);server.send(202,"application/json",out);
+  }else jsonReply(503,"Command queue is busy. Try again.","queue_busy");
 }
 // Flash-mapped gzip bytes go straight to lwIP in 1 KiB pieces. A stalled client
 // cannot hold a single WiFiClient::write() retry loop across the watchdog period.
@@ -485,6 +564,8 @@ void webSetup() {
   server.on("/assets/third-party.txt",HTTP_GET,[]{serveAsset(WEB_NOTICES_GZIP,WEB_NOTICES_GZIP_LEN,"text/plain; charset=utf-8");});
   server.on("/api/status",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);JsonDocument d;
+    JsonObject control=d["control"].to<JsonObject>();control["accepted"]=acceptedCommand;control["completed"]=s.completedCommand;control["rejected"]=s.rejectedCommand;control["lastError"]=s.commandError;control["pending"]=uxQueueMessagesWaiting(commandQueue);
+    JsonArray outcomes=control["results"].to<JsonArray>();for(const auto &result:s.commandResults)if(result.id){JsonObject row=outcomes.add<JsonObject>();row["id"]=result.id;row["error"]=result.error;}
     JsonObject led=d["led"].to<JsonObject>();
     led["available"]=RGB_LED_ENABLED&&ledDriverOK;led["pin"]=RGB_LED_PIN;led["mode"]=ledModeName(s.led.mode);
     led["brightness"]=s.led.brightness;led["period"]=s.led.periodMs;
@@ -501,9 +582,9 @@ void webSetup() {
     scan["phase"]=scanName(s.scan.phase);scan["tested"]=s.scan.tested;scan["total"]=s.scan.total;
     scan["first"]=s.scan.first;scan["last"]=s.scan.last;scan["elapsed"]=s.scan.elapsedMs/1000;
     scan["slave"]=s.scan.candidate.slave;scan["baud"]=s.scan.candidate.baud;scan["parity"]=String(s.scan.candidate.parity);
-    scan["exceptions"]=s.scan.exceptions;scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
+    scan["busBusy"]=s.scan.busBusy;scan["exceptions"]=s.scan.exceptions;scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
     if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);}
-    d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
+    d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
     JsonArray rows=d["slots"].to<JsonArray>();
@@ -540,7 +621,7 @@ void webSetup() {
     if(xQueuePeek(diagnosticViewQueue,&view,0)!=pdTRUE){view.active=false;view.busy=false;view.log[0]=0;}
     JsonDocument d;d["pendingCommands"]=uxQueueMessagesWaiting(diagnosticInputQueue);d["version"]=FIRMWARE_VERSION;d["active"]=view.active;d["busy"]=view.busy;d["generation"]=view.generation;d["discardedBytes"]=view.discarded;d["log"]=view.log;
     const auto &e=view.evidence;JsonObject counts=d["evidence"].to<JsonObject>();
-    counts["requests"]=e.requests;counts["rxBytes"]=e.rxBytes;counts["passiveBytes"]=e.passiveBytes;counts["preTxBytes"]=e.staleBytes;counts["data"]=e.data;counts["exceptions"]=e.exceptions;counts["echoes"]=e.echoes;counts["echoPrefixes"]=e.echoPrefixes;counts["crcBad"]=e.crcBad;counts["shortFrames"]=e.shortFrames;counts["wrongFrames"]=e.wrongFrames;counts["overflows"]=e.overflows;counts["timeouts"]=e.timeouts;counts["localErrors"]=e.txErrors;counts["energyOK"]=e.energyOK;counts["energyBad"]=e.energyBad;counts["aborted"]=e.aborted;
+    counts["requests"]=e.requests;counts["rxBytes"]=e.rxBytes;counts["passiveBytes"]=e.passiveBytes;counts["preTxBytes"]=e.staleBytes;counts["busBusy"]=e.busBusy;counts["data"]=e.data;counts["exceptions"]=e.exceptions;counts["echoes"]=e.echoes;counts["echoPrefixes"]=e.echoPrefixes;counts["crcBad"]=e.crcBad;counts["shortFrames"]=e.shortFrames;counts["wrongFrames"]=e.wrongFrames;counts["overflows"]=e.overflows;counts["timeouts"]=e.timeouts;counts["localErrors"]=e.txErrors;counts["energyOK"]=e.energyOK;counts["energyBad"]=e.energyBad;counts["aborted"]=e.aborted;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/diagnostic",HTTP_POST,[]{
@@ -548,10 +629,10 @@ void webSetup() {
     if(!line.length()||line.length()>95){jsonReply(400,"Use one ASCII command, at most 95 characters","invalid_diagnostic_command");return;}
     for(size_t i=0;i<line.length();++i)if(line[i]<32||line[i]>126){jsonReply(400,"One printable ASCII command per request","invalid_diagnostic_command");return;}
     if(line=="x"||line=="stop"||line=="resume"){
-      uint8_t stop=line=="resume"?2:1;xQueueOverwrite(diagnosticStopQueue,&stop);xQueueReset(diagnosticInputQueue);jsonReply(202,"Stop/resume queued","accepted");return;
+      DiagnosticStop stop;stop.action=line=="resume"?2:1;stop.generation=++diagnosticInputGeneration;xQueueOverwrite(diagnosticStopQueue,&stop);jsonReply(202,"Stop/resume queued","accepted");return;
     }
     Snapshot s{};readSnapshot(s);if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel production scan first","scan_busy");return;}
-    DiagnosticInput input;strlcpy(input.line,line.c_str(),sizeof(input.line));
+    DiagnosticInput input;input.generation=diagnosticInputGeneration;strlcpy(input.line,line.c_str(),sizeof(input.line));
     if(xQueueSend(diagnosticInputQueue,&input,0)==pdTRUE)jsonReply(202,"Diagnostic command queued; recording will pause","accepted");else jsonReply(503,"Diagnostic queue full","queue_busy");
   });
   server.on("/api/trace",HTTP_GET,[]{
@@ -619,9 +700,9 @@ void webSetup() {
   });
   server.on("/api/time",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot active{};readSnapshot(active);if(active.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
-    if(!parseNumber(server.arg("epoch"),epoch)||epoch<1704067200UL||epoch>4102444799UL-LOCAL_OFFSET){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
+    if(!parseNumber(server.arg("epoch"),epoch)||!validClockEpoch(epoch,LOCAL_OFFSET)){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
     Snapshot s{};readSnapshot(s);
-    if(s.rtc&&s.day.number&&(epoch+LOCAL_OFFSET)/86400<s.day.number){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
+    if(!protectsRecordedDay(epoch,LOCAL_OFFSET,s.day.number)){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);
   });
   server.on("/api/mute",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=TOGGLE_MUTE;enqueueCommand(c);});
@@ -701,7 +782,7 @@ void setup() {
   for(auto &b:buttons)pinMode(b.pin,INPUT_PULLUP);
   i2cMutex=xSemaphoreCreateMutex();fsMutex=xSemaphoreCreateMutex();
   snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));
-  diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(uint8_t));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));
+  diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(DiagnosticStop));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));
   state.flow.boot=esp_random();
   if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
   Wire.begin(PIN_SDA,PIN_SCL,100000);Wire.setTimeOut(40);

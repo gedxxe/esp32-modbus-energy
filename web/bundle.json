@@ -1,7 +1,7 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "transport": "gzip",
-  "compressed_total": 149107,
+  "compressed_total": 150594,
   "libraries": {
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -19,9 +19,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 421588,
-      "gzip": 141975,
-      "sha256": "0595b1163648f97d2ec3d0408980164bec5770cf2ec56d2e9095e5c8be9868ad"
+      "raw": 425195,
+      "gzip": 143462,
+      "sha256": "0a9b8d5cc792497f25e1d75fc8d99697842072ab9c60d43f166eedfd11884725"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -39,22 +39,23 @@
     }
   },
   "inputs": {
-    "package-lock.json": "836dc292d6bea2dcb27e234e0ced3e57ca16579442589af39d787bfe6eaab938",
-    "package.json": "3cc529ea4c9aa1bbfc85b109a9f87eec89e17f9191f41b7c49e75e117905d474",
+    "package-lock.json": "afaa0008af657a9cdf30f5d3edccf05d0c84047fe030e1eed320a103c54ec8df",
+    "package.json": "34c27d21bbbb3c95b98104fef6c49a105d8b3a135da8798c12c2b989f3e65591",
     "tools/build-web.cjs": "df7e6396cd301ef679246216276d2a05184fd035318b4ee2fe326ed6d948a241",
     "web/Application.jsx": "0095a41e3fede1f1491f62b7ab4aa0912ea13df95cdd1e46d2df023ce57fdbc7",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
-    "web/components/DiagnosticConsole.jsx": "c0455e0cb0012bba02f13648f031af636674621ac34af502f0f62288f2719fe5",
+    "web/components/DiagnosticConsole.jsx": "3d367bf777b8afd78d0831a777aa884ab61378e0194c2ea680bc880d33b09b8d",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/ProcessMonitor.jsx": "324eb1bb846ca77fcc30e4d27ad3a5dd07a95eafd91a366dee122ea6075993c2",
-    "web/components/RawTrace.jsx": "16a67c32c6df9884de06d87eaac82879818f989b1771429be682025ccf71a50d",
-    "web/components/UartFlow.jsx": "bc6da1bf36bca0f498ba02977364e2331a5864b6906c81cf1105a3fe55ed6003",
-    "web/device.js": "8145eba7e94e61018fbc7a6745a830d01fe07bd43e606f9307864aeb77eb493d",
-    "web/i18n.js": "8820d57c10a24ddc566cf9cf67d03f35a4c5f2cf2f09a57ec696d2133b9e909b",
+    "web/components/ProcessMonitor.jsx": "f368da91033f1b7f0587237bf8ddce9424462a2870040a7ea9e6352ba13d2149",
+    "web/components/RawTrace.jsx": "792b7e18198f1030c85e088e6fac11f9a5848c502a956a75ba5ceb51bd0d5ba7",
+    "web/components/UartFlow.jsx": "632eb61717f4ca2485f151fcde242633ebb5433e245265869dda5b7c50eae240",
+    "web/device.js": "e18d7f21a3595822a814e40438c8500c934613a9da548436a5bad8b96d61ae87",
+    "web/i18n.js": "accae3d42c89038fe75b0ebbfb9510a24a78cd3d5b2e5f267a2ed407d26a274b",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
     "web/styles.css": "cff93cf600cb9420f51ed762ed2b066ef072a4c5cd30bdcea8c4957e41d0853d",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
+    "web/validation.js": "5b61d85efcf003736da273cd7be0465aaa884c612854fc01a15f3d24db56882c",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/FadeContent.jsx": "8311fcc4f3172ce66d7e0017ccdce19c8bf58c2a286425e974cd16820f8edb82",
     "web/vendor/react-bits/LICENSE.md": "4bdd1fa59a6b7d5954bc3b213dbc34e455c635a94bbcecf9293553797d0fad02",
@@ -62,9 +63,9 @@
     "web/vendor/react-bits/SpotlightCard.css": "b646b7da4bb46f0a4d819d0af275804c49a845a5c2dc848700aaf9282db13a92",
     "web/vendor/react-bits/SpotlightCard.jsx": "e0b91ba07c173c98b87b44ec451d0243fe0a3edc67864e2779ad8507d455af67",
     "web/vendor/react-bits/upstream.json": "8f9a578ac5cc29fe9d73cca05a8e0b1d569a5dc7671950099fb27929c6d926bf",
-    "web/views/DeviceRecords.jsx": "e5fc7d0ae949585c065334e9a6c7d0c39998f1b8b47c04d08e27dad06df88106",
-    "web/views/MeterSetup.jsx": "37a693f243953181c8789791b05706d0e2a558b96c6bdde7811644188758734b",
+    "web/views/DeviceRecords.jsx": "a67fee145974232d2c24df995196e73d7b33d722df8e14b4673a77a12f9efb0f",
+    "web/views/MeterSetup.jsx": "5ceb9f0f11ba719b101db7ff66a9361eed4b44bbd32c685f3d7a8508ea25aa08",
     "web/views/Overview.jsx": "687f2009f9e3e09da4c429e91dbe135cad0ca397e9b8e04e596ca6092e5d8d38"
   },
-  "header_sha256": "aa8c61de892fc4b0d48a10072d0964795aa3d1dcc0d3642a5e439853efd780a9"
+  "header_sha256": "a24c10e48db1c0caca1683e7fb05d10461ea430b2cbf92ed9c9f26aaa57f45bc"
 }

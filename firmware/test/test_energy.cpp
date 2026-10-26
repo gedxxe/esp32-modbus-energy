@@ -4,6 +4,9 @@
 #include "scan.h"
 #include "led.h"
 #include "trace.h"
+#include "clock_guard.h"
+#include "command_policy.h"
+#include "bounded_write.h"
 #include <set>
 #include <assert.h>
 #include <iostream>
@@ -29,7 +32,23 @@ struct FakeFS {
     files[b]=files[a];files.erase(a);return true;
   }
 };
+void testBoundedHTTP(){
+  char bytes[3000]={};uint32_t time=0;unsigned calls=0,feeds=0;
+  auto clock=[&](){return time;};auto ready=[](){return true;};
+  auto service=[&](){++feeds;++time;};
+  auto partial=[&](const char *,size_t count){++calls;assert(count<=1024);return int(count>113?113:count);};
+  assert(boundedWrite(bytes,sizeof(bytes),0,5000,clock,ready,partial,service)==sizeof(bytes));assert(calls==feeds&&calls>3);
+  time=0;feeds=0;auto blocked=[](const char *,size_t){return 0;};
+  assert(boundedWrite(bytes,sizeof(bytes),0,10,clock,ready,blocked,service)==0&&time==10&&feeds==10);
+  time=0;auto slow=[](const char *,size_t){return 1;};
+  assert(boundedWrite(bytes,sizeof(bytes),0,10,clock,ready,slow,service)==10&&time==10); // Progress never renews deadline.
+  time=UINT32_MAX-4;uint32_t started=time;
+  assert(boundedWrite(bytes,sizeof(bytes),started,10,clock,ready,blocked,service)==0&&uint32_t(time-started)==10);
+  auto fatal=[](const char *,size_t){return -1;};
+  assert(boundedWrite(bytes,sizeof(bytes),time,10,clock,ready,fatal,service)==0);
+}
 int main(){
+  testBoundedHTTP();
   const uint8_t traceTx[]={1,3,0,0x82,0,2,0x64,0x23};
   uint8_t traceQuery[8];memcpy(traceQuery,traceTx,8);uint16_t qc=crc16(traceQuery,6);traceQuery[6]=qc;traceQuery[7]=qc>>8;
   uint8_t goodTrace[]={1,3,4,0,0,0xc3,0x17,0xea,0xcd};
@@ -119,6 +138,70 @@ int main(){
   assert(ratioPollDue(false,100,0,0));assert(!ratioPollDue(true,59999,0,0));
   assert(!ratioPollDue(true,61000,0,60000));assert(ratioPollDue(true,65000,0,60000));
   assert(!ratioPollDue(false,100,0,UINT32_MAX-1000));assert(ratioPollDue(false,6000,0,UINT32_MAX-1000));
+  constexpr uint32_t WIB=7*3600;
+  assert(validClockEpoch(CLOCK_MIN_UTC,WIB));
+  assert(!validClockEpoch(CLOCK_MIN_UTC-1,WIB));
+  assert(validClockEpoch(CLOCK_MAX_UTC-WIB,WIB));
+  assert(!validClockEpoch(CLOCK_MAX_UTC-WIB+1,WIB));
+  assert(!validClockEpoch(UINT32_MAX,WIB));
+  assert(!validClockEpoch(CLOCK_MIN_UTC,UINT32_MAX));
+  // Protection depends on retained records, not on an available/valid RTC flag.
+  assert(protectsRecordedDay(BASE-WIB,WIB,DAY));
+  assert(!protectsRecordedDay(BASE-WIB-1,WIB,DAY));
+  assert(protectsRecordedDay(BASE-WIB+86400,WIB,DAY));
+  assert(protectsRecordedDay(CLOCK_MIN_UTC,WIB,0));
+  uint32_t effective=123;
+  assert(resolveQueuedClockTime(BASE-WIB,1000,3500,WIB,DAY,effective)==CLOCK_ACCEPTED);
+  assert(effective==BASE-WIB+2);
+  assert(resolveQueuedClockTime(BASE-WIB,UINT32_MAX-499,1500,WIB,DAY,effective)==CLOCK_ACCEPTED);
+  assert(effective==BASE-WIB+2); // Queue age compensates a millis() rollover.
+  assert(resolveQueuedClockTime(BASE-WIB,1000,11000,WIB,DAY,effective)==CLOCK_ACCEPTED);
+  assert(effective==BASE-WIB+10);
+  effective=123;
+  assert(resolveQueuedClockTime(BASE-WIB,1000,11001,WIB,DAY,effective)==CLOCK_STALE_REQUEST);
+  assert(effective==123); // Refusal never publishes an unchecked replacement value.
+  assert(resolveQueuedClockTime(BASE-WIB-100,1000,2000,WIB,DAY,effective)==CLOCK_BACKWARD_DAY);
+  assert(effective==123);
+  assert(resolveQueuedClockTime(CLOCK_MIN_UTC-1,1000,1000,WIB,0,effective)==CLOCK_INVALID_EPOCH);
+  assert(resolveQueuedClockTime(CLOCK_MAX_UTC-WIB,1000,2000,WIB,0,effective)==CLOCK_INVALID_EPOCH);
+  // A date crossing is evaluated at execution, after queue-age compensation.
+  assert(resolveQueuedClockTime(BASE-WIB-1,1000,2000,WIB,DAY,effective)==CLOCK_ACCEPTED);
+  assert(effective==BASE-WIB);
+
+  const CommandType harmless[]={TOGGLE_MUTE,SET_LED,START_TRACE,STOP_TRACE};
+  for(CommandType kind:harmless) {
+    assert(safeDuringMaintenance(kind));
+    for(unsigned mask=0;mask<8;++mask) {
+      assert(commandModeAllowed(kind,mask&1,mask&2,mask&4));
+      assert(commandContextValid(kind,1,99,1,90000,mask&1,mask&2,mask&4));
+    }
+  }
+  const CommandType normalOnly[]={SET_TIME,SET_CONFIG,START_SCAN};
+  for(CommandType kind:normalOnly) {
+    assert(!safeDuringMaintenance(kind));
+    assert(commandModeAllowed(kind,false,false,false));
+    assert(commandModeAllowed(kind,false,false,true));
+    assert(!commandModeAllowed(kind,true,false,false));
+    assert(!commandModeAllowed(kind,false,true,false));
+    assert(commandContextValid(kind,7,7,1000,11000,false,false,false));
+    assert(!commandContextValid(kind,7,7,1000,11001,false,false,false));
+    assert(!commandContextValid(kind,7,8,1000,1000,false,false,false));
+    assert(!commandContextValid(kind,7,7,1000,1000,true,false,false));
+    assert(!commandContextValid(kind,7,7,1000,1000,false,true,false));
+    assert(commandContextValid(kind,7,7,UINT32_MAX-499,1500,false,false,false));
+    assert(!commandContextValid(kind,7,7,UINT32_MAX-499,10000,false,false,false));
+  }
+  assert(!commandModeAllowed(CANCEL_SCAN,false,false,false));
+  assert(commandModeAllowed(CANCEL_SCAN,false,true,false));
+  assert(!commandModeAllowed(CANCEL_SCAN,true,true,false));
+  assert(!commandContextValid(CANCEL_SCAN,3,4,1000,1001,false,true,false));
+  assert(!commandModeAllowed(APPLY_SCAN,false,false,false));
+  assert(commandModeAllowed(APPLY_SCAN,false,false,true));
+  assert(!commandModeAllowed(APPLY_SCAN,false,true,true));
+  assert(!commandModeAllowed(APPLY_SCAN,true,false,true));
+  assert(!commandModeAllowed(CommandType(255),false,false,false));
+  assert(!commandContextValid(CommandType(255),0,0,0,0,false,false,false));
+
   Debouncer button;
   assert(button.update(false,100)==0);assert(button.update(true,105)==0);
   assert(button.update(false,110)==0);assert(button.update(false,145)==0);
@@ -164,5 +247,5 @@ int main(){
   t.newDay(DAY);poll(t,21600,23392,16);t.sample(BASE+23400,107);assert(t.day.slots[0].quality==PARTIAL);
   // Midnight does not silently mix counters from different dates.
   assert(!t.sample(BASE+86400,108));t.newDay(DAY+1);assert(!t.previous);assert(t.day.slots[0].quality==WAITING);
-  std::cout<<"PASS: raw capture bounds/freeze/stop/echo/CRC/exception/frame validation, RGB modes/brightness/CRC storage/millis wrap, scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
+  std::cout<<"PASS: raw capture bounds/freeze/stop/echo/CRC/exception/frame validation, RGB modes/brightness/CRC storage/millis wrap, scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, protected record dates/queued clock age/calendar bounds, command mode/revision/age arbitration, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
 }

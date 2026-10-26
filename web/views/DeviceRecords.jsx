@@ -3,6 +3,7 @@ import ProcessMonitor from "../components/ProcessMonitor.jsx";
 import LedControls from "../components/LedControls.jsx";
 import Icon from "../components/Icon.jsx";
 import { useText } from "../ui.js";
+import { validHistory } from "../validation.js";
 
 export default function DeviceRecords({ device }) {
   const { t, number } = useText();
@@ -23,7 +24,7 @@ export default function DeviceRecords({ device }) {
         });
         if (!response.ok) throw new Error("history");
         const rows = await response.json();
-        if (!Array.isArray(rows)) throw new Error("history");
+        if (!validHistory(rows)) throw new Error("history");
         if (alive) {
           setHistory(rows);
           setHistoryError(false);
@@ -104,7 +105,7 @@ export default function DeviceRecords({ device }) {
             <button
               id="sync"
               className="button primary"
-              disabled={blocked}
+              disabled={blocked || Boolean(s?.diagnosticActive)}
               onClick={() =>
                 device.act("/api/time", {
                   epoch: Math.floor(Date.now() / 1000),

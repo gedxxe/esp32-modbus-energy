@@ -10,7 +10,7 @@ std::vector<uint8_t> frame(std::initializer_list<uint8_t> data) {
 }
 void resetDebug() {
   evidence=Evidence{};connectedCapture=Capture{};isolatedCapture=Capture{};
-  meter.scheduled.clear();meter.ready=true;meter.writeLimit=256;testRxDrive=1;firstID=1;lastID=247;
+  meter.onWrite=nullptr;meter.scheduled.clear();meter.ready=true;meter.writeLimit=256;testRxDrive=1;firstID=1;lastID=247;
   scanning=false;polling=false;abortRequested=false;lastReply=REPLY_NONE;
   options=DebugOptions{};baudCount=6;parityCount=3;uint32_t rates[]={9600,19200,38400,4800,2400,1200};memcpy(BAUDS,rates,sizeof(rates));memcpy(PARITIES,"NEO",3);consoleHead=consoleTail=consoleCount=consoleUsed=0;consoleDiscard=false;
   auditCount=6;Query defaults[]={{0x34,1},{0x35,1},{0x2c,3},{0x80,1},{0x82,2},{0x8a,2}};memcpy(auditPlan,defaults,sizeof(defaults));
@@ -103,6 +103,24 @@ int main() {
   resetDebug();command("decode off");command("plan clear");
   meter.replies.push_back(frame({2,3,2,0,1}));command("check connected");command("check isolated");
   assert(Serial.output.find("CONNECTED_ACTIVITY_ONLY")!=std::string::npos);
+  // Old replies arriving during the pre-TX guard must never satisfy the request.
+  resetDebug();meter.scheduled.push_back({testMicros+3000,frame({1,3,2,0x12,0x34})});
+  uint8_t delayedData[2]={};assert(!readRegisters(current,0x34,1,delayedData));
+  assert(evidence.staleBytes==7&&evidence.data==0&&evidence.timeouts==1);
+  // Continuous pre-TX traffic has a bounded no-transmit outcome, not a fake reply.
+  resetDebug();options.responseMs=50;uint64_t noisyStart=testMicros;
+  for(unsigned i=0;i<100;++i)meter.scheduled.push_back({testMicros+uint64_t(i)*1000,{0x55}});
+  assert(!readRegisters(current,0x34,1,delayedData));
+  assert(meter.transmitted.empty()&&evidence.busBusy==1&&evidence.requests==0&&testMicros-noisyStart<=51000);
+  // Legal minimum turnaround: exact echo, idle t3.5, then byte-wise 8E1 reply.
+  resetDebug();current.baud=19200;current.parity='E';
+  meter.replies.push_back(frame({1,3,0,0x34,0,1}));
+  meter.onWrite=[](){auto bytes=frame({1,3,2,0,7});for(size_t i=0;i<bytes.size();++i)meter.scheduled.push_back({testMicros+2579+573*i,{bytes[i]}});};
+  assert(readRegisters(current,0x34,1,delayedData));assert(delayedData[1]==7&&evidence.echoes==1&&evidence.data==1&&evidence.echoPrefixes==0);
+  // Failed UART begin is retried even for the same saved serial format.
+  resetDebug();activeBaud=0;meter.ready=false;unsigned initialBegins=meter.beginCalls;
+  assert(!readRegisters(current,0x34,1,delayedData)&&activeBaud==0);
+  meter.ready=true;meter.replies.push_back(frame({1,3,2,0,7}));assert(readRegisters(current,0x34,1,delayedData));assert(meter.beginCalls==initialBegins+2);
   const char *recipes[]={"01-passive-rx.txt","02-echo-or-no-reply.txt","03-serial-matrix.txt","04-register-exception.txt","05-raw-map-audit.txt","06-configured-kwh.txt","07-timeout-comparison.txt","08-word-order-comparison.txt"};
   std::string sourcePath=__FILE__;std::replace(sourcePath.begin(),sourcePath.end(),'\\','/');
   std::string sourceRoot=sourcePath.substr(0,sourcePath.rfind("firmware/test/"));

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
+import { validSystem } from "../validation.js";
 function ProcessData() {
   const { t } = useText();
   const [data, setData] = useState(null),
@@ -18,7 +19,7 @@ function ProcessData() {
         });
         if (!response.ok) throw new Error();
         const next = await response.json();
-        if (!Array.isArray(next.cores) || !Array.isArray(next.tasks))
+        if (!validSystem(next))
           throw new Error();
         if (alive) {
           setData(next);

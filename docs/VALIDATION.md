@@ -2,123 +2,69 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware **1.4.0**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
+Firmware **1.4.1**, standalone **FortSerialDebug 1.3.1**. This record describes local software checks. Physical acceptance of the installed Fort is still required; use [COMMISSIONING](COMMISSIONING.md) and the [field diagnostic guide](DIAGNOSTICS.md). Previous release changes remain in [CHANGELOG](../CHANGELOG.md).
 
-## Native logic — passed
+## Firmware compilation — passed
 
-`tools/test.ps1`, g++ C++11 with `-Wall -Wextra -Werror`.
+Both targets compiled with the pinned espressif32 **6.10.0** / Arduino ESP32 **2.0.17** toolchain, with no compiler warnings/errors in the final output. The target is the physical ESP32-S3 N16R8: 16 MB flash, OPI PSRAM.
 
-- CRC example from the Fort manual, corrected response, bit corruption, wrong ID/count/length and invalid CRC rejection.
-- All nine interval windows; interpolated boundaries, late startup, gaps at/above 15 s, missing data, clock reversal, NaN/negative/reset/date handling and preserved completed intervals after reboot interruption.
-- Button bounce/short/long-press behavior, including millis rollover.
-- Archive fault injection: failed rotation/install/restore retains recoverable copies.
-- CT/PT retry/backoff, scan ranges, 4,446 unique candidates, preferred-ID mode priority, single-ID range, duplicate start, cancel/restart/found/exhausted and elapsed-time rollover.
-- RGB Off/Solid/Hue/Blink/Breathing, brightness scaling, CRC-protected record round-trip/corruption/length rejection, parameter bounds and animation millis rollover.
-- Raw capture: disabled/start/stop/reset, twelve-attempt bound/freeze, exact echo versus valid response, short/CRC/overflow/wrong-ID/exception classification. Echo and overflow prefixes never pass the response validator.
-- Stable English quality codes and compatibility of the legacy status names.
+| Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
+| --- | ---: | ---: |
+| `pio run -e esp32s3` in `firmware/` | 79,328 | 1,094,969 |
+| `pio run -d examples/FortSerialDebug` | 21,476 | 332,101 |
 
-These tests execute the same header logic used by the firmware. They do not run the ESP-IDF tasks or peripheral drivers.
+Static RAM is not runtime heap/stack usage. Core 0's loop stack is 16 KiB and acquisition stack is 12 KiB. Queue storage, peripheral-driver allocations, real high-water values and sustained multi-client latency need on-device measurement. The standalone sketch has no external library dependencies; the Arduino IDE GUI and other ESP32 core versions were not exercised.
 
-## Browser application — passed
+## Native regressions — passed
 
-`tools/preview-test.cjs` with Playwright and installed Microsoft Edge. The test server reads the **gzip byte arrays in the generated firmware header**; it does not substitute another HTML implementation. The JSON/CSV APIs are explicitly simulated.
+`tools/test.ps1` builds three C++11 suites with `-Wall -Wextra -Werror`. The standalone suite includes the actual INO, and the production diagnostic suite includes the generated engine used by main firmware.
 
-- English default; Indonesian switching and decimal formatting; language retained after reload; English fallback when localStorage is blocked.
-- Six morning/three evening rows; missing intervals are not displayed as zero completed consumption.
-- Serial config fields, phone time request, POST token and CSV download selection.
-- LED mode/color/brightness/cycle POST fields and token; draft retained across polls; all five modes; applied-state reload; storage warning, driver unavailable, disconnected controls and Indonesian labels. These use simulated NVS/API results, not a physical persistence test.
-- Scan range validation, progress/disabled controls, reload recovery, cancellation, explicit result application, no match, translated HTTP error and five-second POST timeout recovery.
-- Raw panel: no trace fetch while closed, explicit capture/stop, exact-echo/CRC/timeout/valid labels, POST token, text export contents, translated labels, API-failure controls and 320–1440 px capture layouts.
-- Stale/offline status, retained last sample and hidden live power; mutation buttons remain disabled when disconnected, including after navigation.
-- Widths 320, 390, 768, 1440 and 2560 px without document overflow; reduced-motion rendering; no JavaScript page errors or external asset requests.
-- Vendored React Bits file contents match their recorded upstream Git blob hashes.
-- All **17 SVGs** rendered with text bounds inside their viewBox. Dashboard, phone and RGB-panel screenshots were inspected visually.
+- CRC corruption, incorrect ID/function/count/length, short/oversized/deadline-tail frames, exact echoes, concatenated request prefixes and valid exceptions. A valid exception establishes transport only and never produces kWh.
+- Delayed valid bytes arriving **during** the pre-TX quiet guard are discarded. Sustained pre-TX RX reaches a bounded no-TX bus-busy outcome. Exact echo plus a byte-wise 19200/8E1 response at minimum legal turnaround is accepted as two separately observed frames. A failed UART initialization is retried at the same serial settings. These new cases execute against both the real INO and generated production engine.
+- Silent-first-address fallback, configured raw plans, runtime pins/ID/baud/parity/timeouts/profile settings, scan lists/current-format mode, weak-pull observations, paired-capture configuration/abort guards, queued console input and all eight field recipes. Every emitted test request remains FC03 with a valid CRC and nonbroadcast ID.
+- Scan enumeration, preferred ID/format ordering, 4,446 unique matrix candidates, 247 current-format candidates, single-ID completion, invalid ranges, cancellation/restart and millis rollover.
+- Nine scheduled windows, interpolation, continuity gaps, missing samples, reboot/RTC/counter discontinuity, CT/PT changes, NaN/negative values and completed-record preservation. Backward local dates remain blocked independently of RTC availability; queued clock requests are age-compensated and revalidated at bounds/rollover.
+- Ordinary command mode/revision/10-second age guards, including scan/maintenance transitions and rollover. These pure guards do not execute FreeRTOS queues concurrently; the main integration was reviewed and compiled.
+- Bounded HTTP writer under partial progress, retry/no-progress, fatal error and timer rollover. Progress does not renew the total deadline; chunks remain at most 1 KiB and service callbacks run between attempts. These are socket fault-injection mocks, not a Wi-Fi saturation test.
+- Archive replacement fault recovery, RGB modes/versioned CRC-protected settings, debouncing and button timing, raw trace bounds/freeze/stop, UART event ordering and cursor wrap.
 
-RGB control illustrations: [desktop](assets/ui-led-desktop.png), [phone](assets/ui-led-mobile.png). OLED 180° orientation, actual GPIO48 light output, RMT timing/jitter and restart persistence require physical acceptance.
+Tests do not prove real line timing, bus topology, module power/health, correct physical register mapping or actual installed-meter scaling. Frame separation uses task-observed buffer arrivals. RTOS stalls can hide a physical gap; RTU has no transaction ID for conclusive attribution of every delayed reply.
 
-Screenshots contain simulated data: [desktop](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [Indonesian phone](assets/ui-mobile-id.png), [scan](assets/ui-scan-desktop.png).
+## Embedded browser — passed
 
-## Browser payload — passed
+`tools/preview-test.cjs` with Playwright and installed Microsoft Edge reads **the generated gzip arrays** in `firmware/include/web_ui.h`; APIs are simulated. No substitute HTML UI is tested.
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0**. `npm run build:web` and `npm run check:web` completed. Input hashes normalize text line endings; gzip OS metadata is normalized so generated files can be checked across Windows/Linux.
+- English default/Indonesian switching, persistence and blocked-storage fallback; all six morning and three evening rows; missing values remain missing.
+- Serial settings, phone time, LED modes/drafts/brightness/storage feedback, mute, scan mode/probe/range/progress/cancel/apply, CSV selection/download and raw capture/export.
+- HTTP 202 does not unlock ordinary controls before the exact execution result. Delayed completion and explicit rejection are exercised. Clock sync is disabled in maintenance; initial diagnostic state must load before Run is enabled. Priority Stop remains available while an ordinary action waits.
+- Malformed status slots, archive rows, process/core rows, raw-trace frames and UART events retain the last usable data and mark the panel stale/unavailable without crashing the application.
+- Diagnostic command/paste guard, pause/resume/log download, EN/ID labels and closed-panel polling. Process table, heap/PSRAM and stack metrics are simulated.
+- UART motion requires new events; idle time and pre-reboot history create no packet motion. Reduced motion is honored. All animation is a timestamp replay with network delay, not a wire analyzer.
+- Layouts from 320 to 2560 px, no document overflow, no JavaScript page errors, no external asset requests. Vendored React Bits files match upstream Git blob hashes. All 19 SVGs render with text inside their viewBox.
+
+Representative, simulated screenshots: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scan](assets/ui-scan-desktop.png), [raw capture](assets/ui-trace-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png), [phone diagnostics](assets/ui-diagnostic-mobile.png). These are not hardware evidence.
+
+## Asset provenance and documentation — passed
+
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0**. The browser header and manifest were rebuilt together after adding validation source. Python's input/header hash guard passed inside the successful PlatformIO build. A normal firmware checkout/build does not require Node. A deliberate extra web input was also tested through actual PlatformIO: it failed with the intended recovery instructions and no Python traceback; the temporary input was removed and the original provenance check passed again.
 
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | / | 1030 | 527 |
-| /assets/app.js | 397475 | 134464 |
-| /assets/app.css | 16974 | 4442 |
+| /assets/app.js | 425195 | 143462 |
+| /assets/app.css | 20283 | 5172 |
 | /assets/third-party.txt | 5755 | 1433 |
 
-Combined payload: **140866 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before the hardware firmware build. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
+Combined payload: **150,594 bytes gzip**, below 160 KiB. Input hashes normalize text line endings; generated gzip metadata is normalized. The build includes no source maps, external fonts or CDN assets. Browser code executes on the phone/computer; ESP32 serves compressed flash bytes.
 
-## Firmware — passed
+`tools/check_docs.py` passed: **25 Markdown files, 221 relative links/anchors, 19 SVGs, 31 manual-alternative wires**, exact pin/version/license checks and generated provenance. Generated assets come from `tools/generate_docs.py`. Confirmed installation wiring remains module TXD → GPIO18, RXD ← GPIO17; GPIO16 unused on the automatic module; Fort terminals 58/A and 59/B. No register/scaling or terminal assignments changed in this audit.
 
-`pio run -e esp32s3`, Espressif32 **6.10.0** / Arduino ESP32 **2.0.17**, exit code 0. Final compile logs contained no compiler warnings/errors.
+## Package and remote checks
 
-| Target | Static RAM / 327,680 bytes | Program / app partition |
-| --- | ---: | ---: |
-| ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,784 (14.6%) | 1,010,581 / 6,553,600 (15.4%) |
+`tools/package.py` compares the copied app with the current build, checks bootloader/partition/boot_app0/app offsets in the merged factory image and verifies every archived manifest SHA256 plus ZIP CRC. The package includes sources, docs, notices, tooling and the original manual; excludes caches/dependency directories. Flash offsets remain 0x0 / 0x8000 / 0xE000 / 0x10000 as documented in [FLASHING](FLASHING.md).
 
-Static RAM is not total runtime heap/stack use. Successful compilation does not measure HTTP transfer latency or validate physical UART turnaround. Hardware factory offsets are bootloader 0x0, partitions 0x8000, boot_app0 0xE000 and app 0x10000.
+Remote CI must be read for the actual pushed commit. Local checks do not imply a passing GitHub Actions run.
 
-## Documentation, package and CI
+## Remaining physical checks
 
-`tools/check_docs.py` checks nested English/Indonesian links and anchors, SVGs, pin/netlist agreement, versions, full GPL text and generated web hashes. The packager includes web source and dependency notices alongside firmware/docs, compares app/factory components to the current build and verifies ZIP CRC plus SHA-256 manifest entries.
-
-The earlier 1.1.0 CI run passed logic/docs and browser but failed firmware setup because the pip cache searched for requirements.txt/pyproject.toml rather than requirements-dev.txt. The workflow now specifies the correct cache-dependency-path. It also checks the committed React build with pinned Node 24.22.1. Remote status for this source commit must be read from GitHub Actions; no remote pass is inferred from local results.
-
-## Hardware limits
-
-The user confirmed GPIO48 as the correct onboard LED pin on 26 October 2026. Complete hardware acceptance for version 1.3.0 is not recorded here. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
-
-Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP radio under multiple clients, noise, power-cut recovery and endurance remain unverified on physical hardware. Neither a DOM test nor a C++ unit test covers them.
-
-## Repository maintenance
-
-After removing the obsolete test target/tooling and unused banner, `pio run -e esp32s3` passed with the same 47,088-byte static RAM / 996,293-byte program footprint. The 17 remaining SVGs rendered without text overflow. The Python source/header guard also passed after local Node dependencies were removed.
-
-The release packager selects the five named N16R8 BIN files explicitly. Temporary render/build files, installed dependencies and old release archives are removed after verification; the current hardware package, browser source/generated header, documentation assets and original Fort manual are retained. A later developer build recreates caches as needed.
-
-## GPIO48 documentation correction — 26 October 2026
-
-The user changed `RGB_LED_PIN` to 48 in board.h; that value is retained. README/design/commissioning, agent instructions, fallback UI and simulated RGB screenshots now agree with it. The browser mock reads the pin directly from board.h to avoid future screenshot drift. GPIO38 remains documented only as a board-revision alternative.
-
-The corrected source passed the documentation/hash checks and the embedded-asset browser suite. The N16R8 firmware rebuilt successfully without compiler warnings: static RAM 47,240 bytes, program 1,002,577 bytes, browser gzip 138,395 bytes. The source/binaries/package were regenerated together; full hardware acceptance remains separate from the user's pin confirmation.
-
-## Raw diagnostics and standalone sketch — 1.3.0
-
-The new native classifier/capture cases and the embedded-asset browser suite passed locally. Representative raw capture screenshots use simulated echo/CRC/timeout/valid frames: [desktop](assets/ui-trace-desktop.png), [phone](assets/ui-trace-mobile.png). These are not a capture from the user's Fort. Native tests do not exercise the peripheral driver or establish the source of observed echo.
-
-The main firmware built successfully with no compiler warnings. Added snapshot memory remains fixed and is included in the static-RAM figure; runtime queue/stack high-water marks and four-client latency are unmeasured.
-
-`FortSerialDebug.ino` compiled as an Arduino sketch with Arduino ESP32 2.0.17 / espressif32 6.10.0, with no external library dependencies. Standalone diagnostic 1.2.0 static RAM: **21,068 bytes**; program: **323,793 bytes**. The included PlatformIO configuration also compiled successfully after INO-to-C++ source filtering was verified. The Arduino IDE GUI, other ESP32 core versions, serial interaction and physical Fort reads are not hardware-tested. Its optional PlatformIO entry is compiled in CI as the same N16R8 board target. The sketch does not modify persistent storage; upload-tool partition/erase selections remain a separate concern addressed by its guide and supplied CSV.
-
-## Layered standalone diagnostic 1.1.0 — checked locally
-
-The original manual images at PDF pages 18, 27 and 30 were visually inspected. The energy-length inconsistency is retained in DESIGN; no installed-meter acceptance is inferred. The sketch compiles on Arduino ESP32 2.0.17 without warnings, and `tools/test.ps1` now also compiles/runs the actual INO against deterministic host UART/Serial mocks. Cases cover passive listening sends zero requests; valid exception/data establishes a reply; wrong ID/CRC/echo does not; scan stops on valid transport independently of energy; exceptions never yield kWh; valid 32-bit/ratio conversion; FC03-only requests; register bounds; abort and UART counters. This is behavioral evidence for the code, not evidence of clean A/B waveforms, correct installed register mapping or on-target UART callback timing. The main firmware is unchanged at 1.3.0.
-
-## Runtime diagnostic 1.2.0 — checked locally
-
-The actual-INO host suite passed configurable probe/pins/timeouts/interval, scan-mode/list counts, duplicate/invalid-input rejection, raw-plan limits, decode-off no-TX/no-kWh, changed address/scale/word-order conversion, command retention during UART waits, comment/HEX-prefix behavior, queue overflow/stop and all eight pasted case TXT recipes. Each recipe completed without unknown commands/queue overflow; every transmitted request remained eight-byte FC03 with a valid CRC and nonbroadcast ID. The ESP32-S3 sketch compiled successfully without compiler warnings: 21,068 bytes static RAM, 323,793 bytes program. The main1.3.0 firmware and browser assets were not changed. Hardware callback timing, pins, signaling and installed-map correctness remain outside these tests.
-
-## Evidence-based diagnostic 1.3.0 — 2026-10-26
-
-The actual-INO host suite passed silent-first-address fallback, data versus exception reports, exact echo followed by a separately delimited good response, unavailable/partial-write UART, pre-TX RX accounting, weak-bias following/HIGH/LOW/variable observations, UART restoration on abort, matched/mismatched/aborted paired captures, contradictory isolation, and local-activity comparisons. All eight command recipes passed again, including the expanded raw one/two/three-word energy-entry audit. Production native logic tests also passed.
-
-The standalone ESP32-S3 N16R8 sketch compiled with espressif32 6.10.0 / Arduino ESP32 2.0.17 and no compiler warnings: **21,452 bytes static RAM; 331,109 bytes program**. No external libraries are required. The original PDF27/30 page images were inspected directly; the printed energy-length discrepancy remains unresolved. This does not verify the installed meter's map or scaling.
-
-Documentation checks passed: 23 Markdown files, 197 local links/anchors, 18 SVGs and the 31-wire manual-alternative netlist. Regression checks now require the actual diagnostic version and explicit Serial Monitor INPUT/OUTPUT destinations in both field guides and all recipes. Both generated wiring SVGs were rendered in Edge and inspected. Their port locations remain schematic, not a board photograph.
-
-The main firmware 1.3.0 and browser payload were unchanged, so their previous build/browser results were not rerun or relabeled as new hardware tests. The rebuilt package validates its ZIP CRC and every manifest SHA256 against the archived bytes. UART driver timing, RX weak-pull behavior, module presence/health, differential A/B signals and physical Fort register acceptance remain untested. The software deliberately reports ambiguity where the interface lacks the telemetry to distinguish causes.
-
-## Main firmware diagnostics and instrumentation — 1.4.0
-
-The main ESP32-S3 N16R8 firmware compiled successfully with the pinned espressif32 6.10.0 / Arduino ESP32 2.0.17 toolchain: **78,496 bytes static RAM; 1,088,193 bytes program**. The embedded browser payload is **149,107 bytes gzip**, below the160KiB limit. Core0 loop stack is16KiB and acquisition stack12KiB. Runtime queues and dynamic driver allocations are not included in the static-RAM figure; on-target stack/heap headroom still requires measurement. The standalone INO also compiled:21,460 bytes static RAM,331,389 bytes program; no external libraries.
-
-All three native suites passed with C++11/-Wall/-Wextra/-Werror. The generated production engine itself is exercised against UART/console mocks: exact echo followed by a separately delimited valid reply, CRC-valid exceptions without kWh, corrupt/wrong-ID/function/count/short/oversized frames, stale bytes, incomplete writes, concatenated request-prefix rejection, valid-CRC tail arriving too close to deadline, silent-first-address fallback, ring truncation, nonblocking serial drain, partial-input cancellation and ordered/wrapping UART events. All eight field recipes run through both the independent INO and generated main engine. Current-format scanning enumerates247unique IDs at the saved format and a one-ID range terminates correctly; existing18-format tests remain. These tests do not execute the main RTOS scheduler or prove peripheral timing.
-
-The embedded-gzip browser suite passed current-format/matrix controls, diagnostic input/paste guard, pause/resume controls and log download, EN/ID labels, closed-panel polling behavior, process table/memory metrics, no packet motion without new device events, existing LED/config/CSV/time/error cases,320–2560px layout and reduced-motion checks. API fixtures and all screenshots are simulated, not hardware evidence. New representative images: [flow](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png), [phone console](assets/ui-diagnostic-mobile.png).
-
-The linked image placed the tick hooks and xTaskGetCurrentTaskHandleForCPU in IRAM0x4037xxxx. Sampling measures non-idle tick boundaries with known alias/interrupt-attribution limits; it is not an instruction runtime profiler or full task enumerator. Core0 JSON handlers read copied snapshots; no diagnostic API handler touches UART or Preferences. Provenance/web guards and documentation checks passed:25Markdown files,223 relative links/anchors,19SVGs,31manual-alternative wires. The release manifest and ZIP are checked against their actual bytes.
-
-Physical Fort reads, map/scaling agreement, auto-direction turnaround, merged-buffer timing, RX weak-pull behavior, UART driver callbacks, sustained multi-client AP load, real stack high-water values and fault recovery on the installed hardware remain unverified. No hardware-acceptance claim or passing remote-CI claim is inferred from local tests. [Field checks](DIAGNOSTICS.md) describe how to retain one bounded run and restore production measurement.
+Fort register acceptance/display agreement, RS485 turnaround/noise/echo behavior, I2C devices and RTC battery, OLED orientation, buttons/buzzer, GPIO48 LED output, power-cut persistence/recovery, HTTP parser limits and multiple AP clients remain unverified on the installed hardware. HTTP response writes are bounded; the upstream request parser is not replaced or claimed to withstand arbitrary hostile request streams. The four-pin RS485 module exposes no presence/power-good signal; a silent path cannot prove which physical component is absent or defective.

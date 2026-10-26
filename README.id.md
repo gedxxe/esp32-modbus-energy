@@ -2,7 +2,7 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 1.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.4.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 Pembaca energi untuk power meter Fort existing di Midea, menggunakan ESP32-S3 N16R8. Perangkat membaca kWh impor melalui Modbus RTU, mencatat interval setengah jam terjadwal, dan menyediakan dashboard melalui hotspot ESP32. ESP32 menjadi satu-satunya master pada port RS485 Fort tersebut.
 
@@ -94,7 +94,7 @@ PlatformIO memasang dependency firmware otomatis. Versi dikunci pada [platformio
 
 1. Nyalakan ESP32. Startup tidak menunggu Serial USB. Animasi OLED dan pola buzzer berlangsung sekitar 1,5 detik; tanpa OLED pun perangkat tetap boot.
 2. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Tetap di jaringan ini walau muncul pesan tanpa internet. Buka **http://192.168.4.1**.
-3. Pastikan footer menunjukkan **Firmware 1.4.0**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
+3. Pastikan footer menunjukkan **Firmware 1.4.1**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
 4. Pada pemasangan baru, LittleFS bisa belum berformat valid. Jika mount gagal, tahan **OK / GPIO6** saat boot dan terus tahan lima detik. Tindakan ini memformat partisi arsip dan menghapus arsip. Tidak ada format otomatis saat gagal mount.
 5. Buka **Perangkat & arsip → Atur dari HP ini** untuk mengatur RTC. DS3231 menyimpan UTC; layar dan interval memakai WIB. Jam HP harus benar.
 6. Buka **Koneksi meter**. Masukkan setting Fort atau jalankan scan. Default pembaca adalah ID 1, 9600, 8N1; manual dari box tidak membuktikan slave ID unit yang sedang terpasang.
@@ -228,6 +228,20 @@ Build menghasilkan [web_ui.h](firmware/include/web_ui.h) dan [manifest](web/bund
 React Bits `FadeContent` dan `SpotlightCard` dikunci pada commit `e12c22192ac7b4b452c5e2feb9b586d74765d696`. Reveal halaman mengikuti reduced motion; panel energi memakai cahaya pointer/fokus tanpa animasi ambient terus-menerus. Angka meter langsung ditampilkan, tidak dianimasikan melewati nilai palsu. [Provenance dan lisensi komponen](web/vendor/react-bits/README.md).
 
 Setelah mengubah source web, rebuild aset sebelum PlatformIO. `tools/pio_web.py` menolak aset lama agar compile firmware tidak diam-diam membawa UI sebelumnya. Ukuran aktual tercatat pada [VALIDATION](docs/id/VALIDATION.md).
+
+### Jika PlatformIO melaporkan input web berubah
+
+Rilis menyertakan aset hasil build yang cocok. Setelah mengubah `web/`, `package.json` atau lockfile, jalankan **dari root repository** (folder yang memuat `package.json`), memakai Node 24.22.1:
+
+```sh
+npm ci
+npm run build:web
+npm run check:web
+cd firmware
+pio run -e esp32s3
+```
+
+Simpan `firmware/include/web_ui.h` dan `web/bundle.json` dalam commit yang sama dengan perubahan input. Pertahankan guard pre-build agar firmware tidak menyajikan UI versi lama. Error ini menyangkut aset hasil generate, bukan library SSD1306 atau library firmware lain.
 
 ## 8. Pengujian dan pemeliharaan
 

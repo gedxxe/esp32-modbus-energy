@@ -2,11 +2,11 @@
 
 [English](../DIAGNOSTICS.md) · **Bahasa Indonesia** · [Ringkasan](../../README.id.md)
 
-Firmware **1.4.0** menyediakan kemampuan diagnostik INO di aplikasi utama. Tidak perlu mengganti firmware dengan sketch terpisah. AP, dashboard, tombol dan RGB tetap berjalan; UART tetap dimiliki core 1.
+Firmware **1.4.1** menyediakan kemampuan diagnostik INO di aplikasi utama. Tidak perlu mengganti firmware dengan sketch terpisah. AP, dashboard, tombol dan RGB tetap berjalan; UART tetap dimiliki core 1.
 
 ## Langkah awal di panel
 
-1. Upload firmware utama `esp32s3`. HP ke **Midea Engineering AP**, password **betahdijre12345**, buka **http://192.168.4.1**. Pastikan footer Firmware 1.4.0.
+1. Upload firmware utama `esp32s3`. HP ke **Midea Engineering AP**, password **betahdijre12345**, buka **http://192.168.4.1**. Pastikan footer Firmware 1.4.1.
 2. Buka **Koneksi meter → Konsol diagnostik**. Kolom **Input perintah** adalah tempat mengetik perintah web, bukan chat.
 3. Pilih **Tes bertahap**. Ini mengisi `diagnose`, belum menjalankan. Klik **Jalankan perintah**.
 4. Tunggu `[REPORT_END]` pada **Output diagnostik perangkat**. Default tanpa respons biasanya sekitar 10 detik. Tes mendengarkan tanpa TX selama 3 detik, mencoba probe komunikasi, tetap menjalankan daftar raw register meski probe pertama diam, lalu mencoba energi/rasio terkonfigurasi. Tidak otomatis scan seluruh ID/format.
@@ -77,3 +77,10 @@ Buka **Serial Monitor Arduino IDE/PlatformIO,115200 baud, Newline**. **Ketik `de
 ![Kepemilikan diagnostik dan event](../assets/diagnostic-flow.svg)
 
 `tools/build-diagnostic.py` menghasilkan class C++ committed dari INO mandiri. Compiler utama memakai `firmware/include/diagnostic_engine.h`, bukan include file contoh. Polling normal dan tes memakai transport yang sama. PlatformIO memverifikasi provenance tanpa Node. Tes host menjalankan engine produksi termasuk seluruh resep dan kasus CRC/ID/fungsi/count/echo/exception. Tes browser memakai byte gzip asli dengan API simulasi. Lihat [validasi](VALIDATION.md); tes tersebut bukan penerimaan meter fisik.
+## Perubahan pada 1.4.1
+
+`BUS_NOT_QUIET` / hitungan bus sibuk berarti RX belum memberi jeda tenang; probe tersebut **tidak ditransmisikan**. Simpan OUTPUT `report` dan HEX sebelum TX. CRC/echo/rejected bukan bukti respons Fort. Byte yang datang saat guard sebelum TX dibuang, bukan diterima sebagai balasan baru.
+
+Kontrol web menunggu eksekusi core 1, bukan hanya HTTP diterima. Perubahan waktu/koneksi/scan dicek lagi bila mode berubah saat antre. LED/mute/capture menunggu batas transaksi aman selama diagnostik panjang. Stop test/Resume measurement tetap dapat dipakai saat kontrol biasa menunggu. Stop/Resume membatalkan tes lama; perintah sesudahnya masuk generasi berikutnya. Jika eksekusi belum terkonfirmasi, periksa setting saat ini sebelum mengulang.
+
+Tanggal RTC sebelum hari rekaman dipertahankan akan ditolak walau RTC invalid. Benarkan tanggal HP lalu sinkronkan di Perangkat & arsip setelah Resume measurement. Baris lengkap yang sudah tersimpan tetap dilindungi.

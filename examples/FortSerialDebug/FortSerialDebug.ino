@@ -37,7 +37,7 @@ ReplyKind lastReply=REPLY_NONE;
 struct Evidence {
   uint32_t requests=0,rxBytes=0,passiveBytes=0,staleBytes=0,data=0,exceptions=0,echoes=0;
   uint32_t echoPrefixes=0,crcBad=0,shortFrames=0,wrongFrames=0,overflows=0,timeouts=0,txErrors=0;
-  uint32_t energyOK=0,energyBad=0;
+  uint32_t energyOK=0,energyBad=0,busBusy=0;
   bool aborted=false;
 } evidence;
 struct Capture {
@@ -82,6 +82,7 @@ void openLink(const Link &link) {
   uint32_t format = link.parity=='E' ? SERIAL_8E1 : link.parity=='O' ? SERIAL_8O1 : SERIAL_8N1;
   meter.begin(link.baud, format, options.rx, options.tx);
   meter.onReceiveError(uartError);
+  if(!meter){activeBaud=0;return;} // A failed begin must be retried, not cached.
   activeBaud = link.baud; activeParity = link.parity;activeRx=options.rx;activeTx=options.tx;
 }
 // Keep commands typed/pasted during UART waits; execute them only in loop().
@@ -118,6 +119,22 @@ void pumpConsole() {
 }
 void checkAbort(){pumpConsole();}
 
+// Require an observed quiet gap before TX, including bytes arriving during the
+// wait. A one-time drain followed by a blind delay can accept an old reply as new.
+bool waitForQuiet(uint32_t gapUs,uint8_t *stale,unsigned &drained) {
+  uint32_t started=millis(),lastByte=micros();
+  while(uint32_t(millis()-started)<options.responseMs){
+    checkAbort();if(abortRequested){evidence.aborted=true;return false;}
+    for(unsigned n=0;n<256&&meter.available();++n){
+      int byte=meter.read();if(drained<16)stale[drained]=uint8_t(byte);
+      ++drained;lastByte=micros();
+    }
+    if(uint32_t(micros()-lastByte)>=gapUs&&!meter.available())return true;
+    delay(1); // Passive guard: retain scheduler/idle time even on a noisy bus.
+  }
+  return false;
+}
+
 bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *out) {
   lastReply=REPLY_NONE;
   if (words < 1 || words > 3 || uint32_t(address)+words>65536UL || abortRequested) return false;
@@ -128,10 +145,11 @@ bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *o
   const uint32_t bits = link.parity=='N' ? 10 : 11;
   const uint32_t gapUs = link.baud>19200 ? 1750 : (3500000UL*bits+link.baud-1)/link.baud;
   uint8_t stale[16];unsigned drained=0;
-  for(;drained<256&&meter.available();++drained){int byte=meter.read();if(drained<sizeof(stale))stale[drained]=uint8_t(byte);}
+  bool quiet=waitForQuiet(gapUs,stale,drained);
   evidence.staleBytes+=drained;
   if(drained){hexLog("PRE-TX RX prefix (discarded, not a response)",stale,drained<sizeof(stale)?drained:sizeof(stale));LOG("[PRE_TX_RX] discarded=%u; local/unsolicited/stale activity, not caused by this request\n",drained);}
-  delay((gapUs+999)/1000+1);
+  if(abortRequested){LOG("[ABORTED_BEFORE_TX]\n");return false;}
+  if(!quiet){++evidence.busBusy;LOG("[BUS_NOT_QUIET] no observed t3.5 idle gap within %lu ms; NO request transmitted; external hardware state UNKNOWN\n",(unsigned long)options.responseMs);return false;}
   LOG("\n[t=%lu ms] ID=%u %lu 8%c1 READ03 0x%04X words=%u\n", (unsigned long)millis(), link.id, (unsigned long)link.baud, link.parity, address, words);
   hexLog("TX",tx,sizeof(tx));
   ++evidence.requests;
@@ -143,6 +161,7 @@ bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *o
   uint32_t start=millis(), lastByte=micros(); unsigned logged=0;
   while (uint32_t(millis()-start)<options.responseMs) {
     checkAbort(); if (abortRequested) { evidence.aborted=true;LOG("[ABORTED]\n"); return false; }
+    if(uint32_t(millis()-start)>=options.responseMs)break;
     for (unsigned n=0; n<128 && meter.available(); ++n) {
       int byte=meter.read(); sawBytes=true;++evidence.rxBytes;
       if (size<sizeof(rx)) rx[size++]=uint8_t(byte); else overflow=true;
@@ -170,7 +189,12 @@ bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *o
       }
       size=0; overflow=false;
     }
-    delay(1); // Allow USB, scheduler and watchdog/idle processing.
+    // A 1 ms sleep can bridge a legal t3.5 gap before the next character at
+    // 19200 8E1, merging an echo and a real response. Observe short candidate
+    // frames more often. Silence/oversized noise still yields every iteration;
+    // these remain software observations, not physical per-byte timestamps.
+    if(size&&size<=11&&!overflow)delayMicroseconds(25);
+    else delay(1);
   }
   if (size) {hexLog(overflow?"RX prefix at deadline (overflow, rejected)":"RX tail at deadline (not accepted)",rx,size);if(overflow)++evidence.overflows;}
   if(!sawBytes)++evidence.timeouts;
@@ -242,16 +266,17 @@ void deepCheck(const Link &link) {
 // silence with an absent/dead module: the four-pin board has no presence input.
 void reportEvidence() {
   LOG("\n[REPORT_BEGIN] counts for last active test/scan/poll (stats clear resets); not a hardware presence detector\n");
-  LOG("[EVIDENCE] requests=%lu rx_bytes=%lu passive_bytes=%lu pre_tx_bytes=%lu valid_data=%lu valid_exception=%lu echo=%lu echo_prefix=%lu crc_bad=%lu short=%lu wrong=%lu overflow=%lu timeout=%lu local_uart_error=%lu energy_ok=%lu energy_failed=%lu aborted=%u\n",
+  LOG("[EVIDENCE] requests=%lu rx_bytes=%lu passive_bytes=%lu pre_tx_bytes=%lu valid_data=%lu valid_exception=%lu echo=%lu echo_prefix=%lu crc_bad=%lu short=%lu wrong=%lu overflow=%lu timeout=%lu local_uart_error=%lu energy_ok=%lu energy_failed=%lu pre_tx_busy=%lu aborted=%u\n",
       (unsigned long)evidence.requests,(unsigned long)evidence.rxBytes,(unsigned long)evidence.passiveBytes,(unsigned long)evidence.staleBytes,
       (unsigned long)evidence.data,(unsigned long)evidence.exceptions,(unsigned long)evidence.echoes,(unsigned long)evidence.echoPrefixes,
       (unsigned long)evidence.crcBad,(unsigned long)evidence.shortFrames,(unsigned long)evidence.wrongFrames,
       (unsigned long)evidence.overflows,(unsigned long)evidence.timeouts,(unsigned long)evidence.txErrors,
-      (unsigned long)evidence.energyOK,(unsigned long)evidence.energyBad,evidence.aborted);
+      (unsigned long)evidence.energyOK,(unsigned long)evidence.energyBad,(unsigned long)evidence.busBusy,evidence.aborted);
   if(evidence.aborted)LOG("[INCOMPLETE_TEST] aborted; repeat the same test before comparing\n");
   if(evidence.data)LOG("[TRANSPORT_DATA_CONFIRMED] matching FC03/ID/length/CRC data; meter identity and energy scale still require comparison with its display\n");
   else if(evidence.exceptions)LOG("[TRANSPORT_EXCEPTION_ONLY] matching CRC-valid exception; communication replied but queried registers were not read\n");
   else if(evidence.txErrors)LOG("[LOCAL_UART_ERROR] fix local UART initialization/write first; cannot diagnose external module health\n");
+  else if(evidence.busBusy)LOG("[BUS_NOT_QUIET] pre-TX RX prevented an observed idle gap; requests were withheld. Inspect activity/settings without concluding hardware absence or damage\n");
   else if(evidence.echoes)LOG("[ECHO_WITHOUT_REPLY] exact requests returned, no accepted slave reply; compare connected/isolated captures\n");
   else if(evidence.rxBytes||evidence.passiveBytes||evidence.staleBytes)LOG("[RX_UNVALIDATED] activity exists but no accepted reply; inspect hex, UART events and serial settings\n");
   else if(evidence.requests)LOG("[NO_RX_UNRESOLVED] no reply. Module absent/unpowered/failed, open RX, silent meter, wrong serial/ID and unsupported silent registers remain indistinguishable\n");
@@ -326,7 +351,7 @@ void showStatus(){
   showPlan();uartStatus();
 }
 void help(){
-  LOG("\nFortSerialDebug 1.3.0 | Serial 115200 + Newline | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nFortSerialDebug 1.3.1 | Serial 115200 + Newline | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: type ONE command in Arduino IDE Serial Monitor INPUT, press Enter/Send, wait for OUTPUT.\n");
   LOG("START: type status, press Enter; type diagnose, press Enter; copy resulting OUTPUT for support.\n");
   LOG("EVIDENCE: report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");

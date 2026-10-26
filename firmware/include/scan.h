@@ -18,7 +18,7 @@ struct ScanProgress {
   Settings candidate{},result{};
   uint16_t tested=0,total=0;
   uint8_t first=1,last=247;bool currentOnly=false;
-  uint32_t elapsedMs=0,timeouts=0,crcErrors=0,rejected=0,exceptions=0;
+  uint32_t elapsedMs=0,timeouts=0,crcErrors=0,rejected=0,exceptions=0,busBusy=0;
 };
 // Bounded, allocation-free search: preferred baud/parity and ID first, no duplicates.
 class ScanController {

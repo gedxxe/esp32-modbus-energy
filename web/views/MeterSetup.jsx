@@ -344,6 +344,7 @@ export default function MeterSetup({ device }) {
               })}
             </p>
           )}
+          {!!scan.busBusy && <p className="small warning">{t("scan_bus_busy", { count: scan.busBusy })}</p>}
           {scan.phase === "found" && scan.exception ? (
             <p className="hint">{t("scan_exception")}</p>
           ) : null}

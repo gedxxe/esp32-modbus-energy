@@ -5,6 +5,15 @@
 
 
 
+## 1.4.1 — 2026-10-27
+
+- Regenerate and commit browser inputs/header/manifest together; make PlatformIO's stale-asset error actionable without a Python traceback. A normal firmware build still needs no Node installation.
+- Require a continuous observed quiet interval before TX. Discard late pre-TX bytes, withhold requests on sustained traffic and expose a separate bus-busy count. Improve observation of minimum-turnaround echo/reply separation; retry failed UART initialization.
+- Revalidate queued commands against mode revision/age, publish execution outcomes and keep priority diagnostic stop/resume independent of ordinary UI actions. Replace cross-core queue reset/peek with generation-stamped cancellation and atomic dequeue.
+- Protect retained days even with an invalid RTC. Recheck/age-compensate queued time sync and reject backward automatic rollover. Bound queue work per acquisition pass.
+- Validate browser payload rows, retain the last usable snapshot on malformed responses, block clock sync in maintenance and gate diagnostic commands on initial state. Bound API socket writes and service the watchdog between chunks.
+- Add deterministic late-RX, busy-bus, legal-turnaround, UART-retry, command-mode, clock and stalled-writer regressions. Main firmware and standalone diagnostic 1.3.1 share the corrected transport. Physical Fort acceptance remains a field test.
+
 ## 1.4.0 — 2026-10-27
 
 - Put all standalone diagnostic commands in the main firmware through one generated/tested engine shared by production polling and active tests. Keep trial settings/data in RAM and restore saved production pins/serial settings on resume.

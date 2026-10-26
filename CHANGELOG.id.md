@@ -6,6 +6,15 @@
 
 
 
+## 1.4.1 — 2026-10-27
+
+- Sinkronkan source web, header dan manifest; error aset lama dari PlatformIO kini memberi langkah pemulihan tanpa traceback. Build firmware biasa tetap tidak memerlukan Node.
+- Tunggu RX tenang secara kontinu sebelum TX. Buang byte lama yang datang selama penantian, tahan TX pada bus terus aktif dan tampilkan hitungan bus sibuk. Perbaiki pemisahan echo/respons pada turnaround minimum serta retry inisialisasi UART gagal.
+- Validasi ulang umur/revisi mode perintah di core 1, publikasikan hasil eksekusi dan sediakan jalur prioritas Stop/Resume. Pembatalan memakai generasi pesan dan dequeue atomik, tanpa reset antrean lintas core.
+- Lindungi hari tersimpan walau RTC invalid. Kompensasi umur antrean sinkronisasi waktu; tolak pergantian hari mundur. Batasi pekerjaan antrean setiap putaran.
+- Validasi payload browser, pertahankan snapshot terakhir saat respons rusak, blokir sinkronisasi waktu saat maintenance dan tunggu status konsol awal. Pengiriman API kini dibatasi dengan layanan watchdog per potongan.
+- Tambah regresi RX terlambat, bus sibuk, turnaround sah, retry UART, mode perintah, RTC dan koneksi HTTP macet. Firmware utama dan diagnostik mandiri 1.3.1 memakai perbaikan transport yang sama. Penerimaan Fort fisik tetap memerlukan uji lapangan.
+
 ## 1.4.0 — 2026-10-27
 
 - Semua perintah diagnostik mandiri tersedia di firmware utama melalui satu engine yang juga dipakai polling. Setting/data uji hanya RAM; resume mengembalikan pin/serial produksi tersimpan.

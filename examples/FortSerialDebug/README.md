@@ -1,4 +1,4 @@
-# FortSerialDebug 1.3.0 — field diagnostic guide
+# FortSerialDebug 1.3.1 — field diagnostic guide
 
 **English** · [Bahasa Indonesia](README.id.md) · [Main firmware](../../README.md)
 
@@ -9,7 +9,7 @@ Independent Arduino sketch, Espressif core only, **no external libraries**. Inst
 1. Download/extract the repository ZIP or update your checkout. Open local [FortSerialDebug.ino](FortSerialDebug.ino) in Arduino IDE; keep [partitions.csv](partitions.csv) beside it. The GitHub source page is not a console.
 2. Select **ESP32S3 Dev Module**, the board's COM port, **16 MB flash**, **OPI PSRAM**, **Erase All Flash: Disabled**. Native USB: **Hardware CDC and JTAG**, **USB CDC On Boot: Enabled**.
 3. Click Upload. Afterwards open **Tools → Serial Monitor** on the same COM port. Select **115200 baud**, **Newline**. `Both NL & CR` also works; do not use `No line ending`.
-4. Banner must show **FortSerialDebug 1.3.0**. If missing, type `help` in Serial Monitor input and press Enter. Boot does not wait for USB.
+4. Banner must show **FortSerialDebug 1.3.1**. If missing, type `help` in Serial Monitor input and press Enter. Boot does not wait for USB.
 
 Locally compiled with Arduino ESP32 **2.0.17** through PlatformIO; IDE GUI, other core versions and installed Fort untested. Optional `pio run -d examples/FortSerialDebug` goes in a **computer terminal** from the repository root, not Serial Monitor.
 
@@ -192,3 +192,7 @@ The default map follows the visually checked manual pages: energy 0x0082–83, P
 No register writes, broadcast, meter resets, NVS writes or filesystem operations. No DE pin used for the supplied automatic module. RX 64 bytes/frame; detailed logging capped at 4 frames/request, passive logging 8 chunks; remaining traffic is still counted/validated. Callback error counts are atomic and console output stays in loop context. UART buffer timing is not a logic-analyzer measurement; no RX does not prove no signal on A/B. Serial output itself affects timing.
 
 Tests execute the actual INO with deterministic host UART/console mocks, including runtime settings, invalid values, multiple result classes, queuing, stop and conversion. PlatformIO compiles this sketch independently (`pio run -d examples/FortSerialDebug`). Hardware timing/mapping and the Arduino IDE GUI remain untested. Restore the main firmware after diagnostics; keep partition CSV and flash-erase selection consistent with its guide.
+
+### Transport corrections in 1.3.1
+
+The pre-TX guard observes a continuous quiet interval and discards bytes arriving during that wait. `[BUS_NOT_QUIET]` means no request was sent within the guard budget; inspect the logged pre-TX activity without concluding that the module is absent or damaged. Short-frame polling is finer around the expected frame gap to avoid merging an echo and a legal fast reply. UART initialization failures are retried. These are software-buffer observations; a delayed task can still miss a physical gap, and RTU has no transaction ID for conclusive attribution of every delayed response.

@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="167" height="30" viewBox="0 0 167 30" role="img" aria-labelledby="title desc"><title id="title">FreeRTOS 2 cores</title><desc id="desc">FreeRTOS: 2 cores. Metadata project.</desc><rect width="100%" height="100%" fill="#0e1825"/>
-<rect x="0" y="0" width="167" height="30" rx="6" fill="#172638" stroke="#31465c"/>
-<rect x="98" y="0" width="69" height="30" rx="5" fill="#85e3bb" stroke="#85e3bb"/>
-<polyline points="9,19 15,11 21,19 27,11" fill="none" stroke="#edf5ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="35" y="20" fill="#edf5ff" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">FreeRTOS</text>
-<text x="132.5" y="20" fill="#0e1825" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">2 cores</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="167" height="30" viewBox="0 0 167 30" role="img" aria-labelledby="title desc"><title id="title">FreeRTOS 2 cores</title><desc id="desc">FreeRTOS: 2 cores. Metadata project.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<rect x="0" y="0" width="167" height="30" rx="6" fill="#ffffff" stroke="#cbdada"/>
+<rect x="98" y="0" width="69" height="30" rx="5" fill="#28755e" stroke="#28755e"/>
+<polyline points="9,19 15,11 21,19 27,11" fill="none" stroke="#183438" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="35" y="20" fill="#183438" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">FreeRTOS</text>
+<text x="132.5" y="20" fill="#f5f8f8" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">2 cores</text>
 </svg>

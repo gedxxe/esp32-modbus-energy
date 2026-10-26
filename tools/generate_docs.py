@@ -8,8 +8,8 @@ import sys
 
 ROOT=Path(__file__).resolve().parent.parent
 ASSETS=ROOT/'docs/assets'
-BG='#0e1825'; PANEL='#172638'; LINE='#31465c'; TEXT='#edf5ff'; MUTED='#a9bfd2'
-RED='#ff7d85'; GRAY='#afbdcf'; BLUE='#57c7ff'; GREEN='#85e3bb'; PURPLE='#bfabff'; AMBER='#ffd184'
+BG='#f5f8f8'; PANEL='#ffffff'; LINE='#cbdada'; TEXT='#183438'; MUTED='#587176'
+RED='#b5534a'; GRAY='#5d6f76'; BLUE='#087e82'; GREEN='#28755e'; PURPLE='#6d5897'; AMBER='#906121'
 version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text()).group(1)
 ini=(ROOT/'firmware/platformio.ini').read_text()
 libs=dict(re.findall(r'^\s+([^\n]+)@([\d.]+)\s*$',ini,re.M))
@@ -21,7 +21,7 @@ def write_generated(path,contents):
         path.parent.mkdir(parents=True,exist_ok=True);path.write_text(contents,encoding='utf-8')
 
 class SVG:
-    def __init__(self,w,h,title,desc='Diagram lokal Midea Fort. Warna dan label menandai koneksi; data tampilan adalah simulasi.'):
+    def __init__(self,w,h,title,desc='Midea Fort schematic. Labels and colors identify connections. Screen values are simulated.'):
         self.w=w;self.h=h;self.parts=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc><rect width="100%" height="100%" fill="{BG}"/>']
     def rect(self,x,y,w,h,fill=PANEL,stroke=LINE,r=16):
         self.parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{fill}" stroke="{stroke}"/>')
@@ -65,69 +65,69 @@ for name,key,label,icon,c in [
     ('rtclib','adafruit/RTClib','RTClib','clock',PURPLE),
     ('arduinojson','bblanchon/ArduinoJson','ArduinoJson','code',BLUE)]:badge(name,label,libs[key],c,icon)
 
-s=SVG(1400,360,'Midea Engineering Fort Energy Station')
-s.text(55,60,'MIDEA  /  ENGINEERING',18,BLUE,700);s.text(55,133,'Fort Energy Station',55,weight=700)
-s.text(55,181,'Pembacaan kWh lokal. Interval yang dapat ditelusuri.',24,MUTED)
-s.text(55,229,'ESP32-S3 · Modbus RTU · RTC · OLED · Dashboard Wi-Fi',19,MUTED)
-for i,(a,b) in enumerate([('09 INTERVAL','06.00–09.00 / 16.30–18.00'),('LOCAL FIRST','192.168.4.1'),('DUAL CORE','Akuisisi + antarmuka')]):
+s=SVG(1400,360,'Midea Engineering Fort Modbus Energy Monitor')
+s.text(55,60,'MIDEA  /  ENGINEERING',18,BLUE,700);s.text(55,133,'Fort Modbus Energy Monitor',55,weight=700)
+s.text(55,181,'Imported kWh over Modbus RTU; scheduled half-hour records.',24,MUTED)
+s.text(55,229,'ESP32-S3 · Modbus RTU · RTC · OLED · Wi-Fi dashboard',19,MUTED)
+for i,(a,b) in enumerate([('9 INTERVALS','06.00–09.00 / 16.30–18.00'),('ACCESS POINT','192.168.4.1'),('FREERTOS','Acquisition + UI')]):
     x=55+i*425;s.rect(x,265,400,65);s.text(x+18,291,a,12,BLUE,700);s.text(x+18,315,b,17)
 s.save('hero.svg')
 
 # Full schematic. Net labels are electrical connections, not physical header positions.
-s=SVG(1800,1320,'Wiring lengkap ESP32-S3, OLED, RTC, RS485, Fort, tombol dan buzzer')
-s.heading('Wiring lengkap · Midea Fort Energy Station','Pin sesuai board.h · RS485 3,3 V terkonfirmasi · ESP32 satu-satunya master · gambar sambungan logis')
-s.rect(650,180,350,780,'#18344a',BLUE);s.text(825,225,'ESP32-S3',30,weight=700,anchor='middle');s.text(825,258,'N16R8 · DevKitC style',18,MUTED,anchor='middle')
-s.rect(715,120,220,45);s.text(825,149,'USB-C / suplai board',16,anchor='middle');s.wire([(825,165),(825,180)],RED)
-s.text(825,590,'UART1 + I2C',20,BLUE,600,anchor='middle');s.text(825,625,'Core 0: web / UI',17,MUTED,anchor='middle');s.text(825,653,'Core 1: akuisisi',17,MUTED,anchor='middle');s.text(825,705,'3V3 dari regulator board',16,RED,anchor='middle')
+s=SVG(1800,1320,'ESP32-S3, OLED, RTC, RS485, Fort, buttons and optional buzzer wiring')
+s.heading('Hardware wiring · Fort monitor','GPIOs from board.h · Confirmed 3.3 V RS485 module · ESP32 is the only master · Logical connections')
+s.rect(650,180,350,780,'#e5f1ef',BLUE);s.text(825,225,'ESP32-S3',30,weight=700,anchor='middle');s.text(825,258,'N16R8 · DevKitC style',18,MUTED,anchor='middle')
+s.rect(715,120,220,45);s.text(825,149,'USB-C / board supply',16,anchor='middle');s.wire([(825,165),(825,180)],RED)
+s.text(825,590,'UART1 + I2C',20,BLUE,600,anchor='middle');s.text(825,625,'Core 0: web / UI',17,MUTED,anchor='middle');s.text(825,653,'Core 1: acquisition',17,MUTED,anchor='middle');s.text(825,705,'3V3 from board regulator',16,RED,anchor='middle')
 for y,label,c in [(300,'3V3',RED),(340,'GND',GRAY),(380,'GPIO8 / SDA',BLUE),(420,'GPIO9 / SCL',GREEN),(800,'GPIO4 / PREV',PURPLE),(840,'GPIO5 / NEXT',PURPLE),(880,'GPIO6 / OK',PURPLE)]:s.port(650,y,label,c,'left')
 for y,label,c in [(300,'3V3',RED),(340,'GND',GRAY),(390,'GPIO18 / RX',BLUE),(430,'GPIO17 / TX',GREEN),(490,'GPIO16 / DIR',PURPLE),(800,'GPIO7 / BUZZ',AMBER)]:s.port(1000,y,label,c)
-for top,title,sub,ys in [(240,'OLED SSD1306','I2C · 128 × 64 · 0x3C',[300,340,380,420]),(530,'RTC DS3231','I2C · 0x68 · baterai backup',[590,630,670,710])]:
+for top,title,sub,ys in [(240,'OLED SSD1306','I2C · 128 × 64 · 0x3C',[300,340,380,420]),(530,'RTC DS3231','I2C · 0x68 · battery backup',[590,630,670,710])]:
     s.rect(60,top,330,235);s.text(85,top+37,title,24,weight=700);s.text(85,top+65,sub,15,MUTED)
     for y,label,c in zip(ys,['VCC','GND','SDA','SCL'],[RED,GRAY,BLUE,GREEN]):s.port(390,y,label,c)
 # The OLED's first ports share the title region: cover text was positioned above.
 for y,c in [(300,RED),(340,GRAY),(380,BLUE),(420,GREEN)]:s.wire([(390,y),(650,y)],c)
 for y,target,x,c in [(590,300,450,RED),(630,340,480,GRAY),(670,380,520,BLUE),(710,420,560,GREEN)]:
     s.wire([(390,y),(x,y),(x,target),(650,target)],c);s.dot(x,target,c)
-s.text(60,805,'SDA dan SCL dipakai bersama oleh OLED + RTC.',16,MUTED)
+s.text(60,805,'OLED and RTC share the SDA and SCL nets.',16,MUTED)
 s.rect(1190,240,260,330);s.text(1210,278,'RS485 · 3V3',23,weight=700)
 for y,label,c in [(300,'VCC',RED),(340,'GND',GRAY),(390,'RO → RX',BLUE),(430,'DI ← TX',GREEN),(480,'DE',PURPLE),(520,'/RE',PURPLE)]:s.port(1190,y,label,c,'left')
 for y,label,c in [(340,'A',AMBER),(390,'B',GREEN)]:s.port(1450,y,label,c)
 for y,c in [(300,RED),(340,GRAY),(390,BLUE),(430,GREEN)]:s.wire([(1000,y),(1190,y)],c)
 s.wire([(1000,490),(1100,490),(1100,480),(1190,480)],PURPLE);s.wire([(1100,490),(1100,520),(1190,520)],PURPLE);s.dot(1100,490,PURPLE)
-s.text(1025,555,'DE + /RE disatukan',15,PURPLE)
+s.text(1025,555,'Tie DE and /RE together',15,PURPLE)
 s.rect(1540,240,210,330);s.text(1560,278,'FORT',26,weight=700);s.text(1560,310,'Power meter',16,MUTED)
 for y,label,c in [(340,'58 / A',AMBER),(390,'59 / B',GREEN)]:s.port(1540,y,label,c,'left');s.wire([(1450,y),(1540,y)],c)
-s.text(1560,455,'Port existing',16,MUTED);s.text(1560,482,'belum terhubung',16,MUTED);s.text(1560,509,'ke perangkat lain',16,MUTED)
+s.text(1560,455,'Dedicated meter port',16,MUTED);s.text(1560,482,'ESP32 is the',16,MUTED);s.text(1560,509,'only master',16,MUTED)
 s.text(1190,612,'Manual: terminal 58 = A, terminal 59 = B.',18,AMBER)
-s.text(1190,640,'70 / COM adalah switch input, bukan ground RS485.',16,MUTED)
+s.text(1190,640,'70 / COM is a switch input common, not RS485 ground.',16,MUTED)
 # Three physical switches, all common to local ground.
 s.rect(60,850,330,300);s.text(85,882,'3 × TACTILE SWITCH',20,weight=700)
 for y,label in [(920,'PREV'),(985,'NEXT'),(1050,'OK')]:
     s.text(85,y-12,label,16,PURPLE,700);s.wire([(180,y),(240,y)],GRAY);s.dot(240,y,GRAY);s.dot(275,y,PURPLE);s.wire([(240,y),(267,y-15)],GRAY,3);s.wire([(275,y),(390,y)],PURPLE)
-s.wire([(180,920),(180,1110)],GRAY);s.text(196,1117,'GND (net bersama)',15,GRAY)
+s.wire([(180,920),(180,1110)],GRAY);s.text(196,1117,'GND (shared net)',15,GRAY)
 for by,sy,x in [(800,920,590),(840,985,610),(880,1050,630)]:s.wire([(650,by),(x,by),(x,sy),(390,sy)],PURPLE)
-s.text(415,1110,'INPUT_PULLUP',16,PURPLE);s.text(415,1138,'Tekan = LOW',16,MUTED)
+s.text(415,1110,'INPUT_PULLUP',16,PURPLE);s.text(415,1138,'Pressed = LOW',16,MUTED)
 # NPN low-side driver for an active 2-wire buzzer.
-s.rect(1130,700,620,450);s.text(1160,741,'BUZZER AKTIF · driver 2 kaki',23,weight=700)
+s.rect(1130,700,620,450);s.text(1160,741,'OPTIONAL BUZZER · NPN driver',23,weight=700)
 s.wire([(1000,800),(1080,800),(1080,900),(1190,900)],AMBER)
 s.rect(1190,890,85,20,'none',AMBER,2);s.text(1232,876,'1 kΩ',16,AMBER,anchor='middle');s.wire([(1275,900),(1440,900)],AMBER)
 s.parts.append(f'<circle cx="1460" cy="900" r="36" fill="none" stroke="{TEXT}" stroke-width="2"/>')
 s.wire([(1440,879),(1440,921)],TEXT,3);s.wire([(1440,889),(1480,868),(1560,868),(1560,828)],TEXT);s.wire([(1440,911),(1480,935),(1480,1060)],GRAY)
 s.wire([(1471,928),(1479,935),(1469,934)],GRAY,2);s.text(1525,966,'Q1 NPN',16,MUTED);s.text(1525,990,'B / C / E',14,MUTED)
 s.text(1419,883,'B',14,AMBER);s.text(1491,855,'C',14,MUTED);s.text(1494,942,'E',14,GRAY)
-s.rect(1518,780,84,48,'#203b4f',AMBER,12);s.text(1560,812,'BZ',20,AMBER,700,anchor='middle');s.text(1615,799,'+',18,RED);s.text(1615,834,'−',18,GRAY)
+s.rect(1518,780,84,48,'#fff7e7',AMBER,12);s.text(1560,812,'BZ',20,AMBER,700,anchor='middle');s.text(1615,799,'+',18,RED);s.text(1615,834,'−',18,GRAY)
 s.wire([(1560,780),(1560,763)],RED);s.text(1560,760,'3V3',16,RED,700,anchor='middle')
 s.wire([(1340,900),(1340,963)],GRAY);s.dot(1340,900,AMBER);s.rect(1330,963,20,65,'none',GRAY,2);s.text(1305,1003,'10 kΩ',15,GRAY,anchor='end');s.wire([(1340,1028),(1340,1060),(1480,1060)],GRAY);s.dot(1480,1060,GRAY);s.text(1494,1066,'GND',16,GRAY)
-s.text(1160,1100,'Q1 + 1 kΩ + 10 kΩ adalah komponen tambahan.',15,MUTED)
-s.text(1160,1127,'Pin fisik B/C/E mengikuti datasheet transistor yang dipakai.',14,MUTED)
-s.rect(45,1185,1710,102);s.text(70,1215,'LEGENDA',13,BLUE,700)
+s.text(1160,1100,'Q1 + 1 kΩ + 10 kΩ are additional parts.',15,MUTED)
+s.text(1160,1127,'Find physical B/C/E pin order in the transistor datasheet.',14,MUTED)
+s.rect(45,1185,1710,102);s.text(70,1215,'NET LABELS',13,BLUE,700)
 for x,label,c in [(70,'3V3',RED),(215,'GND',GRAY),(360,'SDA / RX',BLUE),(560,'SCL / TX / B',GREEN),(810,'GPIO / DIR',PURPLE),(1040,'RS485 A / buzzer',AMBER)]:s.wire([(x,1245),(x+35,1245)],c,4);s.text(x+45,1251,label,16,c)
-s.text(70,1276,'Label GND/3V3 yang sama = net yang sama. Titik = sambungan; perpotongan tanpa titik tidak tersambung. Posisi port bukan posisi header fisik.',15,MUTED)
+s.text(70,1276,'Repeated GND/3V3 labels identify one net. Dots mark joins; crossings without dots do not connect. Port positions are not physical headers.',15,MUTED)
 s.save('wiring-overview.svg')
 
 # Separate tactile contact illustration.
-s=SVG(1100,480,'Cara memilih kaki tactile switch dan menghubungkannya ke ESP32')
-s.heading('Tombol 4 kaki · pilih dua kontak yang berbeda','Ilustrasi pasangan listrik; tentukan pasangan aktual dengan continuity meter.')
+s=SVG(1100,480,'Tactile contact pairs and ESP32 connection')
+s.heading('4-leg switch · use two different contact pairs','Electrical contact illustration; identify the actual pairs with a continuity meter.')
 s.rect(355,155,330,230);s.text(520,194,'TACTILE SWITCH',20,weight=700,anchor='middle')
 for x,label,c in [(355,'A',PURPLE),(685,'B',GRAY)]:
     s.wire([(x,240),(x,335)],c,5)
@@ -135,27 +135,27 @@ for x,label,c in [(355,'A',PURPLE),(685,'B',GRAY)]:
     s.text(x-65 if x==355 else x+65,291,label,24,c,700,anchor='middle')
 s.dot(460,285,PURPLE);s.dot(580,285,GRAY);s.wire([(355,285),(460,285),(555,250)],PURPLE);s.wire([(580,285),(685,285)],GRAY)
 s.wire([(90,240),(315,240)],PURPLE);s.text(80,219,'GPIO4 / GPIO5 / GPIO6',19,PURPLE);s.wire([(725,335),(990,335)],GRAY);s.text(855,371,'GND',22,GRAY,700)
-s.text(55,434,'A–A selalu terhubung. B–B selalu terhubung. A–B baru terhubung saat ditekan. Gunakan satu A dan satu B.',18,MUTED)
+s.text(55,434,'A–A and B–B are always joined. Pressing joins A to B. Connect one A to GPIO and one B to ground.',18,MUTED)
 s.save('button-contacts.svg')
 
-s=SVG(1400,650,'Arsitektur dua core dan jalur data')
-s.heading('Dua core · satu sumber data konsisten','RTOS queue untuk perintah/snapshot; mutex untuk I2C dan filesystem.')
-for x,title,lines in [(55,'CORE 0 / ANTARMUKA',['HTTP + dashboard HP','Tombol / debounce 35 ms','OLED sekitar 3 Hz + buzzer','Wi-Fi tetap dikelola ESP-IDF']),(835,'CORE 1 / AKUISISI',['UART1 Modbus + CRC / retry','RTC + CT/PT + counter kWh','9 interval dengan kualitas data','NVS checkpoint + CSV LittleFS'])]:
+s=SVG(1400,650,'Tasks, queues and peripheral ownership')
+s.heading('Task ownership and data flow','Commands and snapshots are copied through queues; I2C and filesystem operations use mutexes.')
+for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED every ≥300 ms + buzzer','Wi-Fi tasks managed by ESP-IDF']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['UART1 / CRC / retry / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
     s.rect(x,160,510,300);s.text(x+25,204,title,22,BLUE,700)
     for i,line in enumerate(lines):s.text(x+25,260+i*43,line,20)
-s.wire([(565,250),(835,250)],PURPLE,4);s.text(700,228,'Perintah →',18,PURPLE,anchor='middle');s.text(700,277,'queue 6 item',15,MUTED,anchor='middle')
-s.wire([(835,380),(565,380)],GREEN,4);s.text(700,355,'← Snapshot',18,GREEN,anchor='middle');s.text(700,407,'queue 1 item',15,MUTED,anchor='middle')
-s.rect(55,500,1290,100);s.text(85,539,'Polling target 2 detik  ·  Refresh web 2,5 detik  ·  Watchdog 8 detik',21,weight=600)
-s.text(85,575,'Selisih counter membentuk energi; beban CPU dibiarkan rendah agar respons, Wi-Fi dan idle task tetap lancar.',18,MUTED)
+s.wire([(565,250),(835,250)],PURPLE,4);s.text(700,228,'Command →',18,PURPLE,anchor='middle');s.text(700,277,'queue: 6 values',15,MUTED,anchor='middle')
+s.wire([(835,380),(565,380)],GREEN,4);s.text(700,355,'← Snapshot',18,GREEN,anchor='middle');s.text(700,407,'queue: 1 value',15,MUTED,anchor='middle')
+s.rect(55,500,1290,100);s.text(85,539,'2 s acquisition target  ·  2.5 s browser refresh  ·  8 s watchdog',21,weight=600)
+s.text(85,575,'Yield while waiting: idle and system tasks must run. Target periods are not hard real-time deadlines.',18,MUTED)
 s.save('architecture.svg')
 
-s=SVG(1400,650,'Ilustrasi halaman OLED dan navigasi')
-s.heading('OLED 128 × 64 · lima halaman + boot','Representasi isi layar dari firmware, bukan foto hardware. Semua angka adalah data simulasi.')
-screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('UTAMA',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('PAGI',['INTERVAL PAGI','06:00 - 06:30','21.320','lengkap-estimasi']),('SORE',['INTERVAL SORE','16:30 - 17:00','--.---','menunggu']),('HOTSPOT',['HOTSPOT / WIFI','Midea Engineering','AP','192.168.4.1','OK: password']),('DIAGNOSTIK',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
+s=SVG(1400,650,'OLED screen and button reference')
+s.heading('OLED 128 × 64 · five pages + boot','Representative firmware screens, not hardware photographs. All sample values are simulated.')
+screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING INTERVAL','06:00 - 06:30','21.320','complete_estimated']),('EVENING',['EVENING INTERVAL','16:30 - 17:00','--.---','waiting']),('HOTSPOT',['HOTSPOT / WIFI','Midea Engineering','AP','192.168.4.1','OK: password']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
 for i,(title,lines) in enumerate(screens):
     x=45+i%3*450;y=145+i//3*230;s.rect(x,y,410,205);s.text(x+20,y+30,title,14,BLUE,700);s.rect(x+20,y+45,370,140,'#030b13',LINE,7)
-    for j,line in enumerate(lines):s.text(x+35,y+70+j*23,line,16,mono=True)
-s.text(45,634,'PREV / NEXT: halaman  ·  OK: interval atau password  ·  Tahan OK 900 ms: mute / unmute alarm',18,MUTED)
+    for j,line in enumerate(lines):s.text(x+35,y+70+j*23,line,16,color='#e2f4f0',mono=True)
+s.text(45,634,'PREV / NEXT: page  ·  OK: interval or password  ·  Hold OK 900 ms: toggle alarm mute',18,MUTED)
 s.save('oled-pages.svg')
 
 pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text())}
@@ -175,4 +175,34 @@ for key in ['PREV','NEXT','OK']:
 rows.extend([('BZ01','BUZZER_CONTROL','ESP32.GPIO'+str(pins['PIN_BUZZER']),'R1.1k.input'),('BZ02','BUZZER_BASE','R1.1k.output','Q1.B'),('BZ03','BUZZER_BASE','Q1.B','R2.10k.input'),('BZ04','GND','R2.10k.output','rail.GND'),('BZ05','GND','Q1.E','rail.GND'),('BZ06','BUZZER_LOW','Q1.C','BUZZER.minus'),('BZ07','3V3','rail.3V3','BUZZER.plus')])
 stream=io.StringIO(newline='');writer=csv.writer(stream,lineterminator='\n');writer.writerow(['wire','net','from','to']);writer.writerows(rows)
 write_generated(ROOT/'docs/wiring-netlist.csv',stream.getvalue())
+
+
+
+s=SVG(1400,740,'UART1 RTU frame and transceiver direction','Timing is schematic, not to scale. Hardware UART generates serial bits; GPIO16 controls direction.')
+s.heading('RTU transaction · UART1 + GPIO16','Function 03 only · up to 3 attempts normally · 1 attempt per register while scanning')
+labels=[('ID','01'),('FUNCTION','03'),('ADDR HI','00'),('ADDR LO','82'),('COUNT HI','00'),('COUNT LO','02'),('CRC LO','CRC[7:0]'),('CRC HI','CRC[15:8]')]
+for i,(a,b) in enumerate(labels):
+ x=45+i*164;s.rect(x,135,153,86);s.text(x+14,163,a,12,MUTED,600);s.text(x+14,199,b,22,BLUE,600,mono=True)
+s.text(45,254,'Energy read request: 0x0082, two words. CRC covers the first six bytes; low CRC byte is sent first.',18,MUTED)
+s.text(45,327,'GPIO16',18,PURPLE,600);s.text(45,353,'DE + /RE',15,MUTED)
+s.wire([(190,355),(440,355),(440,305),(690,305),(690,355),(1345,355)],PURPLE,3)
+s.text(275,389,'RX / idle',15,MUTED);s.text(508,289,'TX enabled',15,PURPLE);s.text(900,389,'RX enabled',15,MUTED)
+s.text(45,447,'UART1',18,BLUE,600)
+s.rect(440,416,250,54,'#e5f1ef',BLUE,5);s.text(565,449,'8 request bytes',18,BLUE,600,anchor='middle')
+s.rect(825,416,445,54,'#eef6f2',GREEN,5);s.text(1047,449,'Response: ID / 03 / count / data / CRC',16,GREEN,anchor='middle')
+for x,top,bottom in [(440,'Wait t3.5','then HIGH + 30 µs'),(690,'UART.flush()','then GPIO16 LOW')]:
+ s.wire([(x,490),(x,515)],GRAY,1);s.text(x,542,top,16,anchor='middle');s.text(x,568,bottom,14,MUTED,anchor='middle')
+s.rect(45,614,1300,88);s.text(70,645,'RX deadline: 800 ms after TX flush. Software polls the RX buffer and yields one tick while waiting.',18)
+s.text(70,678,'UART and I2C use hardware peripherals. GPIO direction switching and software CRC are not serial bit banging.',17,MUTED)
+s.save('rtu-timing.svg')
+
+s=SVG(1400,650,'Firmware startup sequence','After the ESP32-S3 ROM and bootloader transfer control to Arduino setup().')
+s.heading('Startup sequence','After ROM / bootloader → setup() → core-0 UI loop + core-1 acquisition task')
+steps=[('01','GPIO + RTOS objects',['DE LOW; button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','Probe OLED; skip if absent','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['192.168.4.1 / 24','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons + OLED + buzzer','Publish/read copied state'])]
+for i,(num,title,lines) in enumerate(steps):
+ x=45+(i%3)*450;y=145+(i//3)*235;s.rect(x,y,410,205);s.text(x+22,y+34,num,15,BLUE,700);s.text(x+64,y+34,title,19,weight=600)
+ for j,line in enumerate(lines):s.text(x+22,y+83+j*33,line,17,MUTED)
+s.text(45,633,'No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported; startup does not wait indefinitely.',18,MUTED)
+s.save('boot-flow.svg')
+
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

@@ -12,3 +12,8 @@
 *.png binary
 *.pdf binary
 *.bin binary
+
+firmware/include/web_ui.h linguist-generated=true
+web/bundle.json linguist-generated=true
+docs/assets/*.svg linguist-generated=true
+docs/assets/badges/*.svg linguist-generated=true

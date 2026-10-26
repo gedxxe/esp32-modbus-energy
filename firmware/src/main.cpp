@@ -9,6 +9,8 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
+#include <lwip/sockets.h>
+#include <errno.h>
 #include "board.h"
 #include "energy.h"
 #include "debounce.h"
@@ -34,7 +36,8 @@ struct Snapshot {
   uint32_t utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
   double energy=0,power=0,ratio=0;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
-  char error[64]="Belum ada respons";
+  char error[64]="Waiting for a response";
+  char errorCode[32]="waiting_for_meter";
 };
 Snapshot state{}; // UI reads queue copies. Only acquisition task mutates state.
 Tracker tracker;
@@ -49,7 +52,7 @@ uint32_t lastClockMono=0,lastClockUTC=0;
 
 struct Checkpoint { uint32_t magic=0x46524432; Day day{}; uint16_t crc=0; };
 struct ConfigRecord { Settings settings{};uint16_t crc=0; };
-void setError(const char *s) { strlcpy(state.error,s,sizeof(state.error)); }
+void setError(const char *s,const char *code) { strlcpy(state.error,s,sizeof(state.error));strlcpy(state.errorCode,code,sizeof(state.errorCode)); }
 bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
 uint32_t activeBaud=0;char activeParity=0;
 void startBusFor(const Settings &config) {
@@ -85,15 +88,15 @@ bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t 
       vTaskDelay(1);
     }
     if(!n) {
-      if(normal){++state.timeouts;setError("Timeout Modbus");}else ++scanner.progress.timeouts;
+      if(normal){++state.timeouts;setError("Modbus response timeout","modbus_timeout");}else ++scanner.progress.timeouts;
     }else if(!overflow&&n>=5&&crc16(rx,n-2)==(uint16_t(rx[n-2])|(uint16_t(rx[n-1])<<8))) {
       if(validFrame(rx,n,config.slave,count)){memcpy(out,rx+3,count*2);return true;}
-      if(normal&&rx[0]==config.slave&&rx[1]==0x83&&n==5){snprintf(state.error,sizeof(state.error),"Modbus exception 0x%02X",rx[2]);return false;}
-      if(normal)setError("ID / fungsi / panjang respons salah");else ++scanner.progress.rejected;
+      if(normal&&rx[0]==config.slave&&rx[1]==0x83&&n==5){snprintf(state.error,sizeof(state.error),"Modbus exception 0x%02X",rx[2]);strlcpy(state.errorCode,"modbus_exception",sizeof(state.errorCode));return false;}
+      if(normal)setError("Wrong ID, function or response length","invalid_frame");else ++scanner.progress.rejected;
     }else if(overflow) {
-      if(normal)setError("Respons RTU terlalu panjang");else ++scanner.progress.rejected;
+      if(normal)setError("RTU response exceeds the buffer","response_overflow");else ++scanner.progress.rejected;
     }else {
-      if(normal){++state.crcErrors;setError("CRC respons tidak cocok");}else ++scanner.progress.crcErrors;
+      if(normal){++state.crcErrors;setError("Response CRC mismatch","crc_mismatch");}else ++scanner.progress.crcErrors;
     }
     if(attempt+1<attempts)vTaskDelay(pdMS_TO_TICKS(30*(attempt+1)));
   }
@@ -105,7 +108,8 @@ bool readWords(uint16_t address,uint8_t count,uint8_t *out) {
 void restoreAfterScan() {
   startBus();state.ratios=false;haveSample=false;rawKnown=false;state.power=NAN;
   lastRatio=0;lastPoll=millis();
-  setError(scanner.progress.phase==SCAN_FOUND?"Scan selesai; hasil belum diterapkan":scanner.progress.phase==SCAN_CANCELLED?"Scan dibatalkan; koneksi lama dipulihkan":"Scan selesai; meter tidak ditemukan");
+  setError(scanner.progress.phase==SCAN_FOUND?"Scan finished; result not applied":scanner.progress.phase==SCAN_CANCELLED?"Scan cancelled; previous settings restored":"Scan finished without a match",
+    scanner.progress.phase==SCAN_FOUND?"scan_result_pending":scanner.progress.phase==SCAN_CANCELLED?"scan_was_cancelled":"scan_no_meter");
 }
 void scanStep() {
   const Settings candidate=scanner.progress.candidate;
@@ -157,12 +161,12 @@ String csvDay(const Day &d) {
   String s="date,shift,start_wib,end_wib,start_kwh,end_kwh,consumption_kwh,quality\r\n";
   for(int i=0;i<SLOT_COUNT;++i) {
     const Slot &x=d.slots[i];int a=START_MIN[i],b=a+30;char t[40];
-    snprintf(t,sizeof(t),",%s,%02d:%02d,%02d:%02d,",i<6?"pagi":"sore",a/60,a%60,b/60,b%60);
+    snprintf(t,sizeof(t),",%s,%02d:%02d,%02d:%02d,",i<6?"morning":"evening",a/60,a%60,b/60,b%60);
     s+=dateForDay(d.number)+t;
     if(x.hasStart)s+=String(x.start,6);s+=',';
     if(x.hasEnd)s+=String(x.end,6);s+=',';
     if(x.quality==COMPLETE&&x.end>=x.start)s+=String(x.end-x.start,6);
-    s+=',';s+=qualityName(x.quality);s+="\r\n";
+    s+=',';s+=qualityCode(x.quality);s+="\r\n";
   }return s;
 }
 void saveArchive() {
@@ -200,7 +204,7 @@ void acquisition(void *) {
     bool read=prefs.getBytesLength("config")==sizeof(record)&&prefs.getBytes("config",&record,sizeof(record))==sizeof(record);
     uint16_t c=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
     if(read&&validSettings(record.settings)&&record.crc==c)config=record.settings;
-    else {config=Settings{};configOK=false;setError("Konfigurasi rusak; default dipakai");}
+    else {config=Settings{};configOK=false;setError("Stored configuration invalid; defaults loaded","config_corrupt");}
   }
   state.config=config;
   if(nvsOK&&prefs.getBytesLength("day")==sizeof(Checkpoint)) {
@@ -215,12 +219,12 @@ void acquisition(void *) {
       if(cmd.type==TOGGLE_MUTE)muted=!muted;
       if(cmd.type==SET_TIME) {
         tracker.interrupt();clockKnown=false;rawKnown=false;
-        if(!rtcWrite(cmd.epoch))setError("Gagal menulis / verifikasi RTC");
+        if(!rtcWrite(cmd.epoch))setError("RTC write or verification failed","rtc_write_failed");
         saveCheckpoint(true);
       }
       if(cmd.type==START_SCAN&&!scanner.running()&&scanner.begin(cmd.first,cmd.last,state.config,millis())) {
         tracker.interrupt();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
-        setError("Scan Fort berjalan; pencatatan dijeda");publish();
+        setError("Scan running; recording paused","scanning");publish();
       }
       if(cmd.type==CANCEL_SCAN&&scanner.cancel(millis())){restoreAfterScan();publish();}
       if(cmd.type==APPLY_SCAN&&scanner.progress.phase==SCAN_FOUND) {cmd.type=SET_CONFIG;cmd.config=scanner.progress.result;}
@@ -260,7 +264,7 @@ void acquisition(void *) {
             double ratio=double(a)/b*c;
             if(ct&&(a!=ptNum||b!=ptDen||c!=ct)){tracker.interrupt();rawKnown=false;haveSample=false;}
             ptNum=a;ptDen=b;ct=c;state.ratio=ratio;state.ratios=true;lastRatio=millis();
-          }else {state.ratios=false;tracker.interrupt();setError("Rasio CT/PT di luar batas manual");}
+          }else {state.ratios=false;tracker.interrupt();setError("CT/PT ratio outside the manual range","ratio_out_of_range");}
         }else if(state.ratios&&millis()-lastRatio>120000){state.ratios=false;tracker.interrupt();}
     }
     if(millis()-lastPoll>=2000) {
@@ -273,13 +277,13 @@ void acquisition(void *) {
         uint32_t raw=be32(e);bool accepted=true;
         if(rawKnown&&raw<previousRaw) {
           // A wrap cannot be distinguished reliably from a reset: invalidate continuity.
-          tracker.interrupt();++state.rejected;setError("Counter turun / reset; interval parsial");
+          tracker.interrupt();++state.rejected;setError("Counter decreased; continuity interrupted","counter_reset");
         }
         double energy=raw*0.001*state.ratio;
         // Physical sanity limit: editable compile-time plant limit (100 MW).
         if(rawKnown&&raw>=previousRaw&&millis()!=previousMono) {
           double maxDelta=100000.0*(millis()-previousMono)/3600000.0+0.002*state.ratio;
-          if((raw-previousRaw)*0.001*state.ratio>maxDelta){accepted=false;++state.rejected;setError("Lonjakan energi tidak masuk akal");}
+          if((raw-previousRaw)*0.001*state.ratio>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
         }
         if(accepted) {
           state.energy=energy;haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
@@ -292,7 +296,7 @@ void acquisition(void *) {
           }else tracker.interrupt();
           if(readWords(0x006a,2,p)) {
             state.power=int32_t(be32(p))*0.0001*state.ratio;
-            setError("OK");
+            setError("Reading valid","acquisition_ok");
           }else state.power=NAN;
         }
       }
@@ -303,12 +307,12 @@ void acquisition(void *) {
   }
 }
 
-void jsonReply(int code,const String &msg) {
-  JsonDocument d;d["message"]=msg;String out;serializeJson(d,out);server.send(code,"application/json",out);
+void jsonReply(int code,const String &msg,const char *messageCode) {
+  JsonDocument d;d["message"]=msg;d["code"]=messageCode;String out;serializeJson(d,out);server.send(code,"application/json",out);
 }
 bool authorizePost() {
-  if(server.arg("token")!=apiToken){jsonReply(403,"Token sesi tidak valid. Muat ulang halaman.");return false;}
-  if(server.args()>8||server.arg("plain").length()>512){jsonReply(413,"Permintaan terlalu besar");return false;}
+  if(server.arg("token")!=apiToken){jsonReply(403,"Session expired. Reload this page.","invalid_token");return false;}
+  if(server.args()>8||server.arg("plain").length()>512){jsonReply(413,"Request is too large","request_too_large");return false;}
   return true;
 }
 bool parseNumber(const String &s,uint32_t &value) {
@@ -317,11 +321,30 @@ bool parseNumber(const String &s,uint32_t &value) {
   value=v;return true;
 }
 void enqueueCommand(const Command &c) {
-  if(xQueueSend(commandQueue,&c,0)==pdTRUE)jsonReply(202,"Perintah diterima. Periksa status perangkat setelah beberapa detik.");
-  else jsonReply(503,"Antrean sibuk. Coba lagi.");
+  if(xQueueSend(commandQueue,&c,0)==pdTRUE)jsonReply(202,"Command queued. Check the device status in a moment.","accepted");
+  else jsonReply(503,"Command queue is busy. Try again.","queue_busy");
+}
+// Flash-mapped gzip bytes go straight to lwIP in 1 KiB pieces. A stalled client
+// cannot hold a single WiFiClient::write() retry loop across the watchdog period.
+void serveAsset(const uint8_t *bytes,size_t length,const char *mime) {
+  server.sendHeader("Cache-Control","no-store");server.sendHeader("Content-Encoding","gzip");
+  server.sendHeader("X-Content-Type-Options","nosniff");server.setContentLength(length);
+  server.send(200,mime,"");
+  WiFiClient client=server.client();size_t offset=0;uint32_t start=millis();
+  while(client.connected()&&offset<length&&millis()-start<5000) {
+    esp_task_wdt_reset();size_t amount=min(size_t(1024),length-offset);
+    int sent=::send(client.fd(),bytes+offset,amount,MSG_DONTWAIT);
+    if(sent>0)offset+=sent;
+    else if(sent<0&&errno!=EAGAIN&&errno!=EWOULDBLOCK&&errno!=EINTR)break;
+    vTaskDelay(1);
+  }
+  if(offset<length)client.stop();
 }
 void webSetup() {
-  server.on("/",HTTP_GET,[]{server.sendHeader("Cache-Control","no-store");server.send_P(200,"text/html; charset=utf-8",WEB_UI);});
+  server.on("/",HTTP_GET,[]{serveAsset(WEB_INDEX_GZIP,WEB_INDEX_GZIP_LEN,"text/html; charset=utf-8");});
+  server.on("/assets/app.js",HTTP_GET,[]{serveAsset(WEB_APP_GZIP,WEB_APP_GZIP_LEN,"application/javascript; charset=utf-8");});
+  server.on("/assets/app.css",HTTP_GET,[]{serveAsset(WEB_STYLE_GZIP,WEB_STYLE_GZIP_LEN,"text/css; charset=utf-8");});
+  server.on("/assets/third-party.txt",HTTP_GET,[]{serveAsset(WEB_NOTICES_GZIP,WEB_NOTICES_GZIP_LEN,"text/plain; charset=utf-8");});
   server.on("/api/status",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);JsonDocument d;
     d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
@@ -336,39 +359,39 @@ void webSetup() {
     scan["slave"]=s.scan.candidate.slave;scan["baud"]=s.scan.candidate.baud;scan["parity"]=String(s.scan.candidate.parity);
     scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
     if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);}
-    d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;
+    d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
     JsonArray rows=d["slots"].to<JsonArray>();
-    for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
+    for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["quality_code"]=qualityCode(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/config",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
-    if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Batalkan scan sebelum mengganti koneksi");return;}
+    if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel the scan before changing the connection","scan_busy");return;}
     uint32_t slave=0,baud=0;String parity=server.arg("parity");
-    if(!parseNumber(server.arg("slave"),slave)||!parseNumber(server.arg("baud"),baud)||slave<1||slave>247||parity.length()!=1){jsonReply(400,"Setting koneksi tidak valid");return;}
+    if(!parseNumber(server.arg("slave"),slave)||!parseNumber(server.arg("baud"),baud)||slave<1||slave>247||parity.length()!=1){jsonReply(400,"Invalid serial settings","invalid_config");return;}
     Command c{};c.type=SET_CONFIG;c.config.slave=slave;c.config.baud=baud;c.config.parity=parity[0];
-    if(!validSettings(c.config)){jsonReply(400,"Baud / parity tidak didukung");return;}enqueueCommand(c);
+    if(!validSettings(c.config)){jsonReply(400,"Unsupported baud rate or parity","unsupported_serial");return;}enqueueCommand(c);
   });
   server.on("/api/scan/start",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
-    if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Scan sedang berjalan");return;}
+    if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"A scan is already running","scan_running_error");return;}
     uint32_t first=0,last=0;
-    if(!parseNumber(server.arg("first"),first)||!parseNumber(server.arg("last"),last)||first<1||last>247||first>last){jsonReply(400,"Rentang slave ID harus 1–247 dan awal <= akhir");return;}
+    if(!parseNumber(server.arg("first"),first)||!parseNumber(server.arg("last"),last)||first<1||last>247||first>last){jsonReply(400,"Use IDs 1-247, with first ID <= last ID","invalid_scan_range");return;}
     Command c{};c.type=START_SCAN;c.first=first;c.last=last;enqueueCommand(c);
   });
   server.on("/api/scan/cancel",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=CANCEL_SCAN;enqueueCommand(c);});
   server.on("/api/scan/apply",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
-    if(s.scan.phase!=SCAN_FOUND){jsonReply(409,"Belum ada hasil scan untuk diterapkan");return;}
+    if(s.scan.phase!=SCAN_FOUND){jsonReply(409,"No scan result is available","no_scan_result");return;}
     Command c{};c.type=APPLY_SCAN;enqueueCommand(c);
   });
   server.on("/api/time",HTTP_POST,[]{
     if(!authorizePost())return;uint32_t epoch=0;
-    if(!parseNumber(server.arg("epoch"),epoch)||epoch<1704067200UL||epoch>4102444799UL-LOCAL_OFFSET){jsonReply(400,"Waktu harus berada pada tahun 2024–2099");return;}
+    if(!parseNumber(server.arg("epoch"),epoch)||epoch<1704067200UL||epoch>4102444799UL-LOCAL_OFFSET){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
     Snapshot s{};readSnapshot(s);
-    if(s.rtc&&s.day.number&&(epoch+LOCAL_OFFSET)/86400<s.day.number){jsonReply(409,"Tanggal mundur ditolak untuk melindungi arsip. Koreksi RTC melalui commissioning ulang.");return;}
+    if(s.rtc&&s.day.number&&(epoch+LOCAL_OFFSET)/86400<s.day.number){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);
   });
   server.on("/api/mute",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=TOGGLE_MUTE;enqueueCommand(c);});
@@ -382,19 +405,19 @@ void webSetup() {
   });
   server.on("/api/export",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);uint32_t day=s.day.number;
-    if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Tanggal arsip tidak valid");return;}
-    if(!day||day>s.day.number||s.day.number-day>=31){jsonReply(404,"Arsip tidak tersedia");return;}
+    if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid archive date","invalid_archive_date");return;}
+    if(!day||day>s.day.number||s.day.number-day>=31){jsonReply(404,"Archive is not available","archive_missing");return;}
     server.sendHeader("Content-Disposition","attachment; filename=fort-"+dateForDay(day)+".csv");
     server.sendHeader("Cache-Control","no-store");
     if(day==s.day.number){server.send(200,"text/csv; charset=utf-8",csvDay(s.day));return;}
-    if(!fsOK||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))!=pdTRUE){jsonReply(503,"Penyimpanan tidak tersedia");return;}
+    if(!fsOK||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))!=pdTRUE){jsonReply(503,"Storage is not available","storage_unavailable");return;}
     String p=dayPath(day);if(!LittleFS.exists(p))p+=".bak";
     File f=LittleFS.open(p,"r");
     // Copy small bounded CSV under lock; never keep FS locked for a slow client.
     String csv;if(f&&f.size()<8192)csv=f.readString();if(f)f.close();xSemaphoreGive(fsMutex);
-    if(csv.length())server.send(200,"text/csv; charset=utf-8",csv);else jsonReply(404,"Arsip tidak ditemukan");
+    if(csv.length())server.send(200,"text/csv; charset=utf-8",csv);else jsonReply(404,"Archive is not available","archive_missing");
   });
-  server.onNotFound([]{jsonReply(404,"Alamat tidak ditemukan");});server.begin();
+  server.onNotFound([]{jsonReply(404,"Address not found","not_found");});server.begin();
 }
 
 struct Button {
@@ -410,16 +433,16 @@ uint8_t page=0,slotPage=0;uint32_t lastPaint=0;bool showCredentials=false;
 void drawOLED(const Snapshot &s) {
   if(!oledOK||xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(30))!=pdTRUE)return;
   oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(0,0);
-  const char *titles[]={"MIDEA | ENERGY","INTERVAL PAGI","INTERVAL SORE","HOTSPOT / WIFI","DIAGNOSTICS"};
+  const char *titles[]={"MIDEA | ENERGY","MORNING INTERVAL","EVENING INTERVAL","HOTSPOT / WIFI","DIAGNOSTICS"};
   oled.println(titles[page]);oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
   if(page==0){
-    if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.println("kWh import");}else oled.println("Menunggu meter...");
+    if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.println("kWh import");}else oled.println("Waiting for meter");
     oled.setCursor(0,45);if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char b[25];snprintf(b,sizeof(b),"%02u:%02u:%02u WIB",t.hour(),t.minute(),t.second());oled.println(b);}else oled.println("RTC: SET VIA WEB");
     oled.setCursor(98,45);oled.print(s.online?"OK":"OFF");
     oled.setCursor(0,56);oled.print(apOK?"IP 192.168.4.1":"AP FAILED");
   }else if(page==1||page==2){
     int i=page==1?slotPage%6:6+slotPage%3;const Slot &x=s.day.slots[i];int a=START_MIN[i],b=a+30;char t[24];snprintf(t,sizeof(t),"%02d:%02d - %02d:%02d",a/60,a%60,b/60,b%60);oled.println(t);
-    oled.setTextSize(2);oled.setCursor(0,29);if(x.quality==COMPLETE)oled.print(String(x.end-x.start,3));else oled.print("--.---");oled.setTextSize(1);oled.setCursor(0,49);oled.println(qualityName(x.quality));
+    oled.setTextSize(2);oled.setCursor(0,29);if(x.quality==COMPLETE)oled.print(String(x.end-x.start,3));else oled.print("--.---");oled.setTextSize(1);oled.setCursor(0,49);oled.println(qualityCode(x.quality));
   }else if(page==3){
     if(showCredentials){oled.println("Password:");oled.println(AP_PASSWORD);}else{oled.println("Midea Engineering");oled.println("AP");}
     oled.setCursor(0,42);oled.println(apOK?WiFi.softAPIP().toString():"AP START FAILED");oled.println("OK: password");
@@ -455,7 +478,7 @@ void setup() {
   // Never format existing data automatically. First installation: hold OK at boot.
   fsOK=LittleFS.begin(false);
   if(!fsOK&&digitalRead(PIN_OK)==LOW){
-    if(oledOK){oled.clearDisplay();oled.setTextSize(1);oled.setCursor(0,0);oled.println("FS belum terpasang");oled.println("Tahan OK 5 detik");oled.println("untuk FORMAT arsip");oled.display();}
+    if(oledOK){oled.clearDisplay();oled.setTextSize(1);oled.setCursor(0,0);oled.println("Storage not ready");oled.println("Hold OK for 5 sec");oled.println("to ERASE archives");oled.display();}
     uint32_t t=millis();while(digitalRead(PIN_OK)==LOW&&millis()-t<5000)delay(20);
     if(millis()-t>=5000){LittleFS.end();fsOK=LittleFS.format()&&LittleFS.begin(false);}
   }

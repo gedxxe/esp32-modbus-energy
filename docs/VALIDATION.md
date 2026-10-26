@@ -1,75 +1,71 @@
-# Hasil validasi — 26 Oktober 2026
+# Validation record — 26 October 2026
 
-Versi firmware yang diaudit: **1.1.0**. Perubahan dan temuan tersaji di [AUDIT](AUDIT.md).
+**English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-## Logika C++ — LULUS
+Firmware **1.2.0**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
 
-Perintah: `tools/test.ps1`, compiler g++ dengan C++11 dan `-Wall -Wextra -Werror`.
+## Native logic — passed
 
-Kode yang diuji adalah header yang sama dengan firmware, bukan salinan algoritma dalam bahasa lain:
+`tools/test.ps1`, g++ C++11 with `-Wall -Wextra -Werror`.
 
-- Scan: 4.446 kandidat unik, prioritas 18 mode pada ID aktif, rentang invalid, ID tunggal, konfigurasi invalid, batal/restart/selesai/ditemukan dan rollover millis.
-- Scan: rasio nol atau di atas 9999 ditolak; validasi CRC/ID/panjang tetap memakai helper firmware yang diuji di bawah.
-- Debounce 35 ms menghadapi bouncing saat tekan/lepas.
-- Long press 900 ms menghasilkan satu event tanpa event short press tambahan.
-- Debounce tetap bekerja ketika `millis()` melewati maksimum uint32.
-- CRC query resmi Fort; salah cetak CRC respons ditolak; respons yang diperbaiki diterima.
-- Bit corruption pada setiap byte respons, ID salah, panjang salah dan jumlah register salah ditolak.
-- Keenam interval pagi dan ketiga interval sore menghasilkan delta sesuai beban simulasi.
-- Interpolasi batas, startup terlambat, kehilangan sampel di tengah/dekat batas, gap tepat 15 detik dan lebih dari 15 detik.
-- Pemulihan checkpoint ke tracker setelah reboot mempertahankan interval selesai dan menandai interval aktif parsial.
-- Timestamp mundur/duplikat, nilai NaN/negatif, counter reset, hari salah dan pergantian hari.
-- Fault injection filesystem: normal replacement, backup-only recovery, gagal restore, gagal memasang file baru dan gagal merotasi file lama; data lama tetap tersedia pada jalur kegagalan yang diuji.
-- Retry CT/PT tidak terjadi lebih sering dari lima detik, termasuk ketika penghitung millis rollover.
+- CRC example from the Fort manual, corrected response, bit corruption, wrong ID/count/length and invalid CRC rejection.
+- All nine interval windows; interpolated boundaries, late startup, gaps at/above 15 s, missing data, clock reversal, NaN/negative/reset/date handling and preserved completed intervals after reboot interruption.
+- Button bounce/short/long-press behavior, including millis rollover.
+- Archive fault injection: failed rotation/install/restore retains recoverable copies.
+- CT/PT retry/backoff, scan ranges, 4,446 unique candidates, preferred-ID mode priority, single-ID range, duplicate start, cancel/restart/found/exhausted and elapsed-time rollover.
+- Stable English quality codes and compatibility of the legacy status names.
 
-## Dashboard browser — LULUS
+These tests execute the same header logic used by the firmware. They do not run the ESP-IDF tasks or peripheral drivers.
 
-Perintah: `node tools/preview-test.cjs <lokasi-modul-playwright> msedge`.
+## Browser application — passed
 
-HTML diambil langsung dari `firmware/include/web_ui.h`; HTTP API **disimulasikan** pada localhost. Browser Microsoft Edge headless, viewport desktop 1440×1150 dan HP 390×844.
+`tools/preview-test.cjs` with Playwright and installed Microsoft Edge. The test server reads the **gzip byte arrays in the generated firmware header**; it does not substitute another HTML implementation. The JSON/CSV APIs are explicitly simulated.
 
-- Enam baris pagi / tiga baris sore, pergantian tab.
-- Pengiriman sinkronisasi waktu, form slave/baud/parity, dan token sesi pada POST.
-- Scan: validasi rentang, token POST, progres dan tombol disabled saat running, reload mempertahankan rentang aktif, batal, hasil tidak otomatis diterapkan, terapkan hasil memperbarui form, tidak ditemukan, HTTP gagal dan timeout POST lima detik.
-- Meter offline menyembunyikan nilai daya; kegagalan API menampilkan bahwa data tidak diperbarui.
-- Tidak ada JavaScript page error dan tidak ada overflow horizontal viewport.
-- Screenshot desktop dan HP telah diperiksa visual; versi HP menampilkan kualitas setiap interval tanpa geser horizontal.
-- Versi API tampil pada footer dan sesuai `version.h`.
-- Sebanyak 16 SVG dirender; batas semua teks diperiksa agar tidak keluar viewBox. Diagram wiring, kontak tombol, arsitektur dan OLED juga diperiksa visual.
+- English default; Indonesian switching and decimal formatting; language retained after reload; English fallback when localStorage is blocked.
+- Six morning/three evening rows; missing intervals are not displayed as zero completed consumption.
+- Serial config fields, phone time request, POST token and CSV download selection.
+- Scan range validation, progress/disabled controls, reload recovery, cancellation, explicit result application, no match, translated HTTP error and five-second POST timeout recovery.
+- Stale/offline status, retained last sample and hidden live power; mutation buttons remain disabled when disconnected, including after navigation.
+- Widths 320, 390, 768, 1440 and 2560 px without document overflow; reduced-motion rendering; no JavaScript page errors or external asset requests.
+- Vendored React Bits file contents match their recorded upstream Git blob hashes.
+- All **18 SVGs** rendered with text bounds inside their viewBox. Dashboard and phone screenshots were also inspected visually.
 
-Preview memakai angka simulasi, **bukan hasil pembacaan meter pabrik**:
+Screenshots contain simulated data: [desktop](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [Indonesian phone](assets/ui-mobile-id.png), [scan](assets/ui-scan-desktop.png).
 
-- [Preview desktop yang ditampilkan di README](assets/ui-desktop.png).
-- [Preview HP yang ditampilkan di README](assets/ui-mobile.png).
-- [Preview Scan Fort desktop](assets/ui-scan-desktop.png) dan [HP](assets/ui-scan-mobile.png), diperiksa visual tanpa teks terpotong/overflow.
+## Browser payload — passed
 
-## Dokumentasi dan kesiapan repository — LULUS LOKAL
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0**. `npm run build:web` and `npm run check:web` completed. Input hashes normalize text line endings; gzip OS metadata is normalized so generated files can be checked across Windows/Linux.
 
-`python tools/check_docs.py` memeriksa 10 file Markdown, link/anchor lokal, 16 SVG (termasuk badge lisensi), 31 sambungan netlist, pin firmware dan konsistensi versi. Jumlah link terakhir dicetak oleh tool; pemeriksaan mencakup nama file dengan case yang tepat untuk GitHub/Linux, anchor heading, XML SVG, tidak adanya resource/script eksternal, badge dan konfigurasi. Teks GPLv3 lengkap dan metadata `GPL-3.0-only` juga diperiksa.
+| Endpoint | Uncompressed bytes | Gzip bytes |
+| --- | ---: | ---: |
+| / | 1030 | 527 |
+| /assets/app.js | 385639 | 130545 |
+| /assets/app.css | 15755 | 4164 |
+| /assets/third-party.txt | 5755 | 1433 |
 
-Root `AGENTS.md`, README visual, panduan kontribusi, changelog, `.gitattributes`, `.editorconfig`, `.gitignore` dan lockfile development tools telah disertakan. Workflow CI menyediakan job logic/docs, build ESP32-S3 dan browser. Workflow belum dijalankan di GitHub pada sesi ini; tidak ada klaim status CI remote lulus.
+Combined payload: **136669 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before both firmware builds. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
 
-## Build ESP32-S3 — LULUS
+## Firmware — passed
 
-PlatformIO `pio run`, environment `esp32s3`, platform Espressif32 6.10.0 / Arduino ESP32 2.0.17. Build release menghasilkan `firmware.bin` dan `firmware.elf`, exit code 0. Build akhir tidak menghasilkan warning/error compiler.
+`pio run -e esp32s3 -e cirkit`, Espressif32 **6.10.0** / Arduino ESP32 **2.0.17**, exit code 0 for both. Final compile logs contained no compiler warnings/errors.
 
-- Target ESP32-S3, CPU 240 MHz, flash 16 MB, QIO/OPI PSRAM; loop dan Arduino event task di core 0, akuisisi dipin ke core 1.
-- RAM statis: 47.056 dari 327.680 byte (14,4%). Angka ini belum mencakup seluruh alokasi heap/stack saat berjalan.
-- Program flash: 874.101 dari partisi aplikasi 6.553.600 byte (13,3%).
-- Firmware factory digabung memakai esptool 4.5.1: bootloader 0x0, partition table 0x8000, boot_app0 0xE000, aplikasi 0x10000.
+| Target | Static RAM / 327,680 bytes | Program / app partition |
+| --- | ---: | ---: |
+| ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,088 (14.4%) | 996,293 / 6,553,600 (15.2%) |
+| Cirkit profile, 8 MB flash / no PSRAM | 46,896 (14.3%) | 992,773 / 3,342,336 (29.7%) |
 
-## Cirkit Designer — import bundle terverifikasi; boot 8 MB belum terverifikasi
+Static RAM is not total runtime heap/stack use. Successful compilation does not measure HTTP transfer latency or validate physical UART turnaround. Hardware factory offsets are bootloader 0x0, partitions 0x8000, boot_app0 0xE000 and app 0x10000.
 
-Uji importer historis pada 22 Oktober (sebelum fitur scan): dialog Choose firmware telah diperiksa langsung: menerima `.bin`/`.zip` dan mendukung beberapa file. Bundle dengan `firmware.bin`, `bootloader.bin`, dan `partitions.bin` dikenali sebagai Application, Bootloader, dan Partitions. Uji bundle hardware 16 MB berhasil melewati `invalid header: 0xffffffff` dan menjalankan bootloader, lalu berhenti karena emulator mendeteksi flash 8 MB sementara header menyatakan 16 MB.
+## Documentation, package and CI
 
-Environment khusus `cirkit` memakai flash/partisi 8 MB tanpa PSRAM. `pio run -e cirkit` selesai dengan exit code 0: program 870.581 byte, RAM statis 46.864 byte. `tools/package_cirkit.py` memverifikasi magic/chip ESP32-S3, header flash 8 MB, batas partisi, isi ZIP dan CRC ZIP sebelum menghasilkan `midea-fort-cirkit-8mb.zip`. Target hardware `esp32s3` juga dibangun ulang dan berhasil dengan ukuran yang sama seperti di atas.
+`tools/check_docs.py` checks nested English/Indonesian links and anchors, SVGs, pin/netlist agreement, versions, full GPL text and generated web hashes. The packager includes web source and dependency notices alongside firmware/docs, compares app/factory components to the current build and verifies ZIP CRC plus SHA-256 manifest entries.
 
-Uji boot bundle 8 MB belum selesai: tab browser pengujian mengalami timeout CDP saat pemilihan file/pemulihan sesi. Tidak ada klaim bahwa AP, OLED, RTC, Modbus atau boot penuh telah lulus di emulator.
+The earlier 1.1.0 CI run passed logic/docs and browser but failed firmware setup because the pip cache searched for requirements.txt/pyproject.toml rather than requirements-dev.txt. The workflow now specifies the correct cache-dependency-path. It also checks the committed React build with pinned Node 24.22.1. Remote status for this source commit must be read from GitHub Actions; no remote pass is inferred from local results.
 
-## Belum diuji pada hardware
+## Hardware and emulator limits
 
-Versi 1.1.0 belum di-flash/diuji pada perangkat pengguna. Log yang dikirim pengguna pada 23 Oktober menunjukkan aplikasi versi sebelumnya berhasil boot di ESP32-S3 tanpa modul terpasang; log itu bukan uji penerimaan versi scan. Belum ada pengujian scan UART dengan Fort fisik, I2C dengan OLED/DS3231, suara buzzer, tombol fisik, RTC battery backup, AP radio, multi-client HTTP pada perangkat, gangguan noise kabel, ketahanan power-cut flash, dan endurance pabrik. Tes browser memakai respons simulasi; tes C++ tidak menjalankan task/driver ESP-IDF. Ikuti `docs/COMMISSIONING.md` untuk uji penerimaan perangkat.
+Version 1.2.0 has not been flashed/tested on the user's physical board. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
 
-## Paket rilis 1.1.0
+Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP radio under multiple clients, noise, power-cut recovery and endurance remain unverified on physical hardware. Neither a DOM test nor a C++ unit test covers them.
 
-Paket dibuat ulang dari build final hardware dan simulator; binary app/factory dibandingkan dengan hasil build, komponen factory diperiksa pada offset masing-masing. `tools/package_cirkit.py` memvalidasi bundle simulator; `tools/package.py` memverifikasi CRC ZIP dan SHA-256 setiap file terhadap manifest. Tidak menyertakan `.pio`, direktori dependency atau file sementara. Proses build/paket tidak meng-upload atau mem-flash perangkat. Publikasi GitHub menggunakan commit source terpisah.
+Historical Cirkit importer tests recognized the three-role ZIP and passed the invalid-header stage with a 16 MB bundle, then stopped at the emulator's 8 MB size mismatch. The dedicated profile's image headers/partitions are checked for 8 MB. A complete emulator boot/AP/RTC/Modbus run is still unverified because the test browser session timed out. No new emulator acceptance claim is made here.

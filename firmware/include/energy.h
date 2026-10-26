@@ -18,6 +18,11 @@ inline const char *qualityName(uint8_t q) {
   const char *names[] = {"menunggu","berjalan","lengkap-estimasi","parsial","tidak-tersedia"};
   return q <= MISSING ? names[q] : "invalid";
 }
+// Stable English codes for the v1.2 API and CSV. Keep qualityName for API compatibility.
+inline const char *qualityCode(uint8_t q) {
+  const char *names[] = {"waiting","active","complete_estimated","partial","missing"};
+  return q <= MISSING ? names[q] : "invalid";
+}
 constexpr int SLOT_COUNT=9;
 constexpr uint16_t START_MIN[SLOT_COUNT]={360,390,420,450,480,510,990,1020,1050};
 constexpr uint32_t MAX_GAP=15;

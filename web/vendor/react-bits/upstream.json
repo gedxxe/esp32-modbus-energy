@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/DavidHDev/react-bits",
+  "commit": "e12c22192ac7b4b452c5e2feb9b586d74765d696",
+  "files": {
+    "FadeContent.jsx": "300ecdaf99802bc78e9cecaca3842acb54e24902",
+    "SpotlightCard.jsx": "ae052fce900c0f1062db866a2997a0429b744a21",
+    "SpotlightCard.css": "a4c9b873b8d474aa671b74cde70384bc7ce93070",
+    "LICENSE.md": "4069ce9d0ef1a712c93d6ce48ade5d5667e0f5ee"
+  }
+}

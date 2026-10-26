@@ -1,13 +1,24 @@
 {
   "name": "midea-fort-development-tools",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "Local browser checks for the embedded ESP32 dashboard; not a firmware dependency",
+  "description": "Build and test the offline React dashboard served by ESP32-S3",
   "scripts": {
-    "test:ui": "node tools/preview-test.cjs"
+    "test:ui": "node tools/preview-test.cjs",
+    "build:web": "node tools/build-web.cjs",
+    "check:web": "node tools/build-web.cjs --check"
   },
   "devDependencies": {
-    "playwright": "1.62.1"
+    "playwright": "1.62.1",
+    "esbuild": "0.28.2"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "gsap": "3.15.0"
+  },
+  "engines": {
+    "node": "24.22.1"
   }
 }

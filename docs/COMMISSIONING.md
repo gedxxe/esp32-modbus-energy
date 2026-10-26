@@ -1,50 +1,48 @@
-# Commissioning dan uji penerimaan
+# Commissioning and acceptance
 
-## Uji meja sebelum ke panel
+**English** · [Bahasa Indonesia](id/COMMISSIONING.md)
 
-1. Periksa model board, pin GPIO dan suplai modul. Tes OLED+RTC melalui 3,3 V, lalu tombol dan buzzer melalui driver.
-2. Flash firmware. OLED menampilkan animasi, bunyi boot berlangsung sekitar 1,5 detik, lalu IP 192.168.4.1 muncul di halaman utama.
-3. Buat filesystem lewat prosedur tahan OK saat boot bila diperlukan. Pastikan status storage berubah OK setelah waktu RTC valid.
-4. Sambungkan HP ke hotspot dengan kredensial pada README. Pastikan dashboard berfungsi tanpa internet dan tanpa CDN.
-5. Sinkronkan waktu. OLED dan web harus menunjukkan WIB. Matikan daya ESP32 selama beberapa menit, nyalakan, lalu pastikan DS3231 tetap berjalan dengan baterai.
-6. Tekan tombol cepat: satu siklus tekan/lepas hanya berpindah satu halaman/interval. Tahan OK: mute hanya berubah sekali, bukan berulang. Periksa pola alarm ketika RTC atau meter offline.
+Record the board/firmware version, Fort communication settings, CT/PT values and test date. Use test intervals before relying on this device for a production record. No test below is claimed to have passed on physical hardware merely because it exists in this guide.
 
-## Meter Fort
+## Bench checks
 
-1. Hubungkan ESP32 sebagai satu-satunya master pada port Modbus Fort yang masih kosong. Ambil foto/nota setting komunikasi meter.
-2. Cek slave ID, baud, parity pada menu meter. Firmware mulai ID 1, 9600, 8N1. Setting yang sebenarnya bisa berbeda walaupun manual dari box yang sama.
-3. Hubungkan pasangan RS485, gunakan reference/proteksi sesuai panel. Jika tidak ada respons, cek A/B, arah RO/DI, DE-/RE, ground reference, terminasi, dan setting komunikasi. Jangan terus mengganti alamat register saat masalahnya ada pada kabel.
-4. Lihat CRC/timeout. Keduanya tidak harus nol seumur hidup, tetapi pertambahan terus menerus saat uji steady-state harus diselidiki.
-5. Bandingkan **energi impor positif primer** dashboard dengan halaman energi impor yang sesuai di Fort. Jangan membandingkan terhadap net energy, energi ekspor, kvarh, atau penjumlahan energi dua arah.
-6. Catat rasio CT/PT dari meter dan bandingkan dengan rasio web. Jika angka berbeda tepat faktor CT/PT, hentikan penerimaan data dan verifikasi tipe register serta setting meter.
-7. Bandingkan kW terhadap display meter. Saat beban stabil, catat perubahan kWh selama 10–30 menit. Contoh 12 kW rata-rata selama 0,5 jam menghasilkan kira-kira 6 kWh, dengan toleransi kelas meter dan resolusi counter.
+1. Wire the OLED/DS3231 at 3.3 V and check GPIO labels against [WIRING](WIRING.md). Add the three buttons; the buzzer may remain disconnected.
+2. Upload environment `esp32s3`. Verify startup without a Serial host, AP availability and the OLED IP when installed. A missing OLED must not prevent the AP/reader starting.
+3. If the archive partition is uninitialized and fails mounting, hold OK during boot for five seconds. Confirm the deliberate format, then check storage status after RTC/time become valid. Do not format existing records as the first response to an archive fault.
+4. Connect a phone to the AP without mobile/internet dependence. Confirm English default, Indonesian switching, persistence after reload, and functioning local CSS/JS. Check the displayed firmware version.
+5. Set the RTC from a correctly timed phone. Confirm WIB, turn main power off for several minutes, then confirm DS3231 battery-backed time after restart.
+6. Check button bounce: a press/release generates one page or interval action; a 900 ms OK hold toggles mute once. Test alarm behavior on RTC/meter/storage faults if the buzzer is fitted.
 
-## Penerimaan interval
+## Fort connection and scaling
 
-1. Nyalakan paling lambat 05.55 WIB untuk pagi dan 16.25 WIB untuk sore; waktu dan komunikasi harus valid sebelum batas pertama.
-2. Catat foto counter sekitar 06.00, 06.30, dan 07.00. Setelah batas terlewati, cek selisih terhadap CSV dengan mempertimbangkan waktu foto, interval polling, dan resolusi counter.
-3. Verifikasi seluruh enam interval pagi dan tiga sore, termasuk dua interval bersebelahan yang berbagi batas waktu.
-4. Saat satu interval berjalan, lepas koneksi RS485 >15 detik. Data harus ditandai parsial; jangan tampil sebagai hasil interval lengkap.
-5. Ulangi dengan reboot di tengah interval. Hasil interval selesai yang tersimpan harus tetap ada; interval yang terputus harus parsial.
-6. Sinkronkan RTC di tengah interval. Pastikan interval aktif parsial; pengujian ini sengaja memutus kesinambungan.
-7. Uji perubahan tanggal hanya pada bench dengan data uji. Pastikan tanggal lokal WIB digunakan; hasil kemarin dapat diunduh melalui arsip.
-8. Uji mati daya beberapa kali di sekitar akhir interval dan saat penyimpanan. Unduh CSV sebelum/sesudah untuk memeriksa pemulihan. Jangan melakukan format sebagai langkah awal jika arsip tampak hilang.
+1. Connect the reader to the dedicated Fort RS485 port: A → 58/A, B → 59/B. Photograph or record the actual slave ID, baud and parity on the meter menu.
+2. Enter those reader settings manually, or follow the scan procedure below. Defaults are not evidence of the installed unit's settings.
+3. Verify RO/DI direction and DE-/RE. If there is no response, check A/B, reference, cable/termination and serial settings before changing register addresses.
+4. Observe CRC/timeout counters under steady load. Isolated errors may occur; persistent increments need investigation.
+5. Compare **primary imported positive active energy** with the matching Fort display. Do not compare against export, net, reactive energy or a sum of both energy directions.
+6. Compare CT/PT ratios. A fixed scale-factor mismatch requires checking the register interpretation and meter settings before accepting readings.
+7. Compare active kW while load is steady. Over 10–30 minutes, compare counter changes against expected energy. For example, an average 12 kW over 0.5 h implies about 6 kWh, subject to meter accuracy and counter resolution.
 
-## Belum dianggap lulus hardware sampai
+## Scan checks
 
-- Skala, arah energi, urutan word, dan setting komunikasi cocok dengan unit Fort fisik.
-- OLED, semua tombol, buzzer, AP, RTC battery backup, dan filesystem bekerja.
-- Dashboard tetap responsif ketika meter offline/retry dan beberapa HP membuka halaman.
-- Uji interval pagi/sore serta gangguan daya/komunikasi memenuhi perilaku di atas.
-- Panel, kabel, isolasi, suplai dan pemasangan disetujui teknisi fasilitas.
+1. Perform the initial scan outside a production interval. Start with a range containing the known ID so the test is short.
+2. Verify progress, candidate ID/baud/parity and responsive navigation. Reload the page and switch language during the scan; the active range/progress must recover from the device snapshot.
+3. Cancel while a request is pending. After the candidate finishes, verify the previous reader settings return. Scan counters must stay separate from normal polling errors.
+4. Run again and obtain a result. Compare it with the meter menu; do not treat a compatible response as model authentication. Confirm the current config is unchanged until **Apply result** is chosen.
+5. Apply the result, wait for normal readings and check storage/error status. Reboot to verify the saved reader settings survive. No meter menu/register should have changed.
+6. Test an absent meter or a wrong ID range: the scan must end without a match and restore previous settings. A full 1–247 search has 4,446 candidates and can take about 70 minutes without a response.
+7. Run scan during a test interval. That interval must become partial; previously completed intervals must remain. Reboot must reset scan progress/results and must not automatically restart scan.
 
-## Uji Scan Fort (firmware 1.1.0)
+## Scheduled intervals and recovery
 
-1. Di luar interval produksi, catat setting Fort dan setting pembaca yang lama. Buka Pengaturan koneksi meter → Scan Fort.
-2. Untuk uji cepat, batasi ID awal/akhir pada ID meter yang diketahui. Jalankan Scan Fort. Periksa progres, web dan OLED tetap merespons; CRC/timeout scan terpisah dari penghitung pembacaan normal.
-3. Saat hasil ditemukan, pastikan ID/baud/parity sesuai menu meter. Pembaca tetap memakai setting lama sebelum Terapkan hasil; setelah diterapkan, reload dashboard dan reboot untuk memastikan setting NVS bertahan.
-4. Jalankan ulang lalu Batalkan scan. Pastikan pembacaan kembali dengan setting lama, tidak ada perubahan menu Fort. Reload halaman di tengah scan: progres harus kembali terlihat dari status perangkat.
-5. Uji meter dilepas/rentang ID salah: scan selesai tanpa hasil; jangan menganggapnya bukti kerusakan meter. Periksa A/B dan koneksi.
-6. Scan di tengah interval uji harus menghasilkan interval parsial, dengan interval selesai tetap tersimpan. Hasil scan tidak bertahan setelah reboot dan tidak dijalankan otomatis.
+1. Start before 05:55 WIB for morning and 16:25 WIB for evening. RTC, ratios and communication must be valid before the first boundary.
+2. Record Fort counter values near 06:00, 06:30 and 07:00. Compare CSV differences while accounting for photo timing, poll spacing and counter resolution.
+3. Check all six morning and three evening windows, including shared boundaries.
+4. Disconnect RS485 for more than 15 seconds mid-interval. Reconnect and confirm partial quality rather than a complete-looking result.
+5. Repeat with a reboot, explicit RTC sync and an observed counter/ratio change on a controlled test setup. Completed records must survive; interrupted windows must not be interpolated across the gap.
+6. Test the WIB date boundary using test data, then export current and prior dates. Version 1.2 writes English CSV quality/shift codes while preserving older archive files.
+7. Test power interruption around checkpoint/archive replacement. Compare exports before and after. A backup file must remain available after a failed replacement/restore. Simulated filesystem tests do not substitute for physical flash power-cut tests.
 
-Rentang penuh 1–247 memiliki 4.446 kandidat; kondisi tanpa respons dapat membutuhkan sekitar 70 menit. Tombol batal diproses antarkandidat; kandidat terdiri dari maksimal dua transaksi 800 ms, dengan watchdog/yield di jalur UART.
+## Acceptance record
+
+Accept the installation only after scaling/direction/word order match the actual meter; all fitted I/O works; RTC battery backup and AP remain usable; interval, gap and recovery tests pass; and the cable/supply/panel arrangement is approved by the responsible facilities engineer. Retain the firmware version, test evidence and known limitations with the installation record.

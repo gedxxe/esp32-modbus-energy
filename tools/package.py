@@ -28,10 +28,11 @@ if factory[0x10000:]!=app.read_bytes():
 for name,offset in [('bootloader.bin',0),('partitions.bin',0x8000),('boot_app0.bin',0xe000)]:
     part=(root/'output/firmware'/name).read_bytes()
     if factory[offset:offset+len(part)]!=part:raise SystemExit('Factory component mismatch: '+name)
-root_names=['README.md','AGENTS.md','CHANGELOG.md','CONTRIBUTING.md','LICENSE','NOTICE','.gitignore',
-            '.gitattributes','.editorconfig','requirements-dev.txt','package.json','package-lock.json']
+root_names=['README.md','README.id.md','AGENTS.md','CHANGELOG.md','CHANGELOG.id.md','CONTRIBUTING.md','CONTRIBUTING.id.md','LICENSE','NOTICE','.gitignore',
+            '.gitattributes','.editorconfig','.node-version','requirements-dev.txt','package.json','package-lock.json']
 files=[*(root/name for name in root_names),*sources,
        *sorted((root/'firmware/test').glob('*.cpp')),
+       *(p for p in sorted((root/'web').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'docs').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'.github').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'tools').glob('*')) if p.suffix in ['.py','.cjs','.ps1']),
@@ -42,6 +43,8 @@ manifest = {
     "version": version, "build_date_local": datetime.now(timezone(timedelta(hours=7))).date().isoformat(), "timezone": "Asia/Jakarta",
     "target": "ESP32-S3 N16R8", "build": "PlatformIO SUCCESS, espressif32 6.10.0",
     "license": "GPL-3.0-only",
+    "license_scope": "Original project code; third-party terms are recorded in NOTICE",
+    "web": json.loads((root / "web/bundle.json").read_text(encoding="utf-8"))["compressed_total"],
     "hardware_tested": False,
     "sha256": {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
 }

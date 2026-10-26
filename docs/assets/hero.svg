@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="360" viewBox="0 0 1400 360" role="img" aria-labelledby="title desc"><title id="title">Midea Engineering Fort Energy Station</title><desc id="desc">Diagram lokal Midea Fort. Warna dan label menandai koneksi; data tampilan adalah simulasi.</desc><rect width="100%" height="100%" fill="#0e1825"/>
-<text x="55" y="60" fill="#57c7ff" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start">MIDEA  /  ENGINEERING</text>
-<text x="55" y="133" fill="#edf5ff" font-family="Arial, sans-serif" font-size="55" font-weight="700" text-anchor="start">Fort Energy Station</text>
-<text x="55" y="181" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="24" font-weight="400" text-anchor="start">Pembacaan kWh lokal. Interval yang dapat ditelusuri.</text>
-<text x="55" y="229" fill="#a9bfd2" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">ESP32-S3 · Modbus RTU · RTC · OLED · Dashboard Wi-Fi</text>
-<rect x="55" y="265" width="400" height="65" rx="16" fill="#172638" stroke="#31465c"/>
-<text x="73" y="291" fill="#57c7ff" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="start">09 INTERVAL</text>
-<text x="73" y="315" fill="#edf5ff" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">06.00–09.00 / 16.30–18.00</text>
-<rect x="480" y="265" width="400" height="65" rx="16" fill="#172638" stroke="#31465c"/>
-<text x="498" y="291" fill="#57c7ff" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="start">LOCAL FIRST</text>
-<text x="498" y="315" fill="#edf5ff" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">192.168.4.1</text>
-<rect x="905" y="265" width="400" height="65" rx="16" fill="#172638" stroke="#31465c"/>
-<text x="923" y="291" fill="#57c7ff" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="start">DUAL CORE</text>
-<text x="923" y="315" fill="#edf5ff" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Akuisisi + antarmuka</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="360" viewBox="0 0 1400 360" role="img" aria-labelledby="title desc"><title id="title">Midea Engineering Fort Modbus Energy Monitor</title><desc id="desc">Midea Fort schematic. Labels and colors identify connections. Screen values are simulated.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="55" y="60" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="start">MIDEA  /  ENGINEERING</text>
+<text x="55" y="133" fill="#183438" font-family="Arial, sans-serif" font-size="55" font-weight="700" text-anchor="start">Fort Modbus Energy Monitor</text>
+<text x="55" y="181" fill="#587176" font-family="Arial, sans-serif" font-size="24" font-weight="400" text-anchor="start">Imported kWh over Modbus RTU; scheduled half-hour records.</text>
+<text x="55" y="229" fill="#587176" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">ESP32-S3 · Modbus RTU · RTC · OLED · Wi-Fi dashboard</text>
+<rect x="55" y="265" width="400" height="65" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="73" y="291" fill="#087e82" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="start">9 INTERVALS</text>
+<text x="73" y="315" fill="#183438" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">06.00–09.00 / 16.30–18.00</text>
+<rect x="480" y="265" width="400" height="65" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="498" y="291" fill="#087e82" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="start">ACCESS POINT</text>
+<text x="498" y="315" fill="#183438" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">192.168.4.1</text>
+<rect x="905" y="265" width="400" height="65" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="923" y="291" fill="#087e82" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="start">FREERTOS</text>
+<text x="923" y="315" fill="#183438" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Acquisition + UI</text>
 </svg>

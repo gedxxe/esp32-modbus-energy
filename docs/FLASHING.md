@@ -1,32 +1,41 @@
-# Firmware hasil build
+# Build and flash
 
-Firmware: **1.1.0** (dengan Scan Fort). Setelah upload, buka Pengaturan koneksi meter → Scan Fort pada dashboard.
+**English** · [Bahasa Indonesia](id/FLASHING.md)
 
-Panduan langkah demi langkah ada pada [cara menjalankan Scan Fort](../README.md#cara-update-dan-menjalankan-scan).
+Firmware **1.2.0**, ESP32-S3 DevKitC-style **N16R8**: 16 MB flash, 8 MB OPI PSRAM. Open the `firmware/` directory in PlatformIO.
 
-Target: ESP32-S3 DevKitC-style N16R8 (flash 16 MB, PSRAM OPI 8 MB).
+## Physical board
 
-Untuk pemasangan pertama, file **midea-fort-factory.bin** berisi bootloader, partition table, metadata awal OTA, dan aplikasi. Tulis pada offset **0x0** memakai esptool / Espressif Flash Download Tool.
-
-Contoh dari folder ini, ganti COM7 dengan port board:
+Close Serial Monitor, then run from `firmware` (replace COM10 with the actual port):
 
 ```powershell
-python -m esptool --chip esp32s3 --port COM7 --baud 460800 write_flash 0x0 midea-fort-factory.bin
+pio run -e esp32s3 --target upload --upload-port COM10
+pio device monitor -e esp32s3 --port COM10
 ```
 
-Pilihan utama tetap `pio run --target upload` dari folder `firmware`, agar PlatformIO memilih file dan offset yang benar.
+PlatformIO chooses component files and offsets. If `pio` is absent from PATH, invoke `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"` instead. The committed React bundle is checked before compile; no npm installation is required unless web sources change.
 
-`midea-fort-app.bin` adalah aplikasi saja, offset **0x10000**, dan hanya cocok jika partition table project ini sudah terpasang. Jangan menulis app-only pada 0x0. Factory image mereset metadata pemilihan aplikasi; gunakan alur PlatformIO untuk update normal.
+## Binary files
 
-Filesystem arsip tidak disertakan dalam factory image. Lakukan inisialisasi fisik sesuai README pada instalasi pertama. Tidak diperlukan koneksi internet untuk dashboard setelah firmware terpasang.
+| File | Offset | Use |
+| --- | --- | --- |
+| `midea-fort-factory.bin` | **0x0** | Combined bootloader, partition table, initial OTA metadata and application |
+| `midea-fort-app.bin` | **0x10000** | Application only; requires this project's existing partition layout |
+| `bootloader.bin` | 0x0 | Separate ESP32-S3 bootloader |
+| `partitions.bin` | 0x8000 | Partition table |
+| `boot_app0.bin` | 0xE000 | Initial OTA selection metadata |
 
-Semua binary berhasil dibangun, tetapi belum diflash/diuji pada hardware pengguna.
+Example from a directory containing the packaged BIN files:
 
-## Cirkit Designer: import ZIP dengan profil 8 MB
+```powershell
+python -m esptool --chip esp32s3 --port COM10 --baud 460800 write_flash 0x0 midea-fort-factory.bin
+```
 
-Dialog **Choose firmware** menerima `.bin` dan `.zip` serta mendukung pemilihan beberapa file. Pilih bundle **midea-fort-cirkit-8mb.zip**, lalu Import. Isinya berupa `firmware.bin` (Application), `bootloader.bin` (Bootloader), dan `partitions.bin` (Partitions).
+Do not write an app-only image at 0x0. Factory flashing resets initial app-selection metadata; use PlatformIO for normal updates. The dashboard is stored in firmware flash, so there is no separate web filesystem upload. CSV filesystem contents are not included in the factory image. On a new board, initialize storage with the physical OK-at-boot procedure in the [README](../README.md#3-first-startup-and-meter-scan).
 
-Bundle ini memakai environment `cirkit`, bukan image N16R8 hardware:
+## Cirkit simulator
+
+The observed Cirkit ESP32-S3 emulator reports 8 MB flash. Its profile is separate from the physical N16R8 target:
 
 ```powershell
 cd firmware
@@ -35,6 +44,18 @@ cd ..
 python tools/package_cirkit.py
 ```
 
-Pada pengujian importer, satu app BIN saja menghasilkan `no bootloader .bin provided` / `no partitions .bin provided`. Bundle dikenali sebagai tiga role yang benar. Image hardware 16 MB juga melewati tahap bootloader setelah dibundel, tetapi emulator melaporkan flash 8 MB dan menolak header 16 MB; karena itu digunakan partisi/header 8 MB pada profil khusus ini.
+In **Choose firmware**, select `midea-fort-cirkit-8mb.zip` without extracting it. The importer should display `firmware.bin` as Application, `bootloader.bin` as Bootloader and `partitions.bin` as Partitions. The dialog accepts ZIP or multiple BIN files even though it has one chooser button.
 
-Target default `esp32s3` tetap memakai flash 16 MB dan PSRAM OPI untuk board fisik N16R8. Jangan mengganti firmware hardware dengan bundle simulator untuk pemasangan produksi.
+Observed importer tests: app-only lacked the bootloader/partition images; a three-file 16 MB bundle passed the initial invalid-header stage but was rejected because the emulator had 8 MB. The dedicated profile declares 8 MB and does not enable PSRAM. Successful compilation/header checks do not establish a complete simulator boot or emulated AP/RTC/Modbus support. See [VALIDATION](VALIDATION.md).
+
+## Rebuild browser assets
+
+From the repository root:
+
+```sh
+npm ci
+npm run build:web
+npm run check:web
+```
+
+Then compile/upload as above. The PlatformIO pre-build guard rejects source/hash mismatches instead of silently embedding an old dashboard. Keep the generated header and `web/bundle.json` with the source commit.

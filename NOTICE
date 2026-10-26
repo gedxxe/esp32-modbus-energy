@@ -7,3 +7,22 @@ See LICENSE for the complete license terms.
 Third-party dependencies retain their respective licenses and notices.
 The supplied Fort power meter user manual is a third-party reference document;
 it is not relicensed under the project's GPL license.
+
+Browser application dependencies
+-------------------------------
+web/vendor/react-bits/ contains FadeContent and SpotlightCard from David Haz's
+React Bits, pinned at e12c22192ac7b4b452c5e2feb9b586d74765d696.
+Copyright 2026 David Haz. Their MIT + Commons Clause terms are reproduced in
+web/vendor/react-bits/LICENSE.md. These components are included as dependencies
+of this application, not offered as a component library or template pack.
+They are not relicensed under this project's GPL-3.0-only grant.
+
+React 19.3.1, React DOM 19.3.1 and Scheduler retain their MIT licenses.
+GSAP 3.15.0 and ScrollTrigger retain GreenSock's standard no-charge terms:
+https://gsap.com/standard-license (see web/vendor/gsap-NOTICE.txt).
+
+Original application code under web/ (excluding web/vendor/) remains
+GPL-3.0-only. Generated bundles include third-party code under the terms above;
+no blanket GPL license is claimed over those dependencies. The browser serves
+their notices offline at /assets/third-party.txt. No assets or source from the
+JRE UNILAND project have been copied; it was used as a visual reference only.

@@ -23,9 +23,10 @@ def slugs(text):
     for heading in re.findall(r'^#{1,6}\s+(.+?)\s*#*$',text,re.M):
         slug=re.sub(r'[^\w\- ]','',heading.lower()).replace(' ','-')
         i=counts.get(slug,0);counts[slug]=i+1;found.add(slug+('-'+str(i) if i else ''))
+    found.update(re.findall(r'id="([^" ]+)"',text))
     return found
 
-markdown=[*ROOT.glob('*.md'),*sorted((ROOT/'docs').glob('*.md'))]
+markdown=[*ROOT.glob('*.md'),*sorted((ROOT/'docs').rglob('*.md')),*sorted((ROOT/'web/vendor').rglob('*.md'))]
 link_count=0
 for file in markdown:
     text=file.read_text(encoding='utf-8')
@@ -38,29 +39,31 @@ for file in markdown:
         if parsed.scheme or parsed.netloc:continue
         link_count+=1
         path=(file.parent/unquote(parsed.path)).resolve() if parsed.path else file
-        if not path.is_relative_to(ROOT):errors.append(f'{file.name}: link escapes repository: {target}');continue
-        need(path.exists(),f'{file.name}: missing link {target}')
-        if path.exists():need(exact_case(path),f'{file.name}: wrong filename case: {target}')
+        if not path.is_relative_to(ROOT):errors.append(f'{file.relative_to(ROOT)}: link escapes repository: {target}');continue
+        need(path.exists(),f'{file.relative_to(ROOT)}: missing link {target}')
+        if path.exists():need(exact_case(path),f'{file.relative_to(ROOT)}: wrong filename case: {target}')
         if parsed.fragment and path.suffix=='.md' and path.exists():
-            need(unquote(parsed.fragment) in slugs(path.read_text(encoding='utf-8')),f'{file.name}: missing heading in {target}')
+            need(unquote(parsed.fragment) in slugs(path.read_text(encoding='utf-8')),f'{file.relative_to(ROOT)}: missing heading in {target}')
 
 svgs=list((ROOT/'docs/assets').rglob('*.svg'))
 for file in svgs:
     try:
         tree=ET.parse(file);root=tree.getroot()
-        need(root.tag.endswith('svg') and bool(root.get('viewBox')),f'{file.name}: no SVG/viewBox')
+        need(root.tag.endswith('svg') and bool(root.get('viewBox')),f'{file.relative_to(ROOT)}: no SVG/viewBox')
         for el in root.iter():
             tag=el.tag.rsplit('}',1)[-1]
-            need(tag not in ['script','foreignObject'],f'{file.name}: unsupported active SVG element {tag}')
+            need(tag not in ['script','foreignObject'],f'{file.relative_to(ROOT)}: unsupported active SVG element {tag}')
             for key,value in el.attrib.items():
-                need(not key.lower().startswith('on'),f'{file.name}: SVG event handler')
-                if key.endswith('href'):need(value.startswith('#'),f'{file.name}: external SVG resource')
-    except ET.ParseError as e:errors.append(f'{file.name}: {e}')
+                need(not key.lower().startswith('on'),f'{file.relative_to(ROOT)}: SVG event handler')
+                if key.endswith('href'):need(value.startswith('#'),f'{file.relative_to(ROOT)}: external SVG resource')
+    except ET.ParseError as e:errors.append(f'{file.relative_to(ROOT)}: {e}')
 
 version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text()).group(1)
 package=json.loads((ROOT/'package.json').read_text())
 need(package['version']==version,'package.json and firmware versions differ')
 need(package.get('license')=='GPL-3.0-only','package.json license must be GPL-3.0-only')
+need((ROOT/'.node-version').read_text().strip()==package['engines']['node'],'Node build runtime differs from package.json')
+need('README.id.md' in (ROOT/'README.md').read_text(encoding='utf-8'),'English README must link to Indonesian edition')
 license_text=(ROOT/'LICENSE').read_text(encoding='utf-8')
 need('Version 3, 29 June 2007' in license_text and 'END OF TERMS AND CONDITIONS' in license_text and len(license_text)>30000,'LICENSE is not the full GPLv3 text')
 need((ROOT/'NOTICE').exists(),'Project license scope NOTICE missing')
@@ -81,6 +84,8 @@ for pin in pins.values():need('ESP32.GPIO'+str(pin) in all_endpoints,f'GPIO{pin}
 need('FORT.58/A' in all_endpoints and 'FORT.59/B' in all_endpoints,'Fort terminal mapping missing')
 need(not any('FORT.70' in x for x in all_endpoints),'Switch-input COM must not be wired as RS485 ground')
 need((ROOT/'AGENTS.md').exists(),'Root AGENTS.md missing')
+web_result=subprocess.run([sys.executable,str(ROOT/'tools/check_web.py')],capture_output=True,text=True)
+need(web_result.returncode==0,web_result.stderr.strip() or web_result.stdout.strip())
 result=subprocess.run([sys.executable,str(ROOT/'tools/generate_docs.py'),'--check'],capture_output=True,text=True)
 need(result.returncode==0,result.stderr.strip() or result.stdout.strip())
 if errors:

@@ -1,72 +1,50 @@
-# Wiring dan komponen
+# Hardware wiring
 
-![Wiring menyeluruh ESP32 ke seluruh komponen](assets/wiring-overview.svg)
+**English** · [Bahasa Indonesia](id/WIRING.md)
 
-Tutorial dari awal ada di [README](../README.md#tutorial-wiring-langkah-demi-langkah). Untuk menandai setiap kabel saat perakitan, gunakan [netlist point-to-point CSV](wiring-netlist.csv). Gambar memakai posisi port logis; ikuti tulisan GPIO pada board, bukan lokasi visual port pada diagram.
+Use the GPIO labels on the actual DevKitC-style N16R8 board. This drawing represents electrical connections; its port positions do not represent physical header positions.
 
-Gunakan suplai USB 5 V yang stabil untuk development. Seluruh sinyal GPIO ESP32 adalah 3,3 V. Label N16R8 menunjukkan kapasitas memori; cek bahwa board memiliki pin DevKitC yang disebutkan di sini.
+![Full schematic](assets/wiring-overview.svg)
 
-| Komponen / pin | ESP32-S3 | Catatan |
-| --- | --- | --- |
-| OLED SSD1306 VCC | 3V3 | Asumsi OLED I2C 128×64, alamat 0x3C |
-| OLED GND | GND | Ground logika bersama |
-| OLED SDA | GPIO8 | Bus I2C bersama RTC |
-| OLED SCL | GPIO9 | Bus I2C bersama RTC, 100 kHz |
-| DS3231 VCC | 3V3 | Hindari pull-up SDA/SCL ke 5 V |
-| DS3231 GND | GND | |
-| DS3231 SDA / SCL | GPIO8 / GPIO9 | DS3231 alamat 0x68 |
-| Transceiver RO / RX output | GPIO18 / UART RX | Output transceiver ke input ESP32 |
-| Transceiver DI / TX input | GPIO17 / UART TX | Output ESP32 ke input transceiver |
-| Transceiver DE dan /RE | Keduanya ke GPIO16 | HIGH kirim, LOW terima; kedua enable disatukan |
-| Transceiver VCC | 3V3 | Modul milik pengguna sudah dikonfirmasi kompatibel dengan TTL ESP32 3,3 V |
-| Transceiver GND | GND logika | Reference bus mengikuti desain isolasi dan meter |
-| Transceiver A | Fort **58 / A** | Manual PDF halaman 7/Tabel 3 dan halaman 9/Gambar 5 |
-| Transceiver B | Fort **59 / B** | Jangan hubungkan ke terminal switch input |
-| Tombol PREV | GPIO4 ↔ tombol ↔ GND | `INPUT_PULLUP`; jangan hubungkan ke 5 V |
-| Tombol NEXT | GPIO5 ↔ tombol ↔ GND | |
-| Tombol OK | GPIO6 ↔ tombol ↔ GND | |
-| Kendali buzzer | GPIO7 → resistor basis/gate | HIGH = aktif; lihat rangkaian di bawah |
+## Assemble in this order
 
-Tactile switch 4 kaki biasanya memiliki dua pasang kaki yang sudah terhubung internal. Pastikan dengan continuity meter; gunakan dua sisi yang baru tersambung ketika ditekan. Cukup tiga dari sepuluh tombol.
+1. With USB disconnected, connect ESP32 3V3 and GND to separate breadboard rails. Bridge a split rail if components use both halves.
+2. Connect OLED VCC → 3V3, GND → GND, SDA → GPIO8, SCL → GPIO9. The firmware expects an I2C SSD1306 128×64 at 0x3C. Follow the module's printed labels, because header order varies.
+3. Connect DS3231 VCC → 3V3, GND → GND, SDA → GPIO8, SCL → GPIO9. These are branches on the same I2C nets as the OLED. SQW and 32K stay unconnected. Its address is 0x68.
+4. Connect the confirmed 3.3 V-compatible RS485 module: VCC → 3V3, GND → GND, RO → GPIO18 (RX), DI → GPIO17 (TX). Tie DE and /RE together and connect them to GPIO16.
+5. Connect RS485 A → Fort 58/A and B → Fort 59/B. The manual's PDF page 7/table 3 and page 9/figure 5 identify those terminals. Terminal 70/COM is for switch inputs; it is not RS485 ground.
+6. If buttons are installed, connect one contact of PREV/NEXT/OK to GPIO4/5/6 respectively and the opposite contact to GND. Internal pull-ups keep an unpressed button HIGH.
+7. The buzzer can be omitted while testing. If fitted, connect its driver to GPIO7 using the circuit below.
+8. Check the [point-to-point netlist](wiring-netlist.csv), then power the board from USB. Confirm the AP works before moving to a panel installation.
 
-![Ilustrasi dua pasangan kontak tactile switch](assets/button-contacts.svg)
+The user's Fort RS485 port is dedicated to this reader; no other master is present. The purchased “MAX485 TTL RS485 3.3V/5V flexible” module is confirmed suitable for ESP32 3.3 V TTL. Those facts are part of this project's configuration, not open assumptions.
 
-Pin GPIO4/5/6 masing-masing menuju satu kontak tombol; kontak satunya menuju GND. Dilepas = HIGH melalui pull-up internal; ditekan = LOW. Tidak perlu menyambung tombol ke VCC.
+## RS485 direction
 
-## Modul RS485 yang digunakan
+RO is the transceiver's receive **output**, so it connects to the ESP32 RX **input**. DI is the transceiver's driver **input**, so it connects to ESP32 TX. With DE and /RE tied, GPIO16 HIGH transmits and LOW receives. A module exposing only TX/RX may handle direction automatically; determine connections by signal direction and check turnaround/local echo before acceptance.
 
-Modul “MAX485 TTL RS485 3.3V/5V flexible” yang dibeli sudah dikonfirmasi pengguna kompatibel dengan TTL ESP32 3,3 V. Wiring memakai konfigurasi 3,3 V modul tersebut: RO ke GPIO18, DI ke GPIO17, dan DE-/RE ke GPIO16 bila tersedia.
+Use the panel's intended isolation/reference/shielding arrangement. A basic TTL module does not add galvanic isolation. Twisted pair, termination and bias depend on the cable and installed transceiver network; check existing resistors before adding more. About 120 Ω termination belongs at bus ends where required, not at every node. Do not modify the meter's voltage/current/CT measurement wiring to attach this reader.
 
-Jika modul hanya punya TX/RX tanpa DE-/RE dan mengatur arah otomatis, cocokkan TX/RX berdasarkan arah sinyal. GPIO16 dapat dibiarkan tidak tersambung pada modul auto-direction; pengujian turnaround tetap diperlukan. Firmware mengasumsikan tidak ada local echo ketika mengirim.
+## Four-leg tactile contacts
 
-Untuk instalasi panel pabrik, gunakan antarmuka RS485 terisolasi dan suplai terisolasi yang sesuai lingkungan, cable shield/twisted pair, reference dan proteksi surge sesuai desain panel. Modul TTL sederhana cukup untuk uji meja, tetapi tidak memberi isolasi galvanik.
+![Contact pairs](assets/button-contacts.svg)
 
-Port RS485 Fort masih kosong dan belum terhubung ke PLC/BMS/perangkat lain. ESP32 menjadi **satu-satunya master** yang membaca meter.
+A four-leg switch contains two internally joined pairs. Use a continuity meter to identify them: A–A is always joined, B–B is always joined, A–B joins only when pressed. Use one A and one B. The GPIO and ground must not land on an already joined pair. No button VCC connection is needed.
 
-Manual menempatkan A pada **58** dan B pada **59**. Terminal **70/COM** pada gambar meter adalah common untuk switch input DI1–DI4; terminal tersebut tidak termasuk jalur RS485 dan tidak dipakai sebagai GND logika.
-
-Terminasi sekitar 120 ohm dipasang hanya pada kedua ujung bus jika diperlukan oleh panjang/kecepatan kabel. Periksa resistor bawaan modul sebelum menambah terminasi atau bias. Hindari jaringan bintang. Jangan mengubah koneksi tegangan/arus/CT meter untuk memasang pembaca RS485; pemasangan pada panel dilakukan oleh teknisi yang berwenang.
-
-## Buzzer dua kaki dengan driver NPN
-
-Spesifikasi arus buzzer belum diketahui, jadi default wiring menggunakan driver:
+## Optional two-leg buzzer
 
 ```text
-GPIO7 -- resistor 1k -- basis NPN (mis. 2N2222/BC337)
-                      emitor -- GND
-                      kolektor -- buzzer (-)
-3V3 untuk buzzer rating 3V ----- buzzer (+)
-basis -- resistor 10k -- GND
+GPIO7 -- 1 kΩ -- NPN base
+                 emitter -- GND
+                 collector -- buzzer (-)
+3V3 ---------------------- buzzer (+), for a compatible 3 V unit
+base -- 10 kΩ -- GND
 ```
 
-Tambahkan diode flyback bila buzzer bersifat elektromagnetik sesuai datasheet-nya. Transistor, resistor, dan diode belum ada dalam daftar belanja; tambahkan bila buzzer hanya komponen dua kaki. Untuk modul buzzer tiga pin dengan driver bawaan yang menerima logika 3,3 V, GPIO7 langsung ke pin signal sesuai modul. Jangan langsung membebani GPIO dengan buzzer berarus tidak diketahui.
+The transistor and two resistors are additional parts. A 2N2222/BC337 example identifies a transistor type, not a physical pin order; use its package datasheet for B/C/E. Add a flyback diode if the buzzer is electromagnetic and its datasheet calls for it. A three-pin buzzer module with its own 3.3 V-compatible driver can instead use GPIO7 → signal, VCC → rated supply, GND → GND. Firmware uses active HIGH; an active-low module needs a polarity change. Do not assume a bare buzzer's current is within GPIO drive capability.
 
-Posisi B/C/E pada gambar menyatakan fungsi listrik, bukan urutan fisik kaki transistor. Cari urutan pada datasheet part/package yang dipakai. Modul buzzer tiga pin: VCC ke 3V3 sesuai rating, GND ke rail GND, signal/S ke GPIO7. Firmware mengaktifkan buzzer dengan HIGH, sehingga modul active-low membutuhkan penyesuaian polaritas di kode.
+## RTC battery and display checks
 
-## RTC dan baterai
+Some DS3231 breakouts charge LIR2032 cells. Use a battery appropriate to the module; do not connect a non-rechargeable CR2032 to an active charging circuit. I2C pull-ups must end at 3.3 V. Check the combined OLED/RTC pull-ups and the module supply labels.
 
-DS3231 tidak memerlukan pin SQW untuk firmware ini. Beberapa breakout memiliki charger untuk LIR2032. Jangan memakai CR2032 non-rechargeable pada rangkaian pengisi aktif; pilih baterai sesuai modul atau nonaktifkan rangkaian charger dengan benar. Semua pull-up I2C harus berujung di 3,3 V; periksa gabungan resistor bawaan OLED/RTC.
-
-## Jika OLED tidak menyala
-
-Cek suplai, ground, SDA/SCL, ukuran display, dan alamat 0x3C/0x3D. Alamat dapat diubah di `firmware/include/board.h`. Firmware tetap menjalankan hotspot dan pembacaan meski OLED tidak terdeteksi. OLED 128×32 atau SH1106 memerlukan perubahan driver/layout.
+For a blank OLED, check 3V3/GND, GPIO8/9, address 0x3C/0x3D and the controller type. Change `OLED_ADDRESS` in [board.h](../firmware/include/board.h) for 0x3D. A 128×32 screen or SH1106 is a different layout/driver target. Firmware continues starting the AP and reader if the OLED is absent.

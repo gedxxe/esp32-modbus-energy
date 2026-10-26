@@ -1,424 +1,226 @@
-<p align="center">
-  <img src="docs/assets/hero.svg" alt="Midea Engineering — Fort Energy Station" width="1100">
-</p>
+# Fort Modbus Energy Monitor
 
-<p align="center">
-  <img src="docs/assets/badges/firmware.svg" alt="Firmware 1.1.0">
-  <img src="docs/assets/badges/license.svg" alt="License GPL-3.0-only">
-  <img src="docs/assets/badges/board.svg" alt="ESP32-S3 N16R8">
-  <img src="docs/assets/badges/platformio.svg" alt="Espressif32 6.10.0">
-  <img src="docs/assets/badges/arduino.svg" alt="Arduino ESP32 2.0.17">
-  <img src="docs/assets/badges/freertos.svg" alt="FreeRTOS dua core">
-</p>
+**English** · [Bahasa Indonesia](README.id.md)
 
-# ESP32 Modbus Energy Monitor
+![Firmware 1.2.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
-**Fort Energy Station** adalah pembaca energi impor kWh Fort melalui Modbus RTU RS485, menggunakan ESP32-S3 N16R8, RTC DS3231, OLED SSD1306, tiga tombol, dan buzzer. HP tersambung langsung ke hotspot ESP32 untuk melihat dashboard dan mengunduh hasil interval 30 menit.
+An ESP32-S3 reader for the existing Fort power meter at Midea. It reads imported kWh over Modbus RTU, records scheduled half-hour intervals, and serves a dashboard directly to a phone over Wi-Fi. The Fort RS485 port is dedicated to this reader; the ESP32 is its only master.
 
-**Status:** firmware sudah berhasil dibangun; tes logika dan dashboard dengan data simulasi sudah lulus. Pengujian hardware pada ESP32 dan Fort fisik belum dilakukan. Rincian hasil ada di [VALIDATION](docs/VALIDATION.md); temuan dan perbaikan audit ada di [AUDIT](docs/AUDIT.md).
+The firmware builds for a generic DevKitC-style **ESP32-S3 N16R8**. The dashboard uses **React and actual React Bits components**, bundled locally. English is the default language; the language selector switches the full interface to Indonesian. No internet connection is needed at the meter.
 
-| Akses perangkat | Nilai |
-| --- | --- |
-| Wi-Fi / SSID | **Midea Engineering AP** |
-| Password | **betahdijre12345** |
-| Dashboard | **http://192.168.4.1** |
-| Zona waktu tampilan dan interval | **WIB / UTC+7** |
-| Default pembaca Modbus | **Slave 1 · 9600 baud · 8N1** |
-| Topologi terkonfirmasi | Port Fort masih kosong; ESP32 menjadi satu-satunya master |
+New releases need commissioning against the physical Fort meter. Compilation and browser tests do not establish measurement accuracy or wiring acceptance. [Validation results](docs/VALIDATION.md) identify what has actually been tested.
 
-Dashboard bekerja tanpa internet, cloud, CDN atau aplikasi HP tambahan. IP juga tampil pada halaman utama OLED. Modul RS485 yang digunakan sudah dikonfirmasi kompatibel dengan TTL ESP32 3,3 V.
+## Contents
 
-## Daftar isi
+1. [Connect the hardware](#1-connect-the-hardware)
+2. [Build and upload](#2-build-and-upload)
+3. [First startup and meter scan](#3-first-startup-and-meter-scan)
+4. [Energy calculation and recording quality](#4-energy-calculation-and-recording-quality)
+5. [Tasks, ownership and scheduling](#5-tasks-ownership-and-scheduling)
+6. [UART frames and RS485 direction](#6-uart-frames-and-rs485-direction)
+7. [Browser build and memory use](#7-browser-build-and-memory-use)
+8. [Tests and maintenance](#8-tests-and-maintenance)
 
-- [Preview web dan OLED](#preview-web-dan-oled)
-- [Fitur dan jadwal interval](#fitur-dan-jadwal-interval)
-- [Scan Fort dari dashboard](#scan-fort-dari-dashboard)
-- [Framework dan library](#framework-dan-library)
-- [Komponen](#komponen)
-- [Wiring lengkap](#wiring-lengkap)
-- [Tutorial wiring langkah demi langkah](#tutorial-wiring-langkah-demi-langkah)
-- [Build dan upload](#build-dan-upload)
-- [Menyalakan pertama kali](#menyalakan-pertama-kali)
-- [Tombol dan navigasi](#tombol-dan-navigasi)
-- [Perhitungan kWh dan kualitas data](#perhitungan-kwh-dan-kualitas-data)
-- [Arsitektur dan struktur project](#arsitektur-dan-struktur-project)
-- [Pengujian](#pengujian)
-- [Troubleshooting](#troubleshooting)
-- [Kontribusi dan GitHub](#kontribusi-dan-github)
+## Dashboard
 
-## Preview web dan OLED
+![English dashboard, using simulated readings](docs/assets/ui-desktop.png)
 
-Gambar web berikut diambil dari **HTML firmware yang sebenarnya**, menggunakan API simulasi di browser. Angka kWh, kW dan diagnostik adalah contoh, bukan hasil meter pabrik.
+The screenshot uses simulated API data. The chart is built from the same interval values as the table; it is not a synthetic load trend. Missing readings remain blank. [Phone layout](docs/assets/ui-mobile.png) · [Meter scan](docs/assets/ui-scan-desktop.png).
 
-<p align="center">
-  <img src="docs/assets/ui-desktop.png" alt="Preview dashboard desktop: counter kWh, daya aktif, waktu WIB dan interval pagi" width="1000">
-</p>
+## 1. Connect the hardware
+
+Use the **GPIO labels** printed on the board, not header position numbers. Disconnect USB while assembling the low-voltage connections. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL.
+
+| Module pin | ESP32-S3 connection | Purpose |
+| --- | --- | --- |
+| OLED VCC / GND | 3V3 / GND | SSD1306, 128×64, I2C address 0x3C |
+| OLED SDA / SCL | GPIO8 / GPIO9 | Shared I2C bus |
+| DS3231 VCC / GND | 3V3 / GND | RTC, I2C address 0x68 |
+| DS3231 SDA / SCL | GPIO8 / GPIO9 | Connect to the same nets as the OLED |
+| RS485 VCC / GND | 3V3 / GND | Transceiver supply and logic ground |
+| RS485 RO | GPIO18, UART1 RX | Transceiver output → ESP32 input |
+| RS485 DI | GPIO17, UART1 TX | ESP32 output → transceiver input |
+| RS485 DE and /RE | Both tied to GPIO16 | HIGH transmits; LOW receives |
+| RS485 A / B | Fort 58/A / 59/B | The meter communication terminals |
+| PREV / NEXT / OK buttons | GPIO4 / GPIO5 / GPIO6; other contact to GND | Internal pull-ups, active LOW |
+| Buzzer control, optional | GPIO7 → driver | Active HIGH; may be left unconnected |
+
+DS3231 SQW and 32K are unused. OLED and RTC each need four connections; their SDA/SCL wires branch to the same two GPIOs. All module GND pins share ESP32 GND. **Fort 70/COM is a switch-input common, not RS485 ground.** The GPIO mapping is defined in [board.h](firmware/include/board.h).
 
 <details>
-<summary>Lihat dashboard di layar HP</summary>
+<summary>Full wiring diagram, including optional buttons and buzzer driver</summary>
 
-<p align="center">
-  <img src="docs/assets/ui-mobile.png" alt="Preview dashboard HP dengan nilai dan kualitas setiap interval" width="360">
-</p>
+![Full wiring schematic](docs/assets/wiring-overview.svg)
 
-Pada HP, tabel berubah menjadi daftar interval agar nilai dan status terlihat tanpa geser horizontal. Tab sore menampilkan tiga interval 16.30–18.00.
+Port positions in this drawing are logical, not a photograph of the board. Repeated 3V3/GND labels are connected nets; a crossing without a dot is not a connection. The buzzer driver requires an NPN transistor, 1 kΩ base resistor and 10 kΩ pull-down; these are additional parts. Physical B/C/E pin order depends on the transistor package.
 
 </details>
 
-Representasi halaman OLED di bawah mengikuti isi firmware. Ini ilustrasi SVG, bukan foto layar perangkat.
+Follow the [step-by-step wiring guide](docs/WIRING.md) when assembling. It covers tactile contacts, the optional buzzer, RTC battery and the [31-wire netlist](docs/wiring-netlist.csv).
 
-![Ilustrasi boot, halaman utama, interval pagi/sore, hotspot dan diagnostik](docs/assets/oled-pages.svg)
+## 2. Build and upload
 
-## Fitur dan jadwal interval
-
-| Fitur | Implementasi |
-| --- | --- |
-| Pembacaan utama | Counter energi impor sekunder, dikonversi ke kWh primer dengan rasio CT/PT meter |
-| Daya saat ini | Total active power, kW primer |
-| Integritas komunikasi | CRC16, validasi ID/fungsi/panjang, timeout, maksimum tiga percobaan |
-| Scan Fort | Pencarian ID 1–247, enam baud dan parity N/E/O; progres, batal dan terapkan hasil dari web |
-| Pengolahan waktu | DS3231 menyimpan UTC; tampilan dan batas interval memakai WIB |
-| Kontrol lokal | OLED 128×64, tiga tombol, debounce 35 ms, long press 900 ms |
-| Boot | Animasi OLED dan pola bunyi aktif dalam durasi sekitar 1,5 detik |
-| Alarm | Peringatan singkat berkala untuk meter offline, RTC invalid atau storage error; dapat di-mute |
-| Penyimpanan | Checkpoint NVS dengan CRC; CSV LittleFS; retensi 31 tanggal terakhir |
-| Web | Status meter, pergantian shift, sinkronisasi RTC dari HP, setting pembaca, ekspor CSV |
-| Eksekusi | Akuisisi di core 1; web/UI di core 0; queue dan mutex FreeRTOS |
-
-| Shift pagi | Shift sore / malam |
-| --- | --- |
-| 06.00–06.30 | 16.30–17.00 |
-| 06.30–07.00 | 17.00–17.30 |
-| 07.00–07.30 | 17.30–18.00 |
-| 07.30–08.00 | — |
-| 08.00–08.30 | — |
-| 08.30–09.00 | — |
-
-Seluruh interval berjalan otomatis berdasarkan kalender RTC, bukan 30 menit sejak alat dinyalakan. Sebaiknya perangkat sudah aktif dan terhubung sebelum batas pertama shift.
-
-## Scan Fort dari dashboard
-
-Preview berikut memakai respons API simulasi, bukan pembacaan Fort fisik.
-
-![Preview Scan Fort di dashboard desktop (simulasi)](docs/assets/ui-scan-desktop.png)
-
-[Preview Scan Fort di HP (simulasi)](docs/assets/ui-scan-mobile.png)
-
-### Cara update dan menjalankan scan
-
-1. Sambungkan RS485 sesuai [wiring lengkap](#wiring-lengkap): RO → GPIO18, DI → GPIO17, DE dan /RE → GPIO16, A → Fort 58/A, B → Fort 59/B. Modul dan Fort harus terhubung agar scan bisa mendapat respons; ESP32 saja tidak dapat menemukan meter.
-2. Buka folder **firmware** di VS Code/PlatformIO. Tutup Serial Monitor agar port tidak sedang dipakai. Jalankan **PlatformIO → Project Tasks → esp32s3 → General → Upload**. Gunakan environment **esp32s3** untuk board N16R8 fisik.
-3. Setelah upload selesai, hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Tetap gunakan Wi-Fi ini walaupun HP menampilkan tanpa internet. Buka **http://192.168.4.1** dan pastikan footer menunjukkan **Firmware 1.1.0**; reload halaman bila masih melihat UI lama.
-4. Buka **Pengaturan koneksi meter → Scan Fort**. Untuk percobaan cepat, isi ID awal **1** dan akhir **16**. Jika belum ditemukan, ulangi dengan **1–247** agar seluruh ID diperiksa. Jika ID meter sudah diketahui, isi awal dan akhir dengan ID yang sama.
-5. Tekan **Scan Fort**. Lihat kandidat ID/baud/parity dan jumlah kombinasi yang sudah selesai pada progress bar. Gunakan **Batalkan scan** untuk menghentikan pencarian. Menutup/reload halaman tidak membatalkan scan; progres diambil kembali dari ESP32.
-6. Saat hasil muncul, tekan **Terapkan hasil**. Contoh hasil **ID 7 · 19200 · 8E1** hanya ilustrasi; gunakan nilai yang benar-benar ditemukan perangkatmu. Tombol ini menyimpan setting pembaca ESP32 ke NVS; menu komunikasi pada Fort tidak diubah.
-7. Periksa form slave ID/baud/parity sudah mengikuti hasil, lalu tunggu pembacaan normal. Status **Meter terhubung** dan nilai kWh akan muncul bila pembacaan berhasil. Jika status storage bermasalah, jangan menganggap konfigurasi pasti tersimpan; periksa [commissioning](docs/COMMISSIONING.md). Sinkronkan RTC dari HP bila waktu belum valid, lalu bandingkan kWh dan rasio CT/PT dengan display Fort.
-
-Alternatif upload melalui terminal PowerShell dari root project (ganti `COM10` jika port board berbeda):
+Open the **firmware** directory in VS Code/PlatformIO; it contains `platformio.ini`. Close Serial Monitor before uploading.
 
 ```powershell
 cd firmware
-& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe" run -e esp32s3 --target upload --upload-port COM10
+pio run -e esp32s3
+pio run -e esp32s3 --target upload --upload-port COM10
+pio device monitor -e esp32s3 --port COM10
 ```
 
-### Cara kerja dan batas scan
+Replace COM10 with the board's actual port. If `pio` is not on PATH, use `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"` in its place. The VS Code equivalent is **Project Tasks → esp32s3 → General → Upload**. The default target has 16 MB flash and OPI PSRAM for N16R8; the `cirkit` target is only for the 8 MB simulator.
 
- Firmware mencoba setting pembaca saat ini lebih dulu, lalu seluruh 18 mode pada ID tersebut jika masuk rentang, dilanjutkan seluruh kombinasi ID pada rentang tersebut, baud 9600/19200/38400/4800/2400/1200 dan parity N/E/O. Setiap kombinasi hanya dicoba sekali, timeout respons 800 ms. Rentang penuh mencakup 4.446 kombinasi dan bisa memerlukan sekitar 70 menit bila tidak ada respons; gunakan rentang lebih kecil bila ID diperkirakan diketahui.
+The generated browser assets are committed with the firmware. A normal PlatformIO build verifies their hashes and **does not need Node or npm**. Install Node dependencies only when editing the web source; see [section 7](#7-browser-build-and-memory-use).
 
-Scan hanya memakai fungsi 03 pada register energi dan CT/PT yang sudah digunakan pembacaan normal. Hasil harus lulus CRC, ID, fungsi, panjang serta batas rasio CT/PT. Pencarian berhenti pada respons kompatibel pertama; ini bukan autentikasi identitas/model meter. Tekan **Terapkan hasil** untuk menyimpan koneksi pembaca ke NVS. Scan tidak mengubah menu komunikasi meter.
-
-**Batalkan scan** menghentikan pencarian setelah kandidat aktif selesai (biasanya kurang dari dua detik setelah perintah diproses). Setelah selesai/batal/tidak ditemukan, pembaca memakai setting lama sampai hasil diterapkan. Scan berjalan di core 1; web, OLED dan RTC tetap diproses. Pencatatan energi dijeda dan kesinambungan interval diputus agar gap scan tidak menjadi interval lengkap; alarm ditunda selama scan. Hasil scan hanya ada di RAM dan tidak bertahan setelah reboot. Jika tidak ditemukan, periksa wiring A/B dan rentang ID. Scan tidak berjalan otomatis saat boot atau saat meter offline.
-
-## Framework dan library
-
-<p>
-  <img src="docs/assets/badges/ssd1306.svg" alt="Adafruit SSD1306 2.5.13">
-  <img src="docs/assets/badges/gfx.svg" alt="Adafruit GFX 1.11.11">
-  <img src="docs/assets/badges/busio.svg" alt="Adafruit BusIO 1.17.0">
-  <img src="docs/assets/badges/rtclib.svg" alt="RTClib 2.1.4">
-  <img src="docs/assets/badges/arduinojson.svg" alt="ArduinoJson 7.3.1">
-</p>
-
-| Bagian | Versi yang dipakai | Fungsi |
+| Dependency | Pinned version | Role |
 | --- | --- | --- |
-| PlatformIO Core | 6.1.16 pada build lokal | Mengelola toolchain, dependency, build dan upload |
-| Platform Espressif32 | **6.10.0** | Platform ESP32 yang dikunci di konfigurasi |
-| Framework Arduino ESP32 | **2.0.17** | Runtime Arduino/ESP-IDF bawaan platform tersebut |
-| Adafruit SSD1306 | **2.5.13** | Driver OLED I2C |
-| Adafruit GFX Library | **1.11.11** | Teks, garis, ikon sederhana dan animasi |
-| Adafruit BusIO | **1.17.0** | Dependency komunikasi Adafruit |
-| RTClib | **2.1.4** | Utilitas tanggal/waktu; transaksi DS3231 diperiksa oleh driver firmware |
-| ArduinoJson | **7.3.1** | JSON untuk API dashboard |
-| WiFi, WebServer, Wire, Preferences, LittleFS | Bawaan framework | AP/HTTP, I2C, konfigurasi dan arsip |
-| FreeRTOS | Bawaan ESP-IDF pada framework | Task dua core, queue, mutex dan scheduling |
+| PlatformIO Core | 6.1.16 | Development/build tool |
+| Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 | Toolchain and device runtime |
+| Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 | OLED and I2C driver support |
+| RTClib | 2.1.4 | Calendar/UTC conversion; checked DS3231 transactions are in the firmware |
+| ArduinoJson | 7.3.1 | HTTP JSON |
+| Node.js (web build only) | 24.22.1 | Reproducible browser build runtime |
+| React / React DOM | 19.3.1 | Browser application |
+| GSAP | 3.15.0 | React Bits page transitions |
+| esbuild | 0.28.2 | Browser bundler, development only |
+| Playwright | 1.62.1 | Browser regression tests |
 
-Versi library eksternal dikunci di [platformio.ini](firmware/platformio.ini). PlatformIO mengunduhnya otomatis pada build pertama; tidak perlu memasang library satu-satu. Semua badge/icon di README adalah SVG lokal; tidak bergantung pada layanan badge eksternal.
+Versions come from [platformio.ini](firmware/platformio.ini), [package.json](package.json) and its lockfile. PlatformIO resolves firmware libraries automatically.
 
-## Komponen
+For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An application BIN and a merged factory BIN have different purposes; do not put app-only firmware at address 0x0.
 
-| Komponen | Jumlah dipakai | Catatan |
-| --- | --- | --- |
-| ESP32-S3 N16R8 | 1 | Target DevKitC-style, flash 16 MB, PSRAM OPI 8 MB |
-| Modul TTL–RS485 3,3 V | 1 | Modul milik pengguna kompatibel TTL ESP32 |
-| Fort power meter | 1 | Unit existing; komunikasi A/B pada terminal 58/59 sesuai manual |
-| OLED SSD1306 I2C 0,96 inci | 1 | Layout 128×64, alamat awal 0x3C |
-| RTC DS3231 | 1 | Dengan baterai yang sesuai modul |
-| Tactile switch | 3 dari 10 | PREV, NEXT, OK |
-| Buzzer aktif 3 V/5 V | 1 | Contoh wiring memakai buzzer dua kaki dengan driver NPN pada 3V3 |
-| Transistor NPN + resistor 1 kΩ + 10 kΩ | Masing-masing 1 | Tambahan driver buzzer dua kaki; belum ada dalam daftar belanja awal |
-| Jumper, breadboard/terminal rail, USB data | Sesuai kebutuhan | Membagi 3V3/GND dan pemasangan awal |
+## 3. First startup and meter scan
 
-Alternatif buzzer tiga pin dengan driver bawaan dijelaskan pada [panduan buzzer](docs/WIRING.md#buzzer-dua-kaki-dengan-driver-npn).
+1. Power the board. Startup does not wait for USB Serial. The OLED animation and buzzer pattern take about 1.5 seconds; a missing OLED does not prevent startup.
+2. Connect the phone to **Midea Engineering AP**, password **betahdijre12345**. Stay on this network when the phone reports that it has no internet. Open **http://192.168.4.1**.
+3. Check the footer reports **Firmware 1.2.0**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
+4. On a new installation, LittleFS may not yet contain a valid filesystem. If mounting fails, hold the physical **OK button (GPIO6)** during boot and keep holding for five seconds. This formats the archive partition and erases archives. Firmware never formats it automatically.
+5. In **Device & records**, choose **Set from this phone** to set the DS3231. It stores UTC; the screen and interval schedule use WIB. The phone's clock must be correct.
+6. Open **Meter setup**. Either enter the Fort communication settings or run **Scan Fort**. Defaults are slave 1, 9600 baud, 8N1. A manual supplied with the meter does not prove the installed slave ID.
 
-## Wiring lengkap
+### Local controls
 
-![Diagram wiring lengkap sampai terminal Fort, OLED, RTC, tombol dan driver buzzer](docs/assets/wiring-overview.svg)
+PREV/NEXT cycle through the main, morning, evening, AP and diagnostics OLED pages. Inputs use internal pull-ups and a 35 ms stable debounce window.
 
-**Cara membaca:** titik menunjukkan sambungan listrik; garis yang melintas tanpa titik tidak tersambung. Label `3V3` dan `GND` yang sama adalah satu net/rail bersama. Port pada gambar ditempatkan untuk keterbacaan, bukan meniru posisi header fisik board. Cari pin berdasarkan tulisan **GPIO**, bukan nomor urut kaki.
-
-### Peta koneksi utama
-
-| Pin / terminal asal | Sambungkan ke | Fungsi |
-| --- | --- | --- |
-| ESP32 **3V3** | Rail + → VCC OLED, RTC dan modul RS485 | Suplai modul 3,3 V |
-| ESP32 **GND** | Rail − → GND OLED, RTC, RS485, tombol dan driver buzzer | Ground logika bersama |
-| ESP32 **GPIO8** | SDA OLED **dan** SDA DS3231 | Shared I2C data |
-| ESP32 **GPIO9** | SCL OLED **dan** SCL DS3231 | Shared I2C clock |
-| ESP32 **GPIO18** | **RO** modul RS485 | UART RX menerima dari modul |
-| ESP32 **GPIO17** | **DI** modul RS485 | UART TX mengirim ke modul |
-| ESP32 **GPIO16** | **DE dan /RE disatukan** | Kontrol arah half-duplex |
-| RS485 **A** | Fort **58 / A** | Jalur A |
-| RS485 **B** | Fort **59 / B** | Jalur B |
-| ESP32 **GPIO4** | Kontak A PREV; kontak B → GND | Halaman sebelumnya |
-| ESP32 **GPIO5** | Kontak A NEXT; kontak B → GND | Halaman berikutnya |
-| ESP32 **GPIO6** | Kontak A OK; kontak B → GND | Pilih/mute |
-| ESP32 **GPIO7** | Resistor **1 kΩ** → basis NPN | Kendali buzzer |
-
-Terminal **58/A dan 59/B** terverifikasi pada manual halaman PDF 7/Tabel 3 dan PDF 9/Gambar 5. **70/COM adalah common switch input**, sehingga tidak dipakai sebagai ground RS485 pada wiring ini. ESP32 mendapat daya dari USB board; suplai dan koneksi pengukuran Fort existing tidak diubah.
-
-## Tutorial wiring langkah demi langkah
-
-### 1. Siapkan rail 3V3 dan GND
-
-Dengan USB board dilepas, hubungkan pin `3V3` ESP32 ke rail positif breadboard dan satu pin `GND` ke rail negatif. VCC modul berikut bercabang ke rail positif; GND logika ke rail negatif. Jika rail breadboard terputus di tengah, jembatani bagian yang dipakai.
-
-### 2. Sambungkan OLED — empat kabel
-
-1. `OLED VCC` → rail **3V3**.
-2. `OLED GND` → rail **GND**.
-3. `OLED SDA` → **GPIO8**.
-4. `OLED SCL` → **GPIO9**.
-
-Gunakan nama pin pada modul, karena urutan header berbeda antar breakout. Firmware memakai alamat `0x3C`; ubah `OLED_ADDRESS` di [board.h](firmware/include/board.h) jika unitmu beralamat `0x3D`.
-
-### 3. Sambungkan DS3231 — empat kabel
-
-1. `DS3231 VCC` → rail **3V3**.
-2. `DS3231 GND` → rail **GND**.
-3. `DS3231 SDA` → titik **GPIO8 yang sama dengan OLED**.
-4. `DS3231 SCL` → titik **GPIO9 yang sama dengan OLED**.
-
-Tidak perlu kabel untuk `SQW`, `32K` atau pin tambahan lainnya. OLED dan RTC berbagi I2C dengan alamat berbeda. Pasang baterai sesuai breakout; lihat [RTC dan baterai](docs/WIRING.md#rtc-dan-baterai).
-
-### 4. Sambungkan RS485 ke ESP32 dan Fort
-
-1. `RS485 VCC` → **3V3**, `RS485 GND` → **GND**.
-2. `RS485 RO` → **GPIO18**. RO adalah keluaran receiver, jadi masuk ke RX ESP32.
-3. `RS485 DI` → **GPIO17**. DI adalah masukan driver, jadi menerima TX ESP32.
-4. Satukan `DE` dan `/RE`, lalu hubungkan titik gabung itu ke **GPIO16**. `/RE` kadang ditulis `RE` dengan garis di atas huruf.
-5. `RS485 A` → Fort **58 / A**.
-6. `RS485 B` → Fort **59 / B**.
-
-Untuk breakout auto-direction yang hanya menyediakan RX/TX tanpa DE-/RE, lihat [alternatif modul](docs/WIRING.md#modul-rs485-yang-digunakan). Setting slave/baud/parity pembaca dapat diubah dari dashboard.
-
-### 5. Sambungkan tiga tactile switch
-
-![Pasangan kontak tactile switch dan hubungan GPIO–GND](docs/assets/button-contacts.svg)
-
-Pada switch empat kaki, dua kaki pasangan A sudah terhubung, demikian pula pasangan B. Cari pasangan dengan continuity meter. Gunakan **satu kaki A dan satu kaki B**, sehingga GPIO baru terhubung ke GND saat ditekan.
-
-1. PREV: satu kontak → **GPIO4**, kontak lainnya → **GND**.
-2. NEXT: satu kontak → **GPIO5**, kontak lainnya → **GND**.
-3. OK: satu kontak → **GPIO6**, kontak lainnya → **GND**.
-
-Tidak perlu resistor pull-up eksternal pada wiring standar ini: firmware memakai `INPUT_PULLUP`. Dilepas = HIGH, ditekan = LOW.
-
-### 6. Sambungkan buzzer aktif dua kaki
-
-Driver pada diagram lengkap memakai NPN sebagai sakelar:
-
-1. **GPIO7 → resistor 1 kΩ → basis (B)** NPN.
-2. **Emitor (E) → GND**.
-3. **Kolektor (C) → buzzer (−)**.
-4. **Buzzer (+) → 3V3** untuk buzzer yang mendukung suplai 3 V.
-5. **Resistor 10 kΩ → antara basis dan GND**, menjaga driver mati saat boot.
-
-Posisi fisik B/C/E mengikuti datasheet transistor; susunan berbeda antar part/package. Untuk buzzer elektromagnetik, tambahkan diode flyback sesuai datasheet: katoda di suplai `+`, anoda di kolektor/buzzer `−`. Alternatif modul tiga pin ada di [WIRING](docs/WIRING.md#buzzer-dua-kaki-dengan-driver-npn).
-
-### 7. Cek sambungan lalu nyalakan
-
-Cocokkan kabel dengan tabel atau [netlist CSV](docs/wiring-netlist.csv). Hubungkan USB board, lalu periksa animasi, bunyi boot, dan IP. Jika OLED belum tampil, hotspot tetap dapat berjalan. Uji penerimaan lengkap ada di [COMMISSIONING](docs/COMMISSIONING.md).
-
-## Build dan upload
-
-### PlatformIO di VS Code
-
-1. Install VS Code dan ekstensi **PlatformIO IDE**.
-2. Buka folder **`firmware`** sebagai project PlatformIO.
-3. Sambungkan USB data ke ESP32-S3.
-4. Klik **Build**, lalu **Upload**, kemudian **Serial Monitor** pada 115200 baud.
-
-Atau, dari terminal root:
-
-```powershell
-cd firmware
-pio run
-pio run --target upload
-pio device monitor
-```
-
-Jika `pio` belum masuk PATH di Windows:
-
-```powershell
-cd firmware
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m platformio run
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m platformio run --target upload
-```
-
-Konfigurasi memakai flash **16 MB QIO**, PSRAM **8 MB OPI** (`qio_opi`), dan USB native. GPIO19/20 dipakai USB native dan tidak dipakai komponen. Untuk mode upload manual: tahan **BOOT**, tekan/lepas **RESET**, lepas BOOT, lalu pilih port yang muncul.
-
-Web ditanam dalam aplikasi; **tidak perlu `uploadfs`**. Binary build ada di `firmware/.pio/build/esp32s3/`. Paket rilis lokal menyediakan factory image dan panduan offset di folder `output/firmware/`. Panduan sumbernya ada di [FLASHING](docs/FLASHING.md). `output` berisi hasil generasi dan diabaikan Git.
-
-### Simulasi di Cirkit Designer
-
-Gunakan profil **`cirkit` (flash 8 MB)** dan bundle ZIP khusus, bukan app-only BIN. Build dengan `pio run -e cirkit`, lalu dari root jalankan `python tools/package_cirkit.py`. Pada **Code → Firmware → Load Firmware → Choose firmware**, pilih `output/firmware/midea-fort-cirkit-8mb.zip`, kemudian **Import**. Cirkit harus menampilkan role Application, Bootloader, dan Partitions. Lihat [panduan simulator](docs/FLASHING.md#cirkit-designer-import-zip-dengan-profil-8-mb).
-
-Profil default `esp32s3` tetap untuk N16R8 fisik. Keberhasilan impor/boot simulator bukan pengganti pengujian hardware atau bukti seluruh fungsi Wi-Fi/RTC/Modbus sudah tersimulasikan.
-
-## Menyalakan pertama kali
-
-1. Jika filesystem belum terbentuk, tahan **OK** sambil menyalakan. Setelah pesan format muncul, tetap tahan **5 detik**. Ini menginisialisasi LittleFS dan menghapus arsip filesystem; tidak ada format otomatis.
-2. Sambungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Pilih tetap terhubung ketika jaringan disebut tidak memiliki internet.
-3. Buka **http://192.168.4.1**.
-4. Tekan **Sinkronkan waktu ponsel**. Pastikan jam/tanggal HP benar; setelah berhasil, OLED dan web menampilkan WIB.
-5. Periksa RTC, storage dan meter. **ID 1** adalah titik awal dari contoh manual; **9600/8N1** adalah default manual. Cocokkan dengan setting meter melalui pengaturan koneksi bila perlu.
-6. Bandingkan **energi impor primer**, kW dan rasio CT/PT dengan halaman Fort yang sesuai.
-7. Aktifkan sebelum awal shift; unduh CSV setelah interval selesai.
-
-Untuk alat berisi arsip, lakukan update firmware biasa. Format bukan langkah pemulihan pertama. Prosedur uji power-cut ada di [COMMISSIONING](docs/COMMISSIONING.md).
-
-## Tombol dan navigasi
-
-| Tombol | Tekan singkat | Tahan |
-| --- | --- | --- |
-| PREV / GPIO4 | Halaman sebelumnya | Satu perpindahan setelah long press |
-| NEXT / GPIO5 | Halaman berikutnya | Satu perpindahan setelah long press |
-| OK / GPIO6, pagi/sore | Interval berikutnya | 900 ms: mute/unmute |
-| OK / GPIO6, hotspot | Tampilkan/sembunyikan password | 900 ms: mute/unmute |
-| OK / GPIO6, utama/diagnostik | Mute/unmute | 900 ms: mute/unmute |
-| OK ditahan saat boot | — | Jika mount gagal: tahan tambahan 5 detik untuk format |
-
-Urutan halaman: **utama → pagi → sore → hotspot → diagnostik**. Debounce 35 ms stabil; long press menghasilkan satu event tanpa short press tambahan saat dilepas.
-
-## Perhitungan kWh dan kualitas data
-
-```text
-PT               = register 0x002C / register 0x002D
-CT               = register 0x002E
-kWh primer       = uint32 big-endian(0x0082–0x0083) × 0,001 × PT × CT
-kW primer        = int32 big-endian(0x006A–0x006B) × 0,0001 × PT × CT
-kWh per interval = counter akhir − counter awal
-```
-
-Counter energi menentukan konsumsi; nilai kW menjadi informasi beban saat ini. Alamat adalah PDU hexadecimal seperti manual, tanpa menambah 40001. Meter hanya dibaca dengan fungsi 03.
-
-| Status | Perlakuan |
+| Control | Action |
 | --- | --- |
-| `menunggu` | Belum mulai |
-| `berjalan` | Selisih sementara di web; belum final |
-| `lengkap-estimasi` | Kedua batas tersedia; interpolasi sampel dekat batas dapat digunakan |
-| `parsial` | Startup terlambat, reboot, RTC/CT/PT berubah, reset counter atau gap berlebihan |
-| `tidak-tersedia` | Tidak ada batas counter yang memadai |
+| OK short press on an interval page | Select the next interval in that shift |
+| OK short press on the AP page | Show/hide the AP password |
+| OK short press on other pages | Toggle alarm mute |
+| OK held for 900 ms after debounce | Toggle mute once; release does not add a short action |
+| OK held at boot for five seconds, only after mount failure | Format the archive partition |
 
-Batas interpolasi antarsampel **15 detik**. CSV kosong berarti belum dapat ditentukan; `0.000000` berarti nol yang valid. Konsumsi CSV hanya diisi untuk interval lengkap. Contoh simulasi:
+The optional active buzzer has a roughly 1.5 s startup pattern. Afterwards it gives a short periodic alarm for invalid RTC, offline meter or storage faults; scan temporarily suppresses it. Leaving the buzzer unconnected does not stop operation.
 
-```csv
-date,shift,start_wib,end_wib,start_kwh,end_kwh,consumption_kwh,quality
-2026-10-22,pagi,06:00,06:30,1000.000000,1006.000000,6.000000,lengkap-estimasi
-2026-10-22,pagi,06:30,07:00,,,,parsial
+<a id="scan-fort-dari-dashboard"></a>
+
+### Scan Fort from the dashboard
+
+![Scan controls, with simulated responses](docs/assets/ui-scan-desktop.png)
+
+Start with IDs **1–16** for a short search. If no result is found, select **All IDs** to search **1–247**. If the ID is known, use that value for both ends. The configured ID gets all 18 serial formats first when it is inside the range. The rest of the range is searched without repeating combinations.
+
+There are six baud rates—1200, 2400, 4800, 9600, 19200 and 38400—and N/E/O parity with one stop bit. A full search has **4,446 candidates** and can take about **70 minutes** without a response. A candidate is accepted only after valid function-03 responses from both the energy and CT/PT registers, including CRC, length, slave ID and ratio range checks. This is protocol compatibility, not authentication of a meter model.
+
+Choose **Apply result** to store the reader settings in NVS. Scan completion alone does not replace the current settings. **Cancel scan** is processed between candidates; a candidate has at most two 800 ms response windows. Closing the browser does not cancel the scan, and reloading recovers progress from the ESP32. Results are held in RAM until reboot.
+
+Scanning pauses normal acquisition and interrupts interval continuity. The alarm is suppressed while scanning. After a match, cancellation or exhaustion, the old UART settings are restored until a result is applied. Use scan outside a production recording window when possible. [Commissioning checks](docs/COMMISSIONING.md) cover cancellation, reboot, missing meter and data quality.
+
+## 4. Energy calculation and recording quality
+
+The firmware reads these **zero-based hexadecimal PDU addresses**, without a 40001 offset:
+
+| Address | Words | Meaning | Conversion |
+| --- | --- | --- | --- |
+| 0x002C–0x002E | 3 | PT numerator, PT denominator, CT multiplier | ratio = PT numerator / PT denominator × CT |
+| 0x0082–0x0083 | 2 | Imported secondary active energy, unsigned big-endian 32-bit | primary kWh = raw × 0.001 × ratio |
+| 0x006A–0x006B | 2 | Total active power, signed big-endian 32-bit | primary kW = raw × 0.0001 × ratio |
+
+Scaling is applied once. The integer secondary counter avoids subtracting large primary float32 values with poor resolution. Energy arithmetic uses `double`; the actual counter resolution is **0.001 × ratio kWh**, regardless of the number of decimal places shown.
+
+| Morning / WIB | Evening / WIB |
+| --- | --- |
+| 06:00–06:30 | 16:30–17:00 |
+| 06:30–07:00 | 17:00–17:30 |
+| 07:00–07:30 | 17:30–18:00 |
+| 07:30–08:00 | |
+| 08:00–08:30 | |
+| 08:30–09:00 | |
+
+Consumption is the difference between boundary counters. When a boundary falls between two continuous samples no more than 15 seconds apart, the tracker interpolates it linearly. Consequently the complete flag is named `complete_estimated`, not a claim of exact boundary sampling. Gaps, late startup, scans, reboot, clock changes and counter decreases interrupt continuity; partial or missing intervals are never replaced with zero. Completed intervals survive interruption.
+
+The DS3231 is checked for ACK, byte count, valid BCD/calendar, 24-hour mode and oscillator-stop flag. Energy is time-bracketed by RTC reads; a window over two seconds or a transaction over 2.5 seconds is not accepted for interval accounting. A 100 MW sanity limit rejects implausible energy jumps; configure it for the actual installation before acceptance.
+
+CSV exports retain quality flags and up to 31 dates. Version 1.2 uses English shift/quality codes; existing CSV files are preserved in their original format. The status API retains legacy `quality` and adds stable English `quality_code` and `error_code` fields. Register references and the manual's inconsistent CRC example are documented in [DESIGN](docs/DESIGN.md).
+
+## 5. Tasks, ownership and scheduling
+
+![Tasks, queues and shared peripherals](docs/assets/architecture.svg)
+
+| Context | Core / priority | Owned work |
+| --- | --- | --- |
+| Arduino loop task | Core 0 / priority 1 | Synchronous HTTP, button debounce, OLED, buzzer |
+| `fort-acquisition` | Core 1 / priority 2; 12,288-byte stack | UART1, Preferences/NVS, tracker, CT/PT, RTC reads, archive writes, scan state |
+| ESP-IDF system tasks | Managed by the framework | Wi-Fi, TCP/IP and other services; they are not pinned by this application |
+
+The UI sends `Command` values through a **six-item queue** with zero enqueue wait. A full queue returns HTTP 503. Acquisition publishes a **one-item snapshot queue** using `xQueueOverwrite`; the UI reads a copy with `xQueuePeek`. It never edits the live tracker. These are value copies, not shared pointers into a mutable `Day`.
+
+I2C is protected by a mutex because RTC and OLED share the bus. The filesystem mutex protects archive replacement/export; HTTP copies CSV files smaller than 8 KiB and releases the lock before sending. UART and Preferences need no cross-task mutex because only the acquisition task accesses them.
+
+| Operation | Scheduling rule |
+| --- | --- |
+| Energy/power poll | 2-second target; retries may extend it |
+| CT/PT refresh | Every 60 seconds, at least 5 seconds between attempts; invalidated after prolonged failure |
+| Acquisition loop | 100 ms yield normally; 10 ms between scan candidates |
+| UART receive wait | Yields one FreeRTOS tick while awaiting data |
+| OLED | At least 300 ms between draw attempts; skipped if its mutex cannot be taken |
+| Browser status | Every 2.5 seconds; 4-second request timeout |
+| Checkpoint/archive | Status/day/config changes and at most 5 minutes between periodic saves |
+| Watchdog | 8 seconds; fed per UI loop, UART attempt and asset-transfer chunk |
+
+These are cooperative timing targets, **not hard real-time guarantees**. A slow HTTP asset client can occupy the synchronous UI task for up to its five-second transfer deadline, while acquisition continues on core 1. Delays let idle/system tasks run; keeping both CPUs busy would reduce reliability rather than improve sampling. [Detailed scheduling and lock bounds](docs/DESIGN.md#task-and-lock-model) explain the execution order.
+
+## 6. UART frames and RS485 direction
+
+![RTU request and direction timing](docs/assets/rtu-timing.svg)
+
+A request is eight bytes: slave ID, function 03, register address high/low, count high/low, CRC low/high. CRC16 starts at 0xFFFF, shifts LSB first with polynomial 0xA001, and covers the six request bytes. Responses are checked for ID, function, byte count, total length, CRC and exception 0x83.
+
+The direction sequence is explicit: drain up to 128 stale RX bytes → wait at least the calculated t3.5 gap → GPIO16 HIGH → 30 µs turnaround delay → `UART.write` → `UART.flush` → GPIO16 LOW → collect the response. The 800 ms receive deadline starts after TX flush. Polling uses up to three attempts with bounded backoff; scan uses one attempt per register.
+
+**There is no software bit banging for UART or I2C.** `HardwareSerial(1)` drives UART1; `Wire` drives the hardware I2C controller at 100 kHz. GPIO16 controls transceiver direction, not individual serial bits. CPU work includes framing, CRC, parsing, tracker arithmetic and composing the OLED buffer. RX uses a 128-byte driver buffer and a fixed 16-byte frame buffer for responses up to 11 bytes. Since timestamps are observed while draining the UART buffer, the firmware does not claim exact per-byte t1.5 validation.
+
+## 7. Browser build and memory use
+
+Authoring files live in [web/](web/). React DOM and GSAP execute in the **phone/browser**, not on the ESP32. The board serves gzip bytes stored in flash and provides the JSON API. Both translations, CSS, icons and dependency notices are local; no CDN, external font, hosted API or separate filesystem upload is required.
+
+Use **Node 24.22.1** (recorded in `.node-version`) for web builds:
+
+```sh
+npm ci
+npm run build:web
+npm run check:web
 ```
 
-Saat ESP32 mati, RTC menjaga waktu tetapi tidak membaca meter. Interval yang terputus tidak direkonstruksi sebagai data lengkap. Register, resolusi, salah cetak CRC manual dan batas pemulihan dibahas di [DESIGN](docs/DESIGN.md).
+The build writes [web_ui.h](firmware/include/web_ui.h) and a [bundle manifest](web/bundle.json) with source hashes, per-asset sizes and dependency versions. The build fails above **160 KiB compressed**. Static bytes are sent to lwIP in chunks up to 1 KiB with scheduler yields and watchdog resets; the entire JS bundle is never copied into an Arduino `String`.
 
-## Arsitektur dan struktur project
+Actual React Bits `FadeContent` and `SpotlightCard` are vendored at commit `e12c22192ac7b4b452c5e2feb9b586d74765d696`. Page reveals respect reduced motion; the energy panel uses pointer/focus lighting without a continuous ambient animation. Numeric readings are displayed directly, without counting up through values the meter never reported. [Component provenance and license](web/vendor/react-bits/README.md).
 
-![Core 0 antarmuka dan core 1 akuisisi, dengan queue dan mutex](docs/assets/architecture.svg)
+For technical changes, edit the web source and rebuild before PlatformIO. `tools/pio_web.py` rejects stale assets, preventing a successful firmware build from silently carrying the previous UI. [VALIDATION](docs/VALIDATION.md) records actual payload and firmware sizes.
 
-```text
-.
-├── AGENTS.md                 # Aturan kerja agent dan sumber kebenaran
-├── README.md                 # Panduan utama + semua visual
-├── CHANGELOG.md              # Riwayat perubahan
-├── CONTRIBUTING.md           # Alur developer
-├── .github/workflows/ci.yml  # Build firmware, tes dan audit docs
-├── firmware/
-│   ├── platformio.ini        # Board, framework dan library yang dikunci
-│   ├── include/              # Pin, versi, tracker, debounce, recovery, HTML
-│   ├── src/main.cpp          # Driver, RTOS, persistence, HTTP dan UI
-│   └── test/test_energy.cpp  # Tes logika dan fault injection
-├── docs/
-│   ├── assets/               # SVG dan screenshot untuk GitHub
-│   ├── wiring-netlist.csv    # Sambungan point-to-point
-│   ├── WIRING.md             # Wiring terperinci
-│   ├── DESIGN.md             # Register, protokol dan arsitektur
-│   ├── COMMISSIONING.md      # Uji penerimaan hardware
-│   ├── AUDIT.md              # Temuan dan perbaikan audit
-│   └── VALIDATION.md         # Hasil pengujian dan batasnya
-├── tools/                    # Tes, generator SVG, audit docs dan paket
-└── Fort Power Meter_User Manual_compressed.pdf
-```
-
-## Pengujian
-
-Logika C++ di Windows dari root (memerlukan `g++`):
+## 8. Tests and maintenance
 
 ```powershell
 .\tools\test.ps1
-```
-
-Pemeriksaan dokumentasi, aset, versi dan link:
-
-```powershell
-python tools/generate_docs.py
 python tools/check_docs.py
-```
-
-Pengujian UI (Node hanya untuk development, bukan dependency firmware):
-
-```powershell
-npm ci
-npx playwright install chromium
 npm run test:ui
 ```
 
-Bisa memakai Edge yang sudah terpasang: `node tools/preview-test.cjs playwright msedge`. Tes memakai API simulasi localhost. CI tersedia di [.github/workflows/ci.yml](.github/workflows/ci.yml); hasil lokal yang benar-benar dijalankan dicatat di [VALIDATION](docs/VALIDATION.md).
+Linux/macOS native tests: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o /tmp/fort-test && /tmp/fort-test`. Install a Playwright browser with `npx playwright install chromium`, or use Edge: `node tools/preview-test.cjs playwright msedge`.
 
-## Troubleshooting
+Tests cover CRC/frame rejection, nine interval windows, boundaries/gaps, reboot recovery, debounce, scan enumeration/cancellation and filesystem fault paths. Browser tests serve the **embedded gzip arrays**, exercise both languages and network failures, and check phone/desktop layouts. They cannot validate the actual UART transceiver, meter scaling, RTC battery or power-cut endurance. Follow the [acceptance procedure](docs/COMMISSIONING.md).
 
-| Gejala | Periksa / lakukan |
-| --- | --- |
-| OLED kosong | VCC/GND, GPIO8/9, alamat 0x3C/0x3D, controller SSD1306 dan ukuran 128×64 |
-| Meter offline / timeout | RO→GPIO18, DI→GPIO17, DE-/RE→GPIO16, A→58, B→59, slave/baud/parity |
-| CRC gagal terus bertambah | A/B, arah transceiver dan kondisi kabel/terminasi |
-| RTC invalid | SDA/SCL, suplai, baterai dan sinkronisasi dari HP |
-| Storage error pada pemasangan pertama | Inisialisasi fisik OK saat boot sesuai prosedur |
-| HP terhubung tetapi dashboard tidak terbuka | Tetap di AP tanpa internet; ketik `http://192.168.4.1` |
-| kWh berbeda faktor tetap | Rasio CT/PT dan halaman energi impor primer yang dibandingkan |
-| Konsumsi interval kosong | Lihat kualitas; startup terlambat atau data terputus |
-| Buzzer diam | GPIO7, driver, polaritas, suplai dan status mute |
+Repository map: `firmware/` device code; `web/` browser source; `tools/` build/tests; `docs/` English guides and diagrams; `docs/id/` Indonesian guides. Read [AGENTS.md](AGENTS.md) and [CONTRIBUTING](CONTRIBUTING.md) before changing ownership or register handling. [Changelog](CHANGELOG.md) · [Firmware design](docs/DESIGN.md) · [Wiring](docs/WIRING.md) · [Flashing](docs/FLASHING.md).
 
-## Kontribusi dan GitHub
-
-Baca [AGENTS.md](AGENTS.md) sebelum perubahan agent dan [CONTRIBUTING](CONTRIBUTING.md) untuk alur developer. Source, dokumentasi, SVG, screenshot dan workflow siap dimasukkan ke repository. `.pio/`, `node_modules/`, `tmp/` serta hasil generasi `output/` diabaikan Git; bagikan binary melalui paket rilis terpisah.
-
-Kode dan dokumentasi/aset orisinal project dilisensikan dengan **GNU GPL versi 3** (`GPL-3.0-only`); lihat [LICENSE](LICENSE) dan [NOTICE](NOTICE). Dependency dan manual Fort tetap mengikuti hak/lisensi asalnya. Riwayat perubahan ada di [CHANGELOG](CHANGELOG.md).
+Original project code and documentation are **GPL-3.0-only**. React Bits, React, GSAP, firmware libraries and the supplied Fort manual retain their own terms; they are not relicensed by this repository. See [LICENSE](LICENSE), [NOTICE](NOTICE) and the offline dashboard's third-party notices.

@@ -28,6 +28,10 @@ struct FakeFS {
   }
 };
 int main(){
+  assert(std::string(qualityCode(COMPLETE))=="complete_estimated");
+  assert(std::string(qualityCode(MISSING))=="missing");
+  assert(std::string(qualityName(COMPLETE))=="lengkap-estimasi");
+  assert(std::string(qualityCode(255))=="invalid");
   ScanController scan;Settings preferred;preferred.slave=7;preferred.baud=19200;preferred.parity='E';
   assert(!scan.begin(0,10,preferred,0));assert(!scan.begin(10,9,preferred,0));assert(!scan.begin(1,248,preferred,0));
   Settings bad=preferred;bad.baud=115200;assert(!scan.begin(1,247,bad,0));

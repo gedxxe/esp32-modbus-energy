@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="740" viewBox="0 0 1400 740" role="img" aria-labelledby="title desc"><title id="title">UART1 RTU frame and transceiver direction</title><desc id="desc">Timing is schematic, not to scale. Hardware UART generates serial bits; GPIO16 controls direction.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">RTU transaction · UART1 + GPIO16</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Function 03 only · up to 3 attempts normally · 1 attempt per register while scanning</text>
+<rect x="45" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="59" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">ID</text>
+<text x="59" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">01</text>
+<rect x="209" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="223" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">FUNCTION</text>
+<text x="223" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">03</text>
+<rect x="373" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="387" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">ADDR HI</text>
+<text x="387" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">00</text>
+<rect x="537" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="551" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">ADDR LO</text>
+<text x="551" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">82</text>
+<rect x="701" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="715" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">COUNT HI</text>
+<text x="715" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">00</text>
+<rect x="865" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="879" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">COUNT LO</text>
+<text x="879" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">02</text>
+<rect x="1029" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1043" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">CRC LO</text>
+<text x="1043" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">CRC[7:0]</text>
+<rect x="1193" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1207" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">CRC HI</text>
+<text x="1207" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">CRC[15:8]</text>
+<text x="45" y="254" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Energy read request: 0x0082, two words. CRC covers the first six bytes; low CRC byte is sent first.</text>
+<text x="45" y="327" fill="#6d5897" font-family="Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">GPIO16</text>
+<text x="45" y="353" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">DE + /RE</text>
+<polyline points="190,355 440,355 440,305 690,305 690,355 1345,355" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="275" y="389" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">RX / idle</text>
+<text x="508" y="289" fill="#6d5897" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">TX enabled</text>
+<text x="900" y="389" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">RX enabled</text>
+<text x="45" y="447" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">UART1</text>
+<rect x="440" y="416" width="250" height="54" rx="5" fill="#e5f1ef" stroke="#087e82"/>
+<text x="565" y="449" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="600" text-anchor="middle">8 request bytes</text>
+<rect x="825" y="416" width="445" height="54" rx="5" fill="#eef6f2" stroke="#28755e"/>
+<text x="1047" y="449" fill="#28755e" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">Response: ID / 03 / count / data / CRC</text>
+<polyline points="440,490 440,515" fill="none" stroke="#5d6f76" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="440" y="542" fill="#183438" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">Wait t3.5</text>
+<text x="440" y="568" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="middle">then HIGH + 30 µs</text>
+<polyline points="690,490 690,515" fill="none" stroke="#5d6f76" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="690" y="542" fill="#183438" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">UART.flush()</text>
+<text x="690" y="568" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="middle">then GPIO16 LOW</text>
+<rect x="45" y="614" width="1300" height="88" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="70" y="645" fill="#183438" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">RX deadline: 800 ms after TX flush. Software polls the RX buffer and yields one tick while waiting.</text>
+<text x="70" y="678" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">UART and I2C use hardware peripherals. GPIO direction switching and software CRC are not serial bit banging.</text>
+</svg>

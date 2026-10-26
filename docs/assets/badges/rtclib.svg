@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="139" height="30" viewBox="0 0 139 30" role="img" aria-labelledby="title desc"><title id="title">RTClib 2.1.4</title><desc id="desc">RTClib: 2.1.4. Metadata project.</desc><rect width="100%" height="100%" fill="#0e1825"/>
-<rect x="0" y="0" width="139" height="30" rx="6" fill="#172638" stroke="#31465c"/>
-<rect x="84" y="0" width="55" height="30" rx="5" fill="#bfabff" stroke="#bfabff"/>
-<circle cx="18" cy="15" r="9" fill="none" stroke="#edf5ff" stroke-width="1.5"/>
-<polyline points="18,9 18,15 23,18" fill="none" stroke="#edf5ff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="35" y="20" fill="#edf5ff" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">RTClib</text>
-<text x="111.5" y="20" fill="#0e1825" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">2.1.4</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="139" height="30" viewBox="0 0 139 30" role="img" aria-labelledby="title desc"><title id="title">RTClib 2.1.4</title><desc id="desc">RTClib: 2.1.4. Metadata project.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<rect x="0" y="0" width="139" height="30" rx="6" fill="#ffffff" stroke="#cbdada"/>
+<rect x="84" y="0" width="55" height="30" rx="5" fill="#6d5897" stroke="#6d5897"/>
+<circle cx="18" cy="15" r="9" fill="none" stroke="#183438" stroke-width="1.5"/>
+<polyline points="18,9 18,15 23,18" fill="none" stroke="#183438" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="35" y="20" fill="#183438" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">RTClib</text>
+<text x="111.5" y="20" fill="#f5f8f8" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">2.1.4</text>
 </svg>

@@ -1,0 +1,4 @@
+GSAP 3.15.0 / ScrollTrigger
+Copyright (c) 2008-2026, GreenSock. All rights reserved.
+Standard 'no charge' license: https://gsap.com/standard-license
+License reference supplied in gsap/package.json and the distributed source banners.

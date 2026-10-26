@@ -21,7 +21,7 @@
       "mime": "application/javascript; charset=utf-8",
       "raw": 390540,
       "gzip": 132113,
-      "sha256": "7ca424a242004ca8b5ca6004e418171a071b4765ee1eab984ff5a668c278d60e"
+      "sha256": "f9a3d989ed87cc7b4c5dcb9ae80decc7a201f218e0414f73ec333cf86d93c879"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -45,7 +45,7 @@
     "web/Application.jsx": "582d926847196b89088808af4c5d4abec6339a31d690eef0732cf976b2fb3933",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
-    "web/components/LedControls.jsx": "1d8f5b3a65148d7b0950aa3f62afba2b77dbfa0f34e8868707c765d570fae55e",
+    "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
     "web/device.js": "8145eba7e94e61018fbc7a6745a830d01fe07bd43e606f9307864aeb77eb493d",
     "web/i18n.js": "84b5a92eb193323d8e087db1ae65b12cc74fbe162bf5410d54d1a4be7eb26e04",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
@@ -62,5 +62,5 @@
     "web/views/MeterSetup.jsx": "f92bde1e3d0c01e58f0564b6967a16164ac146e38003facd421d244640b03907",
     "web/views/Overview.jsx": "687f2009f9e3e09da4c429e91dbe135cad0ca397e9b8e04e596ca6092e5d8d38"
   },
-  "header_sha256": "d9f60ee23b9a7acb9d6c3cedff24212da3f719cd604efbee750604850b21d8ce"
+  "header_sha256": "348ea9d90a7841cd32f3db3b242581d804b21cd41e442a747f90388a64c45c60"
 }

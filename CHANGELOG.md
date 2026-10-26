@@ -4,6 +4,7 @@
 
 ## 1.2.1 — 2026-10-26
 
+- Correct the installation RGB default to GPIO48 after confirmation on the user’s board; keep GPIO38 documented as a board-revision alternative.
 - Rotate every OLED screen 180° by default through one board setting, before the first boot frame.
 - Add onboard RGB Off/Solid/Hue/Blink/Breathing with medium brightness defaults and asynchronous RMT transmission on core 0.
 - Add English/Indonesian web controls for mode, color, brightness and cycle duration. Persist a versioned CRC-protected LED record on core 1, with storage status exposed separately from energy recording.

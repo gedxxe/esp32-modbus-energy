@@ -10,9 +10,9 @@ constexpr uint32_t LOCAL_OFFSET = 7 * 3600; // WIB. DS3231 stores UTC.
 
 // One setting rotates every OLED screen, including startup and storage recovery.
 constexpr bool OLED_ROTATE_180 = true;
-// Onboard addressable RGB (3 channels). This board uses GPIO38; early DevKitC revisions use GPIO48.
+// Onboard addressable RGB (3 channels). This installation uses GPIO48; DevKitC v1.1 revisions may use GPIO38.
 constexpr bool RGB_LED_ENABLED = true;
-constexpr uint8_t RGB_LED_PIN = 38; // Physical GPIO, not the RGB_BUILTIN alias.
+constexpr uint8_t RGB_LED_PIN = 48; // Physical GPIO, not the RGB_BUILTIN alias.
 constexpr uint8_t RGB_LED_DEFAULT_BRIGHTNESS = 128; // 0..255; web can override.
 constexpr uint32_t RGB_LED_DEFAULT_PERIOD_MS = 8000;
 static_assert(RGB_LED_PIN==48||RGB_LED_PIN==38,"Select the onboard LED GPIO: 48 or 38");

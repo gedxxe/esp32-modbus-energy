@@ -58,7 +58,7 @@ Pastikan English muncul pertama kali, pilihan Indonesia bertahan setelah reload,
 ## Uji posisi OLED dan RGB
 
 1. OLED terpasang terbalik harus terbaca pada boot dan semua halaman. OLED_ROTATE_180=false hanya untuk posisi normal. Jangan format arsip hanya untuk mencoba prompt.
-2. Pastikan GPIO LED board sesuai: default 38 sesuai pemasangan ini; board versi awal memakai 48. Periksa hue awal, brightness 128, siklus 8 detik.
+2. Pastikan GPIO LED board sesuai: default 48 sudah dikonfirmasi pada pemasangan ini; revisi DevKitC v1.1 dapat memakai 38. Periksa hue awal, brightness 128, siklus 8 detik.
 3. Terapkan semua pola melalui Perangkat & arsip, warna primer, brightness 0/128/255 serta siklus 0,5/30 detik. Cocokkan cahaya fisik dengan status terapan.
 4. Reload browser lalu restart board; pilihan tersimpan harus kembali setelah boot. Cahaya boot masih memakai default compile. Pastikan tidak ada peringatan penyimpanan.
 5. Ulangi saat polling, scan dan transfer aset. Amati jitter, respons UART dan watchdog; tes software belum mengukur timing pada hardware.

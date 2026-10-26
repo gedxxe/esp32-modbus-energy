@@ -5,6 +5,7 @@
 
 ## 1.2.1 — 2026-10-26
 
+- Koreksi default RGB pemasangan ke GPIO48 setelah dikonfirmasi pada board pengguna; GPIO38 tetap dicatat sebagai alternatif revisi board.
 - Semua halaman OLED diputar 180° melalui satu variabel master sebelum frame boot pertama.
 - Tambahkan LED RGB Mati/Warna tetap/Hue/Kedip/Breathing, brightness default sedang, dan pengiriman RMT asinkron di core 0.
 - Tambahkan kontrol web bilingual untuk pola, warna, kecerahan dan durasi siklus. Record LED berversi dengan CRC disimpan core 1; status penyimpanannya terpisah dari pencatatan energi.

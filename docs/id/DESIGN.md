@@ -129,4 +129,4 @@ RMT memakai satu blok 64 simbol dan clock APB/8 (tick 100 ns). Satu pixel berisi
 
 Key NVS `led` adalah 12 byte: versi 1, mode, brightness, R/G/B, periode uint32 little-endian, CRC16 Modbus little-endian atas 10 byte pertama. Panjang/versi/CRC/range diperiksa. Key belum ada menggunakan default; record rusak menggunakan default dan storageOK=false. Gagal tulis tetap menerapkan RAM untuk boot ini, dengan stored=false dan peringatan web. Status ini terpisah dari kesehatan arsip energi. Tidak ada penulisan NVS LED berkala.
 
-GPIO38 default sesuai pilihan pengguna; GPIO48 hanya alternatif untuk board versi awal. Ini driver RGB tiga kanal, tanpa kanal putih RGBW terpisah. [Rincian English](../DESIGN.md#oled-rotation-and-onboard-rgb-scheduling) memuat kontrak lengkap.
+GPIO48 adalah default yang sudah dikonfirmasi pada board pengguna; GPIO38 hanya alternatif untuk revisi DevKitC v1.1 yang menggunakan pin tersebut. Ini driver RGB tiga kanal, tanpa kanal putih RGBW terpisah. [Rincian English](../DESIGN.md#oled-rotation-and-onboard-rgb-scheduling) memuat kontrak lengkap.

@@ -32,7 +32,7 @@ These tests execute the same header logic used by the firmware. They do not run 
 - Vendored React Bits file contents match their recorded upstream Git blob hashes.
 - All **17 SVGs** rendered with text bounds inside their viewBox. Dashboard, phone and RGB-panel screenshots were inspected visually.
 
-RGB control illustrations: [desktop](assets/ui-led-desktop.png), [phone](assets/ui-led-mobile.png). OLED 180° orientation, actual GPIO38 light output, RMT timing/jitter and restart persistence require physical acceptance.
+RGB control illustrations: [desktop](assets/ui-led-desktop.png), [phone](assets/ui-led-mobile.png). OLED 180° orientation, actual GPIO48 light output, RMT timing/jitter and restart persistence require physical acceptance.
 
 Screenshots contain simulated data: [desktop](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [Indonesian phone](assets/ui-mobile-id.png), [scan](assets/ui-scan-desktop.png).
 
@@ -67,7 +67,7 @@ The earlier 1.1.0 CI run passed logic/docs and browser but failed firmware setup
 
 ## Hardware limits
 
-Version 1.2.1 has not been flashed/tested on the user's physical board. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
+The user confirmed GPIO48 as the correct onboard LED pin on 26 October 2026. Complete hardware acceptance for version 1.2.1 is not recorded here. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
 
 Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP radio under multiple clients, noise, power-cut recovery and endurance remain unverified on physical hardware. Neither a DOM test nor a C++ unit test covers them.
 
@@ -76,3 +76,9 @@ Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP rad
 After removing the obsolete test target/tooling and unused banner, `pio run -e esp32s3` passed with the same 47,088-byte static RAM / 996,293-byte program footprint. The 17 remaining SVGs rendered without text overflow. The Python source/header guard also passed after local Node dependencies were removed.
 
 The release packager selects the five named N16R8 BIN files explicitly. Temporary render/build files, installed dependencies and old release archives are removed after verification; the current hardware package, browser source/generated header, documentation assets and original Fort manual are retained. A later developer build recreates caches as needed.
+
+## GPIO48 documentation correction — 26 October 2026
+
+The user changed `RGB_LED_PIN` to 48 in board.h; that value is retained. README/design/commissioning, agent instructions, fallback UI and simulated RGB screenshots now agree with it. The browser mock reads the pin directly from board.h to avoid future screenshot drift. GPIO38 remains documented only as a board-revision alternative.
+
+The corrected source passed the documentation/hash checks and the embedded-asset browser suite. The N16R8 firmware rebuilt successfully without compiler warnings: static RAM 47,240 bytes, program 1,002,577 bytes, browser gzip 138,395 bytes. The source/binaries/package were regenerated together; full hardware acceptance remains separate from the user's pin confirmation.

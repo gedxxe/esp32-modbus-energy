@@ -10,6 +10,8 @@ const root = path.resolve(__dirname, "..");
 const version = fs
   .readFileSync(path.join(root, "firmware/include/version.h"), "utf8")
   .match(/FIRMWARE_VERSION\[\] = "([^"]+)"/)[1];
+// Keep simulated labels/screenshots aligned with the installed board configuration.
+const rgbPin = Number(fs.readFileSync(path.join(root, "firmware/include/board.h"), "utf8").match(/RGB_LED_PIN\s*=\s*(\d+)/)[1]);
 const manifest = JSON.parse(
   fs.readFileSync(path.join(root, "web/bundle.json")),
 );
@@ -71,7 +73,7 @@ const state = {
   muted: false,
   led: {
     available: true,
-    pin: 38,
+    pin: rgbPin,
     mode: "hue",
     brightness: 128,
     period: 8000,

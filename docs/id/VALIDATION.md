@@ -30,7 +30,7 @@ Checker memeriksa link/anchor English–Indonesia bertingkat, 17 SVG, 31 sambung
 
 ## Belum diuji secara fisik
 
-Versi 1.2.1 belum di-flash pada board pengguna. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
+Pengguna mengonfirmasi GPIO48 sebagai pin RGB board pada 26 Oktober 2026. Uji penerimaan hardware lengkap versi 1.2.1 belum dicatat di sini. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
 
 ## Pemeliharaan repository
 
@@ -42,4 +42,10 @@ Packager memilih lima BIN N16R8 secara eksplisit. Hasil render/build sementara, 
 
 Tes native lulus untuk lima mode LED, scaling brightness, record NVS ber-CRC, kerusakan/panjang/range dan rollover millis. Tes browser byte gzip final lulus untuk payload POST termasuk token, semua mode, draft tetap saat polling, reload status, peringatan storage, driver tidak tersedia, kontrol saat terputus dan label Indonesia. API/NVS browser adalah simulasi, bukan bukti persistensi board.
 
-Build N16R8 final lulus: static RAM 47.240/327.680 byte; program 1.002.577/6.553.600 byte. Payload web 138.395 byte gzip. Tidak ada peringatan kompilator pada log build final. Tampilan RGB desktop/mobile diperiksa secara visual dengan data simulasi. OLED fisik 180°, cahaya GPIO38, timing RMT/jitter dan pengaturan pulih sesudah restart tetap memerlukan commissioning hardware.
+Build N16R8 final lulus: static RAM 47.240/327.680 byte; program 1.002.577/6.553.600 byte. Payload web 138.395 byte gzip. Tidak ada peringatan kompilator pada log build final. Tampilan RGB desktop/mobile diperiksa secara visual dengan data simulasi. OLED fisik 180°, cahaya GPIO48, timing RMT/jitter dan pengaturan pulih sesudah restart tetap memerlukan commissioning hardware.
+
+## Koreksi dokumentasi GPIO48 — 26 Oktober 2026
+
+Nilai RGB_LED_PIN=48 yang diubah pengguna tetap dipertahankan. README/desain/commissioning, instruksi agent, fallback UI dan screenshot RGB simulasi diselaraskan. Mock browser membaca pin langsung dari board.h; GPIO38 hanya disebut sebagai alternatif revisi board.
+
+Pemeriksaan dokumentasi/hash, tes browser aset firmware, dan build N16R8 lulus tanpa warning kompilator. Ukuran tetap: RAM statis 47.240 byte, program 1.002.577 byte, web gzip 138.395 byte. Binary dan paket diperbarui bersama source. Konfirmasi pin pengguna tidak dianggap uji penerimaan seluruh sistem.

@@ -32,7 +32,7 @@ Keep the README, wiring SVG, netlist, diagrams, tests and release package consis
 5. Missing/invalid RTC, reboots, counter resets, changed CT/PT and excessive sample gaps must not yield a complete interval. Preserve completed intervals.
 6. Core 1 exclusively owns UART, Preferences and tracker mutation. Core 0 handles HTTP/UI. Exchange copies through RTOS queues; lock I2C and filesystem access. Keep waits bounded and leave time for idle/Wi-Fi tasks.
 7. Do not automatically format a failed filesystem. Retain the documented physical confirmation procedure and preserve recoverable backup files on failed operations.
-8. Core 0 exclusively owns RGB RMT channel 0. Keep transmission asynchronous, skip busy frames and write LED Preferences only on core 1. GPIO38 is the selected onboard LED pin.
+8. Core 0 exclusively owns RGB RMT channel 0. Keep transmission asynchronous, skip busy frames and write LED Preferences only on core 1. GPIO48 is the confirmed onboard LED pin for this installation.
 9. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
 
 ## Documentation and visuals

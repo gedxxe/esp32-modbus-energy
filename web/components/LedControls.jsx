@@ -135,7 +135,7 @@ export default function LedControls({ device }) {
     red: 0,
     green: 184,
     blue: 169,
-    pin: 38,
+    pin: 48,
   };
   // Reset the draft only when the applied configuration changes, never on each poll.
   const signature = [

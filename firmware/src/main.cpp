@@ -11,6 +11,7 @@
 #include <esp_system.h>
 #include <lwip/sockets.h>
 #include <errno.h>
+#include <driver/rmt.h>
 #include "board.h"
 #include "energy.h"
 #include "debounce.h"
@@ -18,6 +19,7 @@
 #include "version.h"
 #include "recovery.h"
 #include "scan.h"
+#include "led.h"
 
 using namespace fort;
 static_assert(ARDUINO_RUNNING_CORE==0,"UI must run on core 0");
@@ -29,16 +31,52 @@ QueueHandle_t snapshotQueue,commandQueue;
 bool oledOK=false,apOK=false;
 String apiToken;
 
-enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN };
-struct Command { CommandType type; uint32_t epoch=0; Settings config{}; uint8_t first=1,last=247; };
+enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN,SET_LED };
+struct Command { CommandType type; uint32_t epoch=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; };
 struct Snapshot {
-  Day day{}; Settings config{}; ScanProgress scan{};
+  Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{};
+  bool ledStored=false,ledStorageOK=false;
   uint32_t utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
   double energy=0,power=0,ratio=0;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
   char error[64]="Waiting for a response";
   char errorCode[32]="waiting_for_meter";
 };
+LedSettings defaultLed() {
+  LedSettings s{};s.brightness=RGB_LED_DEFAULT_BRIGHTNESS;s.periodMs=RGB_LED_DEFAULT_PERIOD_MS;return s;
+}
+// Core 0 owns the RMT driver and animation; core 1 owns persisted settings.
+LedSettings renderedLed=defaultLed();
+LedAnimation ledAnimation;
+bool ledDriverOK=false;
+constexpr rmt_channel_t LED_RMT_CHANNEL=RMT_CHANNEL_0;
+void initLED() {
+  if(!RGB_LED_ENABLED)return;
+  rmt_config_t config={};config.rmt_mode=RMT_MODE_TX;config.channel=LED_RMT_CHANNEL;
+  config.gpio_num=gpio_num_t(RGB_LED_PIN);config.clk_div=8;config.mem_block_num=1;
+  config.tx_config.loop_en=false;config.tx_config.carrier_en=false;
+  config.tx_config.idle_output_en=true;config.tx_config.idle_level=RMT_IDLE_LEVEL_LOW;
+  ledDriverOK=rmt_config(&config)==ESP_OK&&rmt_driver_install(LED_RMT_CHANNEL,0,0)==ESP_OK;
+  if(!ledDriverOK)Serial.println("Onboard LED: RMT initialization failed");
+}
+void tickLED(const LedSettings *settings=nullptr) {
+  if(!ledDriverOK)return;
+  if(settings)renderedLed=*settings;
+  static uint32_t lastFrame=0;static bool written=false;
+  static LedColor previous{};
+  uint32_t now=millis();if(written&&uint32_t(now-lastFrame)<20)return;
+  lastFrame=now;LedColor color=ledAnimation.sample(renderedLed,now);
+  if(!written||color.red!=previous.red||color.green!=previous.green||color.blue!=previous.blue){
+    // Keep symbols alive until TX completes. A busy channel skips this frame.
+    if(rmt_wait_tx_done(LED_RMT_CHANNEL,0)!=ESP_OK)return;
+    static rmt_item32_t items[24];uint8_t grb[]={color.green,color.red,color.blue};
+    for(uint8_t i=0;i<24;++i){bool one=grb[i/8]&(1<<(7-i%8));
+      items[i].level0=1;items[i].duration0=one?8:4;
+      items[i].level1=0;items[i].duration1=one?4:8;
+    }
+    if(rmt_write_items(LED_RMT_CHANNEL,items,24,false)==ESP_OK){previous=color;written=true;}
+  }
+}
 Snapshot state{}; // UI reads queue copies. Only acquisition task mutates state.
 Tracker tracker;
 ScanController scanner;
@@ -206,7 +244,12 @@ void acquisition(void *) {
     if(read&&validSettings(record.settings)&&record.crc==c)config=record.settings;
     else {config=Settings{};configOK=false;setError("Stored configuration invalid; defaults loaded","config_corrupt");}
   }
-  state.config=config;
+  state.config=config;state.led=defaultLed();state.ledStorageOK=nvsOK;
+  if(nvsOK&&prefs.isKey("led")) {
+    uint8_t bytes[LED_RECORD_SIZE]={};
+    state.ledStored=prefs.getBytesLength("led")==sizeof(bytes)&&prefs.getBytes("led",bytes,sizeof(bytes))==sizeof(bytes)&&decodeLed(bytes,sizeof(bytes),state.led);
+    state.ledStorageOK=state.ledStored;
+  }
   if(nvsOK&&prefs.getBytesLength("day")==sizeof(Checkpoint)) {
     Checkpoint c{};prefs.getBytes("day",&c,sizeof(c));
     if(c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))) {tracker.day=c.day;tracker.interrupt();}
@@ -217,6 +260,11 @@ void acquisition(void *) {
     esp_task_wdt_reset();Command cmd;
     while(xQueueReceive(commandQueue,&cmd,0)==pdTRUE) {
       if(cmd.type==TOGGLE_MUTE)muted=!muted;
+      if(cmd.type==SET_LED&&RGB_LED_ENABLED&&validLed(cmd.led)) {
+        state.led=cmd.led;uint8_t bytes[LED_RECORD_SIZE];encodeLed(state.led,bytes);
+        state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);
+        state.ledStorageOK=state.ledStored;publish();
+      }
       if(cmd.type==SET_TIME) {
         tracker.interrupt();clockKnown=false;rawKnown=false;
         if(!rtcWrite(cmd.epoch))setError("RTC write or verification failed","rtc_write_failed");
@@ -332,7 +380,7 @@ void serveAsset(const uint8_t *bytes,size_t length,const char *mime) {
   server.send(200,mime,"");
   WiFiClient client=server.client();size_t offset=0;uint32_t start=millis();
   while(client.connected()&&offset<length&&millis()-start<5000) {
-    esp_task_wdt_reset();size_t amount=min(size_t(1024),length-offset);
+    esp_task_wdt_reset();tickLED();size_t amount=min(size_t(1024),length-offset);
     int sent=::send(client.fd(),bytes+offset,amount,MSG_DONTWAIT);
     if(sent>0)offset+=sent;
     else if(sent<0&&errno!=EAGAIN&&errno!=EWOULDBLOCK&&errno!=EINTR)break;
@@ -347,6 +395,11 @@ void webSetup() {
   server.on("/assets/third-party.txt",HTTP_GET,[]{serveAsset(WEB_NOTICES_GZIP,WEB_NOTICES_GZIP_LEN,"text/plain; charset=utf-8");});
   server.on("/api/status",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);JsonDocument d;
+    JsonObject led=d["led"].to<JsonObject>();
+    led["available"]=RGB_LED_ENABLED&&ledDriverOK;led["pin"]=RGB_LED_PIN;led["mode"]=ledModeName(s.led.mode);
+    led["brightness"]=s.led.brightness;led["period"]=s.led.periodMs;
+    led["red"]=s.led.red;led["green"]=s.led.green;led["blue"]=s.led.blue;
+    led["stored"]=s.ledStored;led["storageOK"]=s.ledStorageOK;
     d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
     bool online=s.online&&millis()-s.lastGoodMs<=15000;
     d["online"]=online;d["energy"]=nullptr;d["power"]=nullptr;d["age"]=nullptr;
@@ -365,6 +418,18 @@ void webSetup() {
     JsonArray rows=d["slots"].to<JsonArray>();
     for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["quality_code"]=qualityCode(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/led",HTTP_POST,[]{
+    if(!authorizePost())return;
+    if(!RGB_LED_ENABLED||!ledDriverOK){jsonReply(409,"Onboard LED is disabled or its RMT driver is unavailable","led_unavailable");return;}
+    uint32_t brightness=0,period=0,red=0,green=0,blue=0;LedMode mode=LED_OFF;
+    if(!parseLedMode(server.arg("mode").c_str(),mode)||!parseNumber(server.arg("brightness"),brightness)||brightness>255||
+       !parseNumber(server.arg("period"),period)||period<500||period>30000||
+       !parseNumber(server.arg("red"),red)||red>255||!parseNumber(server.arg("green"),green)||green>255||!parseNumber(server.arg("blue"),blue)||blue>255){
+      jsonReply(400,"Invalid LED mode, color, brightness or cycle duration","invalid_led");return;
+    }
+    Command c{};c.type=SET_LED;c.led.mode=mode;c.led.brightness=brightness;c.led.periodMs=period;
+    c.led.red=red;c.led.green=green;c.led.blue=blue;enqueueCommand(c);
   });
   server.on("/api/config",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
@@ -457,7 +522,7 @@ void drawOLED(const Snapshot &s) {
 void bootAnimation() {
   uint32_t start=millis();
   while(millis()-start<1500){
-    uint32_t t=millis()-start;digitalWrite(PIN_BUZZER,(t<140||(t>=250&&t<390)||(t>=500&&t<700)||(t>=850&&t<1120))?HIGH:LOW);
+    tickLED();uint32_t t=millis()-start;digitalWrite(PIN_BUZZER,(t<140||(t>=250&&t<390)||(t>=500&&t<700)||(t>=850&&t<1120))?HIGH:LOW);
     if(oledOK){oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(15,7);oled.print("MIDEA ENGINEERING");oled.setTextSize(2);oled.setCursor(18,24);oled.print("FORT");
       int x=105;oled.drawLine(x,19,x-10,33,SSD1306_WHITE);oled.drawLine(x-10,33,x+1,33,SSD1306_WHITE);oled.drawLine(x+1,33,x-9,46,SSD1306_WHITE);oled.drawRect(10,53,108,6,SSD1306_WHITE);oled.fillRect(12,55,(t*104)/1500,2,SSD1306_WHITE);oled.display();}
     delay(35);
@@ -474,25 +539,26 @@ void setup() {
   Wire.begin(PIN_SDA,PIN_SCL,100000);Wire.setTimeOut(40);
   Wire.beginTransmission(OLED_ADDRESS);bool present=Wire.endTransmission()==0;
   oledOK=present&&oled.begin(SSD1306_SWITCHCAPVCC,OLED_ADDRESS,false,false);
-  bootAnimation();
+  if(oledOK)oled.setRotation(OLED_ROTATE_180?2:0);
+  initLED();bootAnimation();
   // Never format existing data automatically. First installation: hold OK at boot.
   fsOK=LittleFS.begin(false);
   if(!fsOK&&digitalRead(PIN_OK)==LOW){
     if(oledOK){oled.clearDisplay();oled.setTextSize(1);oled.setCursor(0,0);oled.println("Storage not ready");oled.println("Hold OK for 5 sec");oled.println("to ERASE archives");oled.display();}
-    uint32_t t=millis();while(digitalRead(PIN_OK)==LOW&&millis()-t<5000)delay(20);
+    uint32_t t=millis();while(digitalRead(PIN_OK)==LOW&&millis()-t<5000){tickLED();delay(20);}
     if(millis()-t>=5000){LittleFS.end();fsOK=LittleFS.format()&&LittleFS.begin(false);}
   }
   WiFi.mode(WIFI_AP);WiFi.setSleep(false);
   IPAddress ip(192,168,4,1),mask(255,255,255,0);
   apOK=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(AP_SSID,AP_PASSWORD,6,false,4);
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
-  state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
+  state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
   webSetup();esp_task_wdt_init(8,true);esp_task_wdt_add(nullptr);
   if(xTaskCreatePinnedToCore(acquisition,"fort-acquisition",12288,nullptr,2,nullptr,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
   Serial.printf("Midea Fort ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }
 void loop() {
-  esp_task_wdt_reset();server.handleClient();Snapshot s{};readSnapshot(s);uint32_t now=millis();
+  esp_task_wdt_reset();server.handleClient();Snapshot s{};readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
   for(int i=0;i<3;++i){uint8_t event=buttons[i].update(now);if(!event)continue;
     if(i==0){page=(page+4)%5;showCredentials=false;}
     if(i==1){page=(page+1)%5;showCredentials=false;}

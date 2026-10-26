@@ -114,3 +114,19 @@ UART1 dan I2C memakai peripheral hardware, bukan bit banging. GPIO16 hanya memil
 Queue perintah memuat enam nilai dan enqueue tanpa menunggu; queue penuh menghasilkan 503. Snapshot satu nilai ditimpa core 1 dan dibaca salinannya oleh core 0. Stack task akuisisi 12.288 byte, prioritas 2; loop Arduino core 0 prioritas 1. Task sistem Wi-Fi tetap dikelola ESP-IDF. Mutex I2C: read 80 ms, write 100 ms, OLED 30 ms; filesystem: tulis 200 ms, HTTP 100 ms. Periode polling dua detik dan OLED 300 ms adalah target kooperatif, bukan hard real-time.
 
 Status menambah `quality_code`/`error_code` English; field `quality` lama tetap tersedia. CSV baru memakai shift/kualitas English, tanpa mengubah isi arsip lama. OLED memakai label English ringkas. React Bits dan GSAP tetap memakai ketentuan pihak ketiga pada NOTICE; tidak dilisensikan ulang GPL oleh repo.
+
+## Rotasi OLED dan penjadwalan RGB (1.2.1)
+
+`OLED_ROTATE_180=true` di board.h menerapkan `oled.setRotation(2)` sesudah begin dan sebelum frame pertama. Koordinat tetap 128×64; seluruh boot, prompt format dan halaman memakai objek yang sama. Nilai false memilih rotasi 0. OLED tidak ada tetap tidak menghambat AP atau akuisisi.
+
+Renderer RGB memiliki RMT TX channel 0 di core 0, tanpa task tambahan. Loop, boot, tunggu konfirmasi format, dan transfer aset memanggil tick dengan target minimum 20 ms antarframe. Warna tetap hanya dikirim saat berubah. Frame bisa terlambat karena pekerjaan HTTP/OLED; ini bukan deadline hard real-time. Core 1 tetap pemilik Preferences dan mengirim pengaturan terapan melalui salinan snapshot. Pengaturan LED tidak memutus tracker energi.
+
+RMT memakai satu blok 64 simbol dan clock APB/8 (tick 100 ns). Satu pixel berisi 24 bit GRB MSB-first: bit 1 HIGH 8/LOW 4 tick, bit 0 HIGH 4/LOW 8 tick. Stream nominal 28,8 µs, lalu idle LOW sampai update berikutnya, minimal 20 ms. `rmt_wait_tx_done(channel,0)` mengecek tanpa menunggu; channel sibuk melewati frame. Produsen tunggal memakai `rmt_write_items(...,false)` dengan buffer simbol statis yang tetap valid sampai selesai. Tidak ada bit banging CPU atau library LED tambahan. Channel ini tidak boleh dipakai driver lain. Gagal inisialisasi mematikan kontrol LED; tidak ada acknowledgement pixel atau deteksi cahaya. Watchdog task tetap menjadi batas pemulihan terakhir jika driver periferal macet.
+
+`led.h` memakai integer: hue enam sektor, kedip separuh siklus, breathing ramp linear naik/turun, brightness mengalikan kanal sekali. Selisih millis unsigned menjaga rollover; mengganti mode/periode mengulang fase. Saat boot default Hue/128/8000 ms berlaku sampai core 1 memuat NVS. Pengaturan Mati tersimpan baru diterapkan setelah inisialisasi akuisisi, sehingga tidak meniadakan cahaya boot.
+
+`POST /api/led` memerlukan token, mode `off|solid|hue|blink|breathe`, brightness dan RGB 0–255, serta period 500–30000 ms. Validasi dilakukan sebelum konversi ke integer kecil. Respons 202 hanya berarti antre; `/api/status` menampilkan objek led terapan termasuk available, pin, stored dan storageOK. Periode/warna tetap disimpan saat tidak dipakai mode terpilih. Polling tidak mereset draft yang belum diterapkan jika konfigurasi server belum berubah.
+
+Key NVS `led` adalah 12 byte: versi 1, mode, brightness, R/G/B, periode uint32 little-endian, CRC16 Modbus little-endian atas 10 byte pertama. Panjang/versi/CRC/range diperiksa. Key belum ada menggunakan default; record rusak menggunakan default dan storageOK=false. Gagal tulis tetap menerapkan RAM untuk boot ini, dengan stored=false dan peringatan web. Status ini terpisah dari kesehatan arsip energi. Tidak ada penulisan NVS LED berkala.
+
+GPIO38 default sesuai pilihan pengguna; GPIO48 hanya alternatif untuk board versi awal. Ini driver RGB tiga kanal, tanpa kanal putih RGBW terpisah. [Rincian English](../DESIGN.md#oled-rotation-and-onboard-rgb-scheduling) memuat kontrak lengkap.

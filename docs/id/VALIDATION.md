@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware **1.2.0**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
+Firmware **1.2.1**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
 
 ## Logika native — lulus
 
@@ -30,10 +30,16 @@ Checker memeriksa link/anchor English–Indonesia bertingkat, 17 SVG, 31 sambung
 
 ## Belum diuji secara fisik
 
-Versi 1.2.0 belum di-flash pada board pengguna. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
+Versi 1.2.1 belum di-flash pada board pengguna. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
 
 ## Pemeliharaan repository
 
 Setelah target/tooling uji lama dan banner yang tidak dipakai dihapus, `pio run -e esp32s3` lulus dengan RAM statis 47.088 byte dan program 996.293 byte. Seluruh 17 SVG tersisa dirender tanpa overflow. Guard Python untuk hash source/header juga lulus setelah dependency Node lokal dihapus.
 
 Packager memilih lima BIN N16R8 secara eksplisit. Hasil render/build sementara, dependency terpasang dan arsip versi lama dibersihkan setelah verifikasi. Paket hardware terbaru, source/header browser, aset dokumentasi dan manual Fort asli dipertahankan; proses build berikutnya membuat ulang cache yang diperlukan.
+
+## Tambahan verifikasi OLED/RGB 1.2.1
+
+Tes native lulus untuk lima mode LED, scaling brightness, record NVS ber-CRC, kerusakan/panjang/range dan rollover millis. Tes browser byte gzip final lulus untuk payload POST termasuk token, semua mode, draft tetap saat polling, reload status, peringatan storage, driver tidak tersedia, kontrol saat terputus dan label Indonesia. API/NVS browser adalah simulasi, bukan bukti persistensi board.
+
+Build N16R8 final lulus: static RAM 47.240/327.680 byte; program 1.002.577/6.553.600 byte. Payload web 138.395 byte gzip. Tidak ada peringatan kompilator pada log build final. Tampilan RGB desktop/mobile diperiksa secara visual dengan data simulasi. OLED fisik 180°, cahaya GPIO38, timing RMT/jitter dan pengaturan pulih sesudah restart tetap memerlukan commissioning hardware.

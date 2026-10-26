@@ -11,7 +11,7 @@
 <text x="517" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">02</text>
 <text x="559" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">I2C + boot animation</text>
 <text x="517" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">GPIO8 SDA / GPIO9 SCL</text>
-<text x="517" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Probe OLED; skip if absent</text>
+<text x="517" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">OLED: 180° before first frame</text>
 <text x="517" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Animation + buzzer ~1.5 s</text>
 <rect x="945" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="967" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">03</text>
@@ -35,7 +35,7 @@
 <text x="967" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">06</text>
 <text x="1009" y="414" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">Core 0 UI loop</text>
 <text x="967" y="463" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">HTTP + queued commands</text>
-<text x="967" y="496" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Buttons + OLED + buzzer</text>
+<text x="967" y="496" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Buttons / OLED / buzzer / RGB</text>
 <text x="967" y="529" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Publish/read copied state</text>
 <text x="45" y="633" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported; startup does not wait indefinitely.</text>
 </svg>

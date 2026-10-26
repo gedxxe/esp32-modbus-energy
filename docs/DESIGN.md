@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/DESIGN.md)
 
-This guide describes the implementation in `firmware/src/main.cpp`, `energy.h`, `scan.h` and `recovery.h`. Timeouts and scheduling intervals are bounds or targets in the code, not measurements of the physical installation.
+This guide describes the implementation in `firmware/src/main.cpp`, `energy.h`, `scan.h`, `led.h` and `recovery.h`. Timeouts and scheduling intervals are bounds or targets in the code, not measurements of the physical installation.
 
 ## Fort register reference
 
@@ -26,7 +26,7 @@ The request `01 03 00 58 00 02 45 D8` has a correct CRC. The manual's response `
 ![Startup after the ROM and bootloader](assets/boot-flow.svg)
 
 1. Start Serial without waiting for a host. Set GPIO16 LOW and buzzer LOW, configure button pull-ups, allocate mutexes and queues.
-2. Start hardware I2C at 100 kHz on GPIO8/9 with a 40 ms timeout. Probe the OLED before allocating its display buffer. Run the roughly 1.5 s boot animation/buzzer pattern; missing OLED skips drawing.
+2. Start hardware I2C at 100 kHz on GPIO8/9 with a 40 ms timeout. Probe the OLED before allocating its display buffer; apply `OLED_ROTATE_180` with GFX rotation 2 before drawing. Initialize the RGB RMT driver. Run the roughly 1.5 s boot animation/buzzer pattern; missing OLED skips drawing.
 3. Mount LittleFS with `begin(false)`. On failure, a physically held OK button can authorize a five-second format. Existing archives are not automatically destroyed.
 4. Start the AP at 192.168.4.1/24, channel 6, up to four clients. Generate a new random POST token, publish an initial snapshot, register HTTP routes and start the watchdog.
 5. Create the core-1 acquisition task. That task opens Preferences, validates its settings/checkpoint and starts UART1. The Arduino loop handles UI/HTTP on core 0.
@@ -47,7 +47,7 @@ Allocation/task-creation failures are fatal and trigger restart. Missing meter, 
 | I2C mutex | RTC transactions and OLED rendering | 80 ms read / 100 ms write / 30 ms OLED |
 | Filesystem mutex | Acquisition archive replacement; UI history/export | 200 ms archive write / 100 ms HTTP |
 
-The snapshot contains a copy of the day, active settings, scan progress, diagnostics and latest values. Only acquisition mutates its live state. Core 0 cannot update the tracker indirectly through a pointer. HTTP config/time/mute/scan requests are parsed and queued; NVS writes and UART reconfiguration happen on core 1.
+The snapshot contains a copy of the day, active settings, scan progress, diagnostics and latest values. Only acquisition mutates its live state. Core 0 cannot update the tracker indirectly through a pointer. HTTP config/time/mute/scan/LED requests are parsed and queued; NVS writes and UART reconfiguration happen on core 1.
 
 The normal acquisition loop checks commands, validates RTC, handles day/clock changes, refreshes ratios when due, and polls energy/power every two seconds. It then publishes and yields 100 ms. A scan substitutes one candidate probe for normal meter polling, publishes, and yields 10 ms. RTC/day transitions continue during scan.
 
@@ -95,7 +95,7 @@ HTTP copies a bounded CSV under the filesystem mutex and sends it after unlockin
 
 ## HTTP and browser delivery
 
-`GET /api/status`, `/api/history`, `/api/export[?day=epoch_day]`; `POST /api/config`, `/api/time`, `/api/mute`, `/api/scan/start`, `/api/scan/cancel`, `/api/scan/apply`. POST uses a per-boot token and bounded numeric/range parsing. Commands return 202 for queue acceptance, not a claim of completed NVS/RTC work. Status must be checked afterwards. A backwards calendar date is rejected while the current RTC/day is valid.
+`GET /api/status`, `/api/history`, `/api/export[?day=epoch_day]`; `POST /api/led`, `/api/config`, `/api/time`, `/api/mute`, `/api/scan/start`, `/api/scan/cancel`, `/api/scan/apply`. POST uses a per-boot token and bounded numeric/range parsing. Commands return 202 for queue acceptance, not a claim of completed NVS/RTC work. Status must be checked afterwards. A backwards calendar date is rejected while the current RTC/day is valid.
 
 The AP password and HTTP token define the current access boundary. There is no separate login/TLS, OTA, cloud, captive DNS or NTP. Whoever has AP access can read/export and change reader settings. Phone time sync is explicit.
 
@@ -109,3 +109,19 @@ React/React DOM, GSAP and React Bits execute in the browser. Both language catal
 - [Espressif FreeRTOS task API](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/system/freertos_idf.html)
 - [DS3231 datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf)
 - [React Bits provenance](../web/vendor/react-bits/README.md)
+
+## OLED rotation and onboard RGB scheduling
+
+`OLED_ROTATE_180` in `board.h` defaults to true. Setup calls `oled.setRotation(2)` immediately after a successful `begin`, before boot/recovery rendering. Rotation 2 retains the logical 128×64 dimensions. Every screen shares that display object; there is no per-page transform or second framebuffer. Setting false selects rotation 0. An absent OLED still skips drawing and does not prevent AP/RGB/acquisition startup.
+
+The RGB renderer runs on core 0 in the existing Arduino loop. It also ticks during boot, the storage confirmation wait and chunked asset delivery. It targets one frame per **20 ms**; constant colors are sent only when changed. This is a cooperative animation target: synchronous HTTP/OLED work may lengthen a frame. There is no dedicated LED task, timer ISR, busy-wait fade loop or extra LED library. Core 1 exclusively loads/saves settings; the command queue carries `LedSettings` values and the snapshot publishes a copy. LED changes never interrupt the energy tracker or use the UART.
+
+The pinned ESP-IDF 4.4 driver configures RMT TX channel 0 with one 64-symbol memory block, APB/8 clock (100 ns ticks), no carrier/loop and LOW idle. Each pixel is **24 GRB bits, MSB first**: a 1 uses 8 HIGH + 4 LOW ticks, a 0 uses 4 HIGH + 8 LOW ticks. The nominal symbol stream is 28.8 µs, followed by idle LOW until the next update (at least 20 ms). `rmt_wait_tx_done(channel, 0)` polls without waiting; a busy channel skips the frame. The only producer then calls `rmt_write_items(..., false)`. Static symbol storage remains valid until completion. Waveform generation is hardware RMT, not CPU bit banging. The RMT channel is reserved for this renderer; concurrent use by another driver is unsupported. Driver setup errors disable LED API controls and are logged; there is no pixel acknowledgement or optical self-test. The independent task watchdog remains the last recovery bound for peripheral-driver faults.
+
+`led.h` calculates color using integer arithmetic. Hue cycles through six RGB sectors, Blink spends half a cycle lit, and Breathing uses a symmetric linear brightness ramp. Global brightness scales each channel once. Unsigned millisecond deltas and a bounded phase accumulator cross `millis()` rollover; changing mode/period restarts the phase. Default Hue/128/8000 ms is used during boot, then the snapshot applies saved settings. Off is restored after acquisition initialization, so a stored Off setting does not suppress the earlier boot lighting.
+
+`POST /api/led` accepts `mode=off|solid|hue|blink|breathe`, `brightness=0..255`, `red/green/blue=0..255` and `period=500..30000` milliseconds, plus the session token. All fields are required and validated before narrowing integers. HTTP 202 means queued; GET `/api/status` returns the applied `led` object with those fields, `available`, physical `pin`, `stored` and `storageOK`. Color and period remain stored when unused by a selected mode. The form sends only on Apply; a status poll with unchanged values does not overwrite an unsaved draft.
+
+Preferences key `led` uses a **12-byte fixed layout**: version 1, mode, brightness, R/G/B, little-endian 32-bit period, then little-endian Modbus CRC16 over the first ten bytes. Decode verifies length/version/CRC/range before changing the output settings. A missing key selects defaults; a corrupt key selects defaults and reports `storageOK=false`. On write failure, the chosen settings remain active in RAM, `stored=false`, and the UI warns. This status is separate from energy/checkpoint storage health. A successful write is restored at the next boot; there are no periodic LED NVS writes.
+
+GPIO38 is the installation default, matching the documented DevKitC v1.1 pin; GPIO48 is the early-board alternative; select the physical pin in `board.h` before compiling. The code intentionally accepts only these two onboard choices. This is three-channel RGB support, not a fourth white-channel RGBW protocol.

@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware **1.2.0**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
+Firmware **1.2.1**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
 
 ## Native logic — passed
 
@@ -13,6 +13,7 @@ Firmware **1.2.0**. Results below were obtained locally; they are separate from 
 - Button bounce/short/long-press behavior, including millis rollover.
 - Archive fault injection: failed rotation/install/restore retains recoverable copies.
 - CT/PT retry/backoff, scan ranges, 4,446 unique candidates, preferred-ID mode priority, single-ID range, duplicate start, cancel/restart/found/exhausted and elapsed-time rollover.
+- RGB Off/Solid/Hue/Blink/Breathing, brightness scaling, CRC-protected record round-trip/corruption/length rejection, parameter bounds and animation millis rollover.
 - Stable English quality codes and compatibility of the legacy status names.
 
 These tests execute the same header logic used by the firmware. They do not run the ESP-IDF tasks or peripheral drivers.
@@ -24,11 +25,14 @@ These tests execute the same header logic used by the firmware. They do not run 
 - English default; Indonesian switching and decimal formatting; language retained after reload; English fallback when localStorage is blocked.
 - Six morning/three evening rows; missing intervals are not displayed as zero completed consumption.
 - Serial config fields, phone time request, POST token and CSV download selection.
+- LED mode/color/brightness/cycle POST fields and token; draft retained across polls; all five modes; applied-state reload; storage warning, driver unavailable, disconnected controls and Indonesian labels. These use simulated NVS/API results, not a physical persistence test.
 - Scan range validation, progress/disabled controls, reload recovery, cancellation, explicit result application, no match, translated HTTP error and five-second POST timeout recovery.
 - Stale/offline status, retained last sample and hidden live power; mutation buttons remain disabled when disconnected, including after navigation.
 - Widths 320, 390, 768, 1440 and 2560 px without document overflow; reduced-motion rendering; no JavaScript page errors or external asset requests.
 - Vendored React Bits file contents match their recorded upstream Git blob hashes.
-- All **17 SVGs** rendered with text bounds inside their viewBox. Dashboard and phone screenshots were also inspected visually.
+- All **17 SVGs** rendered with text bounds inside their viewBox. Dashboard, phone and RGB-panel screenshots were inspected visually.
+
+RGB control illustrations: [desktop](assets/ui-led-desktop.png), [phone](assets/ui-led-mobile.png). OLED 180° orientation, actual GPIO38 light output, RMT timing/jitter and restart persistence require physical acceptance.
 
 Screenshots contain simulated data: [desktop](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [Indonesian phone](assets/ui-mobile-id.png), [scan](assets/ui-scan-desktop.png).
 
@@ -39,11 +43,11 @@ Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0*
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | / | 1030 | 527 |
-| /assets/app.js | 385639 | 130545 |
-| /assets/app.css | 15755 | 4164 |
+| /assets/app.js | 390540 | 132113 |
+| /assets/app.css | 16392 | 4322 |
 | /assets/third-party.txt | 5755 | 1433 |
 
-Combined payload: **136669 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before the hardware firmware build. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
+Combined payload: **138395 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before the hardware firmware build. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
 
 ## Firmware — passed
 
@@ -51,7 +55,7 @@ Combined payload: **136669 bytes**, within the 160 KiB build limit. PlatformIO's
 
 | Target | Static RAM / 327,680 bytes | Program / app partition |
 | --- | ---: | ---: |
-| ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,088 (14.4%) | 996,293 / 6,553,600 (15.2%) |
+| ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,240 (14.4%) | 1,002,577 / 6,553,600 (15.3%) |
 
 Static RAM is not total runtime heap/stack use. Successful compilation does not measure HTTP transfer latency or validate physical UART turnaround. Hardware factory offsets are bootloader 0x0, partitions 0x8000, boot_app0 0xE000 and app 0x10000.
 
@@ -63,7 +67,7 @@ The earlier 1.1.0 CI run passed logic/docs and browser but failed firmware setup
 
 ## Hardware limits
 
-Version 1.2.0 has not been flashed/tested on the user's physical board. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
+Version 1.2.1 has not been flashed/tested on the user's physical board. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
 
 Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP radio under multiple clients, noise, power-cut recovery and endurance remain unverified on physical hardware. Neither a DOM test nor a C++ unit test covers them.
 

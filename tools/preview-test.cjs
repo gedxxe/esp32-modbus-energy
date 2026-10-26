@@ -69,6 +69,18 @@ const state = {
   storage: true,
   ratios: true,
   muted: false,
+  led: {
+    available: true,
+    pin: 38,
+    mode: "hue",
+    brightness: 128,
+    period: 8000,
+    red: 0,
+    green: 184,
+    blue: 169,
+    stored: false,
+    storageOK: true,
+  },
   energy: 128432.728,
   power: 48.62,
   age: 1,
@@ -183,6 +195,17 @@ const server = http.createServer((req, res) => {
       if (req.url === "/api/scan/cancel") state.scan.phase = "cancelled";
       if (req.url === "/api/scan/apply")
         Object.assign(state, state.scan.result);
+      if (req.url === "/api/led")
+        Object.assign(state.led, {
+          mode: data.get("mode"),
+          brightness: Number(data.get("brightness")),
+          period: Number(data.get("period")),
+          red: Number(data.get("red")),
+          green: Number(data.get("green")),
+          blue: Number(data.get("blue")),
+          stored: true,
+          storageOK: true,
+        });
       if (req.url === "/api/mute") state.muted = !state.muted;
       res.statusCode = 202;
       res.end(JSON.stringify({ code: "accepted", message: "Command queued." }));
@@ -290,6 +313,84 @@ async function checkVectors(browser, out) {
     assert((await page.locator(".shift-total").innerText()).includes("—")); // No complete samples, not zero energy.
     await page.locator('[data-shift="0"]').click();
     await page.locator("#nav-device").click();
+    assert.equal(await page.locator("#led-mode").inputValue(), "hue");
+    assert.equal(await page.locator("#led-brightness").inputValue(), "128");
+    assert(await page.locator("#led-color").isDisabled());
+    await page.locator("#led-mode").selectOption("blink");
+    await page.locator("#led-color").fill("#1234ab");
+    await page.locator("#led-period").fill("1.5");
+    await page.locator("#led-brightness").fill("200");
+    await refresh();
+    await page.waitForTimeout(100);
+    assert.equal(
+      await page.locator("#led-mode").inputValue(),
+      "blink",
+      "Polling must preserve the unsaved LED draft",
+    );
+    await page.locator("#led-save").click();
+    await page.waitForFunction(() =>
+      document.getElementById("led-applied")?.textContent.includes("Blink"),
+    );
+    const ledCall = calls.find((call) => call.url === "/api/led");
+    assert(ledCall);
+    assert.equal(ledCall.data.get("red"), "18");
+    assert.equal(ledCall.data.get("green"), "52");
+    assert.equal(ledCall.data.get("blue"), "171");
+    assert.equal(ledCall.data.get("brightness"), "200");
+    assert.equal(ledCall.data.get("period"), "1500");
+    await page.reload();
+    await page.locator("#nav-device").click();
+    await page.waitForFunction(
+      () => document.getElementById("led-mode")?.value === "blink",
+    );
+    for (const mode of ["solid", "breathe", "off", "hue"]) {
+      await page.locator("#led-mode").selectOption(mode);
+      assert.equal(
+        await page.locator("#led-period").isDisabled(),
+        ["solid", "off"].includes(mode),
+      );
+      await page.locator("#led-save").click();
+      await page.waitForFunction(
+        (expected) =>
+          document
+            .getElementById("led-applied")
+            ?.textContent.includes(expected),
+        {
+          solid: "Solid color",
+          breathe: "Breathing",
+          off: "Off",
+          hue: "Hue rotation",
+        }[mode],
+      );
+      await page.waitForFunction(
+        () => !document.getElementById("led-save").disabled,
+      );
+    }
+    state.led.available = false;
+    await refresh();
+    await page.waitForFunction(
+      () => document.getElementById("led-save").disabled,
+    );
+    state.led.available = true;
+    state.led.storageOK = false;
+    await refresh();
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".led-panel .hint")
+        ?.textContent.includes("Storage failed"),
+    );
+    state.led.storageOK = true;
+    await refresh();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: path.join(root, "docs/assets/ui-led-mobile.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({
+      path: path.join(root, "docs/assets/ui-led-desktop.png"),
+      fullPage: true,
+    });
     await page.locator("#sync").click();
     await page.waitForFunction(() =>
       document.getElementById("message")?.textContent.includes("queued"),
@@ -504,6 +605,9 @@ async function checkVectors(browser, out) {
     await page.locator("#nav-setup").click();
     assert(await page.locator("#scanstart").isDisabled());
     assert(await page.locator("#scanapply").isDisabled());
+    await page.locator("#nav-device").click();
+    assert(await page.locator("#led-save").isDisabled());
+    assert((await page.locator("#led-title").innerText()).includes("bawaan"));
     fail = false;
     online = true;
     const reduced = await browser.newPage({
@@ -537,7 +641,7 @@ async function checkVectors(browser, out) {
     await page.close();
     const vectors = await checkVectors(browser, out);
     console.log(
-      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
+      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
     );
   } catch (error) {
     const failed = browser?.contexts()[0]?.pages()[0];

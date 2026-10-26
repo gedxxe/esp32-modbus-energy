@@ -1,5 +1,28 @@
 export const catalog = {
   en: {
+    led_title: "Onboard RGB LED",
+    led_intro: "Choose the light pattern on the ESP32 board.",
+    led_applied: "Applied: {mode} · GPIO{pin}",
+    led_mode: "Light pattern",
+    led_off: "Off",
+    led_solid: "Solid color",
+    led_hue: "Hue rotation",
+    led_blink: "Blink",
+    led_breathe: "Breathing",
+    led_color: "Pattern color",
+    led_brightness: "Brightness",
+    led_period: "Full cycle · seconds (0.5–30)",
+    led_save: "Apply & save LED",
+    led_stored: "Saved on the device. Restored after restart.",
+    led_defaults: "Factory defaults active. Apply to save your settings.",
+    led_storage_error:
+      "Settings are active for this boot. Storage failed or the stored record was invalid; apply again to save.",
+    led_unavailable:
+      "Onboard LED is disabled in board.h or its driver is unavailable.",
+    invalid_led: "Invalid LED pattern, color, brightness or cycle duration.",
+    led_note:
+      "Lower cycle duration means faster animation. Hue chooses its own colors. The indicator shows the configured color, not a physical LED reading.",
+
     title: "Energy monitor",
     subtitle: "Fort power meter · RS485 / Modbus RTU",
     engineering: "Engineering",
@@ -169,6 +192,30 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
+    led_title: "LED RGB bawaan",
+    led_intro: "Pilih pola lampu pada board ESP32.",
+    led_applied: "Aktif: {mode} · GPIO{pin}",
+    led_mode: "Pola lampu",
+    led_off: "Mati",
+    led_solid: "Warna tetap",
+    led_hue: "Putaran hue",
+    led_blink: "Kedip",
+    led_breathe: "Breathing",
+    led_color: "Warna pola",
+    led_brightness: "Kecerahan",
+    led_period: "Satu siklus · detik (0,5–30)",
+    led_save: "Terapkan & simpan LED",
+    led_stored: "Tersimpan di perangkat. Dipulihkan setelah restart.",
+    led_defaults:
+      "Pengaturan bawaan aktif. Terapkan untuk menyimpan pilihanmu.",
+    led_storage_error:
+      "Pengaturan aktif untuk boot ini. Penyimpanan gagal atau data sebelumnya tidak valid; terapkan lagi untuk menyimpan.",
+    led_unavailable:
+      "LED bawaan dinonaktifkan di board.h atau drivernya tidak tersedia.",
+    invalid_led: "Pola, warna, kecerahan, atau durasi siklus LED tidak valid.",
+    led_note:
+      "Durasi siklus lebih kecil membuat animasi lebih cepat. Hue memilih warnanya sendiri. Indikator menampilkan warna pengaturan, bukan pembacaan LED fisik.",
+
     title: "Pemantauan energi",
     subtitle: "Power meter Fort · RS485 / Modbus RTU",
     engineering: "Engineering",

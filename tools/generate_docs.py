@@ -132,7 +132,7 @@ s.save('button-contacts.svg')
 
 s=SVG(1400,650,'Tasks, queues and peripheral ownership')
 s.heading('Task ownership and data flow','Commands and snapshots are copied through queues; I2C and filesystem operations use mutexes.')
-for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED every ≥300 ms + buzzer','Wi-Fi tasks managed by ESP-IDF']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['UART1 / CRC / retry / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
+for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi tasks managed by ESP-IDF']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['UART1 / CRC / retry / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
     s.rect(x,160,510,300);s.text(x+25,204,title,22,BLUE,700)
     for i,line in enumerate(lines):s.text(x+25,260+i*43,line,20)
 s.wire([(565,250),(835,250)],PURPLE,4);s.text(700,228,'Command →',18,PURPLE,anchor='middle');s.text(700,277,'queue: 6 values',15,MUTED,anchor='middle')
@@ -190,7 +190,7 @@ s.save('rtu-timing.svg')
 
 s=SVG(1400,650,'Firmware startup sequence','After the ESP32-S3 ROM and bootloader transfer control to Arduino setup().')
 s.heading('Startup sequence','After ROM / bootloader → setup() → core-0 UI loop + core-1 acquisition task')
-steps=[('01','GPIO + RTOS objects',['DE LOW; button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','Probe OLED; skip if absent','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['192.168.4.1 / 24','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons + OLED + buzzer','Publish/read copied state'])]
+steps=[('01','GPIO + RTOS objects',['DE LOW; button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','OLED: 180° before first frame','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['192.168.4.1 / 24','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
 for i,(num,title,lines) in enumerate(steps):
  x=45+(i%3)*450;y=145+(i//3)*235;s.rect(x,y,410,205);s.text(x+22,y+34,num,15,BLUE,700);s.text(x+64,y+34,title,19,weight=600)
  for j,line in enumerate(lines):s.text(x+22,y+83+j*33,line,17,MUTED)

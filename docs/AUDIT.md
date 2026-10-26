@@ -4,6 +4,11 @@
 
 This is a record of specific changes and remaining limits, not an assertion that the installation is production-qualified. Current checks and build sizes are in [VALIDATION](VALIDATION.md).
 
+
+## 1.2.1 — display orientation and onboard RGB
+
+OLED rotation is set once before boot/recovery drawing. Core 0 owns asynchronous, single-producer RMT output; core 1 owns CRC-protected LED NVS records. Separate LED persistence status avoids misreporting an RGB-only fault as an energy archive failure. The web form sends only on explicit Apply and preserves drafts across unchanged polls. GPIO revision and three-channel limits are documented; no physical LED/rotation result is inferred from mocks.
+
 ## 1.2.0 — browser and documentation
 
 - Replaced the inline dashboard with maintainable React sources and genuine pinned React Bits FadeContent/SpotlightCard dependencies.

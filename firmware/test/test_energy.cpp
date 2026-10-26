@@ -2,6 +2,7 @@
 #include "debounce.h"
 #include "recovery.h"
 #include "scan.h"
+#include "led.h"
 #include <set>
 #include <assert.h>
 #include <iostream>
@@ -28,6 +29,26 @@ struct FakeFS {
   }
 };
 int main(){
+  LedSettings light{};assert(validLed(light));assert(light.brightness==128);
+  uint8_t bytes[LED_RECORD_SIZE];encodeLed(light,bytes);LedSettings restored{};
+  assert(decodeLed(bytes,sizeof(bytes),restored)&&sameLed(light,restored));
+  for(size_t i=0;i<sizeof(bytes);++i){bytes[i]^=1;assert(!decodeLed(bytes,sizeof(bytes),restored));bytes[i]^=1;}
+  assert(!decodeLed(bytes,sizeof(bytes)-1,restored));
+  light.periodMs=499;assert(!validLed(light));light.periodMs=30001;assert(!validLed(light));light.periodMs=6000;
+  light.mode=LedMode(255);assert(!validLed(light));light.mode=LED_HUE;
+  light.brightness=255;auto color=ledColor(light,0);assert(color.red==255&&color.green==0&&color.blue==0);
+  color=ledColor(light,2000);assert(color.red==0&&color.green==255&&color.blue==0);
+  color=ledColor(light,4000);assert(color.red==0&&color.green==0&&color.blue==255);
+  light.mode=LED_BLINK;assert(ledColor(light,2999).green==184);assert(ledColor(light,3000).green==0);
+  light.mode=LED_BREATHE;assert(ledColor(light,0).green==0);assert(ledColor(light,3000).green==184);assert(ledColor(light,6000).green==0);
+  light.mode=LED_SOLID;light.brightness=0;assert(ledColor(light,100).green==0);
+  light.brightness=128;assert(ledColor(light,100).green==92);
+  light.mode=LED_OFF;assert(ledColor(light,100).green==0);
+  LedMode parsed=LED_OFF;assert(parseLedMode("hue",parsed)&&parsed==LED_HUE);assert(!parseLedMode("rainbow",parsed));
+  light.mode=LED_HUE;LedAnimation animation;animation.sample(light,UINT32_MAX-999);
+  color=animation.sample(light,1000);assert(color.red==0&&color.green==128&&color.blue==0);
+  light.mode=LED_SOLID;color=animation.sample(light,1001);assert(color.green==92);
+
   assert(std::string(qualityCode(COMPLETE))=="complete_estimated");
   assert(std::string(qualityCode(MISSING))=="missing");
   assert(std::string(qualityName(COMPLETE))=="lengkap-estimasi");
@@ -119,5 +140,5 @@ int main(){
   t.newDay(DAY);poll(t,21600,23392,16);t.sample(BASE+23400,107);assert(t.day.slots[0].quality==PARTIAL);
   // Midnight does not silently mix counters from different dates.
   assert(!t.sample(BASE+86400,108));t.newDay(DAY+1);assert(!t.previous);assert(t.day.slots[0].quality==WAITING);
-  std::cout<<"PASS: scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
+  std::cout<<"PASS: RGB modes/brightness/CRC storage/millis wrap, scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
 }

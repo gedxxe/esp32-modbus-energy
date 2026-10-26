@@ -4,6 +4,11 @@
 
 Audit mencakup source firmware, tracker, CRC, konfigurasi board/dependency, persistence, antarmuka, wiring terhadap manual, dokumentasi, aset GitHub, tooling, dan isi paket rilis. Pemeriksaan source/simulasi berbeda dari pengujian perangkat; hasil hardware belum diklaim.
 
+
+## Review 1.2.1
+
+Rotasi OLED diatur sebelum boot/prompt. RMT asinkron dimiliki core 0; NVS LED ber-CRC dimiliki core 1. Status simpan LED terpisah dari storage energi. Form hanya mengirim saat Terapkan dan draft tetap aman saat polling. Variasi GPIO serta batas tiga kanal dijelaskan; hasil mock tidak dianggap bukti LED/rotasi fisik.
+
 ## Temuan yang diperbaiki pada 1.0.1
 
 | Temuan | Dampak sebelumnya | Perbaikan dan verifikasi |

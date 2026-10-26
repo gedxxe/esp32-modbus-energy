@@ -5,7 +5,7 @@
 <text x="80" y="204" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 0 / UI · PRIORITY 1</text>
 <text x="80" y="260" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">HTTP + browser API</text>
 <text x="80" y="303" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Buttons / 35 ms debounce</text>
-<text x="80" y="346" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">OLED every ≥300 ms + buzzer</text>
+<text x="80" y="346" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">OLED ≥300 ms / RGB RMT ≥20 ms</text>
 <text x="80" y="389" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Wi-Fi tasks managed by ESP-IDF</text>
 <rect x="835" y="160" width="510" height="300" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="860" y="204" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 1 / ACQUISITION · PRIORITY 2</text>

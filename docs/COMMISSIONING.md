@@ -46,3 +46,11 @@ Record the board/firmware version, Fort communication settings, CT/PT values and
 ## Acceptance record
 
 Accept the installation only after scaling/direction/word order match the actual meter; all fitted I/O works; RTC battery backup and AP remain usable; interval, gap and recovery tests pass; and the cable/supply/panel arrangement is approved by the responsible facilities engineer. Retain the firmware version, test evidence and known limitations with the installation record.
+
+## OLED mounting and RGB acceptance
+
+1. With OLED installed upside down, check boot animation, normal pages and the recovery prompt read upright. Set OLED_ROTATE_180=false only for normal mounting. Do not format archives merely to test the prompt.
+2. Confirm the board's physical RGB pin (38 selected for this installation; 48 on early boards). Check Hue starts at brightness 128 with an 8-second cycle.
+3. In Device & records, apply Off/Solid/Hue/Blink/Breathing, primary colors, brightness 0/128/255 and 0.5/30-second cycles. Check physical output as well as the applied status.
+4. Reload the phone page, then restart the board. Verify saved settings return after boot; boot lighting still uses compile-time defaults. Confirm a storage warning is absent before relying on persistence.
+5. Repeat while the meter is polling and while scanning/serving assets. Observe watchdog resets, missed UART responses and animation jitter; no on-target timing measurements are claimed by the software tests.

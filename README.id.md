@@ -2,7 +2,7 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 1.2.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.2.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 Pembaca energi untuk power meter Fort existing di Midea, menggunakan ESP32-S3 N16R8. Perangkat membaca kWh impor melalui Modbus RTU, mencatat interval setengah jam terjadwal, dan menyediakan dashboard melalui hotspot ESP32. ESP32 menjadi satu-satunya master pada port RS485 Fort tersebut.
 
@@ -90,12 +90,24 @@ PlatformIO memasang dependency firmware otomatis. Versi dikunci pada [platformio
 
 1. Nyalakan ESP32. Startup tidak menunggu Serial USB. Animasi OLED dan pola buzzer berlangsung sekitar 1,5 detik; tanpa OLED pun perangkat tetap boot.
 2. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Tetap di jaringan ini walau muncul pesan tanpa internet. Buka **http://192.168.4.1**.
-3. Pastikan footer menunjukkan **Firmware 1.2.0**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
+3. Pastikan footer menunjukkan **Firmware 1.2.1**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
 4. Pada pemasangan baru, LittleFS bisa belum berformat valid. Jika mount gagal, tahan **OK / GPIO6** saat boot dan terus tahan lima detik. Tindakan ini memformat partisi arsip dan menghapus arsip. Tidak ada format otomatis saat gagal mount.
 5. Buka **Perangkat & arsip → Atur dari HP ini** untuk mengatur RTC. DS3231 menyimpan UTC; layar dan interval memakai WIB. Jam HP harus benar.
 6. Buka **Koneksi meter**. Masukkan setting Fort atau jalankan scan. Default pembaca adalah ID 1, 9600, 8N1; manual dari box tidak membuktikan slave ID unit yang sedang terpasang.
 
 ### Kontrol lokal
+
+### Posisi OLED dan LED RGB bawaan
+
+Seluruh layar OLED diputar **180° secara default**, termasuk animasi boot dan pesan pemulihan storage. Ubah `OLED_ROTATE_180 = false` di [board.h](firmware/include/board.h), lalu build/upload untuk orientasi normal. `oled.setRotation(2)` diterapkan sekali sebelum gambar pertama. Ilustrasi menunjukkan tampilan yang terbaca setelah pemasangan.
+
+Buka **Perangkat & arsip → LED RGB bawaan**. Pilih **Mati**, **Warna tetap**, **Putaran hue**, **Kedip**, atau **Breathing**. Atur kecerahan **0–255**, warna, dan satu siklus **0,5–30 detik**, lalu tekan **Terapkan & simpan LED**. Siklus lebih pendek berarti lebih cepat. Warna dipakai oleh warna tetap/kedip/breathing; hue memilih warna sendiri. Menggeser slider belum mengirim perintah. Status berubah setelah task akuisisi memprosesnya. Jika ada peringatan penyimpanan, pengaturan belum dapat diandalkan setelah restart.
+
+Default: Hue, brightness **128/255**, siklus **8 detik**, **GPIO38** sesuai board pemasangan ini. Variabel master `RGB_LED_ENABLED`, `RGB_LED_PIN`, `RGB_LED_DEFAULT_BRIGHTNESS`, dan `RGB_LED_DEFAULT_PERIOD_MS` ada di [board.h](firmware/include/board.h). Pengaturan web tersimpan mengalahkan default brightness/periode. Saat animasi boot, default compile digunakan sampai core 1 memulihkan record NVS. Jika mengganti default pada board yang sudah punya pengaturan tersimpan, terapkan nilai yang sama melalui web juga.
+
+Firmware memilih GPIO38 secara eksplisit; alias LED builtin variant framework menunjuk GPIO48 sehingga tidak dipakai driver ini. [Panduan Espressif DevKitC v1.1](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html) menyebut GPIO38 pada revisi tersebut. DevKitC versi awal menggunakan GPIO48; ganti `RGB_LED_PIN` ke 48 hanya jika board fisiknya memang memerlukan. LED bawaan tidak perlu kabel tambahan. Driver ini untuk pixel addressable **RGB tiga kanal**, tanpa kanal putih terpisah RGBW. Status diterapkan adalah konfirmasi konfigurasi, bukan sensor cahaya.
+
+![Contoh representatif kontrol RGB dengan data API simulasi (tampilan English)](docs/assets/ui-led-mobile.png)
 
 PREV/NEXT berpindah di antara halaman utama, pagi, sore, AP dan diagnostik OLED ([referensi layar](docs/assets/oled-pages.svg)). Tombol memakai pull-up internal dengan debounce stabil 35 ms.
 
@@ -154,7 +166,7 @@ CSV menyimpan penanda kualitas dengan retensi 31 tanggal. Versi 1.2 memakai kode
 
 | Konteks | Core / prioritas | Kepemilikan |
 | --- | --- | --- |
-| Task loop Arduino | Core 0 / prioritas 1 | HTTP sinkron, debounce tombol, OLED, buzzer |
+| Task loop Arduino | Core 0 / prioritas 1 | HTTP sinkron, debounce tombol, OLED, buzzer, RGB/RMT |
 | `fort-acquisition` | Core 1 / prioritas 2, stack 12.288 byte | UART1, Preferences/NVS, tracker, CT/PT, RTC, penulisan arsip, scan |
 | Task sistem ESP-IDF | Dikelola framework | Wi-Fi, TCP/IP dan layanan sistem; tidak dipin aplikasi ini |
 

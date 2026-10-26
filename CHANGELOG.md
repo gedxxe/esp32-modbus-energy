@@ -2,6 +2,13 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 1.2.1 — 2026-10-26
+
+- Rotate every OLED screen 180° by default through one board setting, before the first boot frame.
+- Add onboard RGB Off/Solid/Hue/Blink/Breathing with medium brightness defaults and asynchronous RMT transmission on core 0.
+- Add English/Indonesian web controls for mode, color, brightness and cycle duration. Persist a versioned CRC-protected LED record on core 1, with storage status exposed separately from energy recording.
+- Document GPIO48/GPIO38 board revisions and distinguish RGB from four-channel RGBW. Extend native/browser verification without changing meter polling or interval rules.
+
 ## Repository maintenance — 2026-10-26
 
 - Keep one supported N16R8 hardware target and package only its named flashing images.

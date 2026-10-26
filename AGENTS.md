@@ -17,6 +17,7 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
 - `firmware/include/energy.h`: interval schedule, continuity and quality logic, CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
+- `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding.
 - `firmware/src/main.cpp`: hardware drivers, RTOS ownership, persistence and HTTP API.
 - `docs/DESIGN.md`: manual page references and documented limitations.
 
@@ -31,7 +32,8 @@ Keep the README, wiring SVG, netlist, diagrams, tests and release package consis
 5. Missing/invalid RTC, reboots, counter resets, changed CT/PT and excessive sample gaps must not yield a complete interval. Preserve completed intervals.
 6. Core 1 exclusively owns UART, Preferences and tracker mutation. Core 0 handles HTTP/UI. Exchange copies through RTOS queues; lock I2C and filesystem access. Keep waits bounded and leave time for idle/Wi-Fi tasks.
 7. Do not automatically format a failed filesystem. Retain the documented physical confirmation procedure and preserve recoverable backup files on failed operations.
-8. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
+8. Core 0 exclusively owns RGB RMT channel 0. Keep transmission asynchronous, skip busy frames and write LED Preferences only on core 1. GPIO38 is the selected onboard LED pin.
+9. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
 
 ## Documentation and visuals
 

@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 1.2.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.2.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 An ESP32-S3 reader for the existing Fort power meter at Midea. It reads imported kWh over Modbus RTU, records scheduled half-hour intervals, and serves a dashboard directly to a phone over Wi-Fi. The Fort RS485 port is dedicated to this reader; the ESP32 is its only master.
 
@@ -94,10 +94,22 @@ For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An applic
 
 1. Power the board. Startup does not wait for USB Serial. The OLED animation and buzzer pattern take about 1.5 seconds; a missing OLED does not prevent startup.
 2. Connect the phone to **Midea Engineering AP**, password **betahdijre12345**. Stay on this network when the phone reports that it has no internet. Open **http://192.168.4.1**.
-3. Check the footer reports **Firmware 1.2.0**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
+3. Check the footer reports **Firmware 1.2.1**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
 4. On a new installation, LittleFS may not yet contain a valid filesystem. If mounting fails, hold the physical **OK button (GPIO6)** during boot and keep holding for five seconds. This formats the archive partition and erases archives. Firmware never formats it automatically.
 5. In **Device & records**, choose **Set from this phone** to set the DS3231. It stores UTC; the screen and interval schedule use WIB. The phone's clock must be correct.
 6. Open **Meter setup**. Either enter the Fort communication settings or run **Scan Fort**. Defaults are slave 1, 9600 baud, 8N1. A manual supplied with the meter does not prove the installed slave ID.
+
+### OLED mounting and onboard RGB
+
+The entire OLED is rotated **180° by default**, including boot animation and the storage-recovery prompt. Set `OLED_ROTATE_180 = false` in [board.h](firmware/include/board.h) to return to normal orientation, then rebuild/upload. It is applied once through `oled.setRotation(2)` before any drawing; the illustrations show the readable result after mounting.
+
+Open **Device & records → Onboard RGB LED**. Choose **Off**, **Solid color**, **Hue rotation**, **Blink**, or **Breathing**; adjust brightness **0–255**, color, and full-cycle duration **0.5–30 seconds**, then choose **Apply & save LED**. Shorter cycles run faster. Color is used by Solid/Blink/Breathing; Hue selects its own colors. The form does not send requests while dragging a slider. Status updates after the acquisition task accepts the command. A storage warning means the setting cannot yet be relied on after reboot.
+
+Defaults are Hue, **128/255 brightness**, an **8-second** cycle and **GPIO38**, selected for this installation. Master settings `RGB_LED_ENABLED`, `RGB_LED_PIN`, `RGB_LED_DEFAULT_BRIGHTNESS` and `RGB_LED_DEFAULT_PERIOD_MS` live in [board.h](firmware/include/board.h). Saved web settings override the default brightness/period. The boot animation uses compile-time defaults until core 1 restores the saved record. To change defaults for an already-configured board, apply the desired values in the web panel too.
+
+The firmware explicitly selects physical GPIO38, matching this installation. The underlying framework variant aliases its builtin LED to GPIO48, so the driver deliberately does not use that alias. The [Espressif DevKitC v1.1 guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html) specifies GPIO38 for that revision. Early DevKitC boards use GPIO48; change `RGB_LED_PIN` to 48 only when the physical board requires it. No external LED wiring is needed. This driver controls a three-channel addressable **RGB** pixel; it does not provide a separate white channel for a four-channel RGBW device. An accepted command confirms configuration, not optical feedback.
+
+![Representative RGB control panel with simulated API data](docs/assets/ui-led-desktop.png)
 
 ### Local controls
 
@@ -160,7 +172,7 @@ CSV exports retain quality flags and up to 31 dates. Version 1.2 uses English sh
 
 | Context | Core / priority | Owned work |
 | --- | --- | --- |
-| Arduino loop task | Core 0 / priority 1 | Synchronous HTTP, button debounce, OLED, buzzer |
+| Arduino loop task | Core 0 / priority 1 | Synchronous HTTP, button debounce, OLED, buzzer, RGB/RMT |
 | `fort-acquisition` | Core 1 / priority 2; 12,288-byte stack | UART1, Preferences/NVS, tracker, CT/PT, RTC reads, archive writes, scan state |
 | ESP-IDF system tasks | Managed by the framework | Wi-Fi, TCP/IP and other services; they are not pinned by this application |
 

@@ -2,6 +2,14 @@
 
 # Changelog
 
+
+## 1.2.1 — 2026-10-26
+
+- Semua halaman OLED diputar 180° melalui satu variabel master sebelum frame boot pertama.
+- Tambahkan LED RGB Mati/Warna tetap/Hue/Kedip/Breathing, brightness default sedang, dan pengiriman RMT asinkron di core 0.
+- Tambahkan kontrol web bilingual untuk pola, warna, kecerahan dan durasi siklus. Record LED berversi dengan CRC disimpan core 1; status penyimpanannya terpisah dari pencatatan energi.
+- Jelaskan variasi pin GPIO48/GPIO38 serta perbedaan RGB dan RGBW empat kanal. Tambahkan tes native/browser tanpa mengubah polling atau aturan interval meter.
+
 ## Pemeliharaan repository — 2026-10-26
 
 - Pertahankan satu target hardware N16R8 dan masukkan hanya image flashing yang ditentukan ke paket.

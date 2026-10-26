@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "transport": "gzip",
-  "compressed_total": 136669,
+  "compressed_total": 138395,
   "libraries": {
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -19,16 +19,16 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 385639,
-      "gzip": 130545,
-      "sha256": "a9bb6c63f4d4841038126fa036a454ba9720d668ddf9addc9bdf24e2433c68e0"
+      "raw": 390540,
+      "gzip": 132113,
+      "sha256": "7ca424a242004ca8b5ca6004e418171a071b4765ee1eab984ff5a668c278d60e"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 15755,
-      "gzip": 4164,
-      "sha256": "1f19c4e6bcbe5d35f1f1d19ad4df41d734bf50f1647469a11a10a082d98f9a15"
+      "raw": 16392,
+      "gzip": 4322,
+      "sha256": "fd384b15daa885421822fc8a8c453db2cd48f51ffb48e9be759acf78cf471efb"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
@@ -39,16 +39,17 @@
     }
   },
   "inputs": {
-    "package-lock.json": "24f02b7fde0feea8ce80b05f738601501a35e55a6e91bcfc60f20d22884e96a2",
-    "package.json": "05ee653cfffa56048408f68a3f44024e8094e88b89321ba116202ce5f07b2d3f",
+    "package-lock.json": "c48ea4b6dfa0e04ff342476114cd0272137d8df4f75f6121d3be985334026e4d",
+    "package.json": "869e709807b8165407ff819c3caaeb95352e39fc82781a3eed6e5edfdfcf2fcb",
     "tools/build-web.cjs": "df7e6396cd301ef679246216276d2a05184fd035318b4ee2fe326ed6d948a241",
     "web/Application.jsx": "582d926847196b89088808af4c5d4abec6339a31d690eef0732cf976b2fb3933",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
+    "web/components/LedControls.jsx": "1d8f5b3a65148d7b0950aa3f62afba2b77dbfa0f34e8868707c765d570fae55e",
     "web/device.js": "8145eba7e94e61018fbc7a6745a830d01fe07bd43e606f9307864aeb77eb493d",
-    "web/i18n.js": "4de87d97bfc8dad0bc93de62ebbd8f67fd4cb03a0208b6a5723e20abf7ea30ad",
+    "web/i18n.js": "84b5a92eb193323d8e087db1ae65b12cc74fbe162bf5410d54d1a4be7eb26e04",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
-    "web/styles.css": "b6fdeae2f7e3ade9ff5086f74a9007a4a5bb9adf653da673fec77f21f789ba03",
+    "web/styles.css": "1d63dd5e4715960fc08ea4e71ac2a8159f35c977a33644e0924989914447d34f",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/FadeContent.jsx": "8311fcc4f3172ce66d7e0017ccdce19c8bf58c2a286425e974cd16820f8edb82",
@@ -57,9 +58,9 @@
     "web/vendor/react-bits/SpotlightCard.css": "b646b7da4bb46f0a4d819d0af275804c49a845a5c2dc848700aaf9282db13a92",
     "web/vendor/react-bits/SpotlightCard.jsx": "e0b91ba07c173c98b87b44ec451d0243fe0a3edc67864e2779ad8507d455af67",
     "web/vendor/react-bits/upstream.json": "8f9a578ac5cc29fe9d73cca05a8e0b1d569a5dc7671950099fb27929c6d926bf",
-    "web/views/DeviceRecords.jsx": "4ddf56129af96e934e6c4441944f1455b694787d5bf77d1c09df2b25574f03f9",
+    "web/views/DeviceRecords.jsx": "de7dfb18445370b6cba61ac381550f5ae17b6e924f74d58ce7dac89336169b44",
     "web/views/MeterSetup.jsx": "f92bde1e3d0c01e58f0564b6967a16164ac146e38003facd421d244640b03907",
     "web/views/Overview.jsx": "687f2009f9e3e09da4c429e91dbe135cad0ca397e9b8e04e596ca6092e5d8d38"
   },
-  "header_sha256": "4a226f4acf1ac7dc913c00079e234a5f0768be92aed23a3a34c15e49866a8da2"
+  "header_sha256": "d9f60ee23b9a7acb9d6c3cedff24212da3f719cd604efbee750604850b21d8ce"
 }

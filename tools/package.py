@@ -36,6 +36,7 @@ files=[*(root/name for name in root_names),*sources,
        *(p for p in sorted((root/'.github').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'tools').glob('*')) if p.suffix in ['.py','.cjs','.ps1']),
        *sorted((root/'output/firmware').glob('*.bin')),
+       root/'output/firmware/midea-fort-cirkit-8mb.zip',
        root/'output/firmware/FLASHING.md',root/'Fort Power Meter_User Manual_compressed.pdf']
 manifest = {
     "version": version, "build_date_local": datetime.now(timezone(timedelta(hours=7))).date().isoformat(), "timezone": "Asia/Jakarta",

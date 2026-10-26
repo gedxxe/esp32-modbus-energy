@@ -92,3 +92,11 @@ Versi firmware berasal dari `version.h` dan dikirim lewat field `version` di sta
 - [PlatformIO ESP32-S3 DevKitC-1](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitc-1.html): base board dan override konfigurasi.
 - [Espressif FreeRTOS](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/system/freertos_idf.html): task affinity, queue, dan sinkronisasi lintas core.
 - [DS3231 datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf): battery backup, waktu, dan oscillator-stop flag.
+
+## Pencarian setting Fort (1.1.0)
+
+`scan.h` menyediakan enumerator dan state machine tanpa alokasi. ID pembaca yang masuk rentang mendapat fast pass seluruh 18 mode sebelum ID lainnya, agar perubahan baud/parity pada ID yang sama cepat ditemukan. Core 1 mencoba satu kandidat per iterasi, menggunakan fungsi 03 pada 0x0082 (dua word) dan 0x002C (tiga word). Kedua respons harus lolos validator frame/CRC yang sama dengan polling normal, dan tiga word rasio berada pada batas manual yang sudah dipakai. Tidak ada probe broadcast, perubahan register atau bypass CRC. Satu percobaan per transaksi, timeout 800 ms; pencarian berhenti pada kandidat kompatibel pertama. Register dan skala pembacaan normal tidak berubah.
+
+State `idle/running/found/cancelled/exhausted` disalin melalui snapshot queue. `POST /api/scan/start` menerima `first/last`, `/api/scan/cancel` membatalkan, `/api/scan/apply` memasukkan hasil ke jalur konfigurasi/NVS normal; semuanya memakai token sesi. `/api/status` menyertakan objek `scan` dengan kandidat, progres, waktu, hasil dan penghitung error tersendiri. Duplikasi start ditolak saat running. Setting manual ditolak selama scan, termasuk pemeriksaan ulang di task pemilik UART. Setelah reboot state scan kembali idle.
+
+Mulai scan memutus tracker dan menyimpan checkpoint. Polling normal berhenti selama scan; RTC/day rollover dan UI tetap berjalan. Selesai/batal memulihkan UART ke konfigurasi tersimpan dan memaksa pembacaan ulang rasio serta baseline energi. Hasil tidak otomatis mengubah konfigurasi. Alarm ditunda selama scan. Waktu pembatalan dibatasi kandidat aktif, maksimal dua transaksi; tidak ada loop pencarian yang memblokir core UI. Respons kompatibel bukan autentikasi model meter. Uji logic/UI tidak menggantikan uji UART/Fort fisik.

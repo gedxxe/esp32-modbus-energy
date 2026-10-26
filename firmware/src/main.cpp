@@ -15,6 +15,7 @@
 #include "web_ui.h"
 #include "version.h"
 #include "recovery.h"
+#include "scan.h"
 
 using namespace fort;
 static_assert(ARDUINO_RUNNING_CORE==0,"UI must run on core 0");
@@ -26,11 +27,10 @@ QueueHandle_t snapshotQueue,commandQueue;
 bool oledOK=false,apOK=false;
 String apiToken;
 
-struct Settings { uint32_t magic=0x46525431; uint32_t baud=9600; uint8_t slave=1; char parity='N'; };
-enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE };
-struct Command { CommandType type; uint32_t epoch=0; Settings config{}; };
+enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN };
+struct Command { CommandType type; uint32_t epoch=0; Settings config{}; uint8_t first=1,last=247; };
 struct Snapshot {
-  Day day{}; Settings config{};
+  Day day{}; Settings config{}; ScanProgress scan{};
   uint32_t utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
   double energy=0,power=0,ratio=0;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
@@ -38,6 +38,7 @@ struct Snapshot {
 };
 Snapshot state{}; // UI reads queue copies. Only acquisition task mutates state.
 Tracker tracker;
+ScanController scanner;
 Preferences prefs;
 bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=true;
 uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0;
@@ -50,25 +51,24 @@ struct Checkpoint { uint32_t magic=0x46524432; Day day{}; uint16_t crc=0; };
 struct ConfigRecord { Settings settings{};uint16_t crc=0; };
 void setError(const char *s) { strlcpy(state.error,s,sizeof(state.error)); }
 bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
-bool validBaud(uint32_t b) { return b==1200||b==2400||b==4800||b==9600||b==19200||b==38400; }
-bool validSettings(const Settings &s) {
-  return s.magic==0x46525431&&s.slave>=1&&s.slave<=247&&validBaud(s.baud)&&(s.parity=='N'||s.parity=='E'||s.parity=='O');
-}
-void startBus() {
+uint32_t activeBaud=0;char activeParity=0;
+void startBusFor(const Settings &config) {
+  if(activeBaud==config.baud&&activeParity==config.parity)return;
   bus.end(); bus.setRxBufferSize(128);
-  uint32_t format=state.config.parity=='E'?SERIAL_8E1:state.config.parity=='O'?SERIAL_8O1:SERIAL_8N1;
-  bus.begin(state.config.baud,format,PIN_RX,PIN_TX);
+  uint32_t format=config.parity=='E'?SERIAL_8E1:config.parity=='O'?SERIAL_8O1:SERIAL_8N1;
+  bus.begin(config.baud,format,PIN_RX,PIN_TX);activeBaud=config.baud;activeParity=config.parity;
   digitalWrite(PIN_RS485_DE,LOW);
 }
+void startBus() { startBusFor(state.config); }
 
 // Only core 1 owns the UART. Strict length, function, ID, CRC, exception checks.
-bool readWords(uint16_t address,uint8_t count,uint8_t *out) {
+bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t *out,uint8_t attempts=3,bool normal=true) {
   if(count<1||count>3) return false;
-  uint8_t tx[8]={state.config.slave,3,uint8_t(address>>8),uint8_t(address),0,count,0,0};
+  uint8_t tx[8]={config.slave,3,uint8_t(address>>8),uint8_t(address),0,count,0,0};
   uint16_t c=crc16(tx,6); tx[6]=c;tx[7]=c>>8;
-  uint32_t bits=state.config.parity=='N'?10:11;
-  uint32_t gap=state.config.baud>19200?1750:(3500000UL*bits+state.config.baud-1)/state.config.baud;
-  for(int attempt=0;attempt<3;++attempt) {
+  uint32_t bits=config.parity=='N'?10:11;
+  uint32_t gap=config.baud>19200?1750:(3500000UL*bits+config.baud-1)/config.baud;
+  for(int attempt=0;attempt<attempts;++attempt) {
     esp_task_wdt_reset();
     for(int i=0;i<128&&bus.available();++i)bus.read();
     vTaskDelay(pdMS_TO_TICKS((gap+999)/1000+1));
@@ -84,15 +84,37 @@ bool readWords(uint16_t address,uint8_t count,uint8_t *out) {
       if(overflow || (n && uint32_t(micros()-lastByte)>=gap)) break;
       vTaskDelay(1);
     }
-    if(!n) { ++state.timeouts;setError("Timeout Modbus"); }
-    else if(overflow) setError("Respons RTU terlalu panjang");
-    else if(n<5 || crc16(rx,n-2)!=(uint16_t(rx[n-2])|(uint16_t(rx[n-1])<<8))) { ++state.crcErrors;setError("CRC respons tidak cocok"); }
-    else if(rx[0]==state.config.slave&&rx[1]==0x83&&n==5) { snprintf(state.error,sizeof(state.error),"Modbus exception 0x%02X",rx[2]); return false; }
-    else if(validFrame(rx,n,state.config.slave,count)) { memcpy(out,rx+3,count*2);return true; }
-    else setError("ID / fungsi / panjang respons salah");
-    vTaskDelay(pdMS_TO_TICKS(30*(attempt+1)));
+    if(!n) {
+      if(normal){++state.timeouts;setError("Timeout Modbus");}else ++scanner.progress.timeouts;
+    }else if(!overflow&&n>=5&&crc16(rx,n-2)==(uint16_t(rx[n-2])|(uint16_t(rx[n-1])<<8))) {
+      if(validFrame(rx,n,config.slave,count)){memcpy(out,rx+3,count*2);return true;}
+      if(normal&&rx[0]==config.slave&&rx[1]==0x83&&n==5){snprintf(state.error,sizeof(state.error),"Modbus exception 0x%02X",rx[2]);return false;}
+      if(normal)setError("ID / fungsi / panjang respons salah");else ++scanner.progress.rejected;
+    }else if(overflow) {
+      if(normal)setError("Respons RTU terlalu panjang");else ++scanner.progress.rejected;
+    }else {
+      if(normal){++state.crcErrors;setError("CRC respons tidak cocok");}else ++scanner.progress.crcErrors;
+    }
+    if(attempt+1<attempts)vTaskDelay(pdMS_TO_TICKS(30*(attempt+1)));
   }
   return false;
+}
+bool readWords(uint16_t address,uint8_t count,uint8_t *out) {
+  return readWordsFor(state.config,address,count,out);
+}
+void restoreAfterScan() {
+  startBus();state.ratios=false;haveSample=false;rawKnown=false;state.power=NAN;
+  lastRatio=0;lastPoll=millis();
+  setError(scanner.progress.phase==SCAN_FOUND?"Scan selesai; hasil belum diterapkan":scanner.progress.phase==SCAN_CANCELLED?"Scan dibatalkan; koneksi lama dipulihkan":"Scan selesai; meter tidak ditemukan");
+}
+void scanStep() {
+  const Settings candidate=scanner.progress.candidate;
+  startBusFor(candidate);uint8_t energy[4],ratios[6];
+  // Two different known read-only registers must validate, including CRC and ratio range.
+  bool found=readWordsFor(candidate,0x0082,2,energy,1,false)&&readWordsFor(candidate,0x002c,3,ratios,1,false);
+  if(found&&!validScanRatios(ratios)){found=false;++scanner.progress.rejected;}
+  scanner.completeProbe(found,millis());
+  if(!scanner.running())restoreAfterScan();
 }
 
 // Check every I2C transaction, OSF, BCD range and calendar round trip.
@@ -163,6 +185,7 @@ void saveCheckpoint(bool archive) {
   if(archive)saveArchive();lastSave=millis();
 }
 void publish() {
+  scanner.refresh(millis());state.scan=scanner.progress;
   state.day=tracker.day;state.muted=muted;state.storage=fsOK&&nvsOK&&archiveOK&&checkpointOK&&configOK;
   state.lastGoodMs=lastGood;state.haveEnergy=haveSample;
   state.online=haveSample&&millis()-lastGood<=15000;
@@ -195,11 +218,17 @@ void acquisition(void *) {
         if(!rtcWrite(cmd.epoch))setError("Gagal menulis / verifikasi RTC");
         saveCheckpoint(true);
       }
-      if(cmd.type==SET_CONFIG&&validSettings(cmd.config)) {
+      if(cmd.type==START_SCAN&&!scanner.running()&&scanner.begin(cmd.first,cmd.last,state.config,millis())) {
+        tracker.interrupt();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
+        setError("Scan Fort berjalan; pencatatan dijeda");publish();
+      }
+      if(cmd.type==CANCEL_SCAN&&scanner.cancel(millis())){restoreAfterScan();publish();}
+      if(cmd.type==APPLY_SCAN&&scanner.progress.phase==SCAN_FOUND) {cmd.type=SET_CONFIG;cmd.config=scanner.progress.result;}
+      if(cmd.type==SET_CONFIG&&!scanner.running()&&validSettings(cmd.config)) {
         tracker.interrupt();state.config=cmd.config;state.ratios=false;rawKnown=false;haveSample=false;
         ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
         configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
-        saveCheckpoint(true);startBus();lastRatio=0;lastPoll=0;
+        saveCheckpoint(true);startBus();lastRatio=0;lastPoll=0;publish();
       }
     }
     uint32_t utc=0;bool rtcOK=rtcRead(utc);
@@ -220,6 +249,9 @@ void acquisition(void *) {
       tracker.tick(local);
       for(int i=0;i<SLOT_COUNT;++i)if(before[i]!=tracker.day.slots[i].quality){saveCheckpoint(true);break;}
     }else state.utc=0;
+    if(scanner.running()) {
+      scanStep();publish();vTaskDelay(pdMS_TO_TICKS(10));continue;
+    }
     if(ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
         lastRatioTry=millis();uint8_t p[6];
         if(readWords(0x002c,3,p)) {
@@ -298,6 +330,12 @@ void webSetup() {
     if(s.haveEnergy){d["energy"]=s.energy;d["age"]=(millis()-s.lastGoodMs)/1000;}
     if(online&&isfinite(s.power))d["power"]=s.power;
     d["ratio"]=s.ratio;d["slave"]=s.config.slave;d["baud"]=s.config.baud;d["parity"]=String(s.config.parity);
+    JsonObject scan=d["scan"].to<JsonObject>();
+    scan["phase"]=scanName(s.scan.phase);scan["tested"]=s.scan.tested;scan["total"]=s.scan.total;
+    scan["first"]=s.scan.first;scan["last"]=s.scan.last;scan["elapsed"]=s.scan.elapsedMs/1000;
+    scan["slave"]=s.scan.candidate.slave;scan["baud"]=s.scan.candidate.baud;scan["parity"]=String(s.scan.candidate.parity);
+    scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
+    if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);}
     d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;
     if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
@@ -306,10 +344,25 @@ void webSetup() {
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/config",HTTP_POST,[]{
-    if(!authorizePost())return;uint32_t slave=0,baud=0;String parity=server.arg("parity");
+    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Batalkan scan sebelum mengganti koneksi");return;}
+    uint32_t slave=0,baud=0;String parity=server.arg("parity");
     if(!parseNumber(server.arg("slave"),slave)||!parseNumber(server.arg("baud"),baud)||slave<1||slave>247||parity.length()!=1){jsonReply(400,"Setting koneksi tidak valid");return;}
     Command c{};c.type=SET_CONFIG;c.config.slave=slave;c.config.baud=baud;c.config.parity=parity[0];
     if(!validSettings(c.config)){jsonReply(400,"Baud / parity tidak didukung");return;}enqueueCommand(c);
+  });
+  server.on("/api/scan/start",HTTP_POST,[]{
+    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Scan sedang berjalan");return;}
+    uint32_t first=0,last=0;
+    if(!parseNumber(server.arg("first"),first)||!parseNumber(server.arg("last"),last)||first<1||last>247||first>last){jsonReply(400,"Rentang slave ID harus 1–247 dan awal <= akhir");return;}
+    Command c{};c.type=START_SCAN;c.first=first;c.last=last;enqueueCommand(c);
+  });
+  server.on("/api/scan/cancel",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=CANCEL_SCAN;enqueueCommand(c);});
+  server.on("/api/scan/apply",HTTP_POST,[]{
+    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.scan.phase!=SCAN_FOUND){jsonReply(409,"Belum ada hasil scan untuk diterapkan");return;}
+    Command c{};c.type=APPLY_SCAN;enqueueCommand(c);
   });
   server.on("/api/time",HTTP_POST,[]{
     if(!authorizePost())return;uint32_t epoch=0;
@@ -423,7 +476,7 @@ void loop() {
     if(i==2&&event==1){if(page==1||page==2)++slotPage;else if(page==3)showCredentials=!showCredentials;else{Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}}
     if(i==2&&event==2){Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}
   }
-  bool alarm=!s.muted&&now>20000&&(!s.rtc||!s.online||!s.storage);
+  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&now>20000&&(!s.rtc||!s.online||!s.storage);
   digitalWrite(PIN_BUZZER,alarm&&now%10000<120?HIGH:LOW);
   if(now-lastPaint>=300){lastPaint=now;drawOLED(s);}
   delay(5); // Both idle tasks must run; Wi-Fi needs scheduler headroom.

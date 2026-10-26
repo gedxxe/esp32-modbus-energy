@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/badges/firmware.svg" alt="Firmware 1.0.1">
+  <img src="docs/assets/badges/firmware.svg" alt="Firmware 1.1.0">
   <img src="docs/assets/badges/license.svg" alt="License GPL-3.0-only">
   <img src="docs/assets/badges/board.svg" alt="ESP32-S3 N16R8">
   <img src="docs/assets/badges/platformio.svg" alt="Espressif32 6.10.0">
@@ -32,6 +32,7 @@ Dashboard bekerja tanpa internet, cloud, CDN atau aplikasi HP tambahan. IP juga 
 
 - [Preview web dan OLED](#preview-web-dan-oled)
 - [Fitur dan jadwal interval](#fitur-dan-jadwal-interval)
+- [Scan Fort dari dashboard](#scan-fort-dari-dashboard)
 - [Framework dan library](#framework-dan-library)
 - [Komponen](#komponen)
 - [Wiring lengkap](#wiring-lengkap)
@@ -75,6 +76,7 @@ Representasi halaman OLED di bawah mengikuti isi firmware. Ini ilustrasi SVG, bu
 | Pembacaan utama | Counter energi impor sekunder, dikonversi ke kWh primer dengan rasio CT/PT meter |
 | Daya saat ini | Total active power, kW primer |
 | Integritas komunikasi | CRC16, validasi ID/fungsi/panjang, timeout, maksimum tiga percobaan |
+| Scan Fort | Pencarian ID 1–247, enam baud dan parity N/E/O; progres, batal dan terapkan hasil dari web |
 | Pengolahan waktu | DS3231 menyimpan UTC; tampilan dan batas interval memakai WIB |
 | Kontrol lokal | OLED 128×64, tiga tombol, debounce 35 ms, long press 900 ms |
 | Boot | Animasi OLED dan pola bunyi aktif dalam durasi sekitar 1,5 detik |
@@ -93,6 +95,39 @@ Representasi halaman OLED di bawah mengikuti isi firmware. Ini ilustrasi SVG, bu
 | 08.30–09.00 | — |
 
 Seluruh interval berjalan otomatis berdasarkan kalender RTC, bukan 30 menit sejak alat dinyalakan. Sebaiknya perangkat sudah aktif dan terhubung sebelum batas pertama shift.
+
+## Scan Fort dari dashboard
+
+Preview berikut memakai respons API simulasi, bukan pembacaan Fort fisik.
+
+![Preview Scan Fort di dashboard desktop (simulasi)](docs/assets/ui-scan-desktop.png)
+
+[Preview Scan Fort di HP (simulasi)](docs/assets/ui-scan-mobile.png)
+
+### Cara update dan menjalankan scan
+
+1. Sambungkan RS485 sesuai [wiring lengkap](#wiring-lengkap): RO → GPIO18, DI → GPIO17, DE dan /RE → GPIO16, A → Fort 58/A, B → Fort 59/B. Modul dan Fort harus terhubung agar scan bisa mendapat respons; ESP32 saja tidak dapat menemukan meter.
+2. Buka folder **firmware** di VS Code/PlatformIO. Tutup Serial Monitor agar port tidak sedang dipakai. Jalankan **PlatformIO → Project Tasks → esp32s3 → General → Upload**. Gunakan environment **esp32s3** untuk board N16R8 fisik.
+3. Setelah upload selesai, hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Tetap gunakan Wi-Fi ini walaupun HP menampilkan tanpa internet. Buka **http://192.168.4.1** dan pastikan footer menunjukkan **Firmware 1.1.0**; reload halaman bila masih melihat UI lama.
+4. Buka **Pengaturan koneksi meter → Scan Fort**. Untuk percobaan cepat, isi ID awal **1** dan akhir **16**. Jika belum ditemukan, ulangi dengan **1–247** agar seluruh ID diperiksa. Jika ID meter sudah diketahui, isi awal dan akhir dengan ID yang sama.
+5. Tekan **Scan Fort**. Lihat kandidat ID/baud/parity dan jumlah kombinasi yang sudah selesai pada progress bar. Gunakan **Batalkan scan** untuk menghentikan pencarian. Menutup/reload halaman tidak membatalkan scan; progres diambil kembali dari ESP32.
+6. Saat hasil muncul, tekan **Terapkan hasil**. Contoh hasil **ID 7 · 19200 · 8E1** hanya ilustrasi; gunakan nilai yang benar-benar ditemukan perangkatmu. Tombol ini menyimpan setting pembaca ESP32 ke NVS; menu komunikasi pada Fort tidak diubah.
+7. Periksa form slave ID/baud/parity sudah mengikuti hasil, lalu tunggu pembacaan normal. Status **Meter terhubung** dan nilai kWh akan muncul bila pembacaan berhasil. Jika status storage bermasalah, jangan menganggap konfigurasi pasti tersimpan; periksa [commissioning](docs/COMMISSIONING.md). Sinkronkan RTC dari HP bila waktu belum valid, lalu bandingkan kWh dan rasio CT/PT dengan display Fort.
+
+Alternatif upload melalui terminal PowerShell dari root project (ganti `COM10` jika port board berbeda):
+
+```powershell
+cd firmware
+& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe" run -e esp32s3 --target upload --upload-port COM10
+```
+
+### Cara kerja dan batas scan
+
+ Firmware mencoba setting pembaca saat ini lebih dulu, lalu seluruh 18 mode pada ID tersebut jika masuk rentang, dilanjutkan seluruh kombinasi ID pada rentang tersebut, baud 9600/19200/38400/4800/2400/1200 dan parity N/E/O. Setiap kombinasi hanya dicoba sekali, timeout respons 800 ms. Rentang penuh mencakup 4.446 kombinasi dan bisa memerlukan sekitar 70 menit bila tidak ada respons; gunakan rentang lebih kecil bila ID diperkirakan diketahui.
+
+Scan hanya memakai fungsi 03 pada register energi dan CT/PT yang sudah digunakan pembacaan normal. Hasil harus lulus CRC, ID, fungsi, panjang serta batas rasio CT/PT. Pencarian berhenti pada respons kompatibel pertama; ini bukan autentikasi identitas/model meter. Tekan **Terapkan hasil** untuk menyimpan koneksi pembaca ke NVS. Scan tidak mengubah menu komunikasi meter.
+
+**Batalkan scan** menghentikan pencarian setelah kandidat aktif selesai (biasanya kurang dari dua detik setelah perintah diproses). Setelah selesai/batal/tidak ditemukan, pembaca memakai setting lama sampai hasil diterapkan. Scan berjalan di core 1; web, OLED dan RTC tetap diproses. Pencatatan energi dijeda dan kesinambungan interval diputus agar gap scan tidak menjadi interval lengkap; alarm ditunda selama scan. Hasil scan hanya ada di RAM dan tidak bertahan setelah reboot. Jika tidak ditemukan, periksa wiring A/B dan rentang ID. Scan tidak berjalan otomatis saat boot atau saat meter offline.
 
 ## Framework dan library
 
@@ -253,6 +288,12 @@ cd firmware
 Konfigurasi memakai flash **16 MB QIO**, PSRAM **8 MB OPI** (`qio_opi`), dan USB native. GPIO19/20 dipakai USB native dan tidak dipakai komponen. Untuk mode upload manual: tahan **BOOT**, tekan/lepas **RESET**, lepas BOOT, lalu pilih port yang muncul.
 
 Web ditanam dalam aplikasi; **tidak perlu `uploadfs`**. Binary build ada di `firmware/.pio/build/esp32s3/`. Paket rilis lokal menyediakan factory image dan panduan offset di folder `output/firmware/`. Panduan sumbernya ada di [FLASHING](docs/FLASHING.md). `output` berisi hasil generasi dan diabaikan Git.
+
+### Simulasi di Cirkit Designer
+
+Gunakan profil **`cirkit` (flash 8 MB)** dan bundle ZIP khusus, bukan app-only BIN. Build dengan `pio run -e cirkit`, lalu dari root jalankan `python tools/package_cirkit.py`. Pada **Code → Firmware → Load Firmware → Choose firmware**, pilih `output/firmware/midea-fort-cirkit-8mb.zip`, kemudian **Import**. Cirkit harus menampilkan role Application, Bootloader, dan Partitions. Lihat [panduan simulator](docs/FLASHING.md#cirkit-designer-import-zip-dengan-profil-8-mb).
+
+Profil default `esp32s3` tetap untuk N16R8 fisik. Keberhasilan impor/boot simulator bukan pengganti pengujian hardware atau bukti seluruh fungsi Wi-Fi/RTC/Modbus sudah tersimulasikan.
 
 ## Menyalakan pertama kali
 

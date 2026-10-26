@@ -37,3 +37,14 @@
 - Dashboard tetap responsif ketika meter offline/retry dan beberapa HP membuka halaman.
 - Uji interval pagi/sore serta gangguan daya/komunikasi memenuhi perilaku di atas.
 - Panel, kabel, isolasi, suplai dan pemasangan disetujui teknisi fasilitas.
+
+## Uji Scan Fort (firmware 1.1.0)
+
+1. Di luar interval produksi, catat setting Fort dan setting pembaca yang lama. Buka Pengaturan koneksi meter → Scan Fort.
+2. Untuk uji cepat, batasi ID awal/akhir pada ID meter yang diketahui. Jalankan Scan Fort. Periksa progres, web dan OLED tetap merespons; CRC/timeout scan terpisah dari penghitung pembacaan normal.
+3. Saat hasil ditemukan, pastikan ID/baud/parity sesuai menu meter. Pembaca tetap memakai setting lama sebelum Terapkan hasil; setelah diterapkan, reload dashboard dan reboot untuk memastikan setting NVS bertahan.
+4. Jalankan ulang lalu Batalkan scan. Pastikan pembacaan kembali dengan setting lama, tidak ada perubahan menu Fort. Reload halaman di tengah scan: progres harus kembali terlihat dari status perangkat.
+5. Uji meter dilepas/rentang ID salah: scan selesai tanpa hasil; jangan menganggapnya bukti kerusakan meter. Periksa A/B dan koneksi.
+6. Scan di tengah interval uji harus menghasilkan interval parsial, dengan interval selesai tetap tersimpan. Hasil scan tidak bertahan setelah reboot dan tidak dijalankan otomatis.
+
+Rentang penuh 1–247 memiliki 4.446 kandidat; kondisi tanpa respons dapat membutuhkan sekitar 70 menit. Tombol batal diproses antarkandidat; kandidat terdiri dari maksimal dua transaksi 800 ms, dengan watchdog/yield di jalur UART.

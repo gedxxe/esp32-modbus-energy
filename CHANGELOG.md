@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0 — 2026-10-26
+
+- Tambah Scan Fort manual dari web: rentang ID 1–247, enam baud, parity N/E/O, progres dan pembatalan.
+- Konfirmasi kandidat dengan pembacaan energi dan CT/PT; CRC/ID/fungsi/panjang/range wajib valid.
+- UART tetap dimiliki core 1; checkpoint interval diputus saat scan, setting lama dipulihkan, hasil diterapkan secara eksplisit.
+- Tambah pengujian enumerasi, transisi scan dan kontrol dashboard; tanpa perubahan setting meter.
+
+
+## Dukungan simulator — 2026-10-22
+
+- Tambah profil `cirkit` terpisah untuk flash 8 MB tanpa mengubah target N16R8 hardware.
+- Tambah pembuat bundle ZIP tiga role untuk importer Cirkit, dengan validasi header chip/kapasitas serta batas partisi.
+- Dokumentasikan perbedaan app-only, factory hardware, dan ZIP simulator berdasarkan pengujian importer/boot di Cirkit.
+
 ## Dokumentasi/lisensi — 2026-10-22
 
 - Pemilik menetapkan GNU GPLv3 (`GPL-3.0-only`); tambah teks LICENSE, NOTICE, badge lokal dan metadata paket.

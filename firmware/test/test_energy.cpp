@@ -1,6 +1,8 @@
 #include "energy.h"
 #include "debounce.h"
 #include "recovery.h"
+#include "scan.h"
+#include <set>
 #include <assert.h>
 #include <iostream>
 #include <vector>
@@ -26,6 +28,34 @@ struct FakeFS {
   }
 };
 int main(){
+  ScanController scan;Settings preferred;preferred.slave=7;preferred.baud=19200;preferred.parity='E';
+  assert(!scan.begin(0,10,preferred,0));assert(!scan.begin(10,9,preferred,0));assert(!scan.begin(1,248,preferred,0));
+  Settings bad=preferred;bad.baud=115200;assert(!scan.begin(1,247,bad,0));
+  assert(scan.begin(1,247,preferred,UINT32_MAX-99));assert(scan.progress.total==4446);
+  assert(scan.progress.candidate.slave==7&&scan.progress.candidate.baud==19200&&scan.progress.candidate.parity=='E');
+  assert(!scan.begin(1,16,preferred,0));
+  std::set<std::string> candidates;
+  while(scan.running()){
+    Settings c=scan.progress.candidate;assert(validSettings(c));
+    if(scan.progress.tested<18)assert(c.slave==preferred.slave);
+    if(scan.progress.tested==18)assert(c.slave==1&&c.baud==preferred.baud&&c.parity==preferred.parity);
+    assert(candidates.insert(std::to_string(c.baud)+c.parity+std::to_string(c.slave)).second);
+    scan.completeProbe(false,100);
+  }
+  assert(scan.progress.phase==SCAN_EXHAUSTED&&scan.progress.tested==4446&&candidates.size()==4446);
+  assert(scan.progress.elapsedMs==200); // Monotonic millis rollover.
+  assert(!scan.cancel(101));scan.completeProbe(true,101);assert(scan.progress.phase==SCAN_EXHAUSTED);
+  assert(scan.begin(20,20,preferred,10));assert(scan.progress.candidate.slave==20&&scan.progress.total==18);
+  scan.completeProbe(false,11);Settings found=scan.progress.candidate;scan.completeProbe(true,12);
+  assert(scan.progress.phase==SCAN_FOUND&&scan.progress.tested==2&&scan.progress.result.slave==found.slave&&scan.progress.result.parity==found.parity);
+  assert(!scan.cancel(13));assert(scan.begin(1,2,preferred,15));assert(scan.progress.result.slave==1);assert(scan.cancel(16));
+  assert(scan.progress.phase==SCAN_CANCELLED&&scan.progress.tested==0);scan.completeProbe(true,17);assert(scan.progress.phase==SCAN_CANCELLED);
+  assert(scan.begin(1,2,preferred,20));scan.completeProbe(false,21);assert(scan.cancel(22));assert(scan.progress.tested==1);
+  assert(scan.begin(7,7,preferred,30));while(scan.running())scan.completeProbe(false,31);
+  assert(scan.progress.phase==SCAN_EXHAUSTED&&scan.progress.tested==18);
+  uint8_t ratios[]={0,1,0,1,0x27,0x0f};assert(validScanRatios(ratios));
+  ratios[5]=0x10;assert(!validScanRatios(ratios));ratios[4]=0;ratios[5]=0;assert(!validScanRatios(ratios));
+
   const std::string tmp="pending",path="day",backup="day.bak";
   FakeFS disk;disk.files[tmp]="new";disk.files[path]="old";
   assert(installArchive(disk,tmp,path,backup));assert(disk.files[path]=="new");assert(!disk.exists(backup));
@@ -85,5 +115,5 @@ int main(){
   t.newDay(DAY);poll(t,21600,23392,16);t.sample(BASE+23400,107);assert(t.day.slots[0].quality==PARTIAL);
   // Midnight does not silently mix counters from different dates.
   assert(!t.sample(BASE+86400,108));t.newDay(DAY+1);assert(!t.previous);assert(t.day.slots[0].quality==WAITING);
-  std::cout<<"PASS: archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
+  std::cout<<"PASS: scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
 }

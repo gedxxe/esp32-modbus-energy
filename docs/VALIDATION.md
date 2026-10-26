@@ -1,6 +1,6 @@
-# Hasil validasi — 22 Oktober 2026
+# Hasil validasi — 26 Oktober 2026
 
-Versi firmware yang diaudit: **1.0.1**. Perubahan dan temuan tersaji di [AUDIT](AUDIT.md).
+Versi firmware yang diaudit: **1.1.0**. Perubahan dan temuan tersaji di [AUDIT](AUDIT.md).
 
 ## Logika C++ — LULUS
 
@@ -8,6 +8,8 @@ Perintah: `tools/test.ps1`, compiler g++ dengan C++11 dan `-Wall -Wextra -Werror
 
 Kode yang diuji adalah header yang sama dengan firmware, bukan salinan algoritma dalam bahasa lain:
 
+- Scan: 4.446 kandidat unik, prioritas 18 mode pada ID aktif, rentang invalid, ID tunggal, konfigurasi invalid, batal/restart/selesai/ditemukan dan rollover millis.
+- Scan: rasio nol atau di atas 9999 ditolak; validasi CRC/ID/panjang tetap memakai helper firmware yang diuji di bawah.
 - Debounce 35 ms menghadapi bouncing saat tekan/lepas.
 - Long press 900 ms menghasilkan satu event tanpa event short press tambahan.
 - Debounce tetap bekerja ketika `millis()` melewati maksimum uint32.
@@ -28,16 +30,18 @@ HTML diambil langsung dari `firmware/include/web_ui.h`; HTTP API **disimulasikan
 
 - Enam baris pagi / tiga baris sore, pergantian tab.
 - Pengiriman sinkronisasi waktu, form slave/baud/parity, dan token sesi pada POST.
+- Scan: validasi rentang, token POST, progres dan tombol disabled saat running, reload mempertahankan rentang aktif, batal, hasil tidak otomatis diterapkan, terapkan hasil memperbarui form, tidak ditemukan, HTTP gagal dan timeout POST lima detik.
 - Meter offline menyembunyikan nilai daya; kegagalan API menampilkan bahwa data tidak diperbarui.
 - Tidak ada JavaScript page error dan tidak ada overflow horizontal viewport.
 - Screenshot desktop dan HP telah diperiksa visual; versi HP menampilkan kualitas setiap interval tanpa geser horizontal.
 - Versi API tampil pada footer dan sesuai `version.h`.
-- Sebanyak 15 SVG dirender; batas semua teks diperiksa agar tidak keluar viewBox. Diagram wiring, kontak tombol, arsitektur dan OLED juga diperiksa visual.
+- Sebanyak 16 SVG dirender; batas semua teks diperiksa agar tidak keluar viewBox. Diagram wiring, kontak tombol, arsitektur dan OLED juga diperiksa visual.
 
 Preview memakai angka simulasi, **bukan hasil pembacaan meter pabrik**:
 
 - [Preview desktop yang ditampilkan di README](assets/ui-desktop.png).
 - [Preview HP yang ditampilkan di README](assets/ui-mobile.png).
+- [Preview Scan Fort desktop](assets/ui-scan-desktop.png) dan [HP](assets/ui-scan-mobile.png), diperiksa visual tanpa teks terpotong/overflow.
 
 ## Dokumentasi dan kesiapan repository — LULUS LOKAL
 
@@ -50,10 +54,22 @@ Root `AGENTS.md`, README visual, panduan kontribusi, changelog, `.gitattributes`
 PlatformIO `pio run`, environment `esp32s3`, platform Espressif32 6.10.0 / Arduino ESP32 2.0.17. Build release menghasilkan `firmware.bin` dan `firmware.elf`, exit code 0. Build akhir tidak menghasilkan warning/error compiler.
 
 - Target ESP32-S3, CPU 240 MHz, flash 16 MB, QIO/OPI PSRAM; loop dan Arduino event task di core 0, akuisisi dipin ke core 1.
-- RAM statis: 46.904 dari 327.680 byte (14,3%). Angka ini belum mencakup seluruh alokasi heap/stack saat berjalan.
-- Program flash: 864.373 dari partisi aplikasi 6.553.600 byte (13,2%).
+- RAM statis: 47.056 dari 327.680 byte (14,4%). Angka ini belum mencakup seluruh alokasi heap/stack saat berjalan.
+- Program flash: 874.101 dari partisi aplikasi 6.553.600 byte (13,3%).
 - Firmware factory digabung memakai esptool 4.5.1: bootloader 0x0, partition table 0x8000, boot_app0 0xE000, aplikasi 0x10000.
+
+## Cirkit Designer — import bundle terverifikasi; boot 8 MB belum terverifikasi
+
+Uji importer historis pada 22 Oktober (sebelum fitur scan): dialog Choose firmware telah diperiksa langsung: menerima `.bin`/`.zip` dan mendukung beberapa file. Bundle dengan `firmware.bin`, `bootloader.bin`, dan `partitions.bin` dikenali sebagai Application, Bootloader, dan Partitions. Uji bundle hardware 16 MB berhasil melewati `invalid header: 0xffffffff` dan menjalankan bootloader, lalu berhenti karena emulator mendeteksi flash 8 MB sementara header menyatakan 16 MB.
+
+Environment khusus `cirkit` memakai flash/partisi 8 MB tanpa PSRAM. `pio run -e cirkit` selesai dengan exit code 0: program 870.581 byte, RAM statis 46.864 byte. `tools/package_cirkit.py` memverifikasi magic/chip ESP32-S3, header flash 8 MB, batas partisi, isi ZIP dan CRC ZIP sebelum menghasilkan `midea-fort-cirkit-8mb.zip`. Target hardware `esp32s3` juga dibangun ulang dan berhasil dengan ukuran yang sama seperti di atas.
+
+Uji boot bundle 8 MB belum selesai: tab browser pengujian mengalami timeout CDP saat pemilihan file/pemulihan sesi. Tidak ada klaim bahwa AP, OLED, RTC, Modbus atau boot penuh telah lulus di emulator.
 
 ## Belum diuji pada hardware
 
-Belum ada pengujian flash/boot ESP32-S3, UART dengan Fort fisik, I2C dengan OLED/DS3231, suara buzzer, tombol fisik, RTC battery backup, AP radio, multi-client HTTP pada perangkat, gangguan noise kabel, ketahanan power-cut flash, dan endurance pabrik. Tes browser memakai respons simulasi; tes C++ tidak menjalankan task/driver ESP-IDF. Ikuti `docs/COMMISSIONING.md` untuk uji penerimaan perangkat.
+Versi 1.1.0 belum di-flash/diuji pada perangkat pengguna. Log yang dikirim pengguna pada 23 Oktober menunjukkan aplikasi versi sebelumnya berhasil boot di ESP32-S3 tanpa modul terpasang; log itu bukan uji penerimaan versi scan. Belum ada pengujian scan UART dengan Fort fisik, I2C dengan OLED/DS3231, suara buzzer, tombol fisik, RTC battery backup, AP radio, multi-client HTTP pada perangkat, gangguan noise kabel, ketahanan power-cut flash, dan endurance pabrik. Tes browser memakai respons simulasi; tes C++ tidak menjalankan task/driver ESP-IDF. Ikuti `docs/COMMISSIONING.md` untuk uji penerimaan perangkat.
+
+## Paket rilis 1.1.0
+
+Paket dibuat ulang dari build final hardware dan simulator; binary app/factory dibandingkan dengan hasil build, komponen factory diperiksa pada offset masing-masing. `tools/package_cirkit.py` memvalidasi bundle simulator; `tools/package.py` memverifikasi CRC ZIP dan SHA-256 setiap file terhadap manifest. Tidak menyertakan `.pio`, direktori dependency atau file sementara. Proses build/paket tidak meng-upload atau mem-flash perangkat. Publikasi GitHub menggunakan commit source terpisah.

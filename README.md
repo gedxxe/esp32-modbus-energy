@@ -69,7 +69,7 @@ pio run -e esp32s3 --target upload --upload-port COM10
 pio device monitor -e esp32s3 --port COM10
 ```
 
-Replace COM10 with the board's actual port. If `pio` is not on PATH, use `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"` in its place. The VS Code equivalent is **Project Tasks → esp32s3 → General → Upload**. The default target has 16 MB flash and OPI PSRAM for N16R8; the `cirkit` target is only for the 8 MB simulator.
+Replace COM10 with the board's actual port. If `pio` is not on PATH, use `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"` in its place. The VS Code equivalent is **Project Tasks → esp32s3 → General → Upload**. The only supported target is `esp32s3`: 16 MB flash and OPI PSRAM for N16R8.
 
 The generated browser assets are committed with the firmware. A normal PlatformIO build verifies their hashes and **does not need Node or npm**. Install Node dependencies only when editing the web source; see [section 7](#7-browser-build-and-memory-use).
 
@@ -101,7 +101,7 @@ For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An applic
 
 ### Local controls
 
-PREV/NEXT cycle through the main, morning, evening, AP and diagnostics OLED pages. Inputs use internal pull-ups and a 35 ms stable debounce window.
+PREV/NEXT cycle through the main, morning, evening, AP and diagnostics OLED pages ([screen reference](docs/assets/oled-pages.svg)). Inputs use internal pull-ups and a 35 ms stable debounce window.
 
 | Control | Action |
 | --- | --- |

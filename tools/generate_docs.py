@@ -65,14 +65,6 @@ for name,key,label,icon,c in [
     ('rtclib','adafruit/RTClib','RTClib','clock',PURPLE),
     ('arduinojson','bblanchon/ArduinoJson','ArduinoJson','code',BLUE)]:badge(name,label,libs[key],c,icon)
 
-s=SVG(1400,360,'Midea Engineering Fort Modbus Energy Monitor')
-s.text(55,60,'MIDEA  /  ENGINEERING',18,BLUE,700);s.text(55,133,'Fort Modbus Energy Monitor',55,weight=700)
-s.text(55,181,'Imported kWh over Modbus RTU; scheduled half-hour records.',24,MUTED)
-s.text(55,229,'ESP32-S3 · Modbus RTU · RTC · OLED · Wi-Fi dashboard',19,MUTED)
-for i,(a,b) in enumerate([('9 INTERVALS','06.00–09.00 / 16.30–18.00'),('ACCESS POINT','192.168.4.1'),('FREERTOS','Acquisition + UI')]):
-    x=55+i*425;s.rect(x,265,400,65);s.text(x+18,291,a,12,BLUE,700);s.text(x+18,315,b,17)
-s.save('hero.svg')
-
 # Full schematic. Net labels are electrical connections, not physical header positions.
 s=SVG(1800,1320,'ESP32-S3, OLED, RTC, RS485, Fort, buttons and optional buzzer wiring')
 s.heading('Hardware wiring · Fort monitor','GPIOs from board.h · Confirmed 3.3 V RS485 module · ESP32 is the only master · Logical connections')

@@ -28,7 +28,7 @@ These tests execute the same header logic used by the firmware. They do not run 
 - Stale/offline status, retained last sample and hidden live power; mutation buttons remain disabled when disconnected, including after navigation.
 - Widths 320, 390, 768, 1440 and 2560 px without document overflow; reduced-motion rendering; no JavaScript page errors or external asset requests.
 - Vendored React Bits file contents match their recorded upstream Git blob hashes.
-- All **18 SVGs** rendered with text bounds inside their viewBox. Dashboard and phone screenshots were also inspected visually.
+- All **17 SVGs** rendered with text bounds inside their viewBox. Dashboard and phone screenshots were also inspected visually.
 
 Screenshots contain simulated data: [desktop](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [Indonesian phone](assets/ui-mobile-id.png), [scan](assets/ui-scan-desktop.png).
 
@@ -43,16 +43,15 @@ Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0*
 | /assets/app.css | 15755 | 4164 |
 | /assets/third-party.txt | 5755 | 1433 |
 
-Combined payload: **136669 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before both firmware builds. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
+Combined payload: **136669 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before the hardware firmware build. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
 
 ## Firmware — passed
 
-`pio run -e esp32s3 -e cirkit`, Espressif32 **6.10.0** / Arduino ESP32 **2.0.17**, exit code 0 for both. Final compile logs contained no compiler warnings/errors.
+`pio run -e esp32s3`, Espressif32 **6.10.0** / Arduino ESP32 **2.0.17**, exit code 0. Final compile logs contained no compiler warnings/errors.
 
 | Target | Static RAM / 327,680 bytes | Program / app partition |
 | --- | ---: | ---: |
 | ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,088 (14.4%) | 996,293 / 6,553,600 (15.2%) |
-| Cirkit profile, 8 MB flash / no PSRAM | 46,896 (14.3%) | 992,773 / 3,342,336 (29.7%) |
 
 Static RAM is not total runtime heap/stack use. Successful compilation does not measure HTTP transfer latency or validate physical UART turnaround. Hardware factory offsets are bootloader 0x0, partitions 0x8000, boot_app0 0xE000 and app 0x10000.
 
@@ -62,10 +61,14 @@ Static RAM is not total runtime heap/stack use. Successful compilation does not 
 
 The earlier 1.1.0 CI run passed logic/docs and browser but failed firmware setup because the pip cache searched for requirements.txt/pyproject.toml rather than requirements-dev.txt. The workflow now specifies the correct cache-dependency-path. It also checks the committed React build with pinned Node 24.22.1. Remote status for this source commit must be read from GitHub Actions; no remote pass is inferred from local results.
 
-## Hardware and emulator limits
+## Hardware limits
 
 Version 1.2.0 has not been flashed/tested on the user's physical board. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
 
 Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP radio under multiple clients, noise, power-cut recovery and endurance remain unverified on physical hardware. Neither a DOM test nor a C++ unit test covers them.
 
-Historical Cirkit importer tests recognized the three-role ZIP and passed the invalid-header stage with a 16 MB bundle, then stopped at the emulator's 8 MB size mismatch. The dedicated profile's image headers/partitions are checked for 8 MB. A complete emulator boot/AP/RTC/Modbus run is still unverified because the test browser session timed out. No new emulator acceptance claim is made here.
+## Repository maintenance
+
+After removing the obsolete test target/tooling and unused banner, `pio run -e esp32s3` passed with the same 47,088-byte static RAM / 996,293-byte program footprint. The 17 remaining SVGs rendered without text overflow. The Python source/header guard also passed after local Node dependencies were removed.
+
+The release packager selects the five named N16R8 BIN files explicitly. Temporary render/build files, installed dependencies and old release archives are removed after verification; the current hardware package, browser source/generated header, documentation assets and original Fort manual are retained. A later developer build recreates caches as needed.

@@ -2,6 +2,11 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+## Repository maintenance — 2026-10-26
+
+- Keep one supported N16R8 hardware target and package only its named flashing images.
+- Remove obsolete test-only tooling, stale release archives, build caches, temporary files and an unused banner asset.
+
 ## 1.2.0 — 2026-10-26
 
 - Rebuilt the dashboard as an offline React application with actual pinned React Bits FadeContent and SpotlightCard components.
@@ -18,7 +23,6 @@
 - Added range-limited Fort scanning across IDs 1–247, six baud rates and N/E/O parity, with progress/cancel/apply controls.
 - Validated candidates using energy and CT/PT function-03 responses; CRC, ID, count and ratio checks remain mandatory.
 - Kept UART access on core 1, interrupted interval continuity during scan, restored previous settings and required explicit application of results.
-- Added the separate 8 MB Cirkit profile and three-image ZIP packager without changing the physical N16R8 target.
 
 ## 1.0.1 — 2026-10-22
 

@@ -12,7 +12,7 @@ Firmware **1.2.0**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji pe
 
 Playwright dengan Microsoft Edge melayani **array gzip header firmware**, dengan JSON/CSV API simulasi. English default, pilihan Indonesia/format angka, persistensi reload, fallback storage terblokir, enam/tiga interval, config/time/token/CSV, scan/batal/reload/terapkan/hasil kosong, HTTP error dan timeout request lima detik telah diuji. Data hilang tidak dianggap nol. Status stale/offline dan tombol mutasi saat putus koneksi ikut diperiksa.
 
-Lebar 320–2560 px tidak mengalami overflow dokumen; reduced motion bekerja, tidak ada page error JavaScript atau request aset eksternal. Hash Git blob React Bits sesuai provenance upstream. Seluruh **18 SVG** dirender dengan teks di dalam viewBox. Screenshot desktop/HP diperiksa visual, termasuk [HP Indonesia](../assets/ui-mobile-id.png); semuanya memakai data simulasi.
+Lebar 320–2560 px tidak mengalami overflow dokumen; reduced motion bekerja, tidak ada page error JavaScript atau request aset eksternal. Hash Git blob React Bits sesuai provenance upstream. Seluruh **17 SVG** dirender dengan teks di dalam viewBox. Screenshot desktop/HP diperiksa visual, termasuk [HP Indonesia](../assets/ui-mobile-id.png); semuanya memakai data simulasi.
 
 ## Build dan payload — lulus
 
@@ -21,16 +21,19 @@ Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0*
 | Target | RAM statis / 327.680 byte | Program / partisi aplikasi |
 | --- | ---: | ---: |
 | ESP32-S3 N16R8, flash 16 MB / OPI PSRAM | 47.088 (14,4%) | 996.293 / 6.553.600 (15,2%) |
-| Cirkit, flash 8 MB / tanpa PSRAM | 46.896 (14,3%) | 992.773 / 3.342.336 (29,7%) |
 
-Kedua build exit code 0, tanpa warning/error compiler. RAM statis tidak mencakup seluruh heap/stack runtime. Kompilasi tidak mengukur latency HTTP atau turnaround UART fisik.
+Build hardware exit code 0, tanpa warning/error compiler. RAM statis tidak mencakup seluruh heap/stack runtime. Kompilasi tidak mengukur latency HTTP atau turnaround UART fisik.
 
 ## Dokumentasi dan paket
 
-Checker memeriksa link/anchor English–Indonesia bertingkat, 18 SVG, 31 sambungan netlist, pin, versi, lisensi dan hash web. Paket memuat source React/notice dependency, firmware/panduan/aset; app/factory dibandingkan dengan build, CRC ZIP dan SHA-256 manifest diverifikasi. Cache pip CI sebelumnya mencari file yang salah; workflow sekarang menunjuk requirements-dev.txt dan memeriksa aset React dengan Node terkunci. Status remote dibaca dari Actions untuk commit terkait, bukan diasumsikan dari tes lokal.
+Checker memeriksa link/anchor English–Indonesia bertingkat, 17 SVG, 31 sambungan netlist, pin, versi, lisensi dan hash web. Paket memuat source React/notice dependency, firmware/panduan/aset; app/factory dibandingkan dengan build, CRC ZIP dan SHA-256 manifest diverifikasi. Cache pip CI sebelumnya mencari file yang salah; workflow sekarang menunjuk requirements-dev.txt dan memeriksa aset React dengan Node terkunci. Status remote dibaca dari Actions untuk commit terkait, bukan diasumsikan dari tes lokal.
 
 ## Belum diuji secara fisik
 
 Versi 1.2.0 belum di-flash pada board pengguna. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
 
-Uji importer Cirkit sebelumnya mengenali ZIP tiga role dan melewati invalid header, lalu menolak image 16 MB pada emulator 8 MB. Profil 8 MB lolos validasi header/partisi, tetapi boot penuh/AP/RTC/Modbus emulator belum terverifikasi karena sesi browser timeout.
+## Pemeliharaan repository
+
+Setelah target/tooling uji lama dan banner yang tidak dipakai dihapus, `pio run -e esp32s3` lulus dengan RAM statis 47.088 byte dan program 996.293 byte. Seluruh 17 SVG tersisa dirender tanpa overflow. Guard Python untuk hash source/header juga lulus setelah dependency Node lokal dihapus.
+
+Packager memilih lima BIN N16R8 secara eksplisit. Hasil render/build sementara, dependency terpasang dan arsip versi lama dibersihkan setelah verifikasi. Paket hardware terbaru, source/header browser, aset dokumentasi dan manual Fort asli dipertahankan; proses build berikutnya membuat ulang cache yang diperlukan.

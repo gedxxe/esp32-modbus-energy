@@ -2,6 +2,11 @@
 
 # Changelog
 
+## Pemeliharaan repository — 2026-10-26
+
+- Pertahankan satu target hardware N16R8 dan masukkan hanya image flashing yang ditentukan ke paket.
+- Hapus tooling uji lama, arsip rilis usang, cache build, file sementara dan banner yang tidak dipakai.
+
 ## 1.2.0 — 2026-10-26
 
 - Dashboard React offline dengan React Bits FadeContent dan SpotlightCard asli yang dikunci commit upstream.
@@ -20,12 +25,6 @@
 - UART tetap dimiliki core 1; checkpoint interval diputus saat scan, setting lama dipulihkan, hasil diterapkan secara eksplisit.
 - Tambah pengujian enumerasi, transisi scan dan kontrol dashboard; tanpa perubahan setting meter.
 
-
-## Dukungan simulator — 2026-10-22
-
-- Tambah profil `cirkit` terpisah untuk flash 8 MB tanpa mengubah target N16R8 hardware.
-- Tambah pembuat bundle ZIP tiga role untuk importer Cirkit, dengan validasi header chip/kapasitas serta batas partisi.
-- Dokumentasikan perbedaan app-only, factory hardware, dan ZIP simulator berdasarkan pengujian importer/boot di Cirkit.
 
 ## Dokumentasi/lisensi — 2026-10-22
 

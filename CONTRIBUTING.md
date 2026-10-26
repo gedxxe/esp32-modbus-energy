@@ -22,7 +22,7 @@ python tools/check_docs.py
 npm run check:web
 npm run test:ui
 cd firmware
-pio run -e esp32s3 -e cirkit
+pio run -e esp32s3
 ```
 
 On Linux/macOS, replace the native-test command with:
@@ -43,14 +43,14 @@ Changes to frame parsing, interval quality, recovery or debounce need meaningful
 
 ## Version and package
 
-Keep `version.h`, `package.json`, lockfile, badges and changelog aligned. A package needs both hardware and simulator builds:
+Keep `version.h`, `package.json`, lockfile, badges and changelog aligned. A package uses the verified N16R8 hardware build:
 
 1. Compile after the last web/firmware edit.
 2. Copy the current hardware app, bootloader and partition BINs into `output/firmware/` and merge the factory image using the [documented offsets](docs/FLASHING.md).
-3. Run `python tools/package_cirkit.py`, then `python tools/package.py`.
+3. Run `python tools/package.py`.
 4. Check the manifest SHA-256 entries and ZIP integrity. Include web source, dependency notices, guides and diagrams; exclude build caches and installed dependencies.
 
-`output/`, `.pio/`, `node_modules/` and temporary files are ignored by Git. Source publication and release-asset publication are separate operations. Do not substitute a binary-only ZIP for source.
+`output/`, `.pio/`, `node_modules/` and temporary files are ignored by Git. Local build caches and installed dependencies may be removed after verification; PlatformIO restores its libraries/build output, and `npm ci` restores web development dependencies. Keep the committed browser header/manifest and documentation assets. Source publication and release-asset publication are separate operations. Do not substitute a binary-only ZIP for source.
 
 ## Third-party code
 

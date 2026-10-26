@@ -6,6 +6,8 @@ Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a Fort powe
 
 The root Fort PDF is the primary meter reference. It is a scanned document. Verify the relevant page image before changing terminal assignments, registers, scaling, or protocol details. The documented meter communication terminals are 58/A and 59/B. Terminal 70/COM belongs to the switch inputs and is not an RS485 ground connection.
 
+The only supported build/release target is `esp32s3` for the physical N16R8 board. Keep experimental tooling and generated caches out of the deployable source/package.
+
 ## Sources of truth
 
 - `firmware/platformio.ini`: target, platform, pinned library versions, flash/PSRAM, core affinity.

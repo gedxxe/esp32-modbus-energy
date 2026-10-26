@@ -33,21 +33,6 @@ python -m esptool --chip esp32s3 --port COM10 --baud 460800 write_flash 0x0 mide
 
 Do not write an app-only image at 0x0. Factory flashing resets initial app-selection metadata; use PlatformIO for normal updates. The dashboard is stored in firmware flash, so there is no separate web filesystem upload. CSV filesystem contents are not included in the factory image. On a new board, initialize storage with the physical OK-at-boot procedure in the [README](../README.md#3-first-startup-and-meter-scan).
 
-## Cirkit simulator
-
-The observed Cirkit ESP32-S3 emulator reports 8 MB flash. Its profile is separate from the physical N16R8 target:
-
-```powershell
-cd firmware
-pio run -e cirkit
-cd ..
-python tools/package_cirkit.py
-```
-
-In **Choose firmware**, select `midea-fort-cirkit-8mb.zip` without extracting it. The importer should display `firmware.bin` as Application, `bootloader.bin` as Bootloader and `partitions.bin` as Partitions. The dialog accepts ZIP or multiple BIN files even though it has one chooser button.
-
-Observed importer tests: app-only lacked the bootloader/partition images; a three-file 16 MB bundle passed the initial invalid-header stage but was rejected because the emulator had 8 MB. The dedicated profile declares 8 MB and does not enable PSRAM. Successful compilation/header checks do not establish a complete simulator boot or emulated AP/RTC/Modbus support. See [VALIDATION](VALIDATION.md).
-
 ## Rebuild browser assets
 
 From the repository root:

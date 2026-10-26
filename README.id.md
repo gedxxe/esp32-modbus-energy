@@ -68,7 +68,7 @@ pio run -e esp32s3 --target upload --upload-port COM10
 pio device monitor -e esp32s3 --port COM10
 ```
 
-Ganti COM10 sesuai port board. Jika `pio` tidak ada di PATH, pakai `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"`. Melalui VS Code: **Project Tasks → esp32s3 → General → Upload**. Environment `esp32s3` memakai flash 16 MB dan PSRAM OPI untuk N16R8; `cirkit` hanya untuk emulator 8 MB.
+Ganti COM10 sesuai port board. Jika `pio` tidak ada di PATH, pakai `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"`. Melalui VS Code: **Project Tasks → esp32s3 → General → Upload**. Satu-satunya target yang didukung adalah `esp32s3`, memakai flash 16 MB dan PSRAM OPI untuk N16R8.
 
 Aset browser hasil build ikut disimpan bersama source firmware. Build PlatformIO biasa memeriksa hash aset dan **tidak memerlukan Node/npm**. Node diperlukan saat mengubah source web, dijelaskan pada [bagian 7](#7-build-dashboard-react).
 
@@ -97,7 +97,7 @@ PlatformIO memasang dependency firmware otomatis. Versi dikunci pada [platformio
 
 ### Kontrol lokal
 
-PREV/NEXT berpindah di antara halaman utama, pagi, sore, AP dan diagnostik OLED. Tombol memakai pull-up internal dengan debounce stabil 35 ms.
+PREV/NEXT berpindah di antara halaman utama, pagi, sore, AP dan diagnostik OLED ([referensi layar](docs/assets/oled-pages.svg)). Tombol memakai pull-up internal dengan debounce stabil 35 ms.
 
 | Kontrol | Aksi |
 | --- | --- |

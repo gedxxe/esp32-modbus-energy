@@ -5,6 +5,14 @@
 
 
 
+
+## Diagnostik mandiri 1.2.0 — 2026-10-26
+
+- Konfigurasi Serial tervalidasi untuk pin/timing UART, probe, daftar/mode scan, rencana raw register, alamat/scale/order dan toggle decode.
+- Antrean terbatas mempertahankan perintah saat menunggu; stop membatalkan antrean, prefixHEX tidak memicu stop dan inputinvalid tidak mengubah setting.
+- Rombak panduan bilingual menjadi delapan resep, arti hasil dan tindakan berikutnya. Semua resep dieksekusi melalui INO sebenarnya pada tes host.
+- Fungsi03/integritas/storage tetap ketat. Firmware utama tetap1.3.0.
+
 ## Diagnostik mandiri 1.1.0 — 2026-10-26
 
 - Pisahkan RX pasif tanpa TX, respons protokol dan validasi profil energi; tambahkan basic/intermediate/deeper/diagnose dan baca raw terbatas.

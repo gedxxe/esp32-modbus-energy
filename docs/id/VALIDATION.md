@@ -61,3 +61,7 @@ FortSerialDebug.ino berhasil dikompilasi sebagai sketch Arduino dengan core 2.0.
 ## Diagnostik mandiri berlapis 1.1.0 — diuji lokal
 
 Gambar manual PDF18,27,30 diperiksa visual; ambiguitas panjang energi tetap dicatat. Sketch lulus kompilasi core2.0.17 tanpa warning, RAM19.396 byte/program320.741 byte. tools/test.ps1 juga menjalankan INO sebenarnya dengan UART/Serial tiruan: RX pasif tanpa TX, respons/exception sah, tolak ID/CRC/echo salah, scan transport terpisah dari profil energi, exception tidak menghasilkan kWh, konversi valid, hanyaFC03, batasregister/abort/counter UART. Ini bukti perilaku kode, bukan bukti sinyal A/B atau mapping hardware sudah benar. Firmware utama tetap1.3.0.
+
+## Diagnostik runtime 1.2.0 — diuji lokal
+
+Suite INO sebenarnya lulus untuk konfigurasi probe/pin/timeout/interval, mode/daftarscan, tolakduplikat/inputinvalid, batasplan, decodeoff tanpaTX/kWh, perubahan alamat/scale/order, antreansaatUARTsibuk, komentar/prefixHEX, overflow/stop serta delapan resepTXT. Semua resep selesai tanpa unknown-command/antreanpenuh; semua request tetap8byteFC03 berCRCvalid dan IDnonbroadcast. Sketch S3 lulus tanpa warning: RAMstatis21.068byte, program323.793byte. Firmwareutama1.3.0/asetbrowser tidak berubah; kualitas sinyal/timing/maphardware belum dibuktikan.

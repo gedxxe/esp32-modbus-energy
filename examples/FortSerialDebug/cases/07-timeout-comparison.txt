@@ -1,0 +1,9 @@
+# Same request/settings, different response budgets. Does not bypass CRC.
+x
+probe 0034 1
+stats clear
+timeout 300
+intermediate
+timeout 1500
+intermediate
+status

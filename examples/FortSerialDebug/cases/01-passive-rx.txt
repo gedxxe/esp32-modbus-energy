@@ -1,0 +1,8 @@
+# Basic RX only. No Modbus request is sent by listen.
+x
+pins 18 17
+baud 9600
+parity N
+stats clear
+listen 5
+status

@@ -1,85 +1,105 @@
-# Fort serial diagnostic 1.1.0 — ESP32-S3
+# FortSerialDebug 1.2.0 — field diagnostic guide
 
 **English** · [Bahasa Indonesia](README.id.md) · [Main firmware](../../README.md)
 
-Open [FortSerialDebug.ino](FortSerialDebug.ino) in Arduino IDE. This standalone sketch uses only the Arduino ESP32 core: no SSD1306, RTC, JSON, Wi-Fi or Modbus library. It replaces the running dashboard application while installed. Use the main firmware again after the diagnostic session.
+Open [FortSerialDebug.ino](FortSerialDebug.ino). It needs only the Espressif Arduino core, with no external libraries. This is a separate application: the dashboard/interval tracker does not run while this sketch is installed. Reader settings are RAM-only and the meter receives function 03 only.
 
-## Wiring
+## Start without changing the installation
 
-- GPIO17: ESP32 UART1 TX → the module's TTL **input**.
-- GPIO18: ESP32 UART1 RX ← the module's TTL **output**.
-- ESP32 3V3 → module VCC; ESP32 GND → module TTL GND.
-- Module A+ → Fort 58/A; B− → Fort 59/B. Fort 70/COM is not RS485 ground.
-- The pictured four-pin module controls direction automatically. GPIO16 is unused by this sketch. The confirmed installation wiring is module RXD → GPIO17 and module TXD → GPIO18; keep it unchanged for this diagnostic.
-
-OLED, RTC, switches and buzzer are not needed. No supply is taken from the Fort communication terminals.
-
-## Arduino IDE
-
-1. Install **esp32 by Espressif Systems** in Boards Manager. Local compilation was checked with Arduino ESP32 **2.0.17** through PlatformIO; the Arduino IDE GUI and other core versions were not tested.
-2. Open the sketch folder. Keep its [partitions.csv](partitions.csv) beside the INO to match the main firmware's 16 MB partition layout. The sketch does not read/write NVS or mount/format a filesystem. Keep **Erase All Flash Before Sketch Upload → Disabled**; export important records before diagnostic reflashing.
-3. Select **ESP32S3 Dev Module**, flash **16MB**, PSRAM **OPI PSRAM**. For the native USB connector choose **USB Mode: Hardware CDC and JTAG**, **USB CDC On Boot: Enabled**. If using a USB-UART bridge, select that port and the serial routing appropriate to it.
-4. Verify and upload. If automatic upload does not enter download mode, hold BOOT while tapping RESET, then release BOOT and retry upload.
-5. Open Serial Monitor at **115200 baud**, line ending **Newline**. Send `help` if needed. The sketch never waits indefinitely for a USB terminal to attach.
-
-PlatformIO users can run `pio run -d examples/FortSerialDebug` from the repository root; this uses the included optional configuration with the same core version and no external libraries.
-
-## One-command diagnosis, with existing wiring unchanged
-
-Serial Monitor: **115200 + Newline**. Send `diagnose`. It listens passively for 3 seconds, probes the configured slave, then audits documented registers if a valid response/exception is received. The default reader settings are ID 1 / 9600 / 8N1; set them from the meter menu when known. This does not start a full scan.
-
-| Level / command | What it establishes | Limits |
-| --- | --- | --- |
-| `basic` or `listen 10` | RX bytes and UART error counters, without sending a Modbus request | Quiet RX is normal for a slave waiting for its master; not proof of a disconnected bus |
-| `intermediate` | FC03 0x0034 response, including a CRC-valid matching exception | Confirms a protocol reply, not the kWh map or meter identity |
-| `deeper` | Independent raw reads of 0x0034, 0x0035, 0x002C–0x002E, 0x0080, 0x0082–0x0083 and 0x008A–0x008B, then kWh/CT/PT validation | Raw words are not silently interpreted as another unit or word order |
-| `reg 0082 2` | One read-only raw query; HEX PDU address, 1–3 words | Strict range/CRC/ID/function/length checks; no address offset is applied |
-| `status` | Reader settings and cumulative parity/framing/FIFO/buffer/break counters | Driver observations, not a measurement of differential A/B voltage |
-
-The UART callback increments atomic counters only. The main loop prints them, avoiding console writes from the driver task. `x` also works without waiting for a newline while scan/poll is active.
-
-## Optional isolation comparison: A/B disconnected at the ESP32 module
-
-Send each line separately:
+1. Keep module TXD → ESP32 GPIO18 and module RXD ← GPIO17, as confirmed for this installation. Module VCC → ESP32 3V3, TTL GND → GND, A+ → Fort58/A, B− → Fort59/B. Automatic direction: GPIO16 unconnected. Fort70/COM is not RS485 ground.
+2. Open the INO in Arduino IDE and keep [partitions.csv](partitions.csv) beside it. Choose ESP32S3 Dev Module / 16 MB flash / OPI PSRAM. For native USB: Hardware CDC and JTAG, USB CDC On Boot Enabled. Erase All Flash Disabled.
+3. Upload and open Serial Monitor at **115200 + Newline**. Locally compiled with Arduino ESP32 2.0.17 through PlatformIO; the IDE GUI and other core versions are not acceptance-tested.
+4. Send the following block. It uses the current installation defaults; change ID/baud/parity from the meter menu when known. All parameters below are runtime commands, not source edits.
 
 ```text
-range 1 1
-scan
-```
-
-This tests ID 1 at six baud rates × N/E/O parity (18 combinations). Keep the TTL/power wiring connected. A quiet, disconnected receive path should show no valid meter reply. Repeated `EXACT_TX_ECHO` proves an 8-byte received frame equals that attempt's request; it does not locate the physical loopback. `CRC MISMATCH`, short frames or other RX activity remain untrusted data. Save the complete Serial output, including TX and RX, for comparison.
-
-Next reconnect the Fort A/B pair and repeat the same test. Change one variable at a time. If the actual slave ID is unknown, expand the range:
-
-```text
-range 1 247
-scan
-```
-
-The full search has **4,446 candidates** at 1200/2400/4800/9600/19200/38400, each with 8N1/8E1/8O1. It can take about an hour or more without replies; it is not a search of every possible UART format. Send **x** to abort, including during an 800 ms response wait. During busy waits only x is processed; send other commands after stopping.
-
-`COMM_FOUND` requires a matching CRC/ID/function/length response to FC03 register 0x0034, or a valid matching FC03 exception. This establishes a Modbus reply independently of energy/CT/PT compatibility; it does not authenticate a Fort model. The sketch selects reader settings in RAM, then use `deeper` to test the energy profile. It never reconfigures the meter.
-
-## Read once or continuously
-
-Use the communication settings from the Fort menu when available:
-
-```text
+x
+pins 18 17
 id 1
 baud 9600
 parity N
-read
-poll
+timeout 800
+stats clear
+diagnose
 ```
 
-`read` requests the energy counter and CT/PT once. `poll` toggles repeated reads with a 2-second target; retries/timeouts and printing may lengthen the interval. `status` reports reader settings. `x` stops polling/scan. No communication settings are persisted.
+`diagnose` listens without TX for three seconds, probes communication, then runs the configured raw-register plan when a valid response/exception exists. A failed map does not cancel the evidence of a valid Modbus reply. The passive stage checks the selected UART format only; silence is normal for an unpolled slave.
 
-The secondary unsigned 32-bit counter is read from **0x0082–0x0083**, high word/byte first. PT numerator/denominator/CT come from **0x002C–0x002E**. Primary imported kWh is `raw × 0.001 × PT numerator / PT denominator × CT`, calculated in double with the ratio applied once. These match the main firmware and the manual references in [DESIGN](../../docs/DESIGN.md#fort-register-reference).
+## Choose the test by the observation
 
-## What the logs mean
+| Observation | Use | What to decide next |
+| --- | --- | --- |
+| No RX bytes | [01 passive RX](cases/01-passive-rx.txt), then [02 single request](cases/02-echo-or-no-reply.txt) | Separate silence without TX from silence after a request. Neither alone proves a wiring fault. |
+| Exact request returns to RX | [02 echo/no reply](cases/02-echo-or-no-reply.txt) | TX=RX is echo evidence, not a meter response. Compare context and UART errors; do not assume its physical source. |
+| CRC/parity/framing errors | [03 serial matrix](cases/03-serial-matrix.txt) | Compare the same ID across configured baud/parity modes; inspect driver counters and raw bytes. A wrong register by itself does not validate corrupted data. |
+| CRC-valid exception | [04 exception/register](cases/04-register-exception.txt) | Communication replied; inspect exception code and the queried address/count independently. |
+| Communication works, energy profile does not | [05 raw map audit](cases/05-raw-map-audit.txt) | Disable conversion, compare raw words/register support; no fabricated kWh. |
+| Raw energy and ratios look plausible | [06 configured kWh](cases/06-configured-kwh.txt) | Decode with explicitly logged addresses/scale/order and compare the corresponding meter energy page. |
+| Response may be late | [07 timeout comparison](cases/07-timeout-comparison.txt) | Hold ID/baud/parity/register constant and change timeout. A longer timeout does not bypass CRC. |
+| Word order is uncertain | [08 word-order comparison](cases/08-word-order-comparison.txt) | Compare labeled normal/swapped interpretations. The sketch does not automatically choose whichever number looks plausible. |
 
-Each request prints uptime, slave, baud/parity, register, count and TX hex. Each observed RX frame prints hex, calculated/received CRC and validation outcome. A response must pass all checks before its data is used. A valid exception reports its code but is not accepted as an energy reading.
+Each linked TXT is a command recipe. Paste one recipe at a time; its `#` lines are comments. The console queues up to **16 complete commands**, including while a UART wait/listen is active; each line is at most **95 characters**. Queue/line overflow is reported explicitly. **x** immediately aborts and cancels queued commands. Commands following an ongoing scan are deferred until scan finishes. Upload once, select different tests through Serial.
 
-An exact standalone request echo is logged and rejected; the receiver continues waiting within the original deadline for a separate valid response. Concatenated/ambiguous data is not blindly stripped or accepted. A no-byte timeout is distinguished from RX activity without any valid response. RX storage is capped at **64 bytes per frame**, the receive wait at **800 ms**, and detailed frame logging at **four frames per request**. Extra frames are still validated; a valid result/exception is always reported. RX observations come from the UART buffer, not per-byte oscilloscope timestamps. An aborted/incomplete frame is not accepted. Serial output changes timing, so this is a diagnostic tool rather than a timing acceptance test.
+## Runtime reference
 
-Only Modbus **function 03** is transmitted. There are no register writes, broadcast probes, resets, NVS writes or automatic filesystem formatting. Compilation is not evidence of successful operation on the user's Fort installation.
+| Command | Meaning and accepted values |
+| --- | --- |
+| `help`, `status` | Help or full settings, scan lists, audit plan and UART counters |
+| `basic`, `listen 10` | Passive RX for 5 seconds or specified 1–30 seconds; no Modbus request |
+| `intermediate`, `diagnose`, `deeper` | Probe only; staged diagnosis; raw plan plus optional configured energy decode |
+| `id 7` | Reader target 1–247; broadcast ID0 is never used |
+| `baud 19200`, `parity E` | Reader baud 1200–1000000; parity N/E/O, 8 data bits, 1 stop bit. Fort manual lists 1200–38400; wider diagnostic rates are experiments, not claims of device support. |
+| `pins 18 17` | RX GPIO then TX GPIO, distinct. Guarded choices: 10–18,21,39–42,47. USB, flash/PSRAM, boot/console and the known I2C/button/buzzer/RGB pins are excluded. Default wiring remains18/17. |
+| `timeout 1200` | Response budget 50–5000 ms, starts after TX flush |
+| `interval 3000` | Repeated-read target 100–60000 ms; actual reads/printing can take longer |
+| `probe 0080 1` | Set scan/intermediate probe: HEX PDU address, 1–3 words |
+| `reg 0082 2` | One bounded raw read; HEX address (optional0x), 1–3 words; no40001 translation |
+| `range 1 16` | Inclusive scan ID range |
+| `scanmode current` | Scan selected IDs with current baud/parity only |
+| `scanmode matrix` | Scan selected IDs across configured baud/parity lists |
+| `bauds 9600 19200` | Replace list with 1–6 unique decimal rates; validated atomically |
+| `parities NE` | Replace list with 1–3 unique N/E/O modes |
+| `scan` | Probe configured combinations. Stop on matching valid data or exception, separately from energy profile. No settings are written to the meter. |
+| `plan clear`, `plan add 0080 1`, `plan show` | Configure up to8 raw read queries for deeper; HEX addresses/count1–3 |
+| `energy 0082`, `ratios 002C` | Set 2-word UInt32 energy and 3-word PT numerator/PT denominator/CT locations |
+| `scale 0.001`, `order normal`, `order swap` | Positive finite scale1e-12–1e6 and UInt32 high/low word ordering; interpretation is printed explicitly |
+| `decode off`, `decode on` | Disable/enable kWh interpretation, including read/poll; raw reg/plan remains available |
+| `read`, `poll` | One configured kWh/CTPT reading or toggle repeated reads |
+| `stats clear`, `x` | Clear local UART error counters; abort/cancel queued work |
+
+Successful configuration changes print settings. Invalid values leave the old setting intact. Changes are not persisted; restart restores defaults. Changing UART/profile settings stops polling, so a partially applied multi-line configuration does not generate automatic reads. Function03, frame integrity and storage protections are fixed safety boundaries, not arbitrary runtime overrides.
+
+## Scan size and elapsed time
+
+Default matrix: IDs1–247 × six documented baud rates × N/E/O = **4,446 candidates**. For an initial test use one ID and the configured format:
+
+```text
+x
+range 1 1
+scanmode current
+probe 0034 1
+scan
+```
+
+For a limited matrix, use case03 or set smaller lists. Current mode has `ID count` candidates; matrix has `ID count × baud count × parity count`. No-reply time is roughly candidates × timeout plus transmission/silent-gap/printing costs. At the default800ms, a full silent scan is about an hour or longer. `status` prints the actual candidate count; `x` cancels immediately during waits.
+
+## Read the result, then choose an action
+
+| Log | Meaning | Next action |
+| --- | --- | --- |
+| `COMM_FOUND` / `VALID_RESPONSE` | Matching ID/function/count/length/CRC response | Continue the raw map, then compare configured decoding with the meter |
+| `COMM_VALID_EXCEPTION` | Matching ID, FC83 and valid CRC | Code01: check documented function/model;02: address/count/map;03: quantity/value constraints;04: device-side failure. The sketch does not clear/reset the meter. |
+| `EXACT_TX_ECHO` | Complete RX frame equals the8-byte request | Remains rejected; receiver waits for a separate valid response within the same budget |
+| `MISMATCH`, `SHORT_FRAME`, `WRONG_FRAME` | Corrupt/incomplete or incompatible response shape | Preserve hex and UART counters; compare formats/timing before inferring an address-map fault |
+| `TIMEOUT` | No RX bytes during the request budget | Compare passive/single/matrix tests; no automatic wiring verdict |
+| `NO_VALID_RESPONSE` | Some RX, no accepted data/exception | Distinguish echo, corruption and shape mismatch using accompanying logs |
+| `RX_OVERFLOW` | Only the first64 bytes of an oversized frame retained | Result rejected; inspect traffic volume and driver FIFO/buffer counters |
+| `DECODE_DISABLED` / `PROFILE_NOT_CONFIRMED` | Conversion disabled or energy/CTPT rejected | Use raw plan; a prior valid protocol reply is still valid evidence |
+| `UART_EVENTS` | Cumulative parity/framing/FIFO/buffer/break events and RX logic state | `stats clear` starts a comparison. Zero counters do not prove clean differential A/B signaling. |
+
+The default map follows the visually checked manual pages: energy0x0082–83, PT/CT0x002C–2E, scale0.001, high word/byte first. The manual visibly prints energy length3 despite two addresses and ulong type; retain that ambiguity. Configuring another address/scale/order is an explicitly labeled experiment, not independent verification of that map. Primary float words are raw-audited, not guessed into a kWh value. [Manual audit](../../docs/DESIGN.md#manual-visual-audit-and-diagnostic-follow-up--26-october-2026).
+
+## Boundaries and verification
+
+No register writes, broadcast, meter resets, NVS writes or filesystem operations. No DE pin used for the supplied automatic module. RX64 bytes/frame; detailed logging capped at4 frames/request, passive logging8 chunks; remaining traffic is still counted/validated. Callback error counts are atomic and console output stays in loop context. UART buffer timing is not a logic-analyzer measurement; no RX does not prove no signal on A/B. Serial output itself affects timing.
+
+Tests execute the actual INO with deterministic host UART/console mocks, including runtime settings, invalid values, multiple result classes, queuing, stop and conversion. PlatformIO compiles this sketch independently (`pio run -d examples/FortSerialDebug`). Hardware timing/mapping and the Arduino IDE GUI remain untested. Restore the main firmware after diagnostics; keep partition CSV and flash-erase selection consistent with its guide.

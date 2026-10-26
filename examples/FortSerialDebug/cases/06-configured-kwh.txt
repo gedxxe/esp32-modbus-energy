@@ -1,0 +1,9 @@
+# Manual-based UInt32 secondary counter; compare with correct meter page.
+x
+energy 0082
+ratios 002C
+scale 0.001
+order normal
+decode on
+read
+status

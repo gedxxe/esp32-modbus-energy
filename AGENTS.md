@@ -20,7 +20,7 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `firmware/include/energy.h`: interval schedule, continuity and quality logic, CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
 - `firmware/include/trace.h`: fixed-size passive UART capture and diagnostic classification; never bypass CRC/frame validation or silently strip echo bytes in the main firmware.
-- `examples/FortSerialDebug/`: standalone Arduino diagnostic; keep it read-only and independent of external libraries.
+- `examples/FortSerialDebug/`: standalone Arduino diagnostic; keep it read-only and independent of external libraries. Runtime options and the eight cases/*.txt recipes must match both language guides and the actual-INO host tests. Do not collapse transport detection into energy-profile acceptance.
 - `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding.
 - `firmware/src/main.cpp`: hardware drivers, RTOS ownership, persistence and HTTP API.
 - `docs/DESIGN.md`: manual page references and documented limitations.

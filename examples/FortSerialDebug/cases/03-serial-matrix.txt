@@ -1,0 +1,11 @@
+# One ID, six baud rates, three parity modes; no energy-profile requirement.
+x
+range 1 1
+bauds 9600 19200 38400 4800 2400 1200
+parities NEO
+scanmode matrix
+probe 0034 1
+timeout 800
+stats clear
+scan
+status

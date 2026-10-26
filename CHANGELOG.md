@@ -4,6 +4,14 @@
 
 
 
+
+## Standalone diagnostic 1.2.0 — 2026-10-26
+
+- Add validated Serial configuration for UART pins/timing, probe, ID/format scan lists/mode, raw-register plan and energy address/scale/word order/decode toggle.
+- Preserve commands typed during waits in a bounded queue; emergency stop clears queued work, HEX prefixes do not abort, and invalid input leaves configuration intact.
+- Rewrite English/Indonesian field guides around eight pasteable case recipes, result interpretation and next actions. Execute every recipe through the real INO in host tests.
+- Keep function03 and integrity/storage constraints fixed. Main firmware remains1.3.0.
+
 ## Standalone diagnostic 1.1.0 — 2026-10-26
 
 - Separate passive RX/no-TX, protocol response and energy-profile checks; add basic/intermediate/deeper/diagnose and bounded raw register commands.

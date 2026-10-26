@@ -1,0 +1,9 @@
+# Use a known responsive reader ID/format; adjust via runtime commands first.
+x
+stats clear
+probe 0034 1
+intermediate
+reg 0034 1
+reg 0080 1
+reg 0082 2
+status

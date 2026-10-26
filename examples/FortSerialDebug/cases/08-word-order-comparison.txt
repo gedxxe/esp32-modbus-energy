@@ -1,0 +1,11 @@
+# Experimental interpretations of the same UInt32 register pair; neither is auto-selected.
+x
+decode on
+energy 0082
+ratios 002C
+scale 0.001
+order normal
+read
+order swap
+read
+status

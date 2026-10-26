@@ -5,6 +5,13 @@
 
 
 
+## Standalone diagnostic 1.3.0 — 2026-10-26
+
+- Continue the configurable raw register plan after a silent first probe; report protocol evidence independently of configured kWh decoding.
+- Add optional RX weak-bias observation and paired user-labeled A/B captures, with configuration/abort guards and explicit unresolved physical states.
+- Rewrite field instructions to name Serial Monitor INPUT, Enter/Send and OUTPUT copied to support; label all eight recipes. Add an automatic-module wiring diagram and correct assembly guides.
+- Reinspect PDF register images; audit the ambiguous energy entry with raw one/two/three-word reads. Extend actual-INO tests; main firmware stays 1.3.0.
+
 ## Standalone diagnostic 1.2.0 — 2026-10-26
 
 - Add validated Serial configuration for UART pins/timing, probe, ID/format scan lists/mode, raw-register plan and energy address/scale/word order/decode toggle.

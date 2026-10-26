@@ -15,7 +15,7 @@
 
 1. Hubungkan ESP32 sebagai satu-satunya master pada port Modbus Fort yang masih kosong. Ambil foto/nota setting komunikasi meter.
 2. Cek slave ID, baud, parity pada menu meter. Firmware mulai ID 1, 9600, 8N1. Setting yang sebenarnya bisa berbeda walaupun manual dari box yang sama.
-3. Hubungkan pasangan RS485, gunakan reference/proteksi sesuai panel. Jika tidak ada respons, cek A/B, arah RO/DI, DE-/RE, ground reference, terminasi, dan setting komunikasi. Jangan terus mengganti alamat register saat masalahnya ada pada kabel.
+3. Pertahankan wiring otomatis terkonfirmasi TXD→GPIO18/RXD←GPIO17, GPIO16 tidak disambungkan. Tanpa respons belum menunjukkan lokasi masalah: nilai bukti UART, setting serial dan dukungan register secara terpisah. RO/DI/DE-/RE hanya alternatif manual.
 4. Lihat CRC/timeout. Keduanya tidak harus nol seumur hidup, tetapi pertambahan terus menerus saat uji steady-state harus diselidiki.
 5. Bandingkan **energi impor positif primer** dashboard dengan halaman energi impor yang sesuai di Fort. Jangan membandingkan terhadap net energy, energi ekspor, kvarh, atau penjumlahan energi dua arah.
 6. Catat rasio CT/PT dari meter dan bandingkan dengan rasio web. Jika angka berbeda tepat faktor CT/PT, hentikan penerimaan data dan verifikasi tipe register serta setting meter.
@@ -68,5 +68,5 @@ Pastikan English muncul pertama kali, pilihan Indonesia bertahan setelah reload,
 1. Firmware utama: Koneksi meter / Diagnostik TX/RX mentah, mulai capture lalu scan satu ID. Periksa metadata baud/parity/ID/register dan hasil berhenti pada 12 percobaan atau saat Hentikan. Unduh TXT.
 2. Ulangi dengan A/B dilepas pada sisi modul ESP32, TTL/power tetap tersambung. RX saat ini bukan balasan Fort. Bedakan echo persis, byte rusak dan timeout tanpa byte; counter error bukan bukti koneksi valid.
 3. Modul yang difoto memakai arah otomatis dan empat pin TTL; GPIO16 tidak disambungkan. Periksa arah input/output TTL sebelum mengubah kabel. Wiring terlapor: TXD modul ke GPIO18, RXD modul ke GPIO17.
-4. Untuk Arduino mandiri ikuti panduan sketch dari README. Serial 115200/Newline, `range 1 1`, `scan`. Simpan log TX/RX/CRC saat A/B terlepas dan tersambung. x menghentikan. Sketch menggantikan aplikasi utama sementara dan tidak mencatat intervalnya.
+4. Untuk Arduino mandiri ikuti [panduan lapangan](../../examples/FortSerialDebug/README.id.md). Arduino IDE **Tools → Serial Monitor**, pilih **115200/Newline**. Ketik `x`, Enter; `status`, Enter; `diagnose`, Enter. Tunggu `[REPORT_END]`. Salin **OUTPUT** bergulir (setting/TX/RX/CRC/report) ke chat. Perintah masuk INPUT Serial Monitor; log dikirim ke chat. Uji dua keadaan opsional memerlukan perubahan fisik hanya A/B pada sisi modul di antara `check connected` dan `check isolated`; keadaan itu label operator. Sketch menggantikan aplikasi utama sementara.
 5. Upload firmware utama lagi, periksa arsip/waktu/setting sebelum melanjutkan penerimaan interval. Kompilasi atau mock tidak membuktikan meter pengguna ditemukan.

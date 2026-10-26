@@ -9,6 +9,8 @@ std::vector<uint8_t> frame(std::initializer_list<uint8_t> data) {
   result.push_back(uint8_t(crc));result.push_back(uint8_t(crc>>8));return result;
 }
 void resetDebug() {
+  evidence=Evidence{};connectedCapture=Capture{};isolatedCapture=Capture{};
+  meter.scheduled.clear();meter.ready=true;meter.writeLimit=256;testRxDrive=1;firstID=1;lastID=247;
   scanning=false;polling=false;abortRequested=false;lastReply=REPLY_NONE;
   options=DebugOptions{};baudCount=6;parityCount=3;uint32_t rates[]={9600,19200,38400,4800,2400,1200};memcpy(BAUDS,rates,sizeof(rates));memcpy(PARITIES,"NEO",3);consoleHead=consoleTail=consoleCount=consoleUsed=0;consoleDiscard=false;
   auditCount=6;Query defaults[]={{0x34,1},{0x35,1},{0x2c,3},{0x80,1},{0x82,2},{0x8a,2}};memcpy(auditPlan,defaults,sizeof(defaults));
@@ -57,6 +59,50 @@ int main() {
   resetDebug();for(int i=0;i<17;++i)for(char ch:std::string("status\n"))Serial.input.push_back(ch);while(Serial.available())pumpConsole();
   assert(consoleCount==16&&Serial.output.find("CONSOLE_FULL")!=std::string::npos);Serial.input={'x'};pumpConsole();assert(consoleCount==0&&abortRequested);
   command("stats clear");uartError(UART_PARITY_ERROR);uartError(UART_FRAME_ERROR);assert(parityErrors.load()==1&&frameErrors.load()==1);
+  // Reports distinguish measured evidence from unknowable external conditions.
+  resetDebug();command("diagnose");
+  assert(evidence.requests==8&&evidence.timeouts==8&&evidence.energyBad==1);
+  assert(Serial.output.find("NO_RX_UNRESOLVED")!=std::string::npos);
+  assert(Serial.output.find("TRANSPORT_DATA_CONFIRMED")==std::string::npos);
+  // Silence at the first configured address does not prevent another raw probe.
+  resetDebug();command("decode off");command("plan clear");command("plan add 0080 1");
+  meter.replies.push_back({});meter.replies.push_back(frame({1,3,2,0x13,0x88}));command("diagnose");
+  assert(meter.transmitted.size()==2&&meter.transmitted[1][3]==0x80&&evidence.data==1);
+  assert(Serial.output.find("TRANSPORT_DATA_CONFIRMED")!=std::string::npos);
+  resetDebug();command("decode off");command("plan clear");meter.replies.push_back(frame({1,0x83,2}));command("diagnose");
+  assert(evidence.exceptions==1&&Serial.output.find("TRANSPORT_EXCEPTION_ONLY")!=std::string::npos);
+  assert(Serial.output.find("PRIMARY_IMPORT")==std::string::npos);
+  // An independently delimited echo is rejected, but a later good frame succeeds.
+  resetDebug();meter.replies.push_back(frame({1,3,0,0x34,0,1}));
+  meter.scheduled.push_back({testMicros+100000,frame({1,3,2,0,1})});assert(probeLink(current));
+  assert(evidence.echoes==1&&evidence.data==1);
+  resetDebug();meter.ready=false;assert(!probeLink(current));reportEvidence();
+  assert(meter.transmitted.empty()&&Serial.output.find("LOCAL_UART_ERROR")!=std::string::npos);
+  resetDebug();meter.writeLimit=2;assert(!probeLink(current));assert(evidence.txErrors==1);
+  resetDebug();testRxDrive=-1;command("rxcheck");assert(meter.transmitted.empty());
+  assert(Serial.output.find("RX_WEAK_BIAS_FOLLOWING")!=std::string::npos&&activeBaud==current.baud&&testPinMode==INPUT);
+  resetDebug();testRxDrive=1;command("rxcheck");assert(Serial.output.find("RX_HIGH_HELD")!=std::string::npos);
+  resetDebug();testRxDrive=0;command("rxcheck");assert(Serial.output.find("RX_LOW_HELD")!=std::string::npos);
+  resetDebug();testRxDrive=2;command("rxcheck");assert(Serial.output.find("RX_VARIABLE")!=std::string::npos);
+  resetDebug();Serial.input={'x','\n'};command("rxcheck");assert(Serial.output.find("RX_CHECK_ABORTED")!=std::string::npos&&testPinMode==INPUT);
+  resetDebug();meter.incoming={0x12,0x34};assert(!probeLink(current));reportEvidence();
+  assert(evidence.staleBytes==2&&evidence.rxBytes==0&&Serial.output.find("RX_UNVALIDATED")!=std::string::npos);
+  resetDebug();command("scan");Serial.input={'x','\n'};pumpConsole();assert(evidence.aborted&&!scanning);
+  // Paired captures reject changed settings and aborted/contradictory states.
+  resetDebug();command("decode off");command("plan clear");command("check connected");command("check isolated");
+  assert(Serial.output.find("BOTH_SILENT_UNRESOLVED")!=std::string::npos);
+  command("timeout 1000");command("check isolated");assert(Serial.output.find("COMPARE_CONFIG_CHANGED")!=std::string::npos);
+  resetDebug();command("decode off");command("plan clear");meter.replies.push_back(frame({1,3,2,0,1}));
+  command("check connected");command("check isolated");assert(Serial.output.find("REPLY_REQUIRES_CONNECTED_PATH")!=std::string::npos);
+  meter.replies.push_back(frame({1,0x83,2}));command("check isolated");assert(Serial.output.find("ISOLATION_CONTRADICTED")!=std::string::npos);
+  resetDebug();command("decode off");command("plan clear");
+  meter.replies.push_back(frame({1,3,0,0x34,0,1}));command("check connected");
+  meter.replies.push_back(frame({1,3,0,0x34,0,1}));command("check isolated");assert(Serial.output.find("LOCAL_ACTIVITY_REPRODUCED")!=std::string::npos);
+  connectedCapture.result.txErrors=1;command("compare");assert(Serial.output.find("COMPARE_LOCAL_UART_ERROR")!=std::string::npos);connectedCapture.result.txErrors=0;
+  connectedCapture.result.aborted=true;command("compare");assert(Serial.output.find("COMPARE_INCOMPLETE")!=std::string::npos);
+  resetDebug();command("decode off");command("plan clear");
+  meter.replies.push_back(frame({2,3,2,0,1}));command("check connected");command("check isolated");
+  assert(Serial.output.find("CONNECTED_ACTIVITY_ONLY")!=std::string::npos);
   const char *recipes[]={"01-passive-rx.txt","02-echo-or-no-reply.txt","03-serial-matrix.txt","04-register-exception.txt","05-raw-map-audit.txt","06-configured-kwh.txt","07-timeout-comparison.txt","08-word-order-comparison.txt"};
   std::string sourcePath=__FILE__;std::replace(sourcePath.begin(),sourcePath.end(),'\\','/');
   std::string sourceRoot=sourcePath.substr(0,sourcePath.rfind("firmware/test/"));
@@ -69,5 +115,5 @@ int main() {
     assert(Serial.output.find("Unknown/invalid")==std::string::npos&&Serial.output.find("CONSOLE_FULL")==std::string::npos);
     for(const auto &request:meter.transmitted){assert(request.size()==8&&request[1]==3&&request[0]>=1&&request[0]<=247);assert(modbusCRC(request.data(),6)==(uint16_t(request[6])|(uint16_t(request[7])<<8)));}
   }
-  std::cout<<"PASS: real diagnostic INO: passive no-TX, valid exception/data contact, wrong-ID/CRC/echo rejection, scan stops on transport, no false kWh, valid kWh, FC03-only requests, runtime pins/timeout/profile/probe/scan sets/plans, invalid-input bounds, queued commands/comments/abort, all 8 pasted case recipes, UART events\n";
+  std::cout<<"PASS: real diagnostic INO: passive no-TX, valid exception/data contact, wrong-ID/CRC/echo rejection, scan stops on transport, no false kWh, valid kWh, FC03-only requests, runtime pins/timeout/profile/probe/scan sets/plans, invalid-input bounds, queued commands/comments/abort, all 8 pasted case recipes, UART events, adaptive multi-address diagnosis, evidence reports, weak-bias observations, paired isolation/config/abort guards\n";
 }

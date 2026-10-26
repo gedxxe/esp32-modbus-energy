@@ -4,14 +4,20 @@
 
 Use the GPIO labels on the actual DevKitC-style N16R8 board. This drawing represents electrical connections; its port positions do not represent physical header positions.
 
-![Full schematic](assets/wiring-overview.svg)
+![Supplied automatic-direction module](assets/rs485-auto.svg)
+
+The supplied module uses TXD → GPIO18 and RXD ← GPIO17; GPIO16 is unconnected.
+
+**Manual-direction alternative:** the following complete schematic/netlist shows RO/DI/DE-/RE instead. Its OLED/RTC/buttons/buzzer nets also apply to the actual installation.
+
+![Manual-direction alternative full schematic](assets/wiring-overview.svg)
 
 ## Assemble in this order
 
 1. With USB disconnected, connect ESP32 3V3 and GND to separate breadboard rails. Bridge a split rail if components use both halves.
 2. Connect OLED VCC → 3V3, GND → GND, SDA → GPIO8, SCL → GPIO9. The firmware expects an I2C SSD1306 128×64 at 0x3C. Follow the module's printed labels, because header order varies.
 3. Connect DS3231 VCC → 3V3, GND → GND, SDA → GPIO8, SCL → GPIO9. These are branches on the same I2C nets as the OLED. SQW and 32K stay unconnected. Its address is 0x68.
-4. Connect the confirmed 3.3 V-compatible RS485 module: VCC → 3V3, GND → GND, RO → GPIO18 (RX), DI → GPIO17 (TX). Tie DE and /RE together and connect them to GPIO16.
+4. Connect the confirmed 3.3 V-compatible RS485 module: VCC → 3V3, GND → GND, module TXD → GPIO18 (RX), module RXD ← GPIO17 (TX). The supplied four-pin module handles direction automatically: GPIO16 unconnected. Only the manual-direction alternative uses RO/DI and tied DE-/RE on GPIO16.
 5. Connect RS485 A → Fort 58/A and B → Fort 59/B. The manual's PDF page 7/table 3 and page 9/figure 5 identify those terminals. Terminal 70/COM is for switch inputs; it is not RS485 ground.
 6. If buttons are installed, connect one contact of PREV/NEXT/OK to GPIO4/5/6 respectively and the opposite contact to GND. Internal pull-ups keep an unpressed button HIGH.
 7. The buzzer can be omitted while testing. If fitted, connect its driver to GPIO7 using the circuit below.
@@ -21,7 +27,7 @@ The user's Fort RS485 port is dedicated to this reader; no other master is prese
 
 ## RS485 direction
 
-RO is the transceiver's receive **output**, so it connects to the ESP32 RX **input**. DI is the transceiver's driver **input**, so it connects to ESP32 TX. With DE and /RE tied, GPIO16 HIGH transmits and LOW receives. A module exposing only TX/RX may handle direction automatically; determine connections by signal direction and check turnaround/local echo before acceptance.
+For a **manual-direction alternative**, RO is the transceiver's receive **output**, so it connects to the ESP32 RX **input**. DI is the transceiver's driver **input**, so it connects to ESP32 TX. With DE and /RE tied, GPIO16 HIGH transmits and LOW receives. A module exposing only TX/RX may handle direction automatically; determine connections by signal direction and check turnaround/local echo before acceptance.
 
 Use the panel's intended isolation/reference/shielding arrangement. A basic TTL module does not add galvanic isolation. Twisted pair, termination and bias depend on the cable and installed transceiver network; check existing resistors before adding more. About 120 Ω termination belongs at bus ends where required, not at every node. Do not modify the meter's voltage/current/CT measurement wiring to attach this reader.
 

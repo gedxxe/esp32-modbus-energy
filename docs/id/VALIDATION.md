@@ -65,3 +65,13 @@ Gambar manual PDF18,27,30 diperiksa visual; ambiguitas panjang energi tetap dica
 ## Diagnostik runtime 1.2.0 — diuji lokal
 
 Suite INO sebenarnya lulus untuk konfigurasi probe/pin/timeout/interval, mode/daftarscan, tolakduplikat/inputinvalid, batasplan, decodeoff tanpaTX/kWh, perubahan alamat/scale/order, antreansaatUARTsibuk, komentar/prefixHEX, overflow/stop serta delapan resepTXT. Semua resep selesai tanpa unknown-command/antreanpenuh; semua request tetap8byteFC03 berCRCvalid dan IDnonbroadcast. Sketch S3 lulus tanpa warning: RAMstatis21.068byte, program323.793byte. Firmwareutama1.3.0/asetbrowser tidak berubah; kualitas sinyal/timing/maphardware belum dibuktikan.
+
+## Diagnostik berbasis bukti 1.3.0 — 2026-10-26
+
+Suite host INO asli lulus untuk probe pertama diam lalu alamat lain membalas; laporan data versus exception; echo lalu respons sah terpisah; UART tidak tersedia/penulisan parsial; byte RX sebelum TX; input mengikuti bias/HIGH/LOW/berubah; pemulihan UART saat abort; pasangan capture sama/berbeda/abort; isolasi kontradiktif; serta aktivitas RX yang muncul saat terisolasi. Delapan resep lulus kembali, termasuk audit energi raw satu/dua/tiga word. Tes logika native produksi juga lulus.
+
+Sketch ESP32-S3 N16R8 lulus kompilasi espressif32 6.10.0 / Arduino ESP32 2.0.17 tanpa warning: **RAM statis 21.452 byte; program 331.109 byte**, tanpa library eksternal. Gambar PDF27/30 diperiksa langsung; ketidakcocokan panjang energi tetap belum terpecahkan. Ini bukan verifikasi map/skala unit terpasang.
+
+Pemeriksaan dokumentasi lulus: 23 Markdown, 197 link/anchor lokal, 18 SVG dan netlist 31 kabel alternatif manual. Regresi mewajibkan versi diagnostik sesuai serta tujuan INPUT/OUTPUT Serial Monitor pada dua panduan dan semua resep. Kedua SVG wiring dirender di Edge dan diperiksa visual; posisi port tetap skematik.
+
+Firmware utama 1.3.0 dan payload browser tidak berubah, sehingga hasil build/browser sebelumnya tidak diulang atau diklaim sebagai uji hardware baru. Paket dibangun ulang dengan pemeriksaan CRC ZIP dan SHA256 setiap file manifest. Timing driver UART, pull RX fisik, keberadaan/kesehatan modul, sinyal diferensial A/B dan penerimaan register Fort fisik belum diuji. Kode mempertahankan hasil belum terpecahkan saat telemetry tidak cukup.

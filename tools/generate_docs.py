@@ -10,8 +10,8 @@ ROOT=Path(__file__).resolve().parent.parent
 ASSETS=ROOT/'docs/assets'
 BG='#f5f8f8'; PANEL='#ffffff'; LINE='#cbdada'; TEXT='#183438'; MUTED='#587176'
 RED='#b5534a'; GRAY='#5d6f76'; BLUE='#087e82'; GREEN='#28755e'; PURPLE='#6d5897'; AMBER='#906121'
-version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text()).group(1)
-ini=(ROOT/'firmware/platformio.ini').read_text()
+version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text(encoding='utf-8')).group(1)
+ini=(ROOT/'firmware/platformio.ini').read_text(encoding='utf-8')
 libs=dict(re.findall(r'^\s+([^\n]+)@([\d.]+)\s*$',ini,re.M))
 def write_generated(path,contents):
     if '--check' in sys.argv:
@@ -67,7 +67,7 @@ for name,key,label,icon,c in [
 
 # Full schematic. Net labels are electrical connections, not physical header positions.
 s=SVG(1800,1320,'ESP32-S3, OLED, RTC, RS485, Fort, buttons and optional buzzer wiring')
-s.heading('Hardware wiring · Fort monitor','GPIOs from board.h · Confirmed 3.3 V RS485 module · ESP32 is the only master · Logical connections')
+s.heading('Full wiring · manual-direction alternative','RO/DI/DE-/RE module only · Supplied automatic module uses rs485-auto.svg · Shared I2C/buttons/buzzer unchanged')
 s.rect(650,180,350,780,'#e5f1ef',BLUE);s.text(825,225,'ESP32-S3',30,weight=700,anchor='middle');s.text(825,258,'N16R8 · DevKitC style',18,MUTED,anchor='middle')
 s.rect(715,120,220,45);s.text(825,149,'USB-C / board supply',16,anchor='middle');s.wire([(825,165),(825,180)],RED)
 s.text(825,590,'UART1 + I2C',20,BLUE,600,anchor='middle');s.text(825,625,'Core 0: web / UI',17,MUTED,anchor='middle');s.text(825,653,'Core 1: acquisition',17,MUTED,anchor='middle');s.text(825,705,'3V3 from board regulator',16,RED,anchor='middle')
@@ -117,6 +117,21 @@ for x,label,c in [(70,'3V3',RED),(215,'GND',GRAY),(360,'SDA / RX',BLUE),(560,'SC
 s.text(70,1276,'Repeated GND/3V3 labels identify one net. Dots mark joins; crossings without dots do not connect. Port positions are not physical headers.',15,MUTED)
 s.save('wiring-overview.svg')
 
+# Confirmed four-pin installation, kept separate from manual DE-/RE alternative.
+s=SVG(1400,620,'Confirmed automatic-direction RS485 installation','Logical nets, not physical header positions. User-confirmed module TXD to ESP32 GPIO18, RXD from GPIO17. GPIO16 unconnected.')
+s.heading('Installed RS485 module · automatic direction','Confirmed crossed TXD/RXD wiring · 3.3 V TTL · No external DE-/RE connection')
+s.rect(45,160,340,320);s.text(70,200,'ESP32-S3 N16R8',25,weight=700)
+s.rect(610,160,330,320);s.text(635,200,'4-pin TTL module',25,weight=700)
+s.rect(1110,160,245,320);s.text(1135,200,'FORT meter',25,weight=700)
+for y,left,right,color in [(250,'3V3','VCC',RED),(300,'GND','GND',GRAY),(350,'GPIO18 / RX','TXD → ESP RX',BLUE),(400,'GPIO17 / TX','RXD ← ESP TX',GREEN)]:
+    s.port(385,y,left,color);s.port(610,y,right,color,'left');s.wire([(385,y),(610,y)],color)
+for y,lab,target,color in [(290,'A+','58 / A',AMBER),(365,'B−','59 / B',GREEN)]:
+    s.port(940,y,lab,color);s.port(1110,y,target,color,'left');s.wire([(940,y),(1110,y)],color)
+s.text(70,450,'GPIO16: unconnected',18,PURPLE,600)
+s.text(45,530,'Arrows show signal direction. Positions are logical ports; follow the printed GPIO and module labels.',18,MUTED)
+s.text(45,565,'Fort 70 / COM belongs to switch inputs. Do not connect it as RS485 ground.',18,MUTED)
+s.save('rs485-auto.svg')
+
 # Separate tactile contact illustration.
 s=SVG(1100,480,'Tactile contact pairs and ESP32 connection')
 s.heading('4-leg switch · use two different contact pairs','Electrical contact illustration; identify the actual pairs with a continuity meter.')
@@ -150,7 +165,7 @@ for i,(title,lines) in enumerate(screens):
 s.text(45,634,'PREV / NEXT: page  ·  OK: interval or password  ·  Hold OK 900 ms: toggle alarm mute',18,MUTED)
 s.save('oled-pages.svg')
 
-pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text())}
+pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text(encoding='utf-8'))}
 rows=[('P01','3V3','ESP32.3V3','rail.3V3'),('P02','GND','ESP32.GND','rail.GND')]
 for part in ['OLED','DS3231','RS485']:
     rows.extend([(part+'-P','3V3','rail.3V3',part+'.VCC'),(part+'-G','GND','rail.GND',part+'.GND')])

@@ -38,9 +38,9 @@ Use the **GPIO labels** printed on the board, not header position numbers. Disco
 | DS3231 VCC / GND | 3V3 / GND | RTC, I2C address 0x68 |
 | DS3231 SDA / SCL | GPIO8 / GPIO9 | Connect to the same nets as the OLED |
 | RS485 VCC / GND | 3V3 / GND | Transceiver supply and logic ground |
-| RS485 RO | GPIO18, UART1 RX | Transceiver output → ESP32 input |
-| RS485 DI | GPIO17, UART1 TX | ESP32 output → transceiver input |
-| RS485 DE and /RE | Both tied to GPIO16 | HIGH transmits; LOW receives |
+| RS485 module TXD | GPIO18, UART1 RX | Confirmed module output → ESP32 input |
+| RS485 module RXD | GPIO17, UART1 TX | ESP32 output → confirmed module input |
+| GPIO16 | Unconnected on supplied module | Four-pin automatic direction; manual DE-/RE alternative below |
 | RS485 A / B | Fort 58/A / 59/B | The meter communication terminals |
 | PREV / NEXT / OK buttons | GPIO4 / GPIO5 / GPIO6; other contact to GND | Internal pull-ups, active LOW |
 | Buzzer control, optional | GPIO7 → driver | Active HIGH; may be left unconnected |
@@ -48,13 +48,17 @@ Use the **GPIO labels** printed on the board, not header position numbers. Disco
 DS3231 SQW and 32K are unused. OLED and RTC each need four connections; their SDA/SCL wires branch to the same two GPIOs. All module GND pins share ESP32 GND. **Fort 70/COM is a switch-input common, not RS485 ground.** The GPIO mapping is defined in [board.h](firmware/include/board.h).
 
 <details>
-<summary>Full wiring diagram, including optional buttons and buzzer driver</summary>
+<summary>Full manual-direction alternative, including optional buttons and buzzer driver</summary>
 
 ![Full wiring schematic](docs/assets/wiring-overview.svg)
 
 Port positions in this drawing are logical, not a photograph of the board. Repeated 3V3/GND labels are connected nets; a crossing without a dot is not a connection. The buzzer driver requires an NPN transistor, 1 kΩ base resistor and 10 kΩ pull-down; these are additional parts. Physical B/C/E pin order depends on the transistor package.
 
 </details>
+
+![Supplied automatic-direction module wiring](docs/assets/rs485-auto.svg)
+
+The full diagram and 31-wire netlist use the **manual RO/DI/DE-/RE alternative**. For the supplied automatic module use the table and diagram above; GPIO16 is unused.
 
 Follow the [step-by-step wiring guide](docs/WIRING.md) when assembling. It covers tactile contacts, the optional buzzer, RTC battery and the [31-wire netlist](docs/wiring-netlist.csv).
 
@@ -103,9 +107,11 @@ For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An applic
 
 For the main firmware, open **Meter setup → Raw TX/RX diagnostics → Capture next 12**. Capture observes existing polling/scan attempts; it sends no extra request and does not interrupt interval tracking by itself. Run **Scan Fort** with IDs 1–1 if you want a short controlled test. Twelve attempts are retained in RAM and then frozen; Stop retains an earlier partial capture. Use **Download raw log** to share TX/RX hex, ID, baud/parity, register, attempt and validation outcome. Refresh/reopening a panel retains the device capture; restart/new capture replaces it. An exact TX echo is marked and remains rejected. CRC or rejected-byte counts alone do not establish a meter connection.
 
-For a standalone Arduino IDE test, use [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) with its [step-by-step guide](examples/FortSerialDebug/README.md). It needs only the Espressif Arduino core and offers full-range scanning, kWh/CT/PT reads and bounded Serial hex/CRC/echo/exception logging. Serial Monitor: **115200 + Newline**; start with `diagnose` for passive RX, protocol probe and register audit. `basic`, `intermediate`, `deeper` and bounded `reg` commands isolate each layer. The [eight field-test recipes](examples/FortSerialDebug/README.md#choose-the-test-by-the-observation) cover passive RX, echo, serial formats, exceptions, raw maps, configured kWh, timeout and word order. Pins, timing, scan lists, probe/register plans and decode parameters can be changed from Serial without source edits. `scan` now finds valid communication including exceptions, independently of energy-profile compatibility. The sketch replaces the running main application while installed; it does not provide the dashboard or interval recording. Restore the main firmware afterwards.
+For a standalone Arduino IDE test, use [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) and its [field guide](examples/FortSerialDebug/README.md). Upload it once; it temporarily replaces AP/dashboard/interval recording. In Arduino IDE open **Tools → Serial Monitor**, select **115200 baud + Newline**. **Type `x` in its INPUT field and press Enter, then `status` and Enter, then `diagnose` and Enter.** Wait for `[REPORT_END]`. **Copy the scrolling OUTPUT, including settings and TX/RX, to the support chat** for analysis; do not paste logs back into Serial Monitor.
 
-The supplied four-pin automatic-direction module uses VCC/TXD/RXD/GND, with GPIO16 left unconnected. GPIO17 must reach its TTL input and GPIO18 its output. The reported crossed TXD/RXD wiring is recorded in the diagnostic guide; label direction is not independently verified. The full RO/DI/DE/RE wiring illustration remains a reference for manual-direction modules.
+Diagnostic 1.3.0 checks the configured raw register plan even when the first probe is silent. `report` separates local UART errors, no RX, unvalidated bytes, exact echo, valid exceptions, valid data and configured energy conversion. Optional `rxcheck` observes weak-bias TTL input behavior; `check connected` / `check isolated` compare user-labeled A/B states after a physical change. None claims to distinguish a missing/dead module from all other causes of silence. [Eight Serial Monitor recipes](examples/FortSerialDebug/README.md#choose-the-test-by-the-observation) cover formats, register/count ambiguity, scale/order and timing without source edits. The standalone scan accepts protocol replies/exceptions; the dashboard scan still requires the full configured Fort energy/ratio profile. A failed dashboard scan is not proof of disconnected hardware.
+
+The confirmed automatic module is TXD → GPIO18, RXD ← GPIO17; GPIO16 unconnected. Restore the main firmware after diagnostics and check retained records/settings before resuming production logging.
 
 ### OLED mounting and onboard RGB
 
@@ -207,7 +213,7 @@ These are cooperative timing targets, **not hard real-time guarantees**. A slow 
 
 A request is eight bytes: slave ID, function 03, register address high/low, count high/low, CRC low/high. CRC16 starts at 0xFFFF, shifts LSB first with polynomial 0xA001, and covers the six request bytes. Responses are checked for ID, function, byte count, total length, CRC and exception 0x83.
 
-The direction sequence is explicit: drain up to 128 stale RX bytes → wait at least the calculated t3.5 gap → GPIO16 HIGH → 30 µs turnaround delay → `UART.write` → `UART.flush` → GPIO16 LOW → collect the response. The 800 ms receive deadline starts after TX flush. Polling uses up to three attempts with bounded backoff; scan uses one attempt per register.
+For the **manual-direction alternative**, the direction sequence is explicit: drain up to 128 stale RX bytes → wait at least the calculated t3.5 gap → GPIO16 HIGH → 30 µs turnaround delay → `UART.write` → `UART.flush` → GPIO16 LOW → collect the response. The 800 ms receive deadline starts after TX flush. Polling uses up to three attempts with bounded backoff; scan uses one attempt per register.
 
 **There is no software bit banging for UART or I2C.** `HardwareSerial(1)` drives UART1; `Wire` drives the hardware I2C controller at 100 kHz. GPIO16 controls transceiver direction, not individual serial bits. CPU work includes framing, CRC, parsing, tracker arithmetic and composing the OLED buffer. RX uses a 128-byte driver buffer and a fixed 16-byte frame buffer for responses up to 11 bytes. Since timestamps are observed while draining the UART buffer, the firmware does not claim exact per-byte t1.5 validation.
 

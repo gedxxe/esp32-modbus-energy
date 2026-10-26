@@ -6,6 +6,13 @@
 
 
 
+## Diagnostik mandiri 1.3.0 — 2026-10-26
+
+- Plan raw terkonfigurasi tetap berjalan saat probe pertama diam; bukti protokol dipisahkan dari decode kWh.
+- Tambah observasi RX dengan pull lemah dan capture A/B berlabel operator; tolak perbandingan konfigurasi berbeda/abort, tanpa vonis fisik palsu.
+- Perjelas INPUT Serial Monitor, Enter/Send, serta OUTPUT yang disalin ke chat pada panduan dan delapan resep. Tambah diagram modul otomatis dan koreksi panduan wiring.
+- Periksa ulang gambar PDF; bandingkan raw satu/dua/tiga word pada entri energi ambigu. Tes INO asli diperluas; firmware utama tetap 1.3.0.
+
 ## Diagnostik mandiri 1.2.0 — 2026-10-26
 
 - Konfigurasi Serial tervalidasi untuk pin/timing UART, probe, daftar/mode scan, rencana raw register, alamat/scale/order dan toggle decode.

@@ -58,24 +58,24 @@ for file in svgs:
                 if key.endswith('href'):need(value.startswith('#'),f'{file.relative_to(ROOT)}: external SVG resource')
     except ET.ParseError as e:errors.append(f'{file.relative_to(ROOT)}: {e}')
 
-version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text()).group(1)
-package=json.loads((ROOT/'package.json').read_text())
+version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text(encoding='utf-8')).group(1)
+package=json.loads((ROOT/'package.json').read_text(encoding='utf-8'))
 need(package['version']==version,'package.json and firmware versions differ')
 need(package.get('license')=='GPL-3.0-only','package.json license must be GPL-3.0-only')
-need((ROOT/'.node-version').read_text().strip()==package['engines']['node'],'Node build runtime differs from package.json')
+need((ROOT/'.node-version').read_text(encoding='utf-8').strip()==package['engines']['node'],'Node build runtime differs from package.json')
 need('README.id.md' in (ROOT/'README.md').read_text(encoding='utf-8'),'English README must link to Indonesian edition')
 license_text=(ROOT/'LICENSE').read_text(encoding='utf-8')
 need('Version 3, 29 June 2007' in license_text and 'END OF TERMS AND CONDITIONS' in license_text and len(license_text)>30000,'LICENSE is not the full GPLv3 text')
 need((ROOT/'NOTICE').exists(),'Project license scope NOTICE missing')
 if (ROOT/'package-lock.json').exists():
-    lock=json.loads((ROOT/'package-lock.json').read_text());need(lock['version']==version,'package-lock version differs')
+    lock=json.loads((ROOT/'package-lock.json').read_text(encoding='utf-8'));need(lock['version']==version,'package-lock version differs')
 else:errors.append('package-lock.json missing')
-need(version in (ROOT/'docs/assets/badges/firmware.svg').read_text(),'Firmware badge version differs')
-readme=(ROOT/'README.md').read_text()
+need(version in (ROOT/'docs/assets/badges/firmware.svg').read_text(encoding='utf-8'),'Firmware badge version differs')
+readme=(ROOT/'README.md').read_text(encoding='utf-8')
 need('Firmware '+version in readme,'README firmware version differs')
-for library,ver in re.findall(r'^\s+([^\n]+)@([\d.]+)\s*$',(ROOT/'firmware/platformio.ini').read_text(),re.M):
+for library,ver in re.findall(r'^\s+([^\n]+)@([\d.]+)\s*$',(ROOT/'firmware/platformio.ini').read_text(encoding='utf-8'),re.M):
     need(ver in readme,f'README missing pinned version {library}@{ver}')
-pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text())}
+pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text(encoding='utf-8'))}
 expected={'PIN_SDA':8,'PIN_SCL':9,'PIN_RX':18,'PIN_TX':17,'PIN_RS485_DE':16,'PIN_PREV':4,'PIN_NEXT':5,'PIN_OK':6,'PIN_BUZZER':7}
 need(pins==expected,'GPIO assignment changed: update schematic routes and expected pin map together')
 with (ROOT/'docs/wiring-netlist.csv').open(newline='',encoding='utf-8') as f:rows=list(csv.DictReader(f))
@@ -84,6 +84,17 @@ for pin in pins.values():need('ESP32.GPIO'+str(pin) in all_endpoints,f'GPIO{pin}
 need('FORT.58/A' in all_endpoints and 'FORT.59/B' in all_endpoints,'Fort terminal mapping missing')
 need(not any('FORT.70' in x for x in all_endpoints),'Switch-input COM must not be wired as RS485 ground')
 need((ROOT/'AGENTS.md').exists(),'Root AGENTS.md missing')
+debug_source=(ROOT/'examples/FortSerialDebug/FortSerialDebug.ino').read_text(encoding='utf-8')
+debug_version=re.search(r'FortSerialDebug ([0-9.]+) \| Serial',debug_source).group(1)
+for name in ['README.md','README.id.md']:
+    guide=(ROOT/'examples/FortSerialDebug'/name).read_text(encoding='utf-8')
+    need('FortSerialDebug '+debug_version in guide,f'{name}: diagnostic version mismatch')
+    for token in ['Serial Monitor','INPUT','OUTPUT','Newline','REPORT_END','rxcheck','check connected','check isolated']:
+        need(token in guide,f'{name}: missing explicit diagnostic workflow {token}')
+for recipe in (ROOT/'examples/FortSerialDebug/cases').glob('*.txt'):
+    text=recipe.read_text(encoding='utf-8')
+    need(text.startswith('# INPUT: Arduino IDE Serial Monitor'),f'{recipe.name}: command destination missing')
+    need('OUTPUT to support chat' in text,f'{recipe.name}: output destination missing')
 web_result=subprocess.run([sys.executable,str(ROOT/'tools/check_web.py')],capture_output=True,text=True)
 need(web_result.returncode==0,web_result.stderr.strip() or web_result.stdout.strip())
 result=subprocess.run([sys.executable,str(ROOT/'tools/generate_docs.py'),'--check'],capture_output=True,text=True)

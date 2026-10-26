@@ -39,6 +39,12 @@ Keep the README, wiring SVG, netlist, diagrams, tests and release package consis
 8. Core 0 exclusively owns RGB RMT channel 0. Keep transmission asynchronous, skip busy frames and write LED Preferences only on core 1. GPIO48 is the confirmed onboard LED pin for this installation.
 9. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
 
+## Diagnostic evidence and operator instructions
+
+- Every field command example must say **type into Arduino IDE Serial Monitor INPUT, press Enter/Send**, with baud/line ending. Explicitly distinguish copying resulting OUTPUT to the support chat. Do not use an unqualified “send this block”. Label computer-terminal commands separately.
+- Never infer module absent, unpowered or damaged solely from UART silence or weak-pull sampling. The four-pin module exposes no presence/power-good telemetry. Keep measured observations, user-labeled connection states and physical hypotheses separate.
+- Diagnostic multi-address plans must continue after a silent first probe. Keep production map acceptance separate from a valid Modbus data/exception response. Compare snapshots only for matching settings and completed tests.
+
 ## Documentation and visuals
 
 - English is the primary language. Keep README.md and technical guides in English with linked Indonesian counterparts (README.id.md and docs/id/). The web UI must switch between English and Indonesian, defaulting to English. Keep steps and pin-to-pin instructions concrete.

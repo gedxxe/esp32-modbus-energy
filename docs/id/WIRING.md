@@ -2,7 +2,11 @@
 
 # Wiring dan komponen
 
-![Wiring menyeluruh ESP32 ke seluruh komponen](../assets/wiring-overview.svg)
+![Modul otomatis pengguna](../assets/rs485-auto.svg)
+
+Modul pengguna: TXD → GPIO18, RXD ← GPIO17, GPIO16 tidak disambungkan. Gambar lengkap/netlist berikut adalah **alternatif modul arah manual RO/DI/DE-/RE**; jalur OLED/RTC/tombol/buzzer tetap sama.
+
+![Alternatif arah manual lengkap](../assets/wiring-overview.svg)
 
 Tutorial dari awal ada di [README](../../README.id.md). Untuk menandai setiap kabel saat perakitan, gunakan [netlist point-to-point CSV](../wiring-netlist.csv). Gambar memakai posisi port logis; ikuti tulisan GPIO pada board, bukan lokasi visual port pada diagram.
 
@@ -17,9 +21,9 @@ Gunakan suplai USB 5 V yang stabil untuk development. Seluruh sinyal GPIO ESP32 
 | DS3231 VCC | 3V3 | Hindari pull-up SDA/SCL ke 5 V |
 | DS3231 GND | GND | |
 | DS3231 SDA / SCL | GPIO8 / GPIO9 | DS3231 alamat 0x68 |
-| Transceiver RO / RX output | GPIO18 / UART RX | Output transceiver ke input ESP32 |
-| Transceiver DI / TX input | GPIO17 / UART TX | Output ESP32 ke input transceiver |
-| Transceiver DE dan /RE | Keduanya ke GPIO16 | HIGH kirim, LOW terima; kedua enable disatukan |
+| Alternatif manual: RO / RX output | GPIO18 / UART RX | Output transceiver ke input ESP32 |
+| Alternatif manual: DI / TX input | GPIO17 / UART TX | Output ESP32 ke input transceiver |
+| Alternatif manual: DE dan /RE | Keduanya ke GPIO16 | HIGH kirim, LOW terima; kedua enable disatukan |
 | Transceiver VCC | 3V3 | Modul milik pengguna sudah dikonfirmasi kompatibel dengan TTL ESP32 3,3 V |
 | Transceiver GND | GND logika | Reference bus mengikuti desain isolasi dan meter |
 | Transceiver A | Fort **58 / A** | Manual PDF halaman 7/Tabel 3 dan halaman 9/Gambar 5 |
@@ -37,7 +41,7 @@ Pin GPIO4/5/6 masing-masing menuju satu kontak tombol; kontak satunya menuju GND
 
 ## Modul RS485 yang digunakan
 
-Modul “MAX485 TTL RS485 3.3V/5V flexible” yang dibeli sudah dikonfirmasi pengguna kompatibel dengan TTL ESP32 3,3 V. Wiring memakai konfigurasi 3,3 V modul tersebut: RO ke GPIO18, DI ke GPIO17, dan DE-/RE ke GPIO16 bila tersedia.
+Modul “MAX485 TTL RS485 3.3V/5V flexible” yang dibeli sudah dikonfirmasi pengguna kompatibel dengan TTL ESP32 3,3 V. Wiring terkonfirmasi adalah TXD modul ke GPIO18, RXD modul ke GPIO17, VCC ke3V3 dan GND keGND. Modul empat pin ini mengatur arah otomatis; GPIO16 tidak disambungkan. RO/DI/DE-/RE hanya untuk alternatif manual.
 
 Jika modul hanya punya TX/RX tanpa DE-/RE dan mengatur arah otomatis, cocokkan TX/RX berdasarkan arah sinyal. GPIO16 dapat dibiarkan tidak tersambung pada modul auto-direction; pengujian turnaround tetap diperlukan. Firmware mengasumsikan tidak ada local echo ketika mengirim.
 

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" role="img" aria-labelledby="title desc"><title id="title">Confirmed automatic-direction RS485 installation</title><desc id="desc">Logical nets, not physical header positions. User-confirmed module TXD to ESP32 GPIO18, RXD from GPIO17. GPIO16 unconnected.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Installed RS485 module · automatic direction</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Confirmed crossed TXD/RXD wiring · 3.3 V TTL · No external DE-/RE connection</text>
+<rect x="45" y="160" width="340" height="320" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="70" y="200" fill="#183438" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="start">ESP32-S3 N16R8</text>
+<rect x="610" y="160" width="330" height="320" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="635" y="200" fill="#183438" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="start">4-pin TTL module</text>
+<rect x="1110" y="160" width="245" height="320" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1135" y="200" fill="#183438" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="start">FORT meter</text>
+<circle cx="385" cy="250" r="5" fill="#b5534a"/>
+<text x="371" y="256" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">3V3</text>
+<circle cx="610" cy="250" r="5" fill="#b5534a"/>
+<text x="624" y="256" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">VCC</text>
+<polyline points="385,250 610,250" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="385" cy="300" r="5" fill="#5d6f76"/>
+<text x="371" y="306" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GND</text>
+<circle cx="610" cy="300" r="5" fill="#5d6f76"/>
+<text x="624" y="306" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GND</text>
+<polyline points="385,300 610,300" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="385" cy="350" r="5" fill="#087e82"/>
+<text x="371" y="356" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO18 / RX</text>
+<circle cx="610" cy="350" r="5" fill="#087e82"/>
+<text x="624" y="356" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">TXD → ESP RX</text>
+<polyline points="385,350 610,350" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="385" cy="400" r="5" fill="#28755e"/>
+<text x="371" y="406" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO17 / TX</text>
+<circle cx="610" cy="400" r="5" fill="#28755e"/>
+<text x="624" y="406" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">RXD ← ESP TX</text>
+<polyline points="385,400 610,400" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="940" cy="290" r="5" fill="#906121"/>
+<text x="926" y="296" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">A+</text>
+<circle cx="1110" cy="290" r="5" fill="#906121"/>
+<text x="1124" y="296" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">58 / A</text>
+<polyline points="940,290 1110,290" fill="none" stroke="#906121" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="940" cy="365" r="5" fill="#28755e"/>
+<text x="926" y="371" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">B−</text>
+<circle cx="1110" cy="365" r="5" fill="#28755e"/>
+<text x="1124" y="371" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">59 / B</text>
+<polyline points="940,365 1110,365" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="70" y="450" fill="#6d5897" font-family="Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">GPIO16: unconnected</text>
+<text x="45" y="530" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Arrows show signal direction. Positions are logical ports; follow the printed GPIO and module labels.</text>
+<text x="45" y="565" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Fort 70 / COM belongs to switch inputs. Do not connect it as RS485 ground.</text>
+</svg>

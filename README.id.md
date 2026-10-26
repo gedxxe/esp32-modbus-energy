@@ -37,9 +37,9 @@ Ikuti tulisan **GPIO** pada board, bukan nomor urut kaki header. Cabut USB saat 
 | DS3231 VCC / GND | 3V3 / GND | Alamat I2C 0x68 |
 | DS3231 SDA / SCL | GPIO8 / GPIO9 | Cabang pada jalur yang sama dengan OLED |
 | RS485 VCC / GND | 3V3 / GND | Suplai dan ground logika |
-| RS485 RO | GPIO18 / UART1 RX | Output modul → input ESP32 |
-| RS485 DI | GPIO17 / UART1 TX | Output ESP32 → input modul |
-| RS485 DE dan /RE | Keduanya ke GPIO16 | HIGH kirim, LOW terima |
+| TXD modul RS485 | GPIO18 / UART1 RX | Output modul → input ESP32, wiring terkonfirmasi |
+| RXD modul RS485 | GPIO17 / UART1 TX | Output ESP32 → input modul |
+| GPIO16 | Tidak disambungkan pada modul pengguna | Empat pin, arah otomatis; alternatif DE-/RE manual di bawah |
 | RS485 A / B | Fort 58/A / 59/B | Terminal komunikasi meter |
 | PREV / NEXT / OK | GPIO4 / GPIO5 / GPIO6; kontak lain ke GND | Internal pull-up, aktif LOW |
 | Buzzer, opsional | GPIO7 melalui driver | Aktif HIGH; boleh belum dipasang |
@@ -47,7 +47,7 @@ Ikuti tulisan **GPIO** pada board, bukan nomor urut kaki header. Cabut USB saat 
 SQW dan 32K DS3231 tidak dipakai. OLED dan RTC masing-masing memakai empat kabel, dengan SDA/SCL bercabang ke GPIO8/9 yang sama. Semua GND modul menuju GND ESP32. **70/COM Fort adalah common switch input, bukan ground RS485.** Sumber pin ada di [board.h](firmware/include/board.h).
 
 <details>
-<summary>Diagram lengkap, termasuk tombol dan driver buzzer opsional</summary>
+<summary>Alternatif arah manual lengkap, termasuk tombol dan driver buzzer</summary>
 
 ![Diagram sambungan lengkap](docs/assets/wiring-overview.svg)
 
@@ -56,6 +56,10 @@ Diagram memakai label English untuk konsistensi teknis. Posisi port bersifat log
 </details>
 
 [Tutorial pemasangan per kabel](docs/id/WIRING.md) membahas kontak tactile, baterai RTC, buzzer opsional dan [netlist 31 sambungan](docs/wiring-netlist.csv).
+
+![Modul arah otomatis pengguna](docs/assets/rs485-auto.svg)
+
+Diagram lengkap/netlist 31 kabel memakai **alternatif RO/DI/DE-/RE manual**. Untuk modul otomatis pengguna, ikuti tabel/gambar di atas; GPIO16 tidak dipakai.
 
 ## 2. Build dan upload
 
@@ -101,9 +105,11 @@ PlatformIO memasang dependency firmware otomatis. Versi dikunci pada [platformio
 
 Pada firmware utama buka **Koneksi meter → Diagnostik TX/RX mentah → Rekam 12 berikutnya**. Capture mengamati polling/scan yang sudah berjalan, tanpa menambah request atau memutus interval dengan sendirinya. Jalankan Scan Fort ID 1–1 untuk pengujian singkat. Dua belas percobaan pertama dibekukan di RAM; Hentikan rekaman mempertahankan hasil parsial. **Unduh log mentah** menyimpan TX/RX hex, ID, baud/parity, register, percobaan dan hasil validasi. Reload panel tidak menghapus rekaman perangkat; restart/rekaman baru menggantikannya. Echo TX persis tetap ditolak. Angka CRC/rejected bukan bukti meter membalas.
 
-Untuk Arduino IDE gunakan [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) dan [panduan lengkap](examples/FortSerialDebug/README.id.md). Tanpa library tambahan di luar core Espressif: scan rentang penuh, baca kWh/CT/PT, log Serial hex/CRC/echo/exception dengan batas buffer dan timeout. Serial Monitor **115200 + Newline**; mulai `diagnose` untuk RX pasif, uji komunikasi dan audit register. Perintah `basic`, `intermediate`, `deeper` dan `reg` memisahkan tiap lapisan. [Delapan resep lapangan](examples/FortSerialDebug/README.id.md#pilih-pengujian-berdasarkan-hasil) mencakup RX pasif, echo, format serial, exception, raw map, kWh terkonfigurasi, timeout dan word order. Pin, timing, daftar scan, probe/rencana register dan parameter decode diubah lewat Serial tanpa edit source. Scan kini menemukan respons/exception sah, terpisah dari kecocokan profil energi. Sketch ini menggantikan aplikasi utama selama terpasang; dashboard dan pencatatan interval tidak berjalan. Upload firmware utama lagi sesudah uji.
+Untuk diagnosis Arduino IDE, buka [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) dan ikuti [panduan lapangan](examples/FortSerialDebug/README.id.md). Upload satu kali; AP/dashboard/pencatat interval digantikan sementara. Buka **Tools → Serial Monitor**, **115200 baud + Newline**. **Ketik `x` di INPUT lalu Enter, `status` lalu Enter, kemudian `diagnose` lalu Enter.** Tunggu `[REPORT_END]`. **Salin OUTPUT yang bergulir, termasuk setting dan TX/RX, lalu tempel ke chat untuk analisis**; jangan tempel log kembali ke input Serial Monitor.
 
-Modul empat pin pada foto memakai arah otomatis: VCC/TXD/RXD/GND, GPIO16 tidak disambungkan. GPIO17 ke input TTL modul, GPIO18 ke output. Wiring TXD/RXD bersilangan yang dilaporkan dicatat dalam panduan; arah label belum diverifikasi secara independen. Diagram RO/DI/DE/RE tetap menjadi referensi modul arah manual.
+Diagnostik 1.3.0 tetap menguji daftar raw register saat probe pertama diam. `report` memisahkan error UART lokal, tanpa RX, byte tidak sah, echo persis, exception sah, data sah dan konversi energi terkonfigurasi. `rxcheck` opsional mengamati input TTL dengan pull lemah. `check connected` / `check isolated` membandingkan label keadaan A/B dari operator setelah perubahan fisik. Tidak ada klaim modul dicabut/rusak hanya dari UART diam. [Delapan resep INPUT Serial Monitor](examples/FortSerialDebug/README.id.md#pilih-pengujian-berdasarkan-hasil) mencakup format, ambiguitas register/count, scale/order dan timing tanpa edit source. Scan mandiri mencari respons protokol/exception; scan dashboard masih mensyaratkan profil energi/rasio Fort lengkap. Scan dashboard gagal bukan bukti hardware terlepas.
+
+Modul otomatis terkonfirmasi: TXD → GPIO18, RXD ← GPIO17, GPIO16 tidak disambungkan. Diagram RO/DI/DE/RE hanya alternatif manual. Sesudah diagnosis, upload firmware utama dan periksa arsip/setting sebelum melanjutkan logging produksi.
 
 ### Posisi OLED dan LED RGB bawaan
 
@@ -201,7 +207,7 @@ Ini **target kooperatif, bukan jaminan hard real-time**. Klien aset yang lambat 
 
 Request delapan byte: ID, fungsi 03, alamat high/low, jumlah word high/low, CRC low/high. CRC16 mulai dari 0xFFFF, shift LSB-first dengan polynomial 0xA001, mencakup enam byte awal. Respons diperiksa ID, fungsi, byte count, total panjang, CRC dan exception 0x83.
 
-Urutan transaksi: buang maksimal 128 byte RX lama → tunggu minimal t3.5 → GPIO16 HIGH → delay 30 µs → `UART.write` → `UART.flush` → GPIO16 LOW → kumpulkan respons. Deadline respons 800 ms dimulai setelah TX flush. Polling normal maksimal tiga percobaan dengan backoff; scan satu percobaan per register.
+Untuk **alternatif modul arah manual**, urutan transaksi: buang maksimal 128 byte RX lama → tunggu minimal t3.5 → GPIO16 HIGH → delay 30 µs → `UART.write` → `UART.flush` → GPIO16 LOW → kumpulkan respons. Deadline respons 800 ms dimulai setelah TX flush. Polling normal maksimal tiga percobaan dengan backoff; scan satu percobaan per register.
 
 **UART dan I2C tidak memakai bit banging.** `HardwareSerial(1)` memakai UART1, sedangkan `Wire` memakai peripheral I2C hardware pada 100 kHz. GPIO16 hanya memilih arah transceiver, bukan membangkitkan bit serial. CPU membentuk frame, menghitung CRC, parsing, memperbarui tracker dan menggambar buffer OLED. Driver RX 128 byte; buffer frame 16 byte untuk respons yang dipakai maksimal 11 byte. Timestamp diambil saat buffer UART dibaca, sehingga t1.5 per byte tidak diklaim presisi.
 

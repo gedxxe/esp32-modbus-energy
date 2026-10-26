@@ -1,3 +1,6 @@
+# INPUT: Arduino IDE Serial Monitor, 115200 baud, Newline.
+# Type each non-comment line in INPUT, press Enter, wait for OUTPUT.
+# Copy resulting OUTPUT to support chat; never type output labels.
 # Basic RX only. No Modbus request is sent by listen.
 x
 pins 18 17

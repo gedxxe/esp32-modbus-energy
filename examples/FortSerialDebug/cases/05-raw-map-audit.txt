@@ -1,3 +1,6 @@
+# INPUT: Arduino IDE Serial Monitor, 115200 baud, Newline.
+# Type each non-comment line in INPUT, press Enter, wait for OUTPUT.
+# Copy resulting OUTPUT to support chat; never type output labels.
 # Raw words only. No kWh interpretation. Add/edit queries as needed.
 x
 decode off
@@ -8,5 +11,7 @@ plan add 002C 3
 plan add 0080 1
 plan add 0082 2
 plan add 008A 2
+plan add 0082 1
+plan add 0082 3
 deeper
 status

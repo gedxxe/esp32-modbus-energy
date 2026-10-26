@@ -11,7 +11,7 @@ from datetime import datetime,timezone,timedelta
 
 root = Path(__file__).resolve().parent.parent
 subprocess.run([sys.executable,str(root/'tools/check_docs.py')],check=True)
-version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(root/'firmware/include/version.h').read_text()).group(1)
+version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(root/'firmware/include/version.h').read_text(encoding='utf-8')).group(1)
 app = root / "output/firmware/midea-fort-app.bin"
 built = root / "firmware/.pio/build/esp32s3/firmware.bin"
 if app.read_bytes() != built.read_bytes():

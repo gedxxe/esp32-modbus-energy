@@ -1,3 +1,6 @@
+# INPUT: Arduino IDE Serial Monitor, 115200 baud, Newline.
+# Type each non-comment line in INPUT, press Enter, wait for OUTPUT.
+# Copy resulting OUTPUT to support chat; never type output labels.
 # Manual-based UInt32 secondary counter; compare with correct meter page.
 x
 energy 0082

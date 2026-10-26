@@ -4,6 +4,14 @@
 
 
 
+
+## Diagnostik mandiri 1.1.0 — 2026-10-26
+
+- Pisahkan RX pasif tanpa TX, respons protokol dan validasi profil energi; tambahkan basic/intermediate/deeper/diagnose dan baca raw terbatas.
+- Scan komunikasi mengenali exception sah tanpa menjadikannya data kWh; CRC/ID/fungsi/panjang tetap ketat.
+- Counter atomik parity/framing/FIFO/buffer/break dan tes pada INO sebenarnya dengan Serial/UART tiruan.
+- Periksa ulang gambar manual asli dan pertahankan catatan ambiguitas panjang energi. Firmware utama tetap1.3.0.
+
 ## 1.3.0 — 2026-10-26
 
 - Capture pasif 12 percobaan Modbus berikutnya dalam RAM tetap, termasuk setting UART, TX/RX hex, overflow dan echo persis. Validasi respons/CRC tidak diubah.

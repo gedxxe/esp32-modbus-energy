@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <atomic>
 
 constexpr int MODBUS_RX = 18, MODBUS_TX = 17;
 constexpr uint32_t RESPONSE_MS = 800, POLL_MS = 2000;
@@ -19,7 +20,21 @@ uint16_t probe = 0;
 bool scanning = false, polling = false, abortRequested = false;
 uint32_t lastPoll = 0, activeBaud = 0;
 char activeParity = 0;
+enum ReplyKind : uint8_t { REPLY_NONE, REPLY_DATA, REPLY_EXCEPTION };
+ReplyKind lastReply=REPLY_NONE;
+std::atomic<uint32_t> parityErrors{0}, frameErrors{0}, fifoErrors{0}, bufferErrors{0}, breakErrors{0};
+void uartError(hardwareSerial_error_t error) {
+  // Driver task callback: counters only, never Serial output from this context.
+  if(error==UART_PARITY_ERROR)parityErrors.fetch_add(1,std::memory_order_relaxed);
+  if(error==UART_FRAME_ERROR)frameErrors.fetch_add(1,std::memory_order_relaxed);
+  if(error==UART_FIFO_OVF_ERROR)fifoErrors.fetch_add(1,std::memory_order_relaxed);
+  if(error==UART_BUFFER_FULL_ERROR)bufferErrors.fetch_add(1,std::memory_order_relaxed);
+  if(error==UART_BREAK_ERROR)breakErrors.fetch_add(1,std::memory_order_relaxed);
+}
 #define LOG(...) do { if (Serial) Serial.printf(__VA_ARGS__); } while (0)
+void uartStatus() {
+  LOG("[UART_EVENTS] parity=%lu framing=%lu fifo_overflow=%lu buffer_full=%lu break=%lu RX_GPIO=%d\n",(unsigned long)parityErrors.load(),(unsigned long)frameErrors.load(),(unsigned long)fifoErrors.load(),(unsigned long)bufferErrors.load(),(unsigned long)breakErrors.load(),digitalRead(MODBUS_RX));
+}
 
 uint16_t modbusCRC(const uint8_t *bytes, size_t size) {
   uint16_t crc = 0xFFFF;
@@ -41,6 +56,7 @@ void openLink(const Link &link) {
   meter.end(); meter.setRxBufferSize(256);
   uint32_t format = link.parity=='E' ? SERIAL_8E1 : link.parity=='O' ? SERIAL_8O1 : SERIAL_8N1;
   meter.begin(link.baud, format, MODBUS_RX, MODBUS_TX);
+  meter.onReceiveError(uartError);
   activeBaud = link.baud; activeParity = link.parity;
 }
 // While a transaction/scan is busy, x is the immediate abort command.
@@ -51,7 +67,8 @@ void checkAbort() {
 }
 
 bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *out) {
-  if (words < 1 || words > 3 || abortRequested) return false;
+  lastReply=REPLY_NONE;
+  if (words < 1 || words > 3 || uint32_t(address)+words>65536UL || abortRequested) return false;
   openLink(link);
   uint8_t tx[] = {link.id,3,uint8_t(address>>8),uint8_t(address),0,words,0,0};
   uint16_t crc = modbusCRC(tx,6); tx[6]=uint8_t(crc); tx[7]=uint8_t(crc>>8);
@@ -85,10 +102,10 @@ bool readRegisters(const Link &link, uint16_t address, uint8_t words, uint8_t *o
         uint16_t calculated=modbusCRC(rx,size-2), received=uint16_t(rx[size-2])|(uint16_t(rx[size-1])<<8);
         if (show) LOG("CRC calculated=0x%04X received=0x%04X %s\n",calculated,received,calculated==received?"OK":"MISMATCH");
         if (calculated==received && rx[0]==link.id && rx[1]==0x83 && size==5) {
-          LOG("[MODBUS_EXCEPTION] code=0x%02X; slave replied but read was not accepted\n",rx[2]); return false;
+          lastReply=REPLY_EXCEPTION; LOG("[COMM_VALID_EXCEPTION] code=0x%02X; matching slave/CRC/function; requested register was not read\n",rx[2]); return false;
         }
         if (calculated==received && rx[0]==link.id && rx[1]==3 && size==size_t(5+2*words) && rx[2]==2*words) {
-          memcpy(out,rx+3,words*2); LOG("[VALID_RESPONSE]\n"); return true;
+          memcpy(out,rx+3,words*2); lastReply=REPLY_DATA; LOG("[VALID_RESPONSE]\n"); return true;
         }
         if (show && calculated==received) LOG("[WRONG_FRAME] ID/function/byte-count/length mismatch\n");
       }
@@ -116,23 +133,71 @@ bool readEnergy(const Link &link) {
   LOG("[PRIMARY_IMPORT] %.6f kWh\n",secondary*multiplier);
   return true;
 }
+// Level 1: UART receive activity only. A slave may be completely silent without requests.
+void listenOnly(uint32_t seconds) {
+  polling=false; abortRequested=false; openLink(current);
+  LOG("[BASIC] passive RX for %lu seconds; NO Modbus request transmitted. Current format only.\n",(unsigned long)seconds);
+  uartStatus();
+  uint8_t bytes[64]; uint32_t total=0, start=millis(); unsigned chunks=0;
+  while(uint32_t(millis()-start)<seconds*1000UL && !abortRequested) {
+    checkAbort(); size_t size=0;
+    for(unsigned i=0;i<64 && meter.available();++i)bytes[size++]=uint8_t(meter.read());
+    total+=size;
+    if(size && chunks++<8)hexLog("PASSIVE RX chunk",bytes,size);
+    delay(1);
+  }
+  LOG("[BASIC_END] bytes=%lu; no TX sent. No RX does NOT prove no RS485 connection. Chunks are not validated frames.\n",(unsigned long)total);
+  uartStatus();
+}
+// Level 2 does not require a compatible energy map or valid CT/PT values.
+bool probeLink(const Link &link) {
+  uint8_t data[2]; bool dataOK=readRegisters(link,0x0034,1,data);
+  bool replied=dataOK || lastReply==REPLY_EXCEPTION;
+  if(dataOK)LOG("[COMM_FOUND] validated FC03 response; register 0x0034 raw=0x%04X\n",(uint16_t(data[0])<<8)|data[1]);
+  else if(replied)LOG("[COMM_FOUND] valid exception response; register/profile support still unknown\n");
+  else LOG("[COMM_NOT_CONFIRMED] no matching response; inspect RX/echo/UART errors\n");
+  return replied;
+}
+void dumpRegisters(const Link &link,uint16_t address,uint8_t words) {
+  uint8_t data[6];
+  if(readRegisters(link,address,words,data))for(uint8_t i=0;i<words;++i) {
+    uint16_t value=(uint16_t(data[i*2])<<8)|data[i*2+1];
+    LOG("[REGISTER] 0x%04X = 0x%04X (%u unsigned); raw word only\n",address+i,value,value);
+  }
+}
+// Level 3: documented read-only map, independent reads, then kWh conversion.
+void deepCheck(const Link &link) {
+  const uint16_t addresses[]={0x0034,0x0035,0x002C,0x0080,0x0082,0x008A};
+  const uint8_t words[]={1,1,3,1,2,2};
+  LOG("[DEEPER] communication settings, CT/PT, frequency, integer energy, primary-float raw words\n");
+  for(unsigned i=0;i<6 && !abortRequested;++i)dumpRegisters(link,addresses[i],words[i]);
+  if(!abortRequested && !readEnergy(link))LOG("[PROFILE_NOT_CONFIRMED] energy/scaling not accepted; this does not negate an earlier valid Modbus reply\n");
+  uartStatus();
+}
+
 void help() {
-  LOG("\nFortSerialDebug | ESP32-S3 | SERIAL MONITOR 115200, Newline\n");
-  LOG("Only Modbus function 03. No writes, NVS, filesystem, Wi-Fi or external libraries.\n");
+  LOG("\nFortSerialDebug 1.1.0 | ESP32-S3 | SERIAL MONITOR 115200, Newline\n");
+  LOG("Only Modbus function 03. No register writes, NVS, filesystem, Wi-Fi or external libraries.\n");
   LOG("UART1 TX=GPIO17 -> module TTL input; RX=GPIO18 <- module TTL output.\n");
   LOG("Automatic-direction module: GPIO16 unused. Follow verified input/output directions.\n");
-  LOG("Commands:\n  read             read kWh + CT/PT once\n  poll             toggle repeated reads, target 2 seconds\n  id 1             select reader slave ID (1..247)\n  baud 9600        1200/2400/4800/9600/19200/38400\n  parity N         N, E or O; 8 data bits, 1 stop bit\n  range 1 247      inclusive scan range; use range 1 1 for wiring diagnosis\n  scan             scan range x 6 baud rates x 3 parities; first valid match stops\n  x                abort scan/poll, including during a response wait\n  status           reader settings\n  help             show this help\n");
+  LOG("Levels:\n  basic            passive RX for 5 seconds, sends no request\n  intermediate     FC03 probe; valid exception also proves a Modbus reply\n  deeper           documented register audit + kWh/CT/PT\n  diagnose         basic 3 seconds, intermediate, then deeper if responsive\n  listen 10        passive RX 1..30 seconds at current UART format\n  reg 0082 2       bounded FC03 raw read; address is HEX, count 1..3\nCommands:\n  read             read kWh + CT/PT once\n  poll             toggle repeated reads, target 2 seconds\n  id 1             select reader slave ID (1..247)\n  baud 9600        1200/2400/4800/9600/19200/38400\n  parity N         N, E or O; 8 data bits, 1 stop bit\n  range 1 247      inclusive scan range; use range 1 1 for wiring diagnosis\n  scan             find communication across range x 6 bauds x 3 parities; includes valid exceptions\n  x                abort scan/poll, including during a response wait\n  status           reader settings\n  help             show this help\n");
   LOG("Full scan: 4446 candidates, about an hour or more with no replies. Start with range 1 1.\n");
 }
 void command(const char *line) {
   unsigned a=0,b=0; unsigned long baud=0; char parity=0, extra=0;
   if (!strcmp(line,"help") || !strcmp(line,"h")) { help(); return; }
   if (!strcmp(line,"x") || !strcmp(line,"stop")) { abortRequested=true; scanning=false; polling=false; LOG("Stopped.\n"); return; }
-  if (!strcmp(line,"status")) { LOG("Reader: ID=%u baud=%lu 8%c1 range=%u..%u\n",current.id,(unsigned long)current.baud,current.parity,firstID,lastID); return; }
+  if (!strcmp(line,"status")) { LOG("Reader: ID=%u baud=%lu 8%c1 range=%u..%u\n",current.id,(unsigned long)current.baud,current.parity,firstID,lastID); uartStatus(); return; }
   if (scanning) { LOG("Scan active; use x to abort.\n"); return; }
+  if (!strcmp(line,"basic")) { listenOnly(5); return; }
+  if (sscanf(line,"listen %u %c",&a,&extra)==1 && a>=1 && a<=30) { listenOnly(a); return; }
+  if (!strcmp(line,"intermediate")) { abortRequested=false; polling=false; probeLink(current); uartStatus(); return; }
+  if (!strcmp(line,"deeper")) { abortRequested=false; polling=false; deepCheck(current); return; }
+  if (!strcmp(line,"diagnose")) { listenOnly(3); if(!abortRequested&&probeLink(current))deepCheck(current); else uartStatus(); return; }
+  if (sscanf(line,"reg %x %u %c",&a,&b,&extra)==2 && a<=65535 && b>=1 && b<=3 && a+b<=65536UL) { abortRequested=false; polling=false; dumpRegisters(current,uint16_t(a),uint8_t(b)); uartStatus(); return; }
   if (!strcmp(line,"scan")) {
     probe=0; scanning=true; polling=false; abortRequested=false;
-    LOG("Scan starts: %u..%u, %u candidates; read-only. Type x to abort.\n",firstID,lastID,unsigned(lastID-firstID+1)*18); return;
+    LOG("Communication scan starts: %u..%u, %u candidates; FC03 0x0034. Valid exception counts as a reply. Type x to abort.\n",firstID,lastID,unsigned(lastID-firstID+1)*18); return;
   }
   if (!strcmp(line,"read")) { abortRequested=false; readEnergy(current); return; }
   if (!strcmp(line,"poll")) { abortRequested=false; polling=!polling; lastPoll=millis()-POLL_MS; LOG("Polling %s\n",polling?"ON":"OFF"); return; }
@@ -147,7 +212,9 @@ void command(const char *line) {
 void serialInput() {
   static char line[80]; static uint8_t used=0; static bool tooLong=false;
   for (unsigned n=0; n<80 && Serial.available(); ++n) {
-    char ch=char(Serial.read()); if (ch=='\r') continue;
+    char ch=char(Serial.read());
+    if((scanning||polling)&&(ch=='x'||ch=='X')) {abortRequested=true;scanning=false;polling=false;used=0;LOG("Stopped.\n");continue;}
+    if (ch=='\r') continue;
     if (ch=='\n') {
       if (tooLong) LOG("Command too long; discarded.\n");
       else if (used) { line[used]=0; command(line); }
@@ -171,10 +238,10 @@ void loop() {
       uint16_t count=lastID-firstID+1, mode=probe/count;
       Link candidate; candidate.id=firstID+probe%count; candidate.baud=BAUDS[mode/3]; candidate.parity=PARITIES[mode%3];
       LOG("\nSCAN %u/%u\n",probe+1,count*18);
-      bool found=readEnergy(candidate); ++probe;
+      bool found=probeLink(candidate); ++probe;
       if (abortRequested) { scanning=false; LOG("Scan aborted. Previous reader settings retained.\n"); }
-      else if (found) { current=candidate; scanning=false; LOG("[FOUND] ID=%u %lu 8%c1; reader settings selected in RAM. Type poll.\n",current.id,(unsigned long)current.baud,current.parity); }
-      else if (probe>=count*18) { scanning=false; LOG("[SCAN_FINISHED] no compatible Fort response found. Settings retained.\n"); }
+      else if (found) { current=candidate; scanning=false; LOG("[COMM_FOUND] ID=%u %lu 8%c1; reader settings selected in RAM. Use deeper to check Fort registers before poll.\n",current.id,(unsigned long)current.baud,current.parity); }
+      else if (probe>=count*18) { scanning=false; LOG("[SCAN_FINISHED] no matching Modbus reply found. Settings retained. UART RX/errors/echo and register support are separate observations.\n"); }
     }
   } else if (polling && uint32_t(millis()-lastPoll)>=POLL_MS) {
     lastPoll=millis(); readEnergy(current); if (abortRequested) polling=false;

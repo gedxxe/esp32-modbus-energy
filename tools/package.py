@@ -31,7 +31,7 @@ for name,offset in [('bootloader.bin',0),('partitions.bin',0x8000),('boot_app0.b
 root_names=['README.md','README.id.md','AGENTS.md','CHANGELOG.md','CHANGELOG.id.md','CONTRIBUTING.md','CONTRIBUTING.id.md','LICENSE','NOTICE','.gitignore',
             '.gitattributes','.editorconfig','.node-version','requirements-dev.txt','package.json','package-lock.json']
 files=[*(root/name for name in root_names),*sources,
-       *sorted((root/'firmware/test').glob('*.cpp')),
+       *(p for p in sorted((root/'firmware/test').rglob('*')) if p.is_file() and p.suffix in ['.cpp','.h']),
        *(p for p in sorted((root/'examples').rglob('*')) if p.is_file() and '.pio' not in p.parts and p.suffix in ['.ino','.md','.ini','.csv']),
        *(p for p in sorted((root/'web').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'docs').rglob('*')) if p.is_file()),

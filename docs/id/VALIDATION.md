@@ -57,3 +57,7 @@ Tes native capture/classifier lulus: batas 12, freeze/stop/reset, echo persis, C
 Firmware utama lulus build tanpa warning: RAM statis 47.784/327.680 byte, program 1.010.581/6.553.600 byte. Payload web 140.866 byte gzip. Stack high-water mark, latensi empat klien dan sumber echo belum diukur di hardware.
 
 FortSerialDebug.ino berhasil dikompilasi sebagai sketch Arduino dengan core 2.0.17 / espressif32 6.10.0 tanpa dependensi library eksternal. RAM statis sketch 19.372 byte, program 317.213 byte; konfigurasi PlatformIO yang disertakan juga lulus setelah filter hasil konversi INO diperiksa. GUI Arduino IDE, versi core lain, interaksi Serial serta pembacaan Fort fisik belum diuji. Build opsional PlatformIO ditambahkan ke CI dengan target board N16R8 yang sama. Sketch tidak menulis storage; pemilihan partisi/erase uploader dibahas terpisah pada panduan dan CSV yang disertakan.
+
+## Diagnostik mandiri berlapis 1.1.0 — diuji lokal
+
+Gambar manual PDF18,27,30 diperiksa visual; ambiguitas panjang energi tetap dicatat. Sketch lulus kompilasi core2.0.17 tanpa warning, RAM19.396 byte/program320.741 byte. tools/test.ps1 juga menjalankan INO sebenarnya dengan UART/Serial tiruan: RX pasif tanpa TX, respons/exception sah, tolak ID/CRC/echo salah, scan transport terpisah dari profil energi, exception tidak menghasilkan kWh, konversi valid, hanyaFC03, batasregister/abort/counter UART. Ini bukti perilaku kode, bukan bukti sinyal A/B atau mapping hardware sudah benar. Firmware utama tetap1.3.0.

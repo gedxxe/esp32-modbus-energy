@@ -1,4 +1,4 @@
-# Diagnostik serial Fort — ESP32-S3
+# Diagnostik serial Fort 1.1.0 — ESP32-S3
 
 [English](README.md) · **Bahasa Indonesia** · [Firmware utama](../../README.id.md)
 
@@ -10,7 +10,7 @@ Sketch [FortSerialDebug.ino](FortSerialDebug.ino) berdiri sendiri dan tidak meme
 - GPIO18 = RX ESP32 ← output TTL modul.
 - 3V3 ESP32 → VCC modul; GND ESP32 → GND TTL modul.
 - A+ modul → Fort 58/A; B− → Fort 59/B. Fort 70/COM bukan ground RS485.
-- Modul empat pin pada foto mengatur arah otomatis. GPIO16 tidak dipakai sketch ini. Wiring yang kamu laporkan adalah RXD modul → GPIO17, TXD modul → GPIO18; ini catatan pemasangan, bukan verifikasi independen arah label modul.
+- Modul empat pin pada foto mengatur arah otomatis. GPIO16 tidak dipakai sketch ini. Wiring pemasangan yang sudah dikonfirmasi: RXD modul → GPIO17, TXD modul → GPIO18. Pertahankan wiring ini saat diagnostik.
 
 OLED, RTC, tombol dan buzzer tidak dibutuhkan. Tidak ada suplai yang diambil dari terminal komunikasi Fort.
 
@@ -24,7 +24,21 @@ OLED, RTC, tombol dan buzzer tidak dibutuhkan. Tidak ada suplai yang diambil dar
 
 Alternatif PlatformIO dari root: `pio run -d examples/FortSerialDebug`. Konfigurasi yang disertakan memakai core yang sama tanpa library eksternal.
 
-## Uji pertama: A/B dilepas dari sisi modul ESP32
+## Diagnosis satu perintah, wiring tetap
+
+Serial Monitor **115200 + Newline**. Kirim `diagnose`: dengarkan RX pasif 3 detik, uji komunikasi, lalu audit register bila respons/exception sah diterima. Default pembaca ID 1 / 9600 / 8N1; gunakan setting dari menu meter bila diketahui. Perintah ini tidak memulai scan penuh.
+
+| Level / perintah | Yang diperiksa | Batas kesimpulan |
+| --- | --- | --- |
+| `basic` atau `listen 10` | Byte RX dan error UART, tanpa request Modbus | RX sepi normal bila slave menunggu master; bukan bukti kabel terputus |
+| `intermediate` | Respons FC03 0x0034, termasuk exception sah ber-CRC benar | Membuktikan balasan protokol, belum profil kWh atau identitas meter |
+| `deeper` | Baca raw register 0x0034, 0x0035, 0x002C–0x002E, 0x0080, 0x0082–0x0083, 0x008A–0x008B, lalu validasi kWh/CT/PT | Raw word tidak diberi satuan atau word order lain secara diam-diam |
+| `reg 0082 2` | Satu query fungsi 03, alamat PDU HEX, 1–3 word | Range/CRC/ID/fungsi/panjang tetap diperiksa, tanpa offset alamat |
+| `status` | Setting pembaca serta counter parity/framing/FIFO/buffer/break | Pengamatan driver, bukan pengukuran tegangan diferensial A/B |
+
+Callback UART hanya menaikkan counter atomik; pencetakan dilakukan loop utama. Tidak ada pencetakan dari task driver. x juga diproses tanpa menunggu newline saat scan/poll aktif.
+
+## Perbandingan isolasi opsional: A/B dilepas dari sisi modul ESP32
 
 Kirim satu per satu:
 
@@ -44,7 +58,7 @@ scan
 
 Scan penuh berisi **4.446 kandidat**: baud 1200/2400/4800/9600/19200/38400 × parity N/E/O, delapan data bit, satu stop bit. Tanpa respons bisa sekitar satu jam atau lebih. Kirim **x** untuk berhenti, termasuk saat menunggu respons. Selama menunggu hanya x diproses; kirim perintah lain setelah berhenti.
 
-`FOUND` memerlukan respons energi dan CT/PT yang lolos CRC, ID, fungsi, panjang serta rentang rasio. Ini kecocokan protokol, bukan autentikasi model. Setting yang ditemukan hanya dipilih pada pembaca di RAM; meter tidak dikonfigurasi ulang.
+`COMM_FOUND` memerlukan respons FC03 0x0034 yang lolos CRC/ID/fungsi/panjang, atau exception FC03 sah dari ID yang diminta. Ini menunjukkan balasan Modbus, terpisah dari kecocokan energi/CT/PT dan autentikasi model. Setting pembaca dipilih di RAM; lanjutkan `deeper` untuk memeriksa profil energi. Meter tidak dikonfigurasi ulang.
 
 ## Baca kWh
 

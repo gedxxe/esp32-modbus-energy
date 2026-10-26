@@ -6,7 +6,7 @@ Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a Fort powe
 
 The root Fort PDF is the primary meter reference. It is a scanned document. Verify the relevant page image before changing terminal assignments, registers, scaling, or protocol details. The documented meter communication terminals are 58/A and 59/B. Terminal 70/COM belongs to the switch inputs and is not an RS485 ground connection.
 
-The supplied module photo shows a four-pin automatic-direction VCC/TXD/RXD/GND interface; GPIO16 is unconnected on that module. The user reports crossed module TXD -> GPIO18 and RXD <- GPIO17. Treat this as reported wiring, not proof of the module label directions. Keep the manual RO/DI/DE/RE schematic explicitly identified as an alternative.
+The supplied module photo shows a four-pin automatic-direction VCC/TXD/RXD/GND interface; GPIO16 is unconnected on that module. The user reports crossed module TXD -> GPIO18 and RXD <- GPIO17. Keep that confirmed installation wiring as the diagnostic baseline; do not default to rewiring as the diagnosis without evidence. Keep the manual RO/DI/DE/RE schematic explicitly identified as an alternative.
 
 The only supported build/release target is `esp32s3` for the physical N16R8 board. Keep experimental tooling and generated caches out of the deployable source/package.
 

@@ -1,4 +1,4 @@
-# Fort serial diagnostic — ESP32-S3
+# Fort serial diagnostic 1.1.0 — ESP32-S3
 
 **English** · [Bahasa Indonesia](README.id.md) · [Main firmware](../../README.md)
 
@@ -10,7 +10,7 @@ Open [FortSerialDebug.ino](FortSerialDebug.ino) in Arduino IDE. This standalone 
 - GPIO18: ESP32 UART1 RX ← the module's TTL **output**.
 - ESP32 3V3 → module VCC; ESP32 GND → module TTL GND.
 - Module A+ → Fort 58/A; B− → Fort 59/B. Fort 70/COM is not RS485 ground.
-- The pictured four-pin module controls direction automatically. GPIO16 is unused by this sketch. The user's current reported wiring is module RXD → GPIO17 and module TXD → GPIO18. That reports the installation, not independent verification of the module label directions.
+- The pictured four-pin module controls direction automatically. GPIO16 is unused by this sketch. The confirmed installation wiring is module RXD → GPIO17 and module TXD → GPIO18; keep it unchanged for this diagnostic.
 
 OLED, RTC, switches and buzzer are not needed. No supply is taken from the Fort communication terminals.
 
@@ -24,7 +24,21 @@ OLED, RTC, switches and buzzer are not needed. No supply is taken from the Fort 
 
 PlatformIO users can run `pio run -d examples/FortSerialDebug` from the repository root; this uses the included optional configuration with the same core version and no external libraries.
 
-## First diagnosis: A/B disconnected at the ESP32 module
+## One-command diagnosis, with existing wiring unchanged
+
+Serial Monitor: **115200 + Newline**. Send `diagnose`. It listens passively for 3 seconds, probes the configured slave, then audits documented registers if a valid response/exception is received. The default reader settings are ID 1 / 9600 / 8N1; set them from the meter menu when known. This does not start a full scan.
+
+| Level / command | What it establishes | Limits |
+| --- | --- | --- |
+| `basic` or `listen 10` | RX bytes and UART error counters, without sending a Modbus request | Quiet RX is normal for a slave waiting for its master; not proof of a disconnected bus |
+| `intermediate` | FC03 0x0034 response, including a CRC-valid matching exception | Confirms a protocol reply, not the kWh map or meter identity |
+| `deeper` | Independent raw reads of 0x0034, 0x0035, 0x002C–0x002E, 0x0080, 0x0082–0x0083 and 0x008A–0x008B, then kWh/CT/PT validation | Raw words are not silently interpreted as another unit or word order |
+| `reg 0082 2` | One read-only raw query; HEX PDU address, 1–3 words | Strict range/CRC/ID/function/length checks; no address offset is applied |
+| `status` | Reader settings and cumulative parity/framing/FIFO/buffer/break counters | Driver observations, not a measurement of differential A/B voltage |
+
+The UART callback increments atomic counters only. The main loop prints them, avoiding console writes from the driver task. `x` also works without waiting for a newline while scan/poll is active.
+
+## Optional isolation comparison: A/B disconnected at the ESP32 module
 
 Send each line separately:
 
@@ -44,7 +58,7 @@ scan
 
 The full search has **4,446 candidates** at 1200/2400/4800/9600/19200/38400, each with 8N1/8E1/8O1. It can take about an hour or more without replies; it is not a search of every possible UART format. Send **x** to abort, including during an 800 ms response wait. During busy waits only x is processed; send other commands after stopping.
 
-`FOUND` requires valid CRC/ID/function/length energy and ratio responses, plus nonzero PT/CT words within the documented range. It indicates protocol compatibility, not authentication of the meter model. The sketch selects the matching reader settings in RAM; it never reconfigures the meter.
+`COMM_FOUND` requires a matching CRC/ID/function/length response to FC03 register 0x0034, or a valid matching FC03 exception. This establishes a Modbus reply independently of energy/CT/PT compatibility; it does not authenticate a Fort model. The sketch selects reader settings in RAM, then use `deeper` to test the energy profile. It never reconfigures the meter.
 
 ## Read once or continuously
 

@@ -3,6 +3,14 @@
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
 
+
+## Standalone diagnostic 1.1.0 — 2026-10-26
+
+- Separate passive RX/no-TX, protocol response and energy-profile checks; add basic/intermediate/deeper/diagnose and bounded raw register commands.
+- Detect matching valid exceptions during communication scan without treating exception data as kWh; retain CRC/ID/function/length validation.
+- Add atomic UART parity/framing/FIFO/buffer/break counters and tests executing the real INO with deterministic serial mocks.
+- Reinspect the original manual page images and explicitly retain the printed energy-length ambiguity. Main firmware remains 1.3.0.
+
 ## 1.3.0 — 2026-10-26
 
 - Add a passive, fixed-RAM capture of the next 12 existing Modbus attempts, with per-attempt UART settings, TX/RX hex, overflow and exact-echo classification. CRC/response validation remains unchanged.

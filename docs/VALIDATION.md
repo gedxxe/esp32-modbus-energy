@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware **1.2.1**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
+Firmware **1.3.0**. Results below were obtained locally; they are separate from physical acceptance and remote CI. See [COMMISSIONING](COMMISSIONING.md) for hardware checks.
 
 ## Native logic — passed
 
@@ -14,6 +14,7 @@ Firmware **1.2.1**. Results below were obtained locally; they are separate from 
 - Archive fault injection: failed rotation/install/restore retains recoverable copies.
 - CT/PT retry/backoff, scan ranges, 4,446 unique candidates, preferred-ID mode priority, single-ID range, duplicate start, cancel/restart/found/exhausted and elapsed-time rollover.
 - RGB Off/Solid/Hue/Blink/Breathing, brightness scaling, CRC-protected record round-trip/corruption/length rejection, parameter bounds and animation millis rollover.
+- Raw capture: disabled/start/stop/reset, twelve-attempt bound/freeze, exact echo versus valid response, short/CRC/overflow/wrong-ID/exception classification. Echo and overflow prefixes never pass the response validator.
 - Stable English quality codes and compatibility of the legacy status names.
 
 These tests execute the same header logic used by the firmware. They do not run the ESP-IDF tasks or peripheral drivers.
@@ -27,6 +28,7 @@ These tests execute the same header logic used by the firmware. They do not run 
 - Serial config fields, phone time request, POST token and CSV download selection.
 - LED mode/color/brightness/cycle POST fields and token; draft retained across polls; all five modes; applied-state reload; storage warning, driver unavailable, disconnected controls and Indonesian labels. These use simulated NVS/API results, not a physical persistence test.
 - Scan range validation, progress/disabled controls, reload recovery, cancellation, explicit result application, no match, translated HTTP error and five-second POST timeout recovery.
+- Raw panel: no trace fetch while closed, explicit capture/stop, exact-echo/CRC/timeout/valid labels, POST token, text export contents, translated labels, API-failure controls and 320–1440 px capture layouts.
 - Stale/offline status, retained last sample and hidden live power; mutation buttons remain disabled when disconnected, including after navigation.
 - Widths 320, 390, 768, 1440 and 2560 px without document overflow; reduced-motion rendering; no JavaScript page errors or external asset requests.
 - Vendored React Bits file contents match their recorded upstream Git blob hashes.
@@ -43,11 +45,11 @@ Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0*
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | / | 1030 | 527 |
-| /assets/app.js | 390540 | 132113 |
-| /assets/app.css | 16392 | 4322 |
+| /assets/app.js | 397475 | 134464 |
+| /assets/app.css | 16974 | 4442 |
 | /assets/third-party.txt | 5755 | 1433 |
 
-Combined payload: **138395 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before the hardware firmware build. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
+Combined payload: **140866 bytes**, within the 160 KiB build limit. PlatformIO's Python-only source/header guard passed before the hardware firmware build. Source maps, external fonts and CDN imports are not shipped. The web application/animations execute in the browser; the device serves flash-mapped bytes in bounded chunks.
 
 ## Firmware — passed
 
@@ -55,7 +57,7 @@ Combined payload: **138395 bytes**, within the 160 KiB build limit. PlatformIO's
 
 | Target | Static RAM / 327,680 bytes | Program / app partition |
 | --- | ---: | ---: |
-| ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,240 (14.4%) | 1,002,577 / 6,553,600 (15.3%) |
+| ESP32-S3 N16R8, 16 MB flash / OPI PSRAM | 47,784 (14.6%) | 1,010,581 / 6,553,600 (15.4%) |
 
 Static RAM is not total runtime heap/stack use. Successful compilation does not measure HTTP transfer latency or validate physical UART turnaround. Hardware factory offsets are bootloader 0x0, partitions 0x8000, boot_app0 0xE000 and app 0x10000.
 
@@ -67,7 +69,7 @@ The earlier 1.1.0 CI run passed logic/docs and browser but failed firmware setup
 
 ## Hardware limits
 
-The user confirmed GPIO48 as the correct onboard LED pin on 26 October 2026. Complete hardware acceptance for version 1.2.1 is not recorded here. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
+The user confirmed GPIO48 as the correct onboard LED pin on 26 October 2026. Complete hardware acceptance for version 1.3.0 is not recorded here. The user's 23 October log showed an earlier application booting on a bare ESP32-S3 with no I2C modules attached; that is not acceptance evidence for this release.
 
 Fort UART scanning/scaling, OLED/RTC I2C, battery backup, buttons/buzzer, AP radio under multiple clients, noise, power-cut recovery and endurance remain unverified on physical hardware. Neither a DOM test nor a C++ unit test covers them.
 
@@ -82,3 +84,11 @@ The release packager selects the five named N16R8 BIN files explicitly. Temporar
 The user changed `RGB_LED_PIN` to 48 in board.h; that value is retained. README/design/commissioning, agent instructions, fallback UI and simulated RGB screenshots now agree with it. The browser mock reads the pin directly from board.h to avoid future screenshot drift. GPIO38 remains documented only as a board-revision alternative.
 
 The corrected source passed the documentation/hash checks and the embedded-asset browser suite. The N16R8 firmware rebuilt successfully without compiler warnings: static RAM 47,240 bytes, program 1,002,577 bytes, browser gzip 138,395 bytes. The source/binaries/package were regenerated together; full hardware acceptance remains separate from the user's pin confirmation.
+
+## Raw diagnostics and standalone sketch — 1.3.0
+
+The new native classifier/capture cases and the embedded-asset browser suite passed locally. Representative raw capture screenshots use simulated echo/CRC/timeout/valid frames: [desktop](assets/ui-trace-desktop.png), [phone](assets/ui-trace-mobile.png). These are not a capture from the user's Fort. Native tests do not exercise the peripheral driver or establish the source of observed echo.
+
+The main firmware built successfully with no compiler warnings. Added snapshot memory remains fixed and is included in the static-RAM figure; runtime queue/stack high-water marks and four-client latency are unmeasured.
+
+`FortSerialDebug.ino` compiled as an Arduino sketch with Arduino ESP32 2.0.17 / espressif32 6.10.0, with no external library dependencies. Standalone static RAM: **19,372 bytes**; program: **317,213 bytes**. The included PlatformIO configuration also compiled successfully after INO-to-C++ source filtering was verified. The Arduino IDE GUI, other ESP32 core versions, serial interaction and physical Fort reads are not hardware-tested. Its optional PlatformIO entry is compiled in CI as the same N16R8 board target. The sketch does not modify persistent storage; upload-tool partition/erase selections remain a separate concern addressed by its guide and supplied CSV.

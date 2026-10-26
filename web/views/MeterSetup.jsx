@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import RawTrace from "../components/RawTrace.jsx";
 import Icon from "../components/Icon.jsx";
 import { useText } from "../ui.js";
 
@@ -263,8 +264,10 @@ export default function MeterSetup({ device }) {
           <div className="hint">{t("scan_pause_note")}</div>
         </section>
       </div>
+      <RawTrace device={device} />
       <details className="wiring-help">
         <summary>{t("wiring_title")}</summary>
+        <p className="small muted">{t("wiring_auto")}</p>
         <div className="pins">
           <code>RO → GPIO18 / RX</code>
           <code>DI ← GPIO17 / TX</code>

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 1.2.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.3.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 Pembaca energi untuk power meter Fort existing di Midea, menggunakan ESP32-S3 N16R8. Perangkat membaca kWh impor melalui Modbus RTU, mencatat interval setengah jam terjadwal, dan menyediakan dashboard melalui hotspot ESP32. ESP32 menjadi satu-satunya master pada port RS485 Fort tersebut.
 
@@ -90,12 +90,20 @@ PlatformIO memasang dependency firmware otomatis. Versi dikunci pada [platformio
 
 1. Nyalakan ESP32. Startup tidak menunggu Serial USB. Animasi OLED dan pola buzzer berlangsung sekitar 1,5 detik; tanpa OLED pun perangkat tetap boot.
 2. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**. Tetap di jaringan ini walau muncul pesan tanpa internet. Buka **http://192.168.4.1**.
-3. Pastikan footer menunjukkan **Firmware 1.2.1**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
+3. Pastikan footer menunjukkan **Firmware 1.3.0**. Pilihan **Indonesia** di kanan atas disimpan pada browser, bukan pada meter.
 4. Pada pemasangan baru, LittleFS bisa belum berformat valid. Jika mount gagal, tahan **OK / GPIO6** saat boot dan terus tahan lima detik. Tindakan ini memformat partisi arsip dan menghapus arsip. Tidak ada format otomatis saat gagal mount.
 5. Buka **Perangkat & arsip → Atur dari HP ini** untuk mengatur RTC. DS3231 menyimpan UTC; layar dan interval memakai WIB. Jam HP harus benar.
 6. Buka **Koneksi meter**. Masukkan setting Fort atau jalankan scan. Default pembaca adalah ID 1, 9600, 8N1; manual dari box tidak membuktikan slave ID unit yang sedang terpasang.
 
 ### Kontrol lokal
+
+### Diagnostik Modbus mentah dan sketch Arduino mandiri
+
+Pada firmware utama buka **Koneksi meter → Diagnostik TX/RX mentah → Rekam 12 berikutnya**. Capture mengamati polling/scan yang sudah berjalan, tanpa menambah request atau memutus interval dengan sendirinya. Jalankan Scan Fort ID 1–1 untuk pengujian singkat. Dua belas percobaan pertama dibekukan di RAM; Hentikan rekaman mempertahankan hasil parsial. **Unduh log mentah** menyimpan TX/RX hex, ID, baud/parity, register, percobaan dan hasil validasi. Reload panel tidak menghapus rekaman perangkat; restart/rekaman baru menggantikannya. Echo TX persis tetap ditolak. Angka CRC/rejected bukan bukti meter membalas.
+
+Untuk Arduino IDE gunakan [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) dan [panduan lengkap](examples/FortSerialDebug/README.id.md). Tanpa library tambahan di luar core Espressif: scan rentang penuh, baca kWh/CT/PT, log Serial hex/CRC/echo/exception dengan batas buffer dan timeout. Serial Monitor **115200 + Newline**; mulai `range 1 1` lalu `scan`. Sketch ini menggantikan aplikasi utama selama terpasang; dashboard dan pencatatan interval tidak berjalan. Upload firmware utama lagi sesudah uji.
+
+Modul empat pin pada foto memakai arah otomatis: VCC/TXD/RXD/GND, GPIO16 tidak disambungkan. GPIO17 ke input TTL modul, GPIO18 ke output. Wiring TXD/RXD bersilangan yang dilaporkan dicatat dalam panduan; arah label belum diverifikasi secara independen. Diagram RO/DI/DE/RE tetap menjadi referensi modul arah manual.
 
 ### Posisi OLED dan LED RGB bawaan
 

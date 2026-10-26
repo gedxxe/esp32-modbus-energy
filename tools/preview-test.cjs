@@ -11,7 +11,11 @@ const version = fs
   .readFileSync(path.join(root, "firmware/include/version.h"), "utf8")
   .match(/FIRMWARE_VERSION\[\] = "([^"]+)"/)[1];
 // Keep simulated labels/screenshots aligned with the installed board configuration.
-const rgbPin = Number(fs.readFileSync(path.join(root, "firmware/include/board.h"), "utf8").match(/RGB_LED_PIN\s*=\s*(\d+)/)[1]);
+const rgbPin = Number(
+  fs
+    .readFileSync(path.join(root, "firmware/include/board.h"), "utf8")
+    .match(/RGB_LED_PIN\s*=\s*(\d+)/)[1],
+);
 const manifest = JSON.parse(
   fs.readFileSync(path.join(root, "web/bundle.json")),
 );
@@ -62,6 +66,18 @@ let online = true,
   scanMode = "running",
   rejectScan = false,
   hangScan = false;
+let traceFail = false,
+  traceRequests = 0;
+const trace = {
+  version,
+  generation: 0,
+  active: false,
+  count: 0,
+  capacity: 12,
+  txPin: 17,
+  rxPin: 18,
+  frames: [],
+};
 const calls = [],
   assetRequests = new Set();
 const state = {
@@ -134,6 +150,16 @@ const server = http.createServer((req, res) => {
     );
     return;
   }
+  if (req.url === "/api/trace") {
+    ++traceRequests;
+    if (traceFail) {
+      res.statusCode = 503;
+      res.end("{}");
+      return;
+    }
+    res.end(JSON.stringify(trace));
+    return;
+  }
   if (req.url === "/api/history") {
     res.end(
       JSON.stringify([
@@ -170,6 +196,37 @@ const server = http.createServer((req, res) => {
         );
         return;
       }
+      if (req.url === "/api/trace/start") {
+        ++trace.generation;
+        trace.active = true;
+        trace.count = 4;
+        const tx = "01 03 00 82 00 02 64 23";
+        trace.frames = ["echo", "crc", "timeout", "valid"].map(
+          (result, index) => ({
+            atMs: 10000 + index * 100,
+            baud: 9600,
+            parity: "N",
+            slave: 1,
+            address: 130,
+            words: 2,
+            attempt: 1,
+            scan: true,
+            overflow: false,
+            result,
+            tx,
+            rx:
+              result === "echo"
+                ? tx
+                : result === "timeout"
+                  ? ""
+                  : result === "valid"
+                    ? "01 03 04 00 00 C3 17 EA CD"
+                    : "01 03 04 00 00 C3 17 00 00",
+            rxBytes: result === "echo" ? 8 : result === "timeout" ? 0 : 9,
+          }),
+        );
+      }
+      if (req.url === "/api/trace/stop") trace.active = false;
       if (req.url === "/api/config")
         Object.assign(state, {
           slave: Number(data.get("slave")),
@@ -409,6 +466,81 @@ async function checkVectors(browser, out) {
     await page.locator("#download").click();
     assert((await download).suggestedFilename().endsWith(".csv"));
     await page.locator("#nav-setup").click();
+    assert.equal(
+      traceRequests,
+      0,
+      "Closed raw panel must not poll its endpoint",
+    );
+    await page.locator("#raw-trace summary").click();
+    await page.waitForFunction(
+      () => document.getElementById("trace-start") && !document.getElementById("trace-start").disabled,
+    );
+    await page.locator("#trace-start").click();
+    await page.waitForFunction(
+      () => document.querySelectorAll("#trace-frames article").length === 4,
+    );
+    assert(
+      (await page.locator("#trace-frames").innerText()).includes(
+        "Exact TX echo",
+      ),
+    );
+    assert(
+      (await page.locator("#trace-frames").innerText()).includes(
+        "CRC mismatch",
+      ),
+    );
+    assert(
+      (await page.locator("#trace-frames").innerText()).includes(
+        "Valid response",
+      ),
+    );
+    assert(await page.locator("#trace-start").isDisabled());
+    await page.locator("#trace-stop").click();
+    await page.waitForFunction(
+      () => document.getElementById("trace-stop").disabled,
+    );
+    assert(calls.some((call) => call.url === "/api/trace/start"));
+    const rawDownloadPromise = page.waitForEvent("download");
+    await page.locator("#trace-download").click();
+    const rawDownload = await rawDownloadPromise;
+    assert.equal(rawDownload.suggestedFilename(), "fort-raw-1.txt");
+    const rawText = fs.readFileSync(await rawDownload.path(), "utf8");
+    assert(
+      rawText.includes("result=echo") &&
+        rawText.includes("GPIO17 / RX GPIO18") &&
+        rawText.includes("RX (8 captured bytes)"),
+    );
+    traceFail = true;
+    await page.waitForFunction(() =>
+      document
+        .getElementById("trace-status")
+        ?.textContent.includes("Cannot refresh"),
+    );
+    assert(await page.locator("#trace-start").isDisabled());
+    traceFail = false;
+    await page.waitForFunction(
+      () => document.getElementById("trace-start") && !document.getElementById("trace-start").disabled,
+    );
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        "raw capture overflow at " + width,
+      );
+    }
+    await page.screenshot({
+      path: path.join(root, "docs/assets/ui-trace-desktop.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: path.join(root, "docs/assets/ui-trace-mobile.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator("#raw-trace summary").click();
     await page.locator("#slave").fill("3");
     await page.locator("#baud").selectOption("4800");
     await page.locator("#parity").selectOption("O");
@@ -450,6 +582,9 @@ async function checkVectors(browser, out) {
       "2",
     );
     await page.locator("#language").selectOption("id");
+    assert(
+      (await page.locator("#raw-trace summary").innerText()).includes("mentah"),
+    );
     assert(
       (await page.locator("#scanstatus").innerText()).includes(
         "Pencatatan dijeda",
@@ -607,6 +742,8 @@ async function checkVectors(browser, out) {
     await page.locator("#nav-setup").click();
     assert(await page.locator("#scanstart").isDisabled());
     assert(await page.locator("#scanapply").isDisabled());
+    await page.locator("#raw-trace summary").click();
+    assert(await page.locator("#trace-start").isDisabled());
     await page.locator("#nav-device").click();
     assert(await page.locator("#led-save").isDisabled());
     assert((await page.locator("#led-title").innerText()).includes("bawaan"));
@@ -643,7 +780,7 @@ async function checkVectors(browser, out) {
     await page.close();
     const vectors = await checkVectors(browser, out);
     console.log(
-      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
+      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
     );
   } catch (error) {
     const failed = browser?.contexts()[0]?.pages()[0];

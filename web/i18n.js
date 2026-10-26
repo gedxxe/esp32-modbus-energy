@@ -1,5 +1,33 @@
 export const catalog = {
   en: {
+    trace_title: "Raw TX/RX diagnostics",
+    trace_intro:
+      "Capture the next 12 existing Modbus attempts. No extra requests are sent. Open this panel, start capture, then run a scan if needed.",
+    trace_start: "Capture next 12",
+    trace_stop: "Stop capture",
+    trace_download: "Download raw log",
+    trace_recording: "Capturing {count}/{capacity} attempts…",
+    trace_frozen: "Capture stopped · {count}/{capacity} attempts retained",
+    trace_empty: "No capture yet. Start to record existing UART traffic.",
+    trace_failed: "Cannot refresh capture. Reconnect or reopen this panel.",
+    trace_busy: "A raw capture is already running.",
+    trace_no_rx: "No bytes received",
+    trace_attempt: "Attempt {count}",
+    trace_scan: "Scan",
+    trace_poll: "Polling",
+    trace_result_valid: "Valid response",
+    trace_result_echo: "Exact TX echo · rejected",
+    trace_result_timeout: "Timeout",
+    trace_result_short: "Too short",
+    trace_result_overflow: "RX overflow · truncated",
+    trace_result_crc: "CRC mismatch",
+    trace_result_exception: "Modbus exception",
+    trace_result_invalid: "Wrong response ID/function/length",
+    trace_note:
+      "Exact echo means the captured RX equals the complete 8-byte request; it does not prove where the loopback occurs. CRC/rejected traffic does not prove the meter replied. The first 12 attempts are frozen in RAM until a new capture or restart; closing this panel does not stop capture. Raw bytes are UART-buffer observations, not oscilloscope timings.",
+    wiring_auto:
+      "Your pictured 4-pin VCC/TXD/RXD/GND module controls direction automatically: leave GPIO16 unconnected. ESP32 GPIO17 must reach the module TTL input and GPIO18 its output. The reported crossed TXD/RXD wiring is not independently verified. The RO/DI/DE/RE reference below applies to manual-direction modules.",
+
     led_title: "Onboard RGB LED",
     led_intro: "Choose the light pattern on the ESP32 board.",
     led_applied: "Applied: {mode} · GPIO{pin}",
@@ -192,6 +220,36 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
+    trace_title: "Diagnostik TX/RX mentah",
+    trace_intro:
+      "Rekam 12 percobaan Modbus berikutnya dari polling/scan yang sudah berjalan. Tidak mengirim request tambahan. Buka panel, mulai rekam, lalu jalankan scan bila diperlukan.",
+    trace_start: "Rekam 12 berikutnya",
+    trace_stop: "Hentikan rekaman",
+    trace_download: "Unduh log mentah",
+    trace_recording: "Merekam {count}/{capacity} percobaan…",
+    trace_frozen: "Rekaman berhenti · {count}/{capacity} percobaan tersimpan",
+    trace_empty:
+      "Belum ada rekaman. Mulai untuk merekam lalu lintas UART yang berjalan.",
+    trace_failed:
+      "Rekaman gagal diperbarui. Sambungkan kembali atau buka ulang panel.",
+    trace_busy: "Rekaman mentah masih berjalan.",
+    trace_no_rx: "Tidak ada byte diterima",
+    trace_attempt: "Percobaan {count}",
+    trace_scan: "Scan",
+    trace_poll: "Polling",
+    trace_result_valid: "Respons valid",
+    trace_result_echo: "Echo TX persis · ditolak",
+    trace_result_timeout: "Timeout",
+    trace_result_short: "Terlalu pendek",
+    trace_result_overflow: "RX overflow · dipotong",
+    trace_result_crc: "CRC mismatch",
+    trace_result_exception: "Exception Modbus",
+    trace_result_invalid: "ID/fungsi/panjang respons tidak sesuai",
+    trace_note:
+      "Echo persis berarti RX sama dengan seluruh request 8 byte; belum menentukan lokasi loopback. CRC/rejected bukan bukti meter membalas. Sebanyak 12 percobaan pertama dibekukan di RAM sampai rekaman baru atau restart; menutup panel tidak menghentikan rekaman. Byte berasal dari buffer UART, bukan pengukuran timing osiloskop.",
+    wiring_auto:
+      "Modul 4 pin VCC/TXD/RXD/GND pada fotomu mengatur arah otomatis: GPIO16 tidak disambungkan. GPIO17 ESP32 harus ke input TTL modul, GPIO18 ke output. Wiring TXD/RXD bersilangan yang dilaporkan belum diverifikasi secara independen. Referensi RO/DI/DE/RE di bawah berlaku untuk modul arah manual.",
+
     led_title: "LED RGB bawaan",
     led_intro: "Pilih pola lampu pada board ESP32.",
     led_applied: "Aktif: {mode} · GPIO{pin}",

@@ -32,6 +32,7 @@ root_names=['README.md','README.id.md','AGENTS.md','CHANGELOG.md','CHANGELOG.id.
             '.gitattributes','.editorconfig','.node-version','requirements-dev.txt','package.json','package-lock.json']
 files=[*(root/name for name in root_names),*sources,
        *sorted((root/'firmware/test').glob('*.cpp')),
+       *(p for p in sorted((root/'examples').rglob('*')) if p.is_file() and '.pio' not in p.parts and p.suffix in ['.ino','.md','.ini','.csv']),
        *(p for p in sorted((root/'web').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'docs').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'.github').rglob('*')) if p.is_file()),

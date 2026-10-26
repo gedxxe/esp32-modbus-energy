@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/FLASHING.md)
 
-Firmware **1.2.1**, ESP32-S3 DevKitC-style **N16R8**: 16 MB flash, 8 MB OPI PSRAM. Open the `firmware/` directory in PlatformIO.
+Firmware **1.3.0**, ESP32-S3 DevKitC-style **N16R8**: 16 MB flash, 8 MB OPI PSRAM. Open the `firmware/` directory in PlatformIO.
 
 ## Physical board
 

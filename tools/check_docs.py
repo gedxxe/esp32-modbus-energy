@@ -26,7 +26,7 @@ def slugs(text):
     found.update(re.findall(r'id="([^" ]+)"',text))
     return found
 
-markdown=[*ROOT.glob('*.md'),*sorted((ROOT/'docs').rglob('*.md')),*sorted((ROOT/'web/vendor').rglob('*.md'))]
+markdown=[*ROOT.glob('*.md'),*sorted((ROOT/'docs').rglob('*.md')),*sorted((ROOT/'web/vendor').rglob('*.md')),*(p for p in sorted((ROOT/'examples').rglob('*.md')) if '.pio' not in p.parts)]
 link_count=0
 for file in markdown:
     text=file.read_text(encoding='utf-8')

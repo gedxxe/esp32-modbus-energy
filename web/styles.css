@@ -1166,3 +1166,47 @@ footer a {
   line-height: 1.7;
   margin: 14px 0 0;
 }
+
+.raw-trace {
+  margin: 22px 0;
+}
+.raw-trace summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.raw-trace[open] summary {
+  margin-bottom: 18px;
+}
+.trace-frames {
+  display: grid;
+  gap: 12px;
+  max-height: 600px;
+  overflow: auto;
+  margin: 16px 0;
+}
+.trace-frame {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  min-width: 0;
+}
+.trace-frame-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.trace-frame-head span {
+  color: var(--deep);
+}
+.trace-bytes {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+.trace-bytes code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

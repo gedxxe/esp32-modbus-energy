@@ -5,6 +5,11 @@
 Audit mencakup source firmware, tracker, CRC, konfigurasi board/dependency, persistence, antarmuka, wiring terhadap manual, dokumentasi, aset GitHub, tooling, dan isi paket rilis. Pemeriksaan source/simulasi berbeda dari pengujian perangkat; hasil hardware belum diklaim.
 
 
+
+## Review 1.3.0
+
+Capture mengamati traffic yang sudah berjalan melalui buffer tetap dan queue snapshot. CRC/frame tetap ketat; echo persis tidak menentukan lokasi sumbernya. Polling trace hanya saat panel dibuka. Sketch Arduino terpisah memakai fungsi baca 03, batas buffer/deadline dan tanpa storage persisten. Perlakuan tunggu echo pada sketch tidak mengubah reader utama. Timing/stack/perilaku modul masih membutuhkan uji hardware.
+
 ## Review 1.2.1
 
 Rotasi OLED diatur sebelum boot/prompt. RMT asinkron dimiliki core 0; NVS LED ber-CRC dimiliki core 1. Status simpan LED terpisah dari storage energi. Form hanya mengirim saat Terapkan dan draft tetap aman saat polling. Variasi GPIO serta batas tiga kanal dijelaskan; hasil mock tidak dianggap bukti LED/rotasi fisik.

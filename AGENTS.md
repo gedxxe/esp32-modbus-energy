@@ -6,6 +6,8 @@ Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a Fort powe
 
 The root Fort PDF is the primary meter reference. It is a scanned document. Verify the relevant page image before changing terminal assignments, registers, scaling, or protocol details. The documented meter communication terminals are 58/A and 59/B. Terminal 70/COM belongs to the switch inputs and is not an RS485 ground connection.
 
+The supplied module photo shows a four-pin automatic-direction VCC/TXD/RXD/GND interface; GPIO16 is unconnected on that module. The user reports crossed module TXD -> GPIO18 and RXD <- GPIO17. Treat this as reported wiring, not proof of the module label directions. Keep the manual RO/DI/DE/RE schematic explicitly identified as an alternative.
+
 The only supported build/release target is `esp32s3` for the physical N16R8 board. Keep experimental tooling and generated caches out of the deployable source/package.
 
 ## Sources of truth
@@ -17,6 +19,8 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
 - `firmware/include/energy.h`: interval schedule, continuity and quality logic, CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
+- `firmware/include/trace.h`: fixed-size passive UART capture and diagnostic classification; never bypass CRC/frame validation or silently strip echo bytes in the main firmware.
+- `examples/FortSerialDebug/`: standalone Arduino diagnostic; keep it read-only and independent of external libraries.
 - `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding.
 - `firmware/src/main.cpp`: hardware drivers, RTOS ownership, persistence and HTTP API.
 - `docs/DESIGN.md`: manual page references and documented limitations.
@@ -56,6 +60,7 @@ Run checks appropriate to the change; do not broaden/repeat them after they pass
 - Native logic on Linux/macOS: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o /tmp/fort-test && /tmp/fort-test`.
 - Documentation, assets, versions and relative links: `python tools/check_docs.py`.
 - Firmware: from `firmware`, `pio run`. Use the installed PlatformIO Python module if `pio` is absent from PATH.
+- Standalone sketch: `pio run -d examples/FortSerialDebug` (same ESP32-S3 N16R8 target; no external libraries).
 - Browser/UI and SVG visual checks: `node tools/preview-test.cjs [playwright-module-path] [browser-channel]`. The script uses a localhost mock, not real hardware.
 
 After changing firmware, rebuild before copying binaries. Update `docs/VALIDATION.md` with actual outcomes and limitations, rebuild the release package, verify its manifest and ZIP integrity. Include all documentation/assets/tools in the ZIP; never package `.pio`, temporary files or dependency directories. Follow `output/firmware/FLASHING.md` for image offsets.

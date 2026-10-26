@@ -2,6 +2,14 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+
+## 1.3.0 — 2026-10-26
+
+- Add a passive, fixed-RAM capture of the next 12 existing Modbus attempts, with per-attempt UART settings, TX/RX hex, overflow and exact-echo classification. CRC/response validation remains unchanged.
+- Add bilingual web capture/start/stop/export controls. Poll full trace data only while its panel is open; preserve captured frames until a new capture or restart.
+- Add a standalone Arduino IDE FortSerialDebug sketch without external libraries: read-only kWh/CT/PT, bounded Serial debugging, abortable ID/baud/parity scan, and an optional matching 16 MB partition layout/PlatformIO build.
+- Document the supplied automatic-direction four-pin module separately from the manual DE/RE wiring reference. Add native/browser tests and standalone compilation to CI.
+
 ## 1.2.1 — 2026-10-26
 
 - Correct the installation RGB default to GPIO48 after confirmation on the user’s board; keep GPIO38 documented as a board-revision alternative.

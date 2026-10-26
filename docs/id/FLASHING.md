@@ -2,7 +2,7 @@
 
 # Firmware hasil build
 
-Firmware: **1.2.1** (dengan Scan Fort). Setelah upload, buka Koneksi meter → Scan Fort pada dashboard.
+Firmware: **1.3.0** (dengan Scan Fort). Setelah upload, buka Koneksi meter → Scan Fort pada dashboard.
 
 Panduan langkah demi langkah ada pada [cara menjalankan Scan Fort](../../README.id.md#scan-fort).
 
@@ -26,4 +26,4 @@ Semua binary berhasil dibangun, tetapi belum diflash/diuji pada hardware penggun
 
 ## Aset dashboard React
 
-Build PlatformIO biasa memakai header gzip yang sudah ada dan memeriksa hash source, sehingga tidak perlu Node. Setelah mengubah source di `web/`, gunakan Node 24.22.1 dan jalankan `npm ci`, `npm run build:web`, lalu `npm run check:web` dari root sebelum compile. Dashboard tersimpan di firmware; tidak perlu upload filesystem web terpisah. Buka `http://192.168.4.1`, pastikan footer 1.2.1, lalu pilih Indonesia di kanan atas.
+Build PlatformIO biasa memakai header gzip yang sudah ada dan memeriksa hash source, sehingga tidak perlu Node. Setelah mengubah source di `web/`, gunakan Node 24.22.1 dan jalankan `npm ci`, `npm run build:web`, lalu `npm run check:web` dari root sebelum compile. Dashboard tersimpan di firmware; tidak perlu upload filesystem web terpisah. Buka `http://192.168.4.1`, pastikan footer 1.3.0, lalu pilih Indonesia di kanan atas.

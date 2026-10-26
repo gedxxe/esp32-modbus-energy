@@ -5,6 +5,11 @@
 This is a record of specific changes and remaining limits, not an assertion that the installation is production-qualified. Current checks and build sizes are in [VALIDATION](VALIDATION.md).
 
 
+
+## 1.3.0 — bounded UART diagnostics
+
+Raw capture observes existing traffic, copies fixed buffers through the existing snapshot queue and never relaxes frame/CRC checks. Exact echo is diagnostic evidence of a repeated request, not proof of the physical source. Full trace polling is limited to an open panel. The separate Arduino sketch uses only read function 03, bounded buffering/deadlines and no persistent storage. Its deliberately separate echo-wait behavior does not change the main reader. Real bus timing/stack headroom/module behavior still require hardware acceptance.
+
 ## 1.2.1 — display orientation and onboard RGB
 
 OLED rotation is set once before boot/recovery drawing. Core 0 owns asynchronous, single-producer RMT output; core 1 owns CRC-protected LED NVS records. Separate LED persistence status avoids misreporting an RGB-only fault as an energy archive failure. The web form sends only on explicit Apply and preserves drafts across unchanged polls. GPIO revision and three-channel limits are documented; no physical LED/rotation result is inferred from mocks.

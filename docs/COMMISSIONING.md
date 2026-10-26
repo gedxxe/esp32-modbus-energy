@@ -54,3 +54,11 @@ Accept the installation only after scaling/direction/word order match the actual
 3. In Device & records, apply Off/Solid/Hue/Blink/Breathing, primary colors, brightness 0/128/255 and 0.5/30-second cycles. Check physical output as well as the applied status.
 4. Reload the phone page, then restart the board. Verify saved settings return after boot; boot lighting still uses compile-time defaults. Confirm a storage warning is absent before relying on persistence.
 5. Repeat while the meter is polling and while scanning/serving assets. Observe watchdog resets, missed UART responses and animation jitter; no on-target timing measurements are claimed by the software tests.
+
+## Raw capture and standalone diagnosis
+
+1. On the main firmware, open Meter setup / Raw TX/RX diagnostics, start capture, then run a one-ID scan. Confirm captures identify each attempt's baud/parity/ID/register and freeze after twelve attempts, or earlier on Stop. Download the raw text.
+2. Repeat with A/B disconnected at the ESP32 module, keeping TTL/power connected. RX traffic in this test is not a Fort reply. Exact request echo, malformed bytes and no-byte timeout must remain distinct observations; do not infer a valid connection from error counters.
+3. The supplied module has automatic direction and four TTL pins. Leave GPIO16 unconnected; verify functional TTL input/output directions before changing wiring. The reported installation crosses module TXD to GPIO18 and RXD to GPIO17.
+4. For an isolated Arduino-only run, follow the standalone sketch guide linked from README. Use Serial 115200/Newline, `range 1 1`, `scan`; save TX/RX and CRC output both with A/B disconnected and connected. Use x to stop. This temporarily replaces the main application and does not record its intervals.
+5. Restore the main firmware after testing. Verify retained records/time/settings before resuming interval acceptance. A successful compile or mock capture does not prove the user's meter was found.

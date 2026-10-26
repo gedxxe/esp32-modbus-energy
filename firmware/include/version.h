@@ -1,2 +1,2 @@
 #pragma once
-constexpr char FIRMWARE_VERSION[] = "1.2.1";
+constexpr char FIRMWARE_VERSION[] = "1.3.0";

@@ -40,7 +40,7 @@
 - Uji interval pagi/sore serta gangguan daya/komunikasi memenuhi perilaku di atas.
 - Panel, kabel, isolasi, suplai dan pemasangan disetujui teknisi fasilitas.
 
-## Uji Scan Fort (firmware 1.2.1)
+## Uji Scan Fort (firmware 1.3.0)
 
 1. Di luar interval produksi, catat setting Fort dan setting pembaca yang lama. Buka Koneksi meter → Scan Fort.
 2. Untuk uji cepat, batasi ID awal/akhir pada ID meter yang diketahui. Jalankan Scan Fort. Periksa progres, web dan OLED tetap merespons; CRC/timeout scan terpisah dari penghitung pembacaan normal.
@@ -62,3 +62,11 @@ Pastikan English muncul pertama kali, pilihan Indonesia bertahan setelah reload,
 3. Terapkan semua pola melalui Perangkat & arsip, warna primer, brightness 0/128/255 serta siklus 0,5/30 detik. Cocokkan cahaya fisik dengan status terapan.
 4. Reload browser lalu restart board; pilihan tersimpan harus kembali setelah boot. Cahaya boot masih memakai default compile. Pastikan tidak ada peringatan penyimpanan.
 5. Ulangi saat polling, scan dan transfer aset. Amati jitter, respons UART dan watchdog; tes software belum mengukur timing pada hardware.
+
+## Uji capture mentah dan sketch mandiri
+
+1. Firmware utama: Koneksi meter / Diagnostik TX/RX mentah, mulai capture lalu scan satu ID. Periksa metadata baud/parity/ID/register dan hasil berhenti pada 12 percobaan atau saat Hentikan. Unduh TXT.
+2. Ulangi dengan A/B dilepas pada sisi modul ESP32, TTL/power tetap tersambung. RX saat ini bukan balasan Fort. Bedakan echo persis, byte rusak dan timeout tanpa byte; counter error bukan bukti koneksi valid.
+3. Modul yang difoto memakai arah otomatis dan empat pin TTL; GPIO16 tidak disambungkan. Periksa arah input/output TTL sebelum mengubah kabel. Wiring terlapor: TXD modul ke GPIO18, RXD modul ke GPIO17.
+4. Untuk Arduino mandiri ikuti panduan sketch dari README. Serial 115200/Newline, `range 1 1`, `scan`. Simpan log TX/RX/CRC saat A/B terlepas dan tersambung. x menghentikan. Sketch menggantikan aplikasi utama sementara dan tidak mencatat intervalnya.
+5. Upload firmware utama lagi, periksa arsip/waktu/setting sebelum melanjutkan penerimaan interval. Kompilasi atau mock tidak membuktikan meter pengguna ditemukan.

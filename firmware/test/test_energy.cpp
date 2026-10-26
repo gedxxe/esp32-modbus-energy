@@ -3,6 +3,7 @@
 #include "recovery.h"
 #include "scan.h"
 #include "led.h"
+#include "trace.h"
 #include <set>
 #include <assert.h>
 #include <iostream>
@@ -29,6 +30,26 @@ struct FakeFS {
   }
 };
 int main(){
+  const uint8_t traceTx[]={1,3,0,0x82,0,2,0x64,0x23};
+  uint8_t traceQuery[8];memcpy(traceQuery,traceTx,8);uint16_t qc=crc16(traceQuery,6);traceQuery[6]=qc;traceQuery[7]=qc>>8;
+  uint8_t goodTrace[]={1,3,4,0,0,0xc3,0x17,0xea,0xcd};
+  assert(inspectTrace(traceQuery,traceQuery,8,false,1,2)==TRACE_ECHO);
+  assert(!validFrame(traceQuery,8,1,2));
+  assert(inspectTrace(traceQuery,goodTrace,9,false,1,2)==TRACE_OK);
+  assert(inspectTrace(traceQuery,goodTrace,0,false,1,2)==TRACE_TIMEOUT);
+  assert(inspectTrace(traceQuery,goodTrace,3,false,1,2)==TRACE_SHORT);
+  assert(inspectTrace(traceQuery,traceQuery,8,true,1,2)==TRACE_OVERFLOW);
+  assert(inspectTrace(traceQuery,goodTrace,9,false,2,2)==TRACE_INVALID);
+  uint8_t exception[]={1,0x83,2,0,0};uint16_t ec=crc16(exception,3);exception[3]=ec;exception[4]=ec>>8;
+  assert(inspectTrace(traceQuery,exception,5,false,1,2)==TRACE_EXCEPTION);
+  goodTrace[3]^=1;assert(inspectTrace(traceQuery,goodTrace,9,false,1,2)==TRACE_CRC);goodTrace[3]^=1;
+  TraceCapture capture;capture.append(traceQuery,goodTrace,9,false,1,9600,'N',1,0x82,2,1,false);assert(capture.count==0);
+  capture.begin();for(int n=0;n<TRACE_CAPACITY+3;++n)capture.append(traceQuery,traceQuery,8,false,n,9600,'N',1,0x82,2,1,true);
+  assert(capture.count==TRACE_CAPACITY&&!capture.active&&capture.frames[0].atMs==0&&capture.frames[11].atMs==11);
+  assert(capture.frames[0].scan&&capture.frames[0].result==TRACE_ECHO&&capture.frames[0].address==0x82);
+  capture.begin();assert(capture.count==0&&capture.generation==2);capture.stop();
+  capture.append(traceQuery,goodTrace,9,false,99,9600,'N',1,0x82,2,1,false);assert(capture.count==0);
+
   LedSettings light{};assert(validLed(light));assert(light.brightness==128);
   uint8_t bytes[LED_RECORD_SIZE];encodeLed(light,bytes);LedSettings restored{};
   assert(decodeLed(bytes,sizeof(bytes),restored)&&sameLed(light,restored));
@@ -140,5 +161,5 @@ int main(){
   t.newDay(DAY);poll(t,21600,23392,16);t.sample(BASE+23400,107);assert(t.day.slots[0].quality==PARTIAL);
   // Midnight does not silently mix counters from different dates.
   assert(!t.sample(BASE+86400,108));t.newDay(DAY+1);assert(!t.previous);assert(t.day.slots[0].quality==WAITING);
-  std::cout<<"PASS: RGB modes/brightness/CRC storage/millis wrap, scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
+  std::cout<<"PASS: raw capture bounds/freeze/stop/echo/CRC/exception/frame validation, RGB modes/brightness/CRC storage/millis wrap, scan enumeration/ranges/cancel/restart/found/millis wrap/ratio validation, archive fault recovery, ratio retry/backoff, button bounce/long press/millis wrap, CRC/manual frame, all 9 windows, interpolation, gaps, reboot, RTC, reset, missing data, date rollover\n";
 }

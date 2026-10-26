@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware **1.2.1**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
+Firmware **1.3.0**. Hasil ini diperoleh dari tes lokal; tidak sama dengan uji penerimaan hardware atau status CI remote. Rincian ukuran tiap aset tersedia di [laporan English](../VALIDATION.md).
 
 ## Logika native — lulus
 
@@ -30,7 +30,7 @@ Checker memeriksa link/anchor English–Indonesia bertingkat, 17 SVG, 31 sambung
 
 ## Belum diuji secara fisik
 
-Pengguna mengonfirmasi GPIO48 sebagai pin RGB board pada 26 Oktober 2026. Uji penerimaan hardware lengkap versi 1.2.1 belum dicatat di sini. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
+Pengguna mengonfirmasi GPIO48 sebagai pin RGB board pada 26 Oktober 2026. Uji penerimaan hardware lengkap versi 1.3.0 belum dicatat di sini. Log pengguna 23 Oktober menunjukkan firmware sebelumnya boot pada ESP32-S3 tanpa modul, bukan penerimaan versi ini. Scan/scaling Fort, I2C OLED/RTC, baterai, tombol/buzzer, AP multi-client, noise, ketahanan power-cut/endurance masih membutuhkan [commissioning](COMMISSIONING.md).
 
 ## Pemeliharaan repository
 
@@ -49,3 +49,11 @@ Build N16R8 final lulus: static RAM 47.240/327.680 byte; program 1.002.577/6.553
 Nilai RGB_LED_PIN=48 yang diubah pengguna tetap dipertahankan. README/desain/commissioning, instruksi agent, fallback UI dan screenshot RGB simulasi diselaraskan. Mock browser membaca pin langsung dari board.h; GPIO38 hanya disebut sebagai alternatif revisi board.
 
 Pemeriksaan dokumentasi/hash, tes browser aset firmware, dan build N16R8 lulus tanpa warning kompilator. Ukuran tetap: RAM statis 47.240 byte, program 1.002.577 byte, web gzip 138.395 byte. Binary dan paket diperbarui bersama source. Konfirmasi pin pengguna tidak dianggap uji penerimaan seluruh sistem.
+
+## Diagnostik mentah dan sketch mandiri — 1.3.0
+
+Tes native capture/classifier lulus: batas 12, freeze/stop/reset, echo persis, CRC/short/overflow/exception/ID salah dan respons valid. Echo/prefix overflow tidak dianggap data valid. Tes browser byte gzip lulus untuk panel tertutup tanpa polling, capture/stop, ekspor TXT, label bilingual, API gagal dan layout mobile. Screenshot raw memakai fixture simulasi, bukan rekaman Fort pengguna.
+
+Firmware utama lulus build tanpa warning: RAM statis 47.784/327.680 byte, program 1.010.581/6.553.600 byte. Payload web 140.866 byte gzip. Stack high-water mark, latensi empat klien dan sumber echo belum diukur di hardware.
+
+FortSerialDebug.ino berhasil dikompilasi sebagai sketch Arduino dengan core 2.0.17 / espressif32 6.10.0 tanpa dependensi library eksternal. RAM statis sketch 19.372 byte, program 317.213 byte; konfigurasi PlatformIO yang disertakan juga lulus setelah filter hasil konversi INO diperiksa. GUI Arduino IDE, versi core lain, interaksi Serial serta pembacaan Fort fisik belum diuji. Build opsional PlatformIO ditambahkan ke CI dengan target board N16R8 yang sama. Sketch tidak menulis storage; pemilihan partisi/erase uploader dibahas terpisah pada panduan dan CSV yang disertakan.

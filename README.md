@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 1.2.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 1.3.0](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
 
 An ESP32-S3 reader for the existing Fort power meter at Midea. It reads imported kWh over Modbus RTU, records scheduled half-hour intervals, and serves a dashboard directly to a phone over Wi-Fi. The Fort RS485 port is dedicated to this reader; the ESP32 is its only master.
 
@@ -94,10 +94,18 @@ For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An applic
 
 1. Power the board. Startup does not wait for USB Serial. The OLED animation and buzzer pattern take about 1.5 seconds; a missing OLED does not prevent startup.
 2. Connect the phone to **Midea Engineering AP**, password **betahdijre12345**. Stay on this network when the phone reports that it has no internet. Open **http://192.168.4.1**.
-3. Check the footer reports **Firmware 1.2.1**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
+3. Check the footer reports **Firmware 1.3.0**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
 4. On a new installation, LittleFS may not yet contain a valid filesystem. If mounting fails, hold the physical **OK button (GPIO6)** during boot and keep holding for five seconds. This formats the archive partition and erases archives. Firmware never formats it automatically.
 5. In **Device & records**, choose **Set from this phone** to set the DS3231. It stores UTC; the screen and interval schedule use WIB. The phone's clock must be correct.
 6. Open **Meter setup**. Either enter the Fort communication settings or run **Scan Fort**. Defaults are slave 1, 9600 baud, 8N1. A manual supplied with the meter does not prove the installed slave ID.
+
+### Raw Modbus diagnostics and Arduino-only sketch
+
+For the main firmware, open **Meter setup → Raw TX/RX diagnostics → Capture next 12**. Capture observes existing polling/scan attempts; it sends no extra request and does not interrupt interval tracking by itself. Run **Scan Fort** with IDs 1–1 if you want a short controlled test. Twelve attempts are retained in RAM and then frozen; Stop retains an earlier partial capture. Use **Download raw log** to share TX/RX hex, ID, baud/parity, register, attempt and validation outcome. Refresh/reopening a panel retains the device capture; restart/new capture replaces it. An exact TX echo is marked and remains rejected. CRC or rejected-byte counts alone do not establish a meter connection.
+
+For a standalone Arduino IDE test, use [FortSerialDebug.ino](examples/FortSerialDebug/FortSerialDebug.ino) with its [step-by-step guide](examples/FortSerialDebug/README.md). It needs only the Espressif Arduino core and offers full-range scanning, kWh/CT/PT reads and bounded Serial hex/CRC/echo/exception logging. Serial Monitor: **115200 + Newline**; begin with `range 1 1`, then `scan`. The sketch replaces the running main application while installed; it does not provide the dashboard or interval recording. Restore the main firmware afterwards.
+
+The supplied four-pin automatic-direction module uses VCC/TXD/RXD/GND, with GPIO16 left unconnected. GPIO17 must reach its TTL input and GPIO18 its output. The reported crossed TXD/RXD wiring is recorded in the diagnostic guide; label direction is not independently verified. The full RO/DI/DE/RE wiring illustration remains a reference for manual-direction modules.
 
 ### OLED mounting and onboard RGB
 

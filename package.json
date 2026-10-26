@@ -1,6 +1,6 @@
 {
   "name": "midea-fort-development-tools",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "Build and test the offline React dashboard served by ESP32-S3",

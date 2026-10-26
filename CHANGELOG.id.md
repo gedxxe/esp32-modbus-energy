@@ -3,6 +3,14 @@
 # Changelog
 
 
+
+## 1.3.0 — 2026-10-26
+
+- Capture pasif 12 percobaan Modbus berikutnya dalam RAM tetap, termasuk setting UART, TX/RX hex, overflow dan echo persis. Validasi respons/CRC tidak diubah.
+- Kontrol web bilingual untuk mulai/henti/ekspor; polling trace hanya saat panel dibuka. Rekaman bertahan sampai diganti atau restart.
+- Sketch Arduino IDE FortSerialDebug tanpa library eksternal: baca kWh/CT/PT, debug Serial terbatas dan scan ID/baud/parity yang bisa dibatalkan. Sertakan layout partisi 16 MB dan build PlatformIO opsional.
+- Bedakan modul empat pin arah otomatis dari referensi DE/RE manual. Tambahkan tes native/browser dan kompilasi sketch di CI.
+
 ## 1.2.1 — 2026-10-26
 
 - Koreksi default RGB pemasangan ke GPIO48 setelah dikonfirmasi pada board pengguna; GPIO38 tetap dicatat sebagai alternatif revisi board.

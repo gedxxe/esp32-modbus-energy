@@ -20,6 +20,7 @@
 #include "recovery.h"
 #include "scan.h"
 #include "led.h"
+#include "trace.h"
 
 using namespace fort;
 static_assert(ARDUINO_RUNNING_CORE==0,"UI must run on core 0");
@@ -31,10 +32,10 @@ QueueHandle_t snapshotQueue,commandQueue;
 bool oledOK=false,apOK=false;
 String apiToken;
 
-enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN,SET_LED };
+enum CommandType:uint8_t { SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN,SET_LED,START_TRACE,STOP_TRACE };
 struct Command { CommandType type; uint32_t epoch=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; };
 struct Snapshot {
-  Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{};
+  Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{};
   bool ledStored=false,ledStorageOK=false;
   uint32_t utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0;
   double energy=0,power=0,ratio=0;
@@ -125,6 +126,7 @@ bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t 
       if(overflow || (n && uint32_t(micros()-lastByte)>=gap)) break;
       vTaskDelay(1);
     }
+    state.trace.append(tx,rx,n,overflow,start,config.baud,config.parity,config.slave,address,count,uint8_t(attempt+1),!normal);
     if(!n) {
       if(normal){++state.timeouts;setError("Modbus response timeout","modbus_timeout");}else ++scanner.progress.timeouts;
     }else if(!overflow&&n>=5&&crc16(rx,n-2)==(uint16_t(rx[n-2])|(uint16_t(rx[n-1])<<8))) {
@@ -260,6 +262,8 @@ void acquisition(void *) {
     esp_task_wdt_reset();Command cmd;
     while(xQueueReceive(commandQueue,&cmd,0)==pdTRUE) {
       if(cmd.type==TOGGLE_MUTE)muted=!muted;
+      if(cmd.type==START_TRACE&&!state.trace.active){state.trace.begin();publish();}
+      if(cmd.type==STOP_TRACE){state.trace.stop();publish();}
       if(cmd.type==SET_LED&&RGB_LED_ENABLED&&validLed(cmd.led)) {
         state.led=cmd.led;uint8_t bytes[LED_RECORD_SIZE];encodeLed(state.led,bytes);
         state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);
@@ -388,6 +392,14 @@ void serveAsset(const uint8_t *bytes,size_t length,const char *mime) {
   }
   if(offset<length)client.stop();
 }
+String hexFrame(const uint8_t *bytes,size_t length) {
+  static const char digits[]="0123456789ABCDEF";char out[TRACE_RX_CAPACITY*3]={};
+  size_t offset=0;
+  for(size_t i=0;i<length&&i<TRACE_RX_CAPACITY;++i){
+    if(i)out[offset++]=' ';out[offset++]=digits[bytes[i]>>4];out[offset++]=digits[bytes[i]&15];
+  }
+  return String(out);
+}
 void webSetup() {
   server.on("/",HTTP_GET,[]{serveAsset(WEB_INDEX_GZIP,WEB_INDEX_GZIP_LEN,"text/html; charset=utf-8");});
   server.on("/assets/app.js",HTTP_GET,[]{serveAsset(WEB_APP_GZIP,WEB_APP_GZIP_LEN,"application/javascript; charset=utf-8");});
@@ -419,6 +431,27 @@ void webSetup() {
     for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["quality_code"]=qualityCode(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
+  server.on("/api/trace",HTTP_GET,[]{
+    Snapshot s{};readSnapshot(s);JsonDocument d;
+    d["version"]=FIRMWARE_VERSION;d["generation"]=s.trace.generation;d["active"]=s.trace.active;
+    d["count"]=s.trace.count;d["capacity"]=TRACE_CAPACITY;d["txPin"]=PIN_TX;d["rxPin"]=PIN_RX;
+    JsonArray frames=d["frames"].to<JsonArray>();
+    for(uint8_t i=0;i<s.trace.count&&i<TRACE_CAPACITY;++i){
+      const TraceFrame &frame=s.trace.frames[i];JsonObject row=frames.add<JsonObject>();
+      row["atMs"]=frame.atMs;row["baud"]=frame.baud;row["parity"]=String(frame.parity);
+      row["slave"]=frame.slave;row["address"]=frame.address;row["words"]=frame.words;row["attempt"]=frame.attempt;
+      row["scan"]=frame.scan;row["overflow"]=frame.overflow;row["result"]=traceResultName(frame.result);
+      row["tx"]=hexFrame(frame.tx,sizeof(frame.tx));row["rx"]=hexFrame(frame.rx,frame.size);
+      row["rxBytes"]=frame.size;
+    }
+    String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/trace/start",HTTP_POST,[]{
+    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(s.trace.active){jsonReply(409,"A raw capture is already running","trace_busy");return;}
+    Command c{};c.type=START_TRACE;enqueueCommand(c);
+  });
+  server.on("/api/trace/stop",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=STOP_TRACE;enqueueCommand(c);});
   server.on("/api/led",HTTP_POST,[]{
     if(!authorizePost())return;
     if(!RGB_LED_ENABLED||!ledDriverOK){jsonReply(409,"Onboard LED is disabled or its RMT driver is unavailable","led_unavailable");return;}

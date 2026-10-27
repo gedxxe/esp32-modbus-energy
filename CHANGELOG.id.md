@@ -6,6 +6,10 @@
 
 
 
+## 2.2.2 / 27 Oktober 2026
+
+XBM Midea yang diberikan pengguna kini menjadi frame OLED pertama selama tiga detik, kemudian dilanjutkan animasi loading 1,5 detik beserta bunyi startup yang sudah ada. Implementasi memakai Adafruit SSD1306/GFX terpasang, mempertahankan piksel dan posisi asli, mengikuti rotasi master 180° serta melewati penahanan logo jika OLED tidak terdeteksi. Durasi diatur melalui `OLED_BOOT_SPLASH_MS` pada board.h, dan generator aset memeriksa hash bitmap asli.
+
 ## 2.2.1 / 27 Oktober 2026
 
 Discovery Wi-Fi kini menginisialisasi seluruh konfigurasi scan IDF, menunggu callback scan-done serta mencatat kegagalan driver tanpa mengandalkan deadline scanComplete Arduino empat detik. Policy persiapan dan retry terbatas mencegah benturan dengan association yang belum selesai, mempertahankan daftar SSID terakhir serta menampilkan generation, jumlah percobaan, alasan dan kode driver di web maupun log USB.

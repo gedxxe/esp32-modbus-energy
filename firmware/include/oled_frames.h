@@ -4,5 +4,8 @@
 namespace fort {
 constexpr uint16_t OLED_FRAME_WIDTH=128,OLED_FRAME_HEIGHT=64,OLED_FRAME_COUNT=772;
 constexpr uint32_t OLED_FRAME_PERIOD_MS=42;
+constexpr uint16_t OLED_BOOT_WIDTH=120,OLED_BOOT_HEIGHT=90;
+constexpr int16_t OLED_BOOT_X=4,OLED_BOOT_Y=-17;
+const uint8_t *oledBootBitmap();
 bool loadOLEDFrame(uint16_t frame,uint8_t *destination);
 } // namespace fort

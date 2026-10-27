@@ -222,7 +222,7 @@ s.save('rtu-timing.svg')
 
 s=SVG(1400,650,'Firmware startup sequence','After the ESP32-S3 ROM and bootloader transfer control to Arduino setup().')
 s.heading('Startup sequence','After ROM / bootloader → setup() → core-0 UI loop + core-1 acquisition task')
-steps=[('01','GPIO + RTOS objects',['DE LOW. Button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','OLED: 180° before first frame','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['AP first, then saved Wi-Fi mode','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
+steps=[('00','First OLED frame',['DE LOW + button pull-ups','I2C init + 180° rotation','Midea bitmap held 3 s']),('01','RTOS + loading',['Queues, I2C / FS mutexes','RGB init behind logo hold','Loading + startup sound 1.5 s']),('02','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('03','AP + HTTP + watchdog',['AP first, then saved Wi-Fi mode','Per-boot POST token','Start 8 s watchdog']),('04','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('05','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
 for i,(num,title,lines) in enumerate(steps):
  x=45+(i%3)*450;y=145+(i//3)*235;s.rect(x,y,410,205);s.text(x+22,y+34,num,15,BLUE,700);s.text(x+64,y+34,title,19,weight=600)
  for j,line in enumerate(lines):s.text(x+22,y+83+j*33,line,17,MUTED)
@@ -278,5 +278,21 @@ for position,index in enumerate([0,250,500]):
  s.parts.append(f'<g transform="translate({x+31},202) scale(2.7)"><path d="{" ".join(path)}" fill="#ffffff"/></g>')
 s.text(45,443,'Default idle: 60 s. Web setting: 10–3600 s, or disabled. Playback targets 42 ms and skips late frames.',18,MUTED)
 s.save('oled-screensaver.svg')
+
+
+
+# Exact logical pixels from the user-supplied LSB-first XBM, before mount rotation.
+boot_source=(ROOT/'firmware/assets/oled/boot-logo.xbm').read_text(encoding='utf-8')
+boot_bytes=bytes(int(value,16) for value in re.findall(r'0x([0-9a-fA-F]{2})',boot_source))
+s=SVG(768,470,'Boot stage 0 artwork','Representative logical 128x64 rendering of the supplied bitmap. Actual display follows OLED_ROTATE_180. Not a hardware photograph.')
+s.text(32,36,'Boot stage 0 · 3 seconds',24,weight=700)
+s.rect(0,58,768,384,'#05080d','#05080d',0)
+for y in range(64):
+ for x in range(128):
+  sx,sy=x-4,y+17
+  if 0<=sx<120 and 0<=sy<90 and boot_bytes[sy*15+sx//8]&(1<<(sx%8)):
+   s.parts.append(f'<rect x="{x*6}" y="{58+y*6}" width="6" height="6" fill="#e9f4ff"/>')
+s.text(32,464,'Representative logical pixels · followed by the existing loading screen',14,MUTED)
+s.save('oled-boot.svg')
 
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

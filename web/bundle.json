@@ -1,5 +1,5 @@
 {
-  "version": "2.2.1",
+  "version": "2.2.2",
   "transport": "gzip",
   "compressed_total": 116933,
   "libraries": {
@@ -39,8 +39,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "199195d8796fe261321fef9e0b9011bdd74400b4ac837e723812b4d413d5e38e",
-    "package.json": "5650f95552339979b2bf2b9db094af9031680e35e7374902df00749f3c729a98",
+    "package-lock.json": "376ae7df8b5c86cde94c65b75d5adaaf56105189fd423064153729c5a867abef",
+    "package.json": "9dc9406630086068984e722bfa44970e82908ab8bdc7159e2b9952780959afe9",
     "tools/build-web.cjs": "df7e6396cd301ef679246216276d2a05184fd035318b4ee2fe326ed6d948a241",
     "web/Application.jsx": "7cdacd3690b702e4ca525af72c81cad3dca0984e3d4ff688276e79b73c9b8825",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",

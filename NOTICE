@@ -48,3 +48,7 @@ firmware/assets/oled/ contains the original 772-frame animation supplied and
 owned by the project author. The frame pack preserves that artwork losslessly.
 The animation, decoder, timing, persistence and integration code are included
 as original project contributions under GPL-3.0-only.
+
+The boot-logo.xbm bitmap reproduces the Midea artwork supplied by the project
+author as a Lopaka export. Midea branding remains with its respective owner.
+The bitmap adaptation and boot-stage integration code are GPL-3.0-only.

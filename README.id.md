@@ -2,11 +2,11 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 2.2.1](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 2.2.2](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
 Proyek ini membaca power meter Fort melalui ESP32-S3 N16R8 dan menyediakan dashboard pada access point lokal. HP dapat menampilkan counter energi, memeriksa konsumsi setengah jam, mengunduh arsip dan menjalankan diagnostik tanpa internet, sementara OLED menyediakan pembacaan serta alamat IP langsung pada perangkat.
 
-Firmware 2.2.1 mengganti parser berbasis jeda respons dengan transport ModbusMaster bersama. Acuannya adalah sketch yang dilaporkan berhasil oleh pengguna: UART1 pada TX17/RX18, kontrol DE-/RE manual pada GPIO16, settling 100 µs di sekitar transmisi, serta request contoh manual pada `0x0058`. Keberhasilan sketch acuan tidak dianggap otomatis membuktikan rilis terintegrasi. Hasil software dan penerimaan hardware dipisahkan pada [VALIDATION](docs/id/VALIDATION.md).
+Firmware 2.2.2 mengganti parser berbasis jeda respons dengan transport ModbusMaster bersama. Acuannya adalah sketch yang dilaporkan berhasil oleh pengguna: UART1 pada TX17/RX18, kontrol DE-/RE manual pada GPIO16, settling 100 µs di sekitar transmisi, serta request contoh manual pada `0x0058`. Keberhasilan sketch acuan tidak dianggap otomatis membuktikan rilis terintegrasi. Hasil software dan penerimaan hardware dipisahkan pada [VALIDATION](docs/id/VALIDATION.md).
 
 ## Dashboard
 
@@ -56,7 +56,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.16 |
 | Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 2.2.1 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 2.2.2 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM | 19.3.1 / 19.3.1 |
@@ -65,7 +65,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.2.1, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.2.2, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 
@@ -153,3 +153,5 @@ Kode asli proyek memakai **GPL-3.0-only**. Ketentuan dependency, patch ModbusMas
 Halaman Network OLED juga menyediakan pilihan mode Wi-Fi, scan SSID, editor password tersamarkan dan IP AP khusus. [Panduan OLED](docs/id/OLED.md) menjelaskan tiga tombol beserta pengulangan cepat dan tools long press. Jam web berjalan di antara polling dari acuan waktu perangkat yang diperbarui lima menit sekali, sementara penyetelan RTC tetap eksplisit.
 
 Animasi wajah 772 frame menjadi screensaver idle dengan waktu 10–3600 detik atau opsi nonaktif dari web. Default-nya 60 detik. Tekanan fisik pertama membangunkan dashboard dan tidak menjalankan aksi tombol lain.
+
+Saat boot, logo Midea yang diberikan ditampilkan selama tiga detik sebelum loading bar dan bunyi startup yang sudah ada. `OLED_BOOT_SPLASH_MS` pada [board.h](firmware/include/board.h) mengatur tahap pertama ini, dan `OLED_ROTATE_180` diterapkan sebelum frame pertama. [Panduan OLED](docs/id/OLED.md#frame-pertama-saat-boot) memuat preview piksel serta timing startup.

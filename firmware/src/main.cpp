@@ -1057,6 +1057,20 @@ void drawIdleFrame(uint32_t now){
   if(loadOLEDFrame(frame,bitmap)){oled.clearDisplay();oled.drawBitmap(0,0,bitmap,OLED_FRAME_WIDTH,OLED_FRAME_HEIGHT,SSD1306_WHITE);oled.display();lastIdleFrame=frame;}
   xSemaphoreGive(i2cMutex);
 }
+uint32_t showBootArtwork(){
+  if(oledOK){
+    oled.clearDisplay();
+    // Lopaka/U8g2 XBMP and Adafruit drawXBitmap share the same LSB-first format.
+    // Preserve the supplied placement and let GFX clip to the rotated 128x64 panel.
+    oled.drawXBitmap(OLED_BOOT_X,OLED_BOOT_Y,oledBootBitmap(),OLED_BOOT_WIDTH,OLED_BOOT_HEIGHT,SSD1306_WHITE);
+    oled.display();
+  }
+  return millis(); // Hold from completed display transfer, not from reset.
+}
+void holdBootArtwork(uint32_t started){
+  if(!oledOK)return;
+  while(uint32_t(millis()-started)<OLED_BOOT_SPLASH_MS){tickLED();delay(5);}
+}
 void bootAnimation() {
   uint32_t start=millis();
   while(millis()-start<1500){
@@ -1071,16 +1085,17 @@ void setup() {
   pinMode(PIN_RS485_DE,OUTPUT);digitalWrite(PIN_RS485_DE,LOW);
   pinMode(PIN_BUZZER,OUTPUT);digitalWrite(PIN_BUZZER,LOW);
   for(auto &b:buttons)pinMode(b.pin,INPUT_PULLUP);
+  Wire.begin(PIN_SDA,PIN_SCL,100000);Wire.setTimeOut(40);
+  Wire.beginTransmission(OLED_ADDRESS);bool present=Wire.endTransmission()==0;
+  oledOK=present&&oled.begin(SSD1306_SWITCHCAPVCC,OLED_ADDRESS,false,false);
+  if(oledOK)oled.setRotation(OLED_ROTATE_180?2:0);
+  uint32_t artworkStarted=showBootArtwork();
   i2cMutex=xSemaphoreCreateMutex();fsMutex=xSemaphoreCreateMutex();
   snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));networkQueue=xQueueCreate(1,sizeof(NetworkUpdate));
   diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(DiagnosticStop));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));
   state.flow.boot=esp_random();
   if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
-  Wire.begin(PIN_SDA,PIN_SCL,100000);Wire.setTimeOut(40);
-  Wire.beginTransmission(OLED_ADDRESS);bool present=Wire.endTransmission()==0;
-  oledOK=present&&oled.begin(SSD1306_SWITCHCAPVCC,OLED_ADDRESS,false,false);
-  if(oledOK)oled.setRotation(OLED_ROTATE_180?2:0);
-  initLED();bootAnimation();
+  initLED();holdBootArtwork(artworkStarted);bootAnimation();
   // Never format existing data automatically. First installation: hold OK at boot.
   fsOK=LittleFS.begin(false);
   if(!fsOK&&digitalRead(PIN_OK)==LOW){

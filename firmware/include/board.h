@@ -10,6 +10,9 @@ constexpr uint32_t LOCAL_OFFSET = 7 * 3600; // WIB. DS3231 stores UTC.
 
 // One setting rotates every OLED screen, including startup and storage recovery.
 constexpr bool OLED_ROTATE_180 = true;
+// Stage 0 artwork is held before the existing loading animation.
+constexpr uint32_t OLED_BOOT_SPLASH_MS = 3000;
+static_assert(OLED_BOOT_SPLASH_MS<=10000,"Keep boot artwork hold within 10 seconds");
 // Onboard addressable RGB (3 channels). This installation uses GPIO48; DevKitC v1.1 revisions may use GPIO38.
 constexpr bool RGB_LED_ENABLED = true;
 constexpr uint8_t RGB_LED_PIN = 48; // Physical GPIO, not the RGB_BUILTIN alias.

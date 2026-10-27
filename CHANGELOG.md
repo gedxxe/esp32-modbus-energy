@@ -5,6 +5,10 @@
 
 
 
+## 2.2.2 / 27 October 2026
+
+The user-supplied Midea XBM is now the first OLED frame and remains visible for three seconds before the existing 1.5-second loading animation and startup sound. It uses the existing Adafruit SSD1306/GFX stack, preserves the original pixels and placement, follows the master 180° rotation and skips the artwork hold when the OLED is absent. `OLED_BOOT_SPLASH_MS` in board.h controls the duration, and the asset generator verifies the original bitmap hash.
+
 ## 2.2.1 / 27 October 2026
 
 Wi-Fi discovery now initializes the complete IDF scan configuration, waits for the scan-done callback and records driver failures instead of relying on Arduino's four-second scanComplete deadline. A bounded preparation/retry policy avoids overlapping unfinished association, retains the last SSID list and reports generation, attempt count, reason and driver code in the web panel and USB log.

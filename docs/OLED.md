@@ -4,6 +4,16 @@
 
 The installed SSD1306 is rotated 180° by the board setting before the first frame, including recovery screens. PREV is GPIO4, NEXT GPIO5 and OK GPIO6, each connected to GND when pressed with an internal pull-up. The existing 35 ms stable debounce and 900 ms long press remain in use.
 
+## First boot frame
+
+The supplied Midea logo is the first visible frame after OLED initialization. Its original 120×90 XBM is drawn at (4, -17), matching the supplied Lopaka layout, then clipped to the logical 128×64 panel. XBM uses least-significant-bit-first pixels, so the firmware calls Adafruit GFX `drawXBitmap()` rather than `drawBitmap()` and needs no U8g2 dependency. The master `OLED_ROTATE_180` setting is applied before drawing.
+
+![Representative first OLED frame](assets/oled-boot.svg)
+
+`OLED_BOOT_SPLASH_MS` in `firmware/include/board.h` defaults to 3000. The hold starts after the display transfer completes, while bounded RTOS/LED initialization can proceed behind the retained frame. The waiting loop yields every 5 ms and does not write the image repeatedly. The existing 1.5-second loading bar and buzzer pattern run afterward, before filesystem/network/acquisition startup. This is boot stage 0, not a FreeRTOS priority-0 task, and it adds approximately three seconds to startup only when the OLED is present. An absent OLED skips the logo hold and follows the existing startup path.
+
+The canonical artwork is `firmware/assets/oled/boot-logo.xbm`. `tools/build-oled.py` verifies all 1350 bytes against the supplied bitmap SHA256 and emits its flash-resident data alongside the idle animation in `oled_frames.cpp`. The existing display buffer is reused and the boot logo allocates no separate frame buffer. The illustration above shows logical pixels and is not a hardware photograph.
+
 ## Open network options
 
 Use PREV/NEXT to reach **NETWORK / WIFI**, then press OK to open **NETWORK OPTIONS**. PREV/NEXT moves through Wi-Fi mode, Scan/select SSID, AP IPv4 address, AP password and Back. Short OK enters the highlighted item. Holding OK normally returns to this options menu, while password/IP editing opens its respective tools.

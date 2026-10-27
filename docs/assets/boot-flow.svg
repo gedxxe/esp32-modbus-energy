@@ -2,37 +2,37 @@
 <text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Startup sequence</text>
 <text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">After ROM / bootloader → setup() → core-0 UI loop + core-1 acquisition task</text>
 <rect x="45" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="67" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">01</text>
-<text x="109" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">GPIO + RTOS objects</text>
-<text x="67" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DE LOW. Button pull-ups</text>
-<text x="67" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">I2C / FS mutexes</text>
-<text x="67" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Command + snapshot queues</text>
+<text x="67" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">00</text>
+<text x="109" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">First OLED frame</text>
+<text x="67" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DE LOW + button pull-ups</text>
+<text x="67" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">I2C init + 180° rotation</text>
+<text x="67" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Midea bitmap held 3 s</text>
 <rect x="495" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="517" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">02</text>
-<text x="559" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">I2C + boot animation</text>
-<text x="517" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">GPIO8 SDA / GPIO9 SCL</text>
-<text x="517" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">OLED: 180° before first frame</text>
-<text x="517" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Animation + buzzer ~1.5 s</text>
+<text x="517" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">01</text>
+<text x="559" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">RTOS + loading</text>
+<text x="517" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Queues, I2C / FS mutexes</text>
+<text x="517" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">RGB init behind logo hold</text>
+<text x="517" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Loading + startup sound 1.5 s</text>
 <rect x="945" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="967" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">03</text>
+<text x="967" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">02</text>
 <text x="1009" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">LittleFS mount</text>
 <text x="967" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">begin(false): no auto-format</text>
 <text x="967" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Hold OK 5 s if mount failed</text>
 <text x="967" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Manual format erases CSV</text>
 <rect x="45" y="380" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="67" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">04</text>
+<text x="67" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">03</text>
 <text x="109" y="414" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">AP + HTTP + watchdog</text>
 <text x="67" y="463" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">AP first, then saved Wi-Fi mode</text>
 <text x="67" y="496" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Per-boot POST token</text>
 <text x="67" y="529" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Start 8 s watchdog</text>
 <rect x="495" y="380" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="517" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">05</text>
+<text x="517" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">04</text>
 <text x="559" y="414" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">Core 1 acquisition</text>
 <text x="517" y="463" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Load checked NVS records</text>
 <text x="517" y="496" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Start UART1</text>
 <text x="517" y="529" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">RTC / ratio / energy / scan</text>
 <rect x="945" y="380" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="967" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">06</text>
+<text x="967" y="414" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">05</text>
 <text x="1009" y="414" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">Core 0 UI loop</text>
 <text x="967" y="463" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">HTTP + queued commands</text>
 <text x="967" y="496" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Buttons / OLED / buzzer / RGB</text>

@@ -4,6 +4,16 @@
 
 SSD1306 terpasang diputar 180° melalui setting board sebelum frame pertama, termasuk layar recovery. PREV memakai GPIO4, NEXT GPIO5 dan OK GPIO6, masing-masing terhubung ke GND saat ditekan dengan pull-up internal. Debounce stabil 35 ms dan long press 900 ms tetap digunakan.
 
+## Frame pertama saat boot
+
+Logo Midea yang diberikan menjadi frame pertama setelah OLED diinisialisasi. XBM asli berukuran 120×90 digambar pada (4, -17) mengikuti layout Lopaka yang diberikan, lalu dipotong sesuai area logis 128×64. XBM memakai urutan bit least-significant-bit-first sehingga firmware memanggil `drawXBitmap()` milik Adafruit GFX, bukan `drawBitmap()`, tanpa menambah U8g2. Setting master `OLED_ROTATE_180` diterapkan sebelum penggambaran.
+
+![Frame OLED pertama yang representatif](../assets/oled-boot.svg)
+
+`OLED_BOOT_SPLASH_MS` pada `firmware/include/board.h` bernilai 3000 secara default. Durasi dihitung setelah transfer display selesai, sementara inisialisasi RTOS/LED terbatas dapat berlangsung di belakang gambar yang dipertahankan. Loop menunggu dengan yield setiap 5 ms tanpa mengirim ulang bitmap terus-menerus. Setelahnya animasi loading 1,5 detik dan pola buzzer lama berjalan, kemudian startup filesystem, jaringan dan akuisisi dilanjutkan. Ini tahap boot 0, bukan task FreeRTOS dengan priority 0, dan menambah sekitar tiga detik startup hanya saat OLED tersedia. Jika OLED tidak ada, penahanan logo dilewati.
+
+Aset utama berada pada `firmware/assets/oled/boot-logo.xbm`. `tools/build-oled.py` memeriksa seluruh 1350 byte terhadap SHA256 bitmap yang diberikan lalu menghasilkan data flash bersama animasi idle di `oled_frames.cpp`. Buffer OLED yang sudah ada dipakai kembali sehingga tidak ada frame buffer tambahan untuk logo. Ilustrasi tersebut menunjukkan piksel logis dan bukan foto hardware.
+
 ## Membuka pilihan jaringan
 
 Gunakan PREV/NEXT sampai halaman **NETWORK / WIFI**, lalu tekan OK untuk membuka **NETWORK OPTIONS**. PREV/NEXT memilih Wi-Fi mode, Scan/select SSID, AP IPv4 address, AP password atau Back. OK singkat membuka pilihan, sedangkan menahan OK kembali ke menu atau membuka tools ketika sedang mengedit password/IP.

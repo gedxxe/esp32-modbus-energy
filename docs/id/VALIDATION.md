@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.2.1**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.2.2**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
 ## Kompilasi
 
@@ -10,7 +10,7 @@ Kedua build lulus dengan espressif32 **6.10.0** dan Arduino ESP32 **2.0.17** unt
 
 | Build | RAM statis | Program |
 | --- | ---: | ---: |
-| Firmware utama `esp32s3` | 82.936 byte | 1.421.069 byte |
+| Firmware utama `esp32s3` | 83.088 byte | 1.380.281 byte |
 | FortSerialDebug dengan library FortMeter | 30.284 byte | 336.577 byte |
 
 RAM statis bukan total alokasi runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi sebesar 12 KiB, sedangkan sisa stack, heap dan alokasi driver perlu diperiksa pada perangkat melalui process monitor. INO mandiri kini memakai library FortMeter yang disertakan bersama source ModbusMaster. Build diuji melalui PlatformIO, sementara GUI Arduino IDE serta versi core lain belum dijalankan.
@@ -37,7 +37,7 @@ Tes browser tambahan mencakup simpan/reload mode AP/client/gabungan, pemakaian u
 
 Payload status, arsip, proses, trace dan event UART yang rusak tidak menjatuhkan UI. Data terakhir ditandai stale/unavailable, polling panel detail berhenti ketika ditutup, dan animasi UART hanya bergerak untuk event baru dengan dukungan reduced motion. Replay timestamp memiliki keterlambatan jaringan dan bukan hasil pengukuran propagasi A/B.
 
-Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **23 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
+Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **24 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
 
 ## Provenance dan paket
 
@@ -68,3 +68,9 @@ Tes browser byte generated lulus untuk pemulihan acknowledgement terputus, dafta
 GSAP 3.15.0 tetap dipin untuk referensi FadeContent yang dipertahankan, tetapi tidak diimpor pada bundle runtime saat ini. Transisi halaman memakai CSS ringan dan React Bits SpotlightCard tetap dipakai.
 
 Adapter radio menginisialisasi struktur scan IDF yang dipin dan menerima callback scan-done Arduino melalui mailbox RTOS. Radio nyata, pelayanan AP selama scan antarkanal, DHCP association dan penanganan socket kosong sudah dikompilasi serta ditinjau, dengan policy atau perilaku browser yang diuji pada host. Rilis ini belum menjalani penerimaan radio fisik pada kombinasi board/router yang terpasang.
+
+## Logo boot pada 2.2.2
+
+Build utama lulus dengan RAM statis 83.088 byte dan program 1.380.281 byte, bertambah 1712 byte program tanpa menambah RAM statis. Ketiga suite native lulus dengan source OLED generated yang sebenarnya. Generator memverifikasi 1350 byte XBM terhadap SHA256 bitmap yang diberikan, dan urutan LSB-first dicocokkan dengan implementasi Adafruit GFX `drawXBitmap()` terpasang. Render piksel logis sudah diperiksa secara visual, dan seluruh 24 SVG lolos pemeriksaan render serta batas teks browser.
+
+Ukuran dan SHA256 seluruh payload web sama dengan 2.2.1, sedangkan yang berubah hanya provenance versi/input. Regresi dashboard lengkap sebelumnya tetap berlaku, dengan pemeriksaan vektor baru serta modul request yang kembali lulus lokal. Urutan setup aktual sudah ditinjau: rotasi dan transfer frame pertama mendahului alokasi objek RTOS, penahanan 3000 ms tetap yield serta melayani RGB, lalu loading/bunyi lama 1500 ms dijalankan. OLED yang tidak terdeteksi melewati penahanan logo. Timing/orientasi OLED fisik serta waktu sampai AP tersedia tetap perlu diterima pada perangkat.

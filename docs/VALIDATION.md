@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.2.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.2.1**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
 ## Compilation
 
@@ -10,7 +10,7 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 82,936 | 1,421,069 |
+| Main `esp32s3` environment | 83,088 | 1,378,569 |
 | Standalone FortSerialDebug | 30,284 | 336,577 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
@@ -43,18 +43,18 @@ Layouts from 320 to 2560 px passed without document overflow, JavaScript page er
 
 ## Asset and source provenance
 
-The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** and GSAP **3.15.0**. The generated header and manifest agree, and the Python hash guard passed inside the successful firmware build. A normal PlatformIO build needs no Node installation.
+The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** with React Bits SpotlightCard. GSAP **3.15.0** remains pinned for the preserved FadeContent reference but is not imported into the current runtime bundle. The generated header and manifest agree, and the Python hash guard passed inside the successful firmware build. A normal PlatformIO build needs no Node installation.
 
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,030 | 527 |
-| `/assets/app.js` | 458,824 | 153,186 |
-| `/assets/app.css` | 26,464 | 6,747 |
+| `/assets/app.js` | 343,813 | 107,676 |
+| `/assets/app.css` | 28,797 | 7,297 |
 | `/assets/third-party.txt` | 5,755 | 1,433 |
 
-The combined payload is **161,893 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **116,933 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-The documentation checker validates 29 Markdown guides and their relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
+The documentation checker validates 29 Markdown guides and 197 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
 ## Packaging and remaining hardware work
 
@@ -69,3 +69,11 @@ Native tests cover the OLED menu transitions and editors, invalid private IPv4 i
 Generated-byte browser tests cover automatic and repeated Wi-Fi scans, coalescing repeated SSIDs to their strongest supported entry, choosing a network, preserving a custom-IP draft, display timeout save/reload/disable, malformed display data and a clock that keeps advancing across identical status samples without posting RTC changes. The interface uses blue/violet glass surfaces and reduced-transparency/contrast fallbacks. Representative controls are shown in [OLED](OLED.md), alongside logical frame samples rather than physical display photographs.
 
 The nominal 42 ms animation target, I2C occupancy, physical wake latency, long-hold character repeat, actual AP discovery/association and sustained AP clients during playback remain hardware acceptance items. A passing host decoder or browser mock does not establish those physical timings. UART event retry reasons describe HTTP availability, not electrical evidence about the Fort.
+
+## Wi-Fi and communication correction in 2.2.1
+
+The final main build uses 83,088 bytes of static RAM and 1,378,569 bytes of program space. The standalone build remains at 30,284 bytes of static RAM and 336,577 bytes of program space. Both compilation outputs completed without warnings or errors. All three native suites passed after the final diagnostic version update, including the scanner's preparation, retry exhaustion, radio/overall deadline and unsigned rollover cases.
+
+The generated-byte browser suite passed the additional lost-acknowledgement recovery, retained SSID list after radio failure, temporary HTTP failure, 3.1-second response delay and repeated-scan cases. UART checks cover direction labels, vector symbols, retained raw frames, CRC mismatch, timeout with no fabricated RX motion and reboot history. The actual request module also passed a Node test that keeps response bodies open to verify serialization, removes aborted queued GETs, preempts a running GET for Stop and preserves an accepted POST when Resume is queued. The full existing dashboard suite and 23 vector checks passed with installed Microsoft Edge at 320–2560 px.
+
+The radio adapter initializes the pinned IDF scan structure and consumes Arduino's scan-done callback through an RTOS mailbox. The actual radio, AP service during off-channel scanning, DHCP association and empty-socket behavior were compiled and reviewed, with their policies or browser-facing behavior tested on the host. No physical radio acceptance was performed for this release, so these results do not establish that the particular installed board/router combination has passed scanning.

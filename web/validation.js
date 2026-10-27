@@ -86,5 +86,5 @@ export function validAPIP(text) {
   return d>0&&d<255&&(a===10||(a===172&&b>=16&&b<=31)||(a===192&&b===168));
 }
 export function validWifiScan(value) {
-  return object(value)&&["idle","scanning","ready","failed"].includes(value.phase)&&uint(value.generation)&&uint(value.ageMs)&&Array.isArray(value.networks)&&value.networks.length<=16&&value.networks.every((row)=>object(row)&&typeof row.ssid==="string"&&row.ssid.length>0&&row.ssid.length<=32&&Number.isInteger(row.rssi)&&typeof row.open==="boolean"&&typeof row.supported==="boolean"&&uint(row.channel,14));
+  return object(value)&&["idle","scanning","ready","failed"].includes(value.phase)&&uint(value.generation)&&uint(value.ageMs)&&(!value.error||["radio_start","radio_enable","radio_failed","radio_timeout"].includes(value.error))&&(value.attempts===undefined||uint(value.attempts,3))&&(value.driverCode===undefined||Number.isInteger(value.driverCode))&&Array.isArray(value.networks)&&value.networks.length<=16&&value.networks.every((row)=>object(row)&&typeof row.ssid==="string"&&row.ssid.length>0&&row.ssid.length<=32&&Number.isInteger(row.rssi)&&typeof row.open==="boolean"&&typeof row.supported==="boolean"&&uint(row.channel,14));
 }

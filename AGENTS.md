@@ -16,6 +16,7 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `firmware/include/board.h`: GPIO, OLED address, AP credentials, timezone offset.
 - `firmware/include/version.h`: firmware release version.
 - `web/Application.jsx`, `web/views/`, `web/device.js`, `web/i18n.js`: browser views, transport and language catalog.
+- `web/request.js`: single API socket scheduling through complete body reception, active deadlines and priority Stop/Resume. Do not abort accepted POSTs to refresh telemetry.
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
 - `firmware/include/energy.h`: interval schedule, continuity and quality logic, CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.

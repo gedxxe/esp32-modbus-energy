@@ -1,4 +1,4 @@
-# Tinjauan implementasi versi 2.2.0
+# Tinjauan implementasi versi 2.2.1
 
 [English](../AUDIT.md) · **Bahasa Indonesia**
 
@@ -27,3 +27,5 @@ Timestamp UART merupakan observasi software, bukan pengukuran t1.5/t3.5 atau pro
 Interpolasi interval dibatasi pada gap sah 15 detik dan resolusi counter bergantung CT/PT. Tes checkpoint/backup mencakup jalur gagal terdefinisi, bukan seluruh kemungkinan flash atau putus daya. AP/HTTP tidak memiliki login/TLS terpisah, cloud, NTP ataupun OTA dan parser request upstream masih perlu diuji bebannya pada perangkat. [VALIDATION](VALIDATION.md) mencatat hasil software aktual, sedangkan [COMMISSIONING](COMMISSIONING.md) memuat penerimaan hardware terintegrasi.
 
 Integrasi 2.2 menambahkan scan Wi-Fi asinkron, editor jaringan OLED, record IP khusus yang kompatibel serta policy animasi idle persisten. Referensi animasi dikonversi lossless dengan decoder terbatas tanpa display/loop kedua. Input bangun dikonsumsi sebelum aksi tombol biasa. Animasi jam terpisah dari mutasi RTC, dan halaman API mempertahankan validasi sequence/kualitas dengan respons event yang lebih kecil. Timing radio, menu fisik dan animasi bersama banyak klien tetap perlu diuji pada perangkat.
+
+Koreksi 2.2.1 mengganti policy start/completion Wi-Fi, menserialisasi body API browser, membatasi penantian socket spekulatif serta menampilkan alasan dan kode driver. Panel komunikasi mempertahankan milestone teknis dan raw frame dengan label arah berbasis event. Regresi browser mencakup acknowledgement hilang, pembacaan lambat, radio gagal, CRC serta timeout tanpa RX buatan. Scheduler aktual juga diuji untuk body completion, pembatalan dan Stop prioritas. Perubahan radio serta HTTP tetap perlu diterima pada perangkat.

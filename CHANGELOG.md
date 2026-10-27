@@ -5,6 +5,14 @@
 
 
 
+## 2.2.1 / 27 October 2026
+
+Wi-Fi discovery now initializes the complete IDF scan configuration, waits for the scan-done callback and records driver failures instead of relying on Arduino's four-second scanComplete deadline. A bounded preparation/retry policy avoids overlapping unfinished association, retains the last SSID list and reports generation, attempt count, reason and driver code in the web panel and USB log.
+
+Browser API requests share a single connection slot through response-body completion, with an eight-second active-request deadline and priority diagnostic Stop/Resume. The server yields empty speculative sockets when another client is waiting. Scan status recovers from an interrupted acknowledgement without automatically starting a replacement scan.
+
+The communication panel adds original device SVG symbols, separate TX/RX lanes, labeled frame motion, last-observed DE-/RE state, transaction milestones and raw bytes. Timeout creates no RX animation. CSS handles page reveals while React Bits SpotlightCard remains active, reducing the compressed dashboard payload. The regression suite now exercises scan failures, lost acknowledgements, delayed HTTP responses and timeout/CRC rendering.
+
 ## 2.2.0 / 27 October 2026
 
 Network setup now starts with an asynchronous SSID scan and picker instead of manual SSID entry. The web and OLED can save a private AP IPv4 preference, with v1 Wi-Fi record compatibility and the existing recovery AP policy. OLED options include mode selection, visible-network selection, masked password entry and IP-octet tools.

@@ -2,7 +2,7 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-Versi 2.2.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.2.1 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -85,3 +85,11 @@ API status membawa UTC perangkat, umur sampel monotonic dan revisi jam. Browser 
 Preferensi layar memakai record CRC delapan byte tersendiri dan melalui core 1 seperti setting LED. Core 0 mengamati input fisik dan menahan seluruh tekanan bangun sampai guard pelepasan selesai sebelum event debounce bisa menjalankan kontrol monitoring/menu. Policy IdleScreen dapat diuji untuk timeout, nonaktif, bangun dan rollover tanpa periferal.
 
 Artwork disimpan sebagai paket RLE per frame dengan offset tervalidasi. build-oled.py mendekode seluruh 772 frame dan memeriksa gabungan SHA256 mentah sebelum memeriksa/menghasilkan C++, sehingga header referensi tersebar tidak diperlukan saat deployment. Playback memakai satu bitmap kerja 1 KiB, rotasi display dan mutex I2C terbatas yang sudah ada, lalu maju berdasarkan waktu pada target 42 ms. Beban HTTP/I2C dapat melewati frame, sedangkan akuisisi tetap independen dan tidak menerima sampel dari animasi.
+
+## Discovery radio dan penjadwalan HTTP
+
+Discovery Wi-Fi dan association client berbagi radio pada core 0. Scanner menunggu 300 ms setelah persiapan, menunda association yang belum selesai, mencoba ulang penolakan/kegagalan driver setiap 750 ms sampai tiga percobaan serta membatasi scan radio 12 detik dalam operasi total 20 detik. Konfigurasi IDF diinisialisasi nol dan menetapkan dwell aktif 100–200 ms serta dwell kanal utama 50 ms. Completion diterima setelah task event Arduino mengumpulkan hasil, melalui mailbox RTOS satu elemen berisi status dan timestamp. Core 0 menyalin maksimal 16 jaringan terlihat terkuat lalu membebaskan daftar Arduino. Deadline memakai waktu completion, bukan waktu loop HTTP yang mungkin terlambat, dan daftar sebelumnya bertahan saat scan gagal.
+
+Adapter ini mengikuti internal scan Arduino ESP32 2.0.17 yang dipin, sehingga perlu ditinjau ulang saat framework dinaikkan. Inisialisasi field konfigurasi lengkap dan callback menggantikan ketergantungan pada timeout wrapper dwell × 20, dengan satu pemilik storage hasil Arduino. Keberhasilan radio, kelangsungan AP dan kegagalan resource driver tetap membutuhkan penerimaan fisik.
+
+Scheduler browser menserialisasi fetch API sampai seluruh body respons diterima. Deadline delapan detik berlaku setelah request aktif dan tidak menghitung waktu antre. POST mendahului telemetry yang mengantre, sedangkan Stop/Resume diagnostik dapat membatalkan GET aktif tanpa membatalkan POST yang sudah diterima. Pada firmware, koneksi kosong yang menunggu lebih dari 250 ms mengalah saat socket lain tersedia. Parser upstream dan batas writer lima detik tetap berlaku. Perubahan ini menjadwalkan request WebServer satu client tanpa memindahkan akuisisi dari core 1.

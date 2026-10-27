@@ -69,6 +69,27 @@ class NetworkPolicy {
   bool apWanted(uint32_t now)const{return mode!=NETWORK_CLIENT||!connected||uint32_t(now-connectedAt)<NETWORK_AP_GRACE_MS;}
  private:uint32_t started=0,lastAttempt=0,connectedAt=0;
 };
+// A scan owns the station radio until it completes. Association retries must wait.
+class WiFiScanPolicy {
+ public:
+  static constexpr uint32_t PREPARE_MS=300,RETRY_MS=750,RADIO_MS=12000,TOTAL_MS=20000;
+  bool running=false,radio=false,failed=false;uint8_t attempts=0;
+  uint32_t started=0,changed=0,finished=0;const char *error="";
+  bool begin(uint32_t now){
+    if(running||(attempts&&uint32_t(now-finished)<1500))return false;
+    running=true;radio=false;failed=false;attempts=0;started=changed=now;error="";return true;
+  }
+  bool due(uint32_t now)const{return running&&!radio&&uint32_t(now-changed)>=(attempts?RETRY_MS:PREPARE_MS);}
+  void attempt(uint32_t now,bool accepted){++attempts;changed=now;radio=accepted;if(!accepted)retry(now,"radio_start");}
+  void retry(uint32_t now,const char *why){
+    radio=false;changed=now;error=why;
+    if(attempts>=3||uint32_t(now-started)>=TOTAL_MS)finish(now,false,why);
+  }
+  void finish(uint32_t now,bool ok,const char *why=""){
+    running=radio=false;failed=!ok;finished=now;error=ok?"":why;
+  }
+  bool expired(uint32_t now)const{return running&&(uint32_t(now-started)>=TOTAL_MS||(radio&&uint32_t(now-changed)>=RADIO_MS));}
+};
 inline uint32_t chooseAPAddress(uint32_t station,uint32_t mask,uint32_t preferred=0xC0A80401){
   if(station&&!mask)return 0;
   const uint32_t candidates[]={preferred,0xC0A80401,0xC0A80501,0x0A2A0001,0xAC172A01};

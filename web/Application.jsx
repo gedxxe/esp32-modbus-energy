@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import FadeContent from "./vendor/react-bits/FadeContent.jsx";
 import UartFlow from "./components/UartFlow.jsx";
 import Icon from "./components/Icon.jsx";
 import Overview from "./views/Overview.jsx";
@@ -9,18 +8,6 @@ import useDevice from "./device.js";
 import { catalog } from "./i18n.js";
 import { Language, localeFor, useText, isNumber } from "./ui.js";
 
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(
-    () => matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  useEffect(() => {
-    const query = matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(query.matches);
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return reduced;
-}
 function Health({ device }) {
   const { t } = useText();
   const s = device.data;
@@ -66,7 +53,6 @@ export default function Application() {
       : "overview",
   );
   const device = useDevice();
-  const reducedMotion = useReducedMotion();
   const text = useMemo(
     () => ({
       lang,
@@ -203,18 +189,7 @@ export default function Application() {
         </nav>
         <Health device={device} />
         <UartFlow />
-        {reducedMotion ? (
-          <div key={view}>{content}</div>
-        ) : (
-          <FadeContent
-            key={view}
-            trigger="mount"
-            duration={0.3}
-            initialOpacity={0.6}
-          >
-            {content}
-          </FadeContent>
-        )}
+        <div className="page-content" key={view}>{content}</div>
         {device.notice && (
           <div id="message" className="notice" role="status" aria-live="polite">
             {device.notice.key ? t(device.notice.key) : device.notice.text}

@@ -18,7 +18,9 @@ of this application, not offered as a component library or template pack.
 They are not relicensed under this project's GPL-3.0-only grant.
 
 React 19.3.1, React DOM 19.3.1 and Scheduler retain their MIT licenses.
-GSAP 3.15.0 and ScrollTrigger retain GreenSock's standard no-charge terms:
+The preserved FadeContent reference depends on GSAP 3.15.0 and ScrollTrigger,
+which retain GreenSock's standard no-charge terms. They are not imported into
+the current browser bundle. The runtime uses React Bits SpotlightCard. Reference:
 https://gsap.com/standard-license (see web/vendor/gsap-NOTICE.txt).
 
 Original application code under web/ (excluding web/vendor/) remains

@@ -1,3 +1,4 @@
+import { deviceFetch } from "../request.js";
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
 import { validDiagnostic } from "../validation.js";
@@ -27,9 +28,9 @@ function ConsoleData({ device }) {
       controller;
     async function poll() {
       controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+
       try {
-        const response = await fetch("/api/diagnostic", {
+        const response = await deviceFetch("/api/diagnostic", {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -44,7 +45,7 @@ function ConsoleData({ device }) {
       } catch {
         if (alive) setFailed(true);
       } finally {
-        clearTimeout(timeout);
+
         if (alive) timer = setTimeout(poll, 1000);
       }
     }

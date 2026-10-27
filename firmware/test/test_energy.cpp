@@ -258,6 +258,23 @@ int main(){
   assert(!commandModeAllowed(CommandType(255),false,false,false));
   assert(!commandContextValid(CommandType(255),0,0,0,0,false,false,false));
 
+  WiFiScanPolicy wifi;
+  assert(wifi.begin(0));assert(!wifi.due(299));assert(wifi.due(300));
+  wifi.attempt(300,false);assert(wifi.running&&!wifi.radio&&wifi.attempts==1);
+  assert(!wifi.due(1049));assert(wifi.due(1050));wifi.attempt(1050,true);
+  assert(wifi.radio&&!wifi.expired(13049));assert(wifi.expired(13050));
+  wifi.finish(13050,false,"radio_timeout");assert(wifi.failed&&!wifi.running);
+  assert(!wifi.begin(14000));assert(wifi.begin(14550));
+  wifi.attempt(14850,false);wifi.attempt(15600,false);wifi.attempt(16350,false);
+  assert(wifi.failed&&!wifi.running&&wifi.attempts==3);
+  assert(wifi.begin(18000));wifi.attempt(18300,true);wifi.finish(22000,true);
+  assert(!wifi.failed&&!wifi.running&&!strcmp(wifi.error,""));
+  assert(wifi.begin(UINT32_MAX-100));assert(wifi.due(199));wifi.attempt(199,true);
+  assert(!wifi.expired(12198));assert(wifi.expired(12199));
+  wifi.finish(12199,true);
+  assert(wifi.begin(14000));wifi.attempt(14300,true);wifi.retry(26000,"radio_failed");
+  assert(wifi.running);assert(wifi.expired(34000));
+
   Debouncer button;
   assert(button.update(false,100)==0);assert(button.update(true,105)==0);
   assert(button.update(false,110)==0);assert(button.update(false,145)==0);

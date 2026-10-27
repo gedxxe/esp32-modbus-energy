@@ -6,6 +6,14 @@
 
 
 
+## 2.2.1 / 27 Oktober 2026
+
+Discovery Wi-Fi kini menginisialisasi seluruh konfigurasi scan IDF, menunggu callback scan-done serta mencatat kegagalan driver tanpa mengandalkan deadline scanComplete Arduino empat detik. Policy persiapan dan retry terbatas mencegah benturan dengan association yang belum selesai, mempertahankan daftar SSID terakhir serta menampilkan generation, jumlah percobaan, alasan dan kode driver di web maupun log USB.
+
+Request API browser berbagi satu slot sampai body respons selesai dibaca, dengan deadline request aktif delapan detik dan prioritas Stop/Resume diagnostik. Server melepaskan socket spekulatif kosong saat ada client lain menunggu. Status scan pulih setelah acknowledgement terputus tanpa otomatis membuat scan pengganti.
+
+Panel komunikasi memakai simbol perangkat SVG buatan proyek, jalur TX/RX terpisah, frame berlabel, status terakhir DE-/RE, milestone transaksi serta byte mentah. Timeout tidak membuat animasi RX. CSS menangani transisi halaman sementara React Bits SpotlightCard tetap aktif, sehingga payload dashboard lebih kecil. Regresi mencakup scan gagal, acknowledgement hilang, HTTP lambat serta tampilan timeout/CRC.
+
 ## 2.2.0 / 27 Oktober 2026
 
 Pengaturan jaringan memulai scan SSID asinkron dan pemilih jaringan tanpa mengetik SSID manual. Web serta OLED dapat menyimpan pilihan IPv4 AP privat, dengan kompatibilitas record Wi-Fi v1 dan AP pemulihan. Menu OLED mencakup mode, pemilih jaringan, input password tersamarkan serta tools oktet IP.

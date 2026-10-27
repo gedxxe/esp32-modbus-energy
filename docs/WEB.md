@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/WEB.md)
 
-Firmware 2.2.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Firmware 2.2.1 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
 
 ## Reach the application
 
@@ -68,8 +68,24 @@ All these routes are registered by the production firmware. Ordinary controls us
 
 ## Verify the integrated installation
 
-After uploading 2.2.0, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
+After uploading 2.2.1, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
 
 The communication endpoint now sends at most eight events per page, with a backlog marker for catch-up. Browser polling targets 500 ms and retries failed requests after 1.2 seconds, retaining timestamped history and distinguishing timeout, invalid payload and endpoint failures. A failed HTTP event request does not establish whether a Modbus slave is present.
 
 OLED screensaver controls in Device & records select a 10–3600-second idle delay or disable playback. The default is 60 seconds. Any first physical button press wakes the dashboard without executing its ordinary action. See [OLED](OLED.md#idle-animation-and-wake-behavior) for playback and wake details.
+
+### Scan progress and recovery
+
+A requested scan first enables the station interface and waits 300 ms before asking the driver to scan. If a client association is still pending, firmware pauses that association until discovery ends. An established client link is retained. The scanner allows three start/failure attempts, 750 ms between retries, 12 seconds for an accepted radio scan and 20 seconds for the whole operation. The radio spends 100–200 ms per scanned channel and returns to its home channel for 50 ms between channels. Acquisition remains on core 1 throughout.
+
+The implementation initializes every field of `wifi_scan_config_t`, including the home-channel dwell, and uses the Arduino scan-done callback only after Arduino has collected its result list. This avoids the pinned Arduino wrapper's dwell × 20 timeout, which was only four seconds at a 200 ms dwell. The scan status includes a generation number, attempt count, failure reason and raw driver code. `radio_start` means the driver refused to begin, `radio_failed` means completion reported failure, `radio_timeout` means the deadline expired and `radio_enable` means STA could not be enabled. A completed scan with no SSIDs is a separate empty result.
+
+An HTTP failure does not discard the selected network or start another radio scan. The page retries GET status for the current generation, while retaining the last network list. After an upload, reconnect to the ESP32's current IP and reload the page, then select Client or AP + client in Device & records. If scanning still fails, copy the visible scan reason and driver code from that web panel into the support chat. Alternatively, open **Arduino IDE Serial Monitor at 115200 baud** and copy the resulting **OUTPUT** line beginning `[WiFi scan]` into the support chat. That line is output to read, not a command to type.
+
+### Reading the communication diagram
+
+The MCU symbol represents UART1, the opposing driver symbols represent the transceiver and the display symbol represents the Fort meter. The blue lane carries the request toward the meter and the green lane carries observed RX toward the ESP32. Amber RX identifies a frame that did not pass normal validation. The pin labels include the direction pin carried by each recorded event, including trial diagnostic pins.
+
+Four milestones retain the latest transaction's queued TX, drained UART, first observed RX byte and outcome. Times are measured from queued TX using device timestamps, with unsigned subtraction across the microsecond counter rollover. The DE and /RE values show the last recorded software direction state, and become unknown when the event endpoint is unavailable. They are not electrical feedback measurements. A timeout keeps RX empty and leaves the missing RX milestone unfilled.
+
+Frame travel replays recorded event spacing at 1× and holds its final label for 700 ms so a short UART transaction remains visible. The recorded durations and hex bytes remain available afterward. Browser delivery adds latency, and the direction diagram is schematic rather than a measurement of travel time on A/B. API fetches share one socket slot through complete body reception with an eight-second active deadline. Queued waiting does not consume that deadline, and priority Stop/Resume can cancel an in-flight telemetry GET.

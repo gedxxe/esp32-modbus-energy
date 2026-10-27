@@ -1,3 +1,4 @@
+import { deviceFetch } from "../request.js";
 import DeviceClock from "../components/DeviceClock.jsx";
 import { useEffect, useState } from "react";
 import ProcessMonitor from "../components/ProcessMonitor.jsx";
@@ -19,9 +20,9 @@ export default function DeviceRecords({ device }) {
     let controller;
     const load = async () => {
       controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4000);
+
       try {
-        const response = await fetch("/api/history", {
+        const response = await deviceFetch("/api/history", {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -39,8 +40,6 @@ export default function DeviceRecords({ device }) {
         }
       } catch {
         if (alive) setHistoryError(true);
-      } finally {
-        clearTimeout(timer);
       }
     };
     load();

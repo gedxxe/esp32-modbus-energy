@@ -42,7 +42,15 @@ void serviceHTTP();
 class BoundedWebServer:public WebServer {
  public:
   explicit BoundedWebServer(uint16_t port):WebServer(port){}
-  void handleClient()override{requestStarted=millis();WebServer::handleClient();}
+  void handleClient()override{
+    // A browser may open an empty speculative socket ahead of real API requests.
+    // Do not let that socket occupy this single-client server for five seconds.
+    if(_currentStatus==HC_WAIT_READ&&!_currentClient.available()&&
+       uint32_t(millis()-_statusChange)>250&&_server.hasClient()){
+      _currentClient.stop();_currentStatus=HC_NONE;
+    }
+    requestStarted=millis();WebServer::handleClient();
+  }
  protected:
   uint32_t requestStarted=0;
   size_t _currentClientWrite(const char *data,size_t size)override{
@@ -88,6 +96,7 @@ void networkNotice(const char *message);
 void syncNetworkCommandResult();
 void tickWiFiScan();
 bool wifiScanRunning();
+bool resumeStationAfterScan=false;
 void tickNetwork(){
   syncNetworkCommandResult();tickWiFiScan();
   uint32_t now=millis();NetworkUpdate update;
@@ -104,35 +113,69 @@ void tickNetwork(){
     uint32_t address=ready?chooseAPAddress(ipv4(WiFi.localIP()),ipv4(WiFi.subnetMask()),activeNetwork.apIP):apAddress;
     if((!apOK||address!=apAddress)&&uint32_t(now-lastAPTry)>=3000)apOK=startAP(address);
   }else if(apOK&&WiFi.enableAP(false)){apOK=false;}
-  if(retry&&!wifiScanRunning()){WiFi.disconnect(false,false);WiFi.begin(activeNetwork.ssid,activeNetwork.password[0]?activeNetwork.password:nullptr);}
+  if((retry||resumeStationAfterScan)&&!wifiScanRunning()){resumeStationAfterScan=false;WiFi.disconnect(false,false);WiFi.begin(activeNetwork.ssid,activeNetwork.password[0]?activeNetwork.password:nullptr);}
 }
 struct WiFiEntry {char ssid[33]={};int32_t rssi=0;uint8_t auth=0,channel=0;};
-struct WiFiScanView {WiFiEntry rows[16]{};uint8_t count=0;uint32_t generation=0,started=0,finished=0;bool running=false,failed=false;};
+struct WiFiScanView:WiFiScanPolicy {WiFiEntry rows[16]{};uint8_t count=0;uint32_t generation=0;int32_t driverCode=0;};
 WiFiScanView wifiScan;
+struct WiFiScanDone {uint32_t status=0,atMs=0;};
+QueueHandle_t wifiScanDoneQueue;
+// Keep Arduino's result ownership and callback, but initialize the entire IDF
+// config and use our deadline instead of its dwell*20 scanComplete timeout.
+class ManagedWiFiScan:public WiFiClass {
+ public:
+  static esp_err_t start(){
+    WiFi.scanDelete();wifi_scan_config_t config{};
+    config.home_chan_dwell_time=50;config.scan_type=WIFI_SCAN_TYPE_ACTIVE;config.scan_time.active.min=100;config.scan_time.active.max=200;
+    esp_err_t code=esp_wifi_scan_start(&config,false);
+    if(code==ESP_OK){_scanStarted=0;WiFiGenericClass::clearStatusBits(WIFI_SCAN_DONE_BIT);WiFiGenericClass::setStatusBits(WIFI_SCANNING_BIT);}
+    return code;
+  }
+  static void clear(){esp_wifi_scan_stop();WiFi.scanDelete();_scanStarted=0;WiFiGenericClass::clearStatusBits(WIFI_SCANNING_BIT|WIFI_SCAN_DONE_BIT);}
+  static uint16_t count(){return _scanCount;}
+};
 bool wifiScanRunning(){return wifiScan.running;}
 bool supportedWiFiAuth(uint8_t auth){return auth==WIFI_AUTH_OPEN||auth==WIFI_AUTH_WPA2_PSK||auth==WIFI_AUTH_WPA_WPA2_PSK||auth==WIFI_AUTH_WPA3_PSK||auth==WIFI_AUTH_WPA2_WPA3_PSK;}
+void finishWiFiScan(bool ok,const char *error=""){
+  wifiScan.finish(millis(),ok,error);ManagedWiFiScan::clear();
+  if(activeNetwork.mode==NETWORK_AP)WiFi.enableSTA(false);
+  Serial.printf("[WiFi scan] generation=%lu attempts=%u result=%s code=%ld networks=%u\n",(unsigned long)wifiScan.generation,wifiScan.attempts,ok?"ready":error,(long)wifiScan.driverCode,wifiScan.count);
+}
 bool startWiFiScan(){
-  if(wifiScan.running||networkPending||networkAwaitingSave)return false;
-  if(wifiScan.started&&uint32_t(millis()-wifiScan.started)<5000)return false;
-  wifiScan.count=0;wifiScan.failed=false;wifiScan.started=millis();++wifiScan.generation;
-  wifiScan.running=WiFi.scanNetworks(true,false,false,200)==WIFI_SCAN_RUNNING;
-  if(!wifiScan.running){wifiScan.failed=true;wifiScan.finished=millis();}
-  return wifiScan.running;
+  if(networkPending||networkAwaitingSave||!wifiScan.begin(millis()))return false;
+  ++wifiScan.generation;wifiScan.driverCode=0;
+  // Stop an unfinished association, while preserving an established client link.
+  bool connected=stationReady();
+  if(!WiFi.enableSTA(true)){finishWiFiScan(false,"radio_enable");return true;}
+  if(!connected){WiFi.disconnect(false,false);resumeStationAfterScan=activeNetwork.mode!=NETWORK_AP;}
+  ManagedWiFiScan::clear();WiFiScanDone stale;while(xQueueReceive(wifiScanDoneQueue,&stale,0)==pdTRUE){}
+  return true;
 }
 void tickWiFiScan(){
-  if(!wifiScan.running)return;
-  int count=WiFi.scanComplete();if(count==WIFI_SCAN_RUNNING&&uint32_t(millis()-wifiScan.started)<12000)return;
-  wifiScan.running=false;wifiScan.finished=millis();wifiScan.failed=count<0;
-  if(count<0)esp_wifi_scan_stop();
-  for(int i=0;i<count;++i){
-    String ssid=WiFi.SSID(i);if(!ssid.length()||ssid.length()>32)continue;
-    WiFiEntry entry;strlcpy(entry.ssid,ssid.c_str(),sizeof(entry.ssid));entry.rssi=WiFi.RSSI(i);entry.auth=WiFi.encryptionType(i);entry.channel=WiFi.channel(i);
+  if(!wifiScan.running)return;uint32_t now=millis();WiFiScanDone completion;
+  bool completed=wifiScan.radio&&xQueueReceive(wifiScanDoneQueue,&completion,0)==pdTRUE;
+  // Judge completion by callback time, even when HTTP briefly delayed this loop.
+  if(completed&&(uint32_t(completion.atMs-wifiScan.changed)>=WiFiScanPolicy::RADIO_MS||uint32_t(completion.atMs-wifiScan.started)>=WiFiScanPolicy::TOTAL_MS)){finishWiFiScan(false,"radio_timeout");return;}
+  if(!completed&&wifiScan.expired(now)){finishWiFiScan(false,"radio_timeout");return;}
+  if(wifiScan.due(now)){
+    while(xQueueReceive(wifiScanDoneQueue,&completion,0)==pdTRUE){}
+    wifiScan.driverCode=ManagedWiFiScan::start();wifiScan.attempt(now,wifiScan.driverCode==ESP_OK);
+    if(!wifiScan.running)finishWiFiScan(false,"radio_start");
+    return;
+  }
+  if(!completed)return;
+  if(completion.status){wifiScan.driverCode=int32_t(completion.status);ManagedWiFiScan::clear();wifiScan.retry(now,"radio_failed");if(!wifiScan.running)finishWiFiScan(false,"radio_failed");return;}
+  wifiScan.count=0;
+  for(unsigned i=0;i<ManagedWiFiScan::count();++i){
+    const auto *record=static_cast<const wifi_ap_record_t*>(WiFi.getScanInfoByIndex(i));if(!record)continue;
+    size_t length=strnlen(reinterpret_cast<const char*>(record->ssid),33);if(!length||length>32)continue;
+    WiFiEntry entry;memcpy(entry.ssid,record->ssid,length);entry.rssi=record->rssi;entry.auth=record->authmode;entry.channel=record->primary;
     bool duplicate=false;for(uint8_t j=0;j<wifiScan.count;++j)if(!strcmp(entry.ssid,wifiScan.rows[j].ssid)&&entry.auth==wifiScan.rows[j].auth){if(entry.rssi>wifiScan.rows[j].rssi)wifiScan.rows[j]=entry;duplicate=true;break;}
     if(!duplicate){if(wifiScan.count<16)wifiScan.rows[wifiScan.count++]=entry;
       else if(entry.rssi>wifiScan.rows[wifiScan.count-1].rssi)wifiScan.rows[wifiScan.count-1]=entry;}
     for(unsigned a=0;a<wifiScan.count;++a)for(unsigned b=a+1;b<wifiScan.count;++b)if(wifiScan.rows[b].rssi>wifiScan.rows[a].rssi){WiFiEntry swap=wifiScan.rows[a];wifiScan.rows[a]=wifiScan.rows[b];wifiScan.rows[b]=swap;}
   }
-  WiFi.scanDelete();if(activeNetwork.mode==NETWORK_AP)WiFi.enableSTA(false);
+  finishWiFiScan(true);
 }
 String preferredAddress(){return stationReady()?WiFi.localIP().toString():apOK?WiFi.softAPIP().toString():String();}
 
@@ -239,7 +282,7 @@ void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,
   if(kind==4||kind==5||kind==6){
     if(tx)state.trace.append(tx,rx,size,overflow,millis(),link.baud,link.parity,link.id,address,words,currentAttempt,scanner.running(),diagnosticActive,kind==5);
   }
-  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx);
+  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx,diagnosticActive?(diagnostic.options.manualDirection?diagnostic.options.dir:-1):(normalReader.options.manualDirection?normalReader.options.dir:-1));
 }
 // Production polling and diagnostics use the identical strict FC03 transport.
 // Echoes and extra bytes remain visible and are rejected within a transaction.
@@ -766,7 +809,7 @@ void webSetup() {
     uint8_t emitted=0;bool more=false;JsonArray rows=d["events"].to<JsonArray>();
     for(uint8_t i=0;i<s.flow.count;++i){const FlowEvent &e=s.flow.at(i);if(after&&int32_t(e.seq-after)<=0)continue;
       if(emitted++>=8){more=true;break;}
-      JsonObject row=rows.add<JsonObject>();row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
+      JsonObject row=rows.add<JsonObject>();row["dirPin"]=e.dirPin;row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
     }
     d["more"]=more;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
@@ -837,7 +880,7 @@ void webSetup() {
     Command c{};c.type=SET_DISPLAY;c.display.idleSeconds=uint16_t(seconds);enqueueCommand(c);
   });
   server.on("/api/network/scan",HTTP_GET,[]{
-    JsonDocument d;d["ageMs"]=wifiScan.finished?uint32_t(millis()-wifiScan.finished):0;d["generation"]=wifiScan.generation;d["phase"]=wifiScan.running?"scanning":wifiScan.failed?"failed":wifiScan.generation?"ready":"idle";
+    JsonDocument d;d["ageMs"]=wifiScan.finished?uint32_t(millis()-wifiScan.finished):0;d["generation"]=wifiScan.generation;d["attempts"]=wifiScan.attempts;d["error"]=wifiScan.error;d["driverCode"]=wifiScan.driverCode;d["elapsedMs"]=uint32_t((wifiScan.running?millis():wifiScan.finished)-wifiScan.started);d["phase"]=wifiScan.running?"scanning":wifiScan.failed?"failed":wifiScan.generation?"ready":"idle";
     JsonArray rows=d["networks"].to<JsonArray>();for(uint8_t i=0;i<wifiScan.count;++i){const WiFiEntry &e=wifiScan.rows[i];JsonObject row=rows.add<JsonObject>();row["ssid"]=e.ssid;row["rssi"]=e.rssi;row["channel"]=e.channel;row["open"]=e.auth==WIFI_AUTH_OPEN;row["supported"]=supportedWiFiAuth(e.auth);}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
@@ -1045,6 +1088,9 @@ void setup() {
     uint32_t t=millis();while(digitalRead(PIN_OK)==LOW&&millis()-t<5000){tickLED();delay(20);}
     if(millis()-t>=5000){LittleFS.end();fsOK=LittleFS.format()&&LittleFS.begin(false);}
   }
+  wifiScanDoneQueue=xQueueCreate(1,sizeof(WiFiScanDone));
+  if(!wifiScanDoneQueue){Serial.println("FATAL: cannot allocate Wi-Fi scan mailbox");delay(1000);ESP.restart();}
+  WiFi.onEvent([](WiFiEvent_t,WiFiEventInfo_t info){WiFiScanDone result;result.status=info.wifi_scan_done.status;result.atMs=millis();xQueueOverwrite(wifiScanDoneQueue,&result);},ARDUINO_EVENT_WIFI_SCAN_DONE);
   WiFi.persistent(false);applyNetwork(NetworkSettings{});
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);

@@ -1,5 +1,6 @@
 // Compile and execute the actual standalone INO with the real ModbusMaster source.
 #include <assert.h>
+#include "../include/version.h"
 #include <iostream>
 #include <cstdlib>
 #undef assert
@@ -25,6 +26,6 @@ int main(){
  std::string root=__FILE__;std::replace(root.begin(),root.end(),char(92),'/');root=root.substr(0,root.rfind("firmware/test/"));
  for(const char *name:recipes){std::ifstream file(root+"examples/FortSerialDebug/cases/"+name);assert(file);std::string line;while(std::getline(file,line)){if(!line.empty()&&line.back()=='\r')line.pop_back();if(line.empty()||line[0]=='#')continue;submit(line);}}
  for(const auto &tx:fortUART.transmitted){assert(tx.size()==8&&tx[1]==3&&tx[0]>0&&tx[0]<=247);assert(fort::meterCRC(tx.data(),6)==(uint16_t(tx[6])|(uint16_t(tx[7])<<8)));}
- assert(Serial.output.find("Fort diagnostics 2.2.0")!=std::string::npos);
+ assert(Serial.output.find(std::string("Fort diagnostics ")+FIRMWARE_VERSION)!=std::string::npos);
  std::cout<<"PASS: actual standalone INO + real ModbusMaster; manual direction, runtime controls, exception safety, fallback plan, all eight recipes and FC03-only requests\n";
 }

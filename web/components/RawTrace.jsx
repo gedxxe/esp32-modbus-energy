@@ -1,3 +1,4 @@
+import { deviceFetch } from "../request.js";
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
 import { validTrace } from "../validation.js";
@@ -12,9 +13,9 @@ function TraceData({ device }) {
       controller;
     const poll = async () => {
       controller = new AbortController();
-      const deadline = setTimeout(() => controller.abort(), 4000);
+
       try {
-        const response = await fetch("/api/trace", {
+        const response = await deviceFetch("/api/trace", {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -28,7 +29,7 @@ function TraceData({ device }) {
       } catch {
         if (alive) setFailed(true);
       } finally {
-        clearTimeout(deadline);
+
         if (alive) timer = setTimeout(poll, 1000);
       }
     };

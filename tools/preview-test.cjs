@@ -5,6 +5,7 @@ const http = require("node:http");
 const zlib = require("node:zlib");
 const crypto = require("node:crypto");
 const assert = require("node:assert/strict");
+const testRequest = require("./test-request.cjs");
 const { chromium } = require(process.argv[2] || "playwright");
 const root = path.resolve(__dirname, "..");
 const version = fs
@@ -138,7 +139,7 @@ const state = {
   scan: { phase: "idle", tested: 0, total: 0 },
 };
 // Simulated instrumentation only; exported screenshots are representative.
-let wifiScanGeneration=0,wifiScanRequests=0,wifiScanFinish=0;
+let wifiScanGeneration=0,wifiScanRequests=0,wifiScanFinish=0,wifiDropAck=false,wifiReadFailures=0,wifiRadioFailure="",wifiReadDelay=0;
 const nearbyNetworks=[{ssid:"Plant WiFi",rssi:-80,channel:1,open:false,supported:true},{ssid:"Plant WiFi",rssi:-48,channel:6,open:false,supported:true},{ssid:"Open test network",rssi:-62,channel:11,open:true,supported:true},{ssid:"Guest WiFi",rssi:-70,channel:1,open:false,supported:true}];
 let flowBoot = 1;
 let flowSequence = 0,
@@ -159,18 +160,19 @@ const diagnostic = {
   evidence: { requests: 0 },
   log: "",
 };
-function appendFlow() {
+function appendFlow(outcome="valid") {
   const now = Math.floor((Date.now() % 1000000) * 1000);
   for (const [kind, offset, result] of [
     [1, 80000, "invalid"],
     [2, 70000, "invalid"],
-    [3, 60000, "invalid"],
-    [4, 50000, "valid"],
+    ...(outcome==="timeout"?[]:[[3, 60000, "invalid"]]),
+    [outcome==="timeout"?6:4, 50000, outcome],
   ])
     flowEvents.push({
       seq: ++flowSequence,
       atUs: (now - offset) >>> 0,
       kind,
+      rxPin:18,txPin:17,dirPin:16,
       baud: 9600,
       parity: "N",
       slave: 1,
@@ -180,7 +182,7 @@ function appendFlow() {
       overflow: false,
       result,
       bytes:
-        kind < 3 ? "01 03 00 82 00 02 64 23" : "01 03 04 00 00 03 E8 FA 84",
+        kind===6?"":kind < 3 ? "01 03 00 82 00 02 64 23" : "01 03 04 00 00 03 E8 FA 84",
     });
   flowEvents = flowEvents.slice(-32);
 }
@@ -198,8 +200,12 @@ const server = http.createServer((req, res) => {
   }
   res.setHeader("Content-Type", "application/json");
   if(req.url==="/api/network/scan"){
-    if(req.method==="POST"){let body="";req.on("data",chunk=>body+=chunk);req.on("end",()=>{const data=new URLSearchParams(body);assert.equal(data.get("token"),state.token);calls.push({url:req.url,data});++wifiScanRequests;++wifiScanGeneration;wifiScanFinish=Date.now()+800;res.statusCode=202;res.end(JSON.stringify({code:"wifi_scanning"}));});}
-    else res.end(JSON.stringify({phase:!wifiScanGeneration?"idle":Date.now()<wifiScanFinish?"scanning":"ready",generation:wifiScanGeneration,ageMs:0,networks:Date.now()<wifiScanFinish?[]:nearbyNetworks}));
+    if(req.method==="POST"){let body="";req.on("data",chunk=>body+=chunk);req.on("end",()=>{const data=new URLSearchParams(body);assert.equal(data.get("token"),state.token);calls.push({url:req.url,data});++wifiScanRequests;if(Date.now()>=wifiScanFinish){++wifiScanGeneration;wifiScanFinish=Date.now()+800;}if(wifiDropAck){wifiDropAck=false;res.destroy();return;}res.statusCode=202;res.end(JSON.stringify({code:"wifi_scanning"}));});}
+    else {
+      if(wifiReadFailures>0){--wifiReadFailures;res.statusCode=503;res.end("{}");return;}
+      const respond=()=>res.end(JSON.stringify({phase:!wifiScanGeneration?"idle":Date.now()<wifiScanFinish?"scanning":wifiRadioFailure?"failed":"ready",generation:wifiScanGeneration,ageMs:0,attempts:wifiRadioFailure?3:1,error:wifiRadioFailure,driverCode:wifiRadioFailure?0x3006:0,networks:nearbyNetworks}));
+      if(wifiReadDelay)setTimeout(respond,wifiReadDelay);else respond();
+    }
     return;
   }
   if (req.url.startsWith("/api/uart?")) {
@@ -554,6 +560,7 @@ async function checkVectors(browser, out) {
   fs.mkdirSync(out, { recursive: true });
   let browser;
   try {
+    await testRequest();
     browser = await chromium.launch({
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
@@ -651,6 +658,22 @@ async function checkVectors(browser, out) {
     await page.waitForFunction((before)=>document.getElementById("wifi-rescan")?.disabled,null);
     await page.waitForFunction(()=>!document.getElementById("wifi-rescan")?.disabled);
     assert(wifiScanRequests>scanRequestsBeforeRefresh,"Network scanning must be available without typing an SSID");
+    wifiDropAck=true;const beforeLostAck=wifiScanGeneration;
+    await page.locator("#wifi-rescan").click();
+    await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("networks found"));
+    assert.equal(wifiScanGeneration,beforeLostAck+1,"A lost POST acknowledgement must recover the same scan instead of starting another");
+    wifiRadioFailure="radio_start";
+    await page.locator("#wifi-rescan").click();
+    await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("radio scan failed"));
+    assert((await page.locator("#wifi-scan-detail").innerText()).includes("radio_start"));
+    assert(await page.locator('#network-ssid option[value="Plant WiFi/false"]').count(),"A failed scan retains the previous SSIDs");
+    wifiRadioFailure="";wifiReadFailures=1;
+    await page.locator("#wifi-rescan").click();
+    await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("networks found"));
+    wifiReadDelay=3100;
+    await page.locator("#wifi-rescan").click();
+    await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("networks found"));
+    wifiReadDelay=0;
     await page.locator("#network-ssid").blur();
     await page.setViewportSize({width:1440,height:1200});
     await page.locator("#network-panel").screenshot({path:path.join(assets,"ui-network-desktop.png")});
@@ -763,7 +786,9 @@ async function checkVectors(browser, out) {
       path: path.join(root, "docs/assets/ui-led-desktop.png"),
       fullPage: true,
     });
+    const timeResponse=page.waitForResponse(response=>response.url().endsWith("/api/time")&&response.request().method()==="POST");
     await page.locator("#sync").click();
+    await timeResponse;
     await page.waitForFunction(() =>
       document.getElementById("message")?.textContent.includes("queued"),
     );
@@ -975,7 +1000,7 @@ async function checkVectors(browser, out) {
           .getElementById("message")
           ?.textContent.includes("Execution is not confirmed yet"),
       null,
-      { timeout: 8000 },
+      { timeout: 12000 },
     );
     hangScan = false;
     assert(!(await page.locator("#scanstart").isDisabled()));
@@ -1057,13 +1082,13 @@ async function checkVectors(browser, out) {
     }
     await page.locator("#language").selectOption("en");
     await page.evaluate(() => {
-      window.flowAdded = 0;
+      window.flowAdded = 0;window.flowRX = 0;
       const svg = document.querySelector("#uart-flow svg");
       window.flowObserver = new MutationObserver((records) => {
         for (const record of records)
           for (const node of record.addedNodes)
             if (node.nodeType === 1 && node.hasAttribute("data-event"))
-              ++window.flowAdded;
+              {++window.flowAdded;if(node.classList.contains("rx"))++window.flowRX;}
       });
       window.flowObserver.observe(svg, { childList: true });
     });
@@ -1079,11 +1104,22 @@ async function checkVectors(browser, out) {
       observed,
       "No idle/decorative packet animation without a new device event",
     );
+    assert(await page.locator(".flow-symbol path").count()>=4,"Device symbols must be drawn as vectors");
+    assert((await page.locator("#flow-direction").innerText()).includes("/RE = 0"));
+    const rxBeforeTimeout=await page.evaluate(()=>window.flowRX);
+    appendFlow("timeout");
+    await page.waitForFunction(()=>document.getElementById("flow-result")?.textContent.includes("Timeout"));
+    assert((await page.locator(".flow-frames").innerText()).includes("No bytes received"));
+    await page.waitForTimeout(1000);
+    assert.equal(await page.evaluate(()=>window.flowRX),rxBeforeTimeout,"Timeout cannot fabricate an RX frame");
+    appendFlow("crc");
+    await page.waitForFunction(()=>document.getElementById("flow-result")?.textContent.includes("CRC mismatch"));
     malformedFlow = true;
     await page.waitForFunction(() => document.getElementById("flow-phase")?.textContent.includes("unavailable"));
     assert(await page.locator("#nav-setup").isVisible(), "Malformed flow rows must not crash the dashboard");
     malformedFlow = false;
     await page.waitForFunction(() => !document.getElementById("flow-phase")?.textContent.includes("unavailable"));
+    const beforeReboot=await page.evaluate(()=>window.flowAdded);
     flowBoot++;
     flowSequence = 0;
     flowEvents = [];
@@ -1091,7 +1127,7 @@ async function checkVectors(browser, out) {
     await page.waitForTimeout(900);
     assert.equal(
       await page.evaluate(() => window.flowAdded),
-      observed,
+      beforeReboot,
       "Reboot history must not animate as newly observed packets",
     );
     flowAuto = true;
@@ -1108,7 +1144,7 @@ async function checkVectors(browser, out) {
     await page.waitForSelector("#diagnostic-command");
     assert(await page.locator("#diagnostic-send").isDisabled(), "Do not run diagnostics before loading current UART-owner state");
     diagnosticHold = false;
-    await page.waitForFunction(() => !document.getElementById("diagnostic-send").disabled, null, { timeout: 8000 });
+    await page.waitForFunction(() => !document.getElementById("diagnostic-send").disabled, null, { timeout: 12000 });
     await page.locator("#diagnostic-command").evaluate((node) => {
       const clipboardData = new DataTransfer();
       clipboardData.setData("text", "x\nstatus");

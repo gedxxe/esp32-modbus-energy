@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.2.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.2.1**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
 ## Kompilasi
 
@@ -41,7 +41,7 @@ Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request 
 
 ## Provenance dan paket
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** dan GSAP **3.15.0** menghasilkan total **161.893 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard menghasilkan total **116.933 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
 
 Checker dokumentasi memeriksa 29 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
 
@@ -58,3 +58,13 @@ Tes native mencakup perpindahan menu/editor OLED, penolakan IP privat invalid, p
 Tes byte browser generated mencakup scan Wi-Fi otomatis/ulang, pemilihan jaringan, draft IP khusus, simpan/reload/nonaktif timeout, payload layar rusak serta jam yang terus maju pada sampel status identik tanpa POST perubahan RTC. UI memakai panel kaca biru/ungu dengan fallback transparansi/kontras. [OLED](OLED.md) menampilkan kontrol representatif serta contoh frame logis, bukan foto hardware.
 
 Target animasi 42 ms, penggunaan bus I2C, latensi bangun fisik, repeat karakter, discovery/association AP dan klien bersamaan selama playback tetap perlu penerimaan perangkat. Kelulusan decoder host atau mock browser tidak membuktikan timing fisik. Alasan retry event UART menjelaskan ketersediaan HTTP, bukan bukti elektris Fort.
+
+## Koreksi Wi-Fi dan komunikasi pada 2.2.1
+
+Build utama final memakai 83.088 byte RAM statis dan 1.378.569 byte program. Sketch mandiri tetap memakai 30.284 byte RAM statis serta 336.577 byte program. Keduanya selesai tanpa warning/error compiler. Ketiga suite native lulus setelah pembaruan versi diagnostik final, termasuk batas persiapan, retry habis, deadline radio/keseluruhan dan rollover unsigned scanner.
+
+Tes browser byte generated lulus untuk pemulihan acknowledgement terputus, daftar SSID yang bertahan saat radio gagal, HTTP sementara gagal, respons tertunda 3,1 detik dan scan berulang. Regresi UART mencakup label direction, simbol vektor, raw frame, CRC mismatch, timeout tanpa RX buatan serta riwayat reboot. Modul request aktual diuji melalui Node dengan body respons yang sengaja ditahan, pembatalan GET mengantre, preemption GET oleh Stop serta perlindungan POST yang sudah diterima saat Resume masuk. Seluruh regresi dashboard dan 23 pemeriksaan vektor lulus pada Microsoft Edge terpasang dengan lebar 320–2560 px.
+
+GSAP 3.15.0 tetap dipin untuk referensi FadeContent yang dipertahankan, tetapi tidak diimpor pada bundle runtime saat ini. Transisi halaman memakai CSS ringan dan React Bits SpotlightCard tetap dipakai.
+
+Adapter radio menginisialisasi struktur scan IDF yang dipin dan menerima callback scan-done Arduino melalui mailbox RTOS. Radio nyata, pelayanan AP selama scan antarkanal, DHCP association dan penanganan socket kosong sudah dikompilasi serta ditinjau, dengan policy atau perilaku browser yang diuji pada host. Rilis ini belum menjalani penerimaan radio fisik pada kombinasi board/router yang terpasang.

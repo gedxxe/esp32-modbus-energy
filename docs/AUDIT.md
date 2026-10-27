@@ -1,4 +1,4 @@
-# Implementation review for version 2.2.0
+# Implementation review for version 2.2.1
 
 **English** · [Bahasa Indonesia](id/AUDIT.md)
 
@@ -27,3 +27,5 @@ UART timestamps represent software observations rather than measured t1.5/t3.5 o
 Interval interpolation is an estimate limited to accepted 15-second gaps, and counter resolution depends on CT/PT. Backup/checkpoint tests cover defined failure paths rather than every flash or power-cut outcome. AP/HTTP has no separate login/TLS, cloud service, NTP or OTA path, and its upstream request parser still needs on-device load evaluation. [VALIDATION](VALIDATION.md) records actual software results, while [COMMISSIONING](COMMISSIONING.md) identifies the separate integrated hardware checks.
 
 The 2.2 integration also adds asynchronous Wi-Fi scanning, OLED network editors, a migrated custom-IP record and a persisted idle-animation policy. The reference animation is converted losslessly into a bounded decoder and no longer initializes its own display or enters a separate loop. Wake input is consumed before ordinary button dispatch. Clock animation is isolated from RTC mutation, and API pages retain their sequence/quality validation with reduced event response size. Radio timing, physical menu operation and sustained animation under concurrent clients still require on-device checks.
+
+The 2.2.1 correction replaces the Wi-Fi wrapper start/completion policy, serializes browser API bodies, bounds speculative-socket waiting and adds driver reason/code visibility. The communication view now retains engineering milestones and raw frames with event-driven directional labels. Browser regressions cover lost acknowledgements, delayed reads, radio failures, CRC and timeout without fabricated RX, while the actual scheduler is tested for body completion, cancellation and priority Stop. The radio and HTTP changes still require on-device acceptance.

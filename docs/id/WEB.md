@@ -2,7 +2,7 @@
 
 [English](../WEB.md) · **Bahasa Indonesia**
 
-Firmware 2.2.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 2.2.1 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Membuka aplikasi dan memilih Wi-Fi
 
@@ -68,8 +68,24 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 2.2.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 2.2.1, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 
 Kontrol Screensaver OLED pada Perangkat & arsip memilih waktu idle 10–3600 detik atau mematikan animasi, dengan default 60 detik. Tekanan fisik pertama membangunkan dashboard tanpa menjalankan aksi tombolnya. [OLED](OLED.md#animasi-idle-dan-cara-bangun) menjelaskan playback dan perilaku bangun.
+
+### Progres scan dan pemulihan
+
+Saat scan diminta, firmware mengaktifkan antarmuka station lalu menunggu 300 ms sebelum memulai scan driver. Association client yang belum selesai ditunda sampai discovery berakhir, sedangkan koneksi client yang sudah aktif dipertahankan. Scanner mengizinkan tiga percobaan start/kegagalan dengan jeda retry 750 ms, batas radio 12 detik serta batas keseluruhan 20 detik. Radio memakai 100–200 ms per kanal dan kembali ke kanal utama selama 50 ms di antara kanal. Akuisisi tetap berjalan pada core 1.
+
+Seluruh field `wifi_scan_config_t` diinisialisasi, termasuk home-channel dwell, dan hasil dibaca setelah callback scan-done Arduino selesai mengumpulkan daftar jaringan. Jalur ini menghindari timeout wrapper Arduino yang dihitung dwell × 20, yaitu hanya empat detik pada dwell 200 ms. Panel menampilkan generation, jumlah percobaan, alasan kegagalan serta kode driver mentah. `radio_start` berarti driver menolak mulai, `radio_failed` berarti completion melaporkan kegagalan, `radio_timeout` berarti deadline habis dan `radio_enable` berarti STA gagal diaktifkan. Scan selesai tanpa SSID ditampilkan sebagai hasil kosong.
+
+Kegagalan HTTP tidak membuang pilihan jaringan atau otomatis memulai scan baru. Halaman membaca ulang status generation yang sama dan mempertahankan daftar terakhir. Setelah upload, hubungkan kembali ke IP ESP32 yang aktif lalu muat ulang halaman, kemudian pilih Client atau AP + client di Perangkat & arsip. Jika masih gagal, salin alasan scan dan kode driver yang terlihat pada panel web ke chat bantuan. Alternatifnya, buka **Arduino IDE Serial Monitor pada 115200 baud**, lalu salin baris **OUTPUT** yang diawali `[WiFi scan]` ke chat bantuan. Baris tersebut adalah hasil yang dibaca, bukan perintah untuk diketik.
+
+### Membaca diagram komunikasi
+
+Simbol MCU mewakili UART1, dua simbol driver berlawanan mewakili transceiver dan simbol display mewakili meter Fort. Jalur biru membawa request menuju meter, sedangkan jalur hijau menunjukkan RX yang teramati menuju ESP32. RX amber menandai frame yang tidak lolos validasi normal. Label pin memakai direction pin yang ikut dicatat pada event, termasuk pin percobaan diagnostik.
+
+Empat milestone mempertahankan TX diantrekan, UART selesai, byte RX pertama dan hasil transaksi terbaru. Durasi dihitung dari TX queued memakai timestamp perangkat dengan pengurangan unsigned yang menangani rollover mikrodetik. Nilai DE serta /RE menunjukkan state software terakhir yang tercatat dan menjadi tidak diketahui saat endpoint event terputus. Nilai ini bukan pengukuran feedback elektris. Timeout mempertahankan RX kosong dan tidak mengisi milestone RX yang tidak terjadi.
+
+Gerak frame memutar ulang jarak event tercatat pada 1× lalu menahan label akhir selama 700 ms agar transaksi UART singkat tetap terlihat. Durasi dan hex byte tetap terbaca setelah gerak berakhir. Pengiriman browser menambah jeda, dan diagram arah bersifat skematis, bukan pengukuran waktu tempuh kabel A/B. Fetch API berbagi satu slot sampai body selesai dibaca dengan deadline aktif delapan detik. Waktu menunggu antrean tidak menghabiskan deadline tersebut, sedangkan Stop/Resume prioritas dapat membatalkan GET telemetry yang sedang berjalan.

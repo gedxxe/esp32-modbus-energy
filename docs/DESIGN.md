@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/DESIGN.md)
 
-Version 2.2.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
+Version 2.2.1 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
 
 ## Fort register reference
 
@@ -107,3 +107,11 @@ The status API publishes device UTC, its monotonic sample age and a clock revisi
 Display preferences have an independent eight-byte CRC record and pass through core 1 like LED settings. Core 0 observes physical input and consumes the entire wake press through a release guard before the existing debouncer events can reach the monitoring/menu controls. A pure IdleScreen policy covers timeout, disable, wake and rollover without peripheral calls.
 
 The artwork is stored as per-frame RLE packets with checked offsets. build-oled.py decodes all 772 frames and verifies their combined raw SHA256 before checking/generated C++ output, so the scattered reference headers are unnecessary at deployment. Playback decodes one 1 KiB working bitmap, uses the existing display rotation and bounded I2C mutex, and advances by elapsed time at a nominal 42 ms period. HTTP work and I2C transfer latency may drop frames, while acquisition remains independent and never receives animation-derived samples.
+
+## Radio discovery and HTTP scheduling
+
+Wi-Fi discovery and client association share the radio on core 0. The scanner therefore waits 300 ms after preparation, suspends an unfinished association, retries driver rejection/failure at 750 ms up to three attempts and bounds each accepted scan to 12 seconds within a 20-second operation. Its zero-initialized IDF configuration explicitly sets active dwell to 100–200 ms and home-channel dwell to 50 ms. It waits for the Arduino event task to finish collecting results, then receives completion status and timestamp through a one-element RTOS mailbox. Core 0 copies up to 16 strongest visible networks and releases Arduino's list. A deadline is judged against completion time rather than a later HTTP-loop observation, and the prior list survives a failed scan.
+
+The managed adapter targets the pinned Arduino ESP32 2.0.17 scan internals. Its purpose is to avoid the wrapper's uninitialized configuration fields and dwell × 20 completion timeout while retaining a single owner of Arduino's result storage. It must be reviewed when upgrading that framework. Physical scan success, AP continuity and driver resource failures still require radio acceptance.
+
+The browser scheduler serializes all API fetches through full response-body reception. Each active request has an eight-second deadline, with queue wait excluded. POSTs take precedence over queued telemetry, and explicit diagnostic Stop/Resume may abort an active GET while leaving an accepted POST intact. On the firmware side, an empty connection waiting longer than 250 ms yields when another socket is available. The upstream parser and five-second bounded writer retain their existing limits. This is request scheduling for the single-client WebServer, not a change to core 1 acquisition.

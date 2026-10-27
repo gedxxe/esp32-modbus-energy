@@ -1,3 +1,4 @@
+import { deviceFetch } from "./request.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { catalog } from "./i18n.js";
 import { validStatus } from "./validation.js";
@@ -21,9 +22,9 @@ export default function useDevice() {
     const request = (async () => {
       const controller = new AbortController();
       getAbort.current = controller;
-      const timer = setTimeout(() => controller.abort(), 4000);
+
       try {
-        const response = await fetch("/api/status", {
+        const response = await deviceFetch("/api/status", {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -39,7 +40,6 @@ export default function useDevice() {
         if (mounted.current) setFresh(false);
         return null;
       } finally {
-        clearTimeout(timer);
         inFlight.current = null;
       }
     })();
@@ -62,11 +62,13 @@ export default function useDevice() {
     // A ref closes the same-render window before React applies disabled controls.
     if (lock.current || !fresh || !data) return null;
     lock.current = true;
+    setNotice(null);
     (priority ? setPriorityPending : setPending)(true);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+
     try {
-      const response = await fetch(path, {
+      const response = await deviceFetch(path, {
+        priority,
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -112,7 +114,6 @@ export default function useDevice() {
       });
       return null;
     } finally {
-      clearTimeout(timer);
       lock.current = false;
       if (mounted.current) (priority ? setPriorityPending : setPending)(false);
     }

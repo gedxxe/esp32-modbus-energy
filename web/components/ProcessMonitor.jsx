@@ -1,3 +1,4 @@
+import { deviceFetch } from "../request.js";
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
 import { validSystem } from "../validation.js";
@@ -11,9 +12,9 @@ function ProcessData() {
       controller;
     async function poll() {
       controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+
       try {
-        const response = await fetch("/api/system", {
+        const response = await deviceFetch("/api/system", {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -28,7 +29,7 @@ function ProcessData() {
       } catch {
         if (alive) setFailed(true);
       } finally {
-        clearTimeout(timeout);
+
         if (alive) timer = setTimeout(poll, 1500);
       }
     }

@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.1.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.2.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
 ## Kompilasi
 
@@ -10,7 +10,7 @@ Kedua build lulus dengan espressif32 **6.10.0** dan Arduino ESP32 **2.0.17** unt
 
 | Build | RAM statis | Program |
 | --- | ---: | ---: |
-| Firmware utama `esp32s3` | 80.904 byte | 1.134.809 byte |
+| Firmware utama `esp32s3` | 82.936 byte | 1.420.973 byte |
 | FortSerialDebug dengan library FortMeter | 30.284 byte | 336.577 byte |
 
 RAM statis bukan total alokasi runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi sebesar 12 KiB, sedangkan sisa stack, heap dan alokasi driver perlu diperiksa pada perangkat melalui process monitor. INO mandiri kini memakai library FortMeter yang disertakan bersama source ModbusMaster. Build diuji melalui PlatformIO, sementara GUI Arduino IDE serta versi core lain belum dijalankan.
@@ -33,20 +33,28 @@ Tes tersebut membuktikan perilaku software pada kasus injeksi, bukan timing fisi
 
 Playwright dengan Microsoft Edge lulus saat menguji **byte gzip dalam header firmware**, menggunakan API simulasi. Cakupannya meliputi EN/ID dan penyimpanan bahasa, fallback storage, seluruh interval, nilai register dan umur sampel, simpan/reload arah manual atau otomatis, scanner, sinkronisasi jam, LED, CSV serta ekspor trace. HTTP 202 tetap menunggu hasil ID eksekusi yang sesuai, Stop prioritas tersedia selama tindakan biasa menunggu, dan perubahan jam diblokir pada maintenance.
 
-Tes browser tambahan mencakup simpan/reload mode AP/client/gabungan, pemakaian ulang password tanpa mengembalikan key tersimpan, pilihan jaringan terbuka, batas byte SSID UTF-8, tampilan fallback, payload jaringan rusak serta pelestarian draft. Raw read dan setting uji terstruktur mencapai endpoint konsol, setting sesi diperbarui dari pemilik UART, dan payload diagnostik invalid menonaktifkan tindakan biasa sambil mempertahankan Stop.
+Tes browser tambahan mencakup simpan/reload mode AP/client/gabungan, pemakaian ulang password tanpa mengembalikan key tersimpan, pilihan jaringan terbuka, scan/pemilih SSID otomatis, validasi IPv4 AP khusus, tampilan fallback, payload jaringan rusak serta pelestarian draft. Raw read dan setting uji terstruktur mencapai endpoint konsol, setting sesi diperbarui dari pemilik UART, dan payload diagnostik invalid menonaktifkan tindakan biasa sambil mempertahankan Stop.
 
 Payload status, arsip, proses, trace dan event UART yang rusak tidak menjatuhkan UI. Data terakhir ditandai stale/unavailable, polling panel detail berhenti ketika ditutup, dan animasi UART hanya bergerak untuk event baru dengan dukungan reduced motion. Replay timestamp memiliki keterlambatan jaringan dan bukan hasil pengukuran propagasi A/B.
 
-Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **21 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
+Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **23 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
 
 ## Provenance dan paket
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** dan GSAP **3.15.0** menghasilkan total **157.191 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** dan GSAP **3.15.0** menghasilkan total **161.800 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
 
-Checker dokumentasi memeriksa 27 panduan Markdown, 174 link/anchor relatif, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
+Checker dokumentasi memeriksa 29 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
 
 Packager membandingkan app dengan build terbaru, memeriksa komponen/offset factory, CRC ZIP dan SHA256 setiap file pada manifest. Source, panduan, tools, notice, manual Fort serta ZIP library Arduino ikut disertakan, tanpa cache build atau dependency terpasang. Offset mengikuti [FLASHING](FLASHING.md). CI remote harus diperiksa terhadap commit yang benar karena hasil lokal tidak otomatis menjadi bukti CI lulus.
 
 ## Penerimaan fisik yang tersisa
 
 Pergantian fisik AP/client/gabungan, pemulihan kehilangan router, DHCP/subnet serta pembacaan Fort dan kesesuaiannya dengan display, turnaround/noise RS485, OLED/RTC/baterai, tombol/buzzer, LED GPIO48, pemulihan putus daya dan banyak klien AP masih memerlukan pengujian perangkat terpadu. Writer respons HTTP dibatasi, tetapi parser upstream belum dinyatakan tahan semua traffic rusak. Modul tidak menyediakan input presence/power-good, sehingga diamnya UART atau adanya RX lokal tidak cukup untuk memastikan komponen mana yang terlepas atau rusak.
+
+## Cakupan layar dan jaringan pada 2.2
+
+Tes native mencakup perpindahan menu/editor OLED, penolakan IP privat invalid, pembacaan record jaringan lama 104 byte dan record IP khusus baru 108 byte. Policy idle menguji batas timeout, tekanan bangun yang ditahan melewati long press, guard pelepasan, nonaktif serta rollover. Tes menautkan pack frame generated yang sebenarnya, memeriksa decoder terbatas dan menolak output terpotong/berlebih. Generator memeriksa hasil dekompresi seluruh 772 frame dengan SHA256 gabungan, mempertahankan 790.528 byte asli dalam pack lossless 266.739 byte. Import check juga mereproduksi pack dari referensi yang diberikan.
+
+Tes byte browser generated mencakup scan Wi-Fi otomatis/ulang, pemilihan jaringan, draft IP khusus, simpan/reload/nonaktif timeout, payload layar rusak serta jam yang terus maju pada sampel status identik tanpa POST perubahan RTC. UI memakai panel kaca biru/ungu dengan fallback transparansi/kontras. [OLED](OLED.md) menampilkan kontrol representatif serta contoh frame logis, bukan foto hardware.
+
+Target animasi 42 ms, penggunaan bus I2C, latensi bangun fisik, repeat karakter, discovery/association AP dan klien bersamaan selama playback tetap perlu penerimaan perangkat. Kelulusan decoder host atau mock browser tidak membuktikan timing fisik. Alasan retry event UART menjelaskan ketersediaan HTTP, bukan bukti elektris Fort.

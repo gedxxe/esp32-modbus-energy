@@ -26,6 +26,9 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `firmware/include/trace.h`: fixed-size passive UART capture and diagnostic classification. Never bypass CRC/frame validation or silently strip echo bytes in the main firmware.
 - `examples/FortSerialDebug/`: standalone Arduino diagnostic. Keep it read-only and use the same FortMeter source library as production. Runtime options and the eight cases/*.txt recipes must match both language guides and the actual-INO host tests. Do not collapse transport detection into energy-profile acceptance.
 - `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding.
+- `firmware/include/screen_saver.h`, `firmware/assets/oled/` and `tools/build-oled.py`: idle policy, consumed wake press, versioned display preferences and lossless RLE frame generation. Preserve artwork attribution and keep the original reference outside deployable source.
+- `firmware/include/oled_menu.h`: button-driven Wi-Fi modes, scan selection, masked password editor and custom AP IPv4 editor. Keep menu policy host-testable and writes queued through core 1.
+- `web/components/DeviceClock.jsx`: monotonic presentation from a device UTC reference, re-anchored every five minutes or on a clock revision. Never synchronize RTC automatically from browser polling.
 - `firmware/include/network.h` and `web/components/NetworkControls.jsx`: AP/client/dual configuration, versioned CRC record, retry/grace timing and local-address display. Wi-Fi driver calls belong to core 0 and credential Preferences to core 1. Never return stored client passwords through HTTP status.
 - `firmware/include/clock_guard.h`, `command_policy.h`, `bounded_write.h`: retained-day/queued-time protection, execution-mode arbitration and bounded HTTP writes.
 - `firmware/src/main.cpp`: hardware drivers, RTOS ownership, persistence and HTTP API.
@@ -72,7 +75,7 @@ Write connected explanatory paragraphs with enough context for an embedded engin
 Run checks appropriate to the change. Do not broaden/repeat them after they pass without a new reason.
 
 - Native logic on Windows: `./tools/test.ps1` (g++ required).
-- Native logic on Linux/macOS: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o /tmp/fort-test && /tmp/fort-test`.
+- Native logic on Linux/macOS: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp firmware/src/oled_frames.cpp -o /tmp/fort-test && /tmp/fort-test`.
 - Documentation, assets, versions and relative links: `python tools/check_docs.py`.
 - Firmware: from `firmware`, `pio run`. Use the installed PlatformIO Python module if `pio` is absent from PATH.
 - Standalone sketch: `pio run -d examples/FortSerialDebug` (same ESP32-S3 N16R8 target and local FortMeter library).

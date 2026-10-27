@@ -68,7 +68,7 @@ export function validNetworkView(value) {
     ["ap", "client", "dual"].includes(value.activeMode) &&
     ["applying", "ap", "online", "fallback", "connecting"].includes(value.phase) &&
     [value.pending, value.connected, value.apActive, value.hasPassword, value.stored].every((v) => typeof v === "boolean") &&
-    typeof value.ssid === "string" && value.ssid.length <= 32 &&
+    validAPIP(value.configuredAPIP) && typeof value.ssid === "string" && value.ssid.length <= 32 &&
     typeof value.apSSID === "string" && value.apSSID.length <= 32 &&
     [value.clientIP, value.apIP, value.address].every(ipv4) && Number.isFinite(value.rssi);
 }
@@ -79,4 +79,12 @@ export function validDiagnostic(value) {
     object(value.evidence) && Object.values(value.evidence).every((v) => typeof v === "boolean" || uint(v)) &&
     serial(value.settings) && ["manual", "auto"].includes(value.settings.direction) &&
     ["rx", "tx", "dir", "timeout", "gap", "settle", "probe", "words", "status"].every((key) => uint(value.settings[key], 65535));
+}
+
+export function validAPIP(text) {
+  if(!ipv4(text)||!text)return false;const [a,b,,d]=text.split(".").map(Number);
+  return d>0&&d<255&&(a===10||(a===172&&b>=16&&b<=31)||(a===192&&b===168));
+}
+export function validWifiScan(value) {
+  return object(value)&&["idle","scanning","ready","failed"].includes(value.phase)&&uint(value.generation)&&uint(value.ageMs)&&Array.isArray(value.networks)&&value.networks.length<=16&&value.networks.every((row)=>object(row)&&typeof row.ssid==="string"&&row.ssid.length>0&&row.ssid.length<=32&&Number.isInteger(row.rssi)&&typeof row.open==="boolean"&&typeof row.supported==="boolean"&&uint(row.channel,14));
 }

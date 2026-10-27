@@ -1,4 +1,4 @@
-# Implementation review for version 2.1.0
+# Implementation review for version 2.2.0
 
 **English** · [Bahasa Indonesia](id/AUDIT.md)
 
@@ -25,3 +25,5 @@ The local application now exposes session settings, evidence counters, structure
 UART timestamps represent software observations rather than measured t1.5/t3.5 or A/B propagation. A Modbus response has no transaction ID or register address, so every delayed reply cannot be attributed conclusively from bytes alone. The interface exposes no module-presence/power-good input, and silence, CRC failures or repeated local RX cannot certify a physical component's health.
 
 Interval interpolation is an estimate limited to accepted 15-second gaps, and counter resolution depends on CT/PT. Backup/checkpoint tests cover defined failure paths rather than every flash or power-cut outcome. AP/HTTP has no separate login/TLS, cloud service, NTP or OTA path, and its upstream request parser still needs on-device load evaluation. [VALIDATION](VALIDATION.md) records actual software results, while [COMMISSIONING](COMMISSIONING.md) identifies the separate integrated hardware checks.
+
+The 2.2 integration also adds asynchronous Wi-Fi scanning, OLED network editors, a migrated custom-IP record and a persisted idle-animation policy. The reference animation is converted losslessly into a bounded decoder and no longer initializes its own display or enters a separate loop. Wake input is consumed before ordinary button dispatch. Clock animation is isolated from RTC mutation, and API pages retain their sequence/quality validation with reduced event response size. Radio timing, physical menu operation and sustained animation under concurrent clients still require on-device checks.

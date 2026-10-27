@@ -1,15 +1,15 @@
 @import "./vendor/react-bits/SpotlightCard.css";
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
-  color: #183438;
-  background: #edf2f2;
+  color: #142b54;
+  background: #eff4ff;
   font-synthesis: none;
-  --teal: #087e82;
-  --deep: #075f63;
-  --ink: #183438;
-  --muted: #5e7478;
-  --line: #dce6e6;
-  --soft: #edf6f5;
+  --teal: #2858d8;
+  --deep: #2440a6;
+  --ink: #142b54;
+  --muted: #526585;
+  --line: #d5def2;
+  --soft: #edf2ff;
   --amber: #865312;
   --red: #a23e31;
   color-scheme: light;
@@ -51,7 +51,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 3px solid #51a6ad;
+  outline: 3px solid #6185ef;
 }
 button {
   transition:
@@ -223,7 +223,7 @@ p {
   color: var(--muted);
 }
 .main-nav {
-  position: sticky;top: 0;z-index: 5;background: #edf2f2;padding-top: 12px;
+  position: sticky;top: 0;z-index: 5;background: #eff4ff;padding-top: 12px;
   display: flex;
   gap: 26px;
   border-bottom: 1px solid #cfdddd;
@@ -870,7 +870,7 @@ footer a {
 .boot-fallback {
   padding: 40px;
   font: 15px system-ui;
-  color: #183438;
+  color: #142b54;
 }
 .empty {
   color: var(--muted);
@@ -1472,3 +1472,19 @@ footer a {
 .diagnostic-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}.diagnostic-counts dd{font-size:22px;margin:6px 0}#diagnostic-tools form{margin:24px 0}#diagnostic-tools form+form{border-top:1px solid var(--line);padding-top:24px}
 
 .network-credentials > input{margin-bottom:16px}
+
+/* Blue glass surfaces keep the measurement hierarchy opaque enough to read. */
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--teal:#2858d8;--deep:#2440a6;--ink:#142b54;--muted:#526585;--line:rgba(118,144,206,.25);--soft:#edf2ff;background:#edf2ff}
+body{background:radial-gradient(ellipse at 9% 4%,#c5e3ff 0,transparent 42%),radial-gradient(ellipse at 90% 18%,#e1d2ff 0,transparent 40%),linear-gradient(145deg,#edf5ff,#f5f1ff 58%,#e9f4ff);background-attachment:fixed;min-height:100vh;color:var(--ink)}
+h1{font-weight:730;letter-spacing:-1.6px;font-size:clamp(32px,4vw,49px)}h2{font-weight:690}.page-heading{padding-top:44px;padding-bottom:26px}
+.topbar{background:rgba(249,252,255,.73);backdrop-filter:blur(18px) saturate(145%);border-color:rgba(255,255,255,.8)}.brand-mark{background:linear-gradient(140deg,#437cf4,#795cf4);border:0;color:white;box-shadow:0 4px 14px #436fe52c;border-radius:12px}
+.main-nav{gap:8px;border:1px solid #ffffffc9;border-radius:20px;padding:7px;background:rgba(245,248,255,.82);backdrop-filter:blur(16px);box-shadow:0 8px 25px #304f9d10;margin-bottom:24px}.main-nav button{border:0!important;border-radius:14px;padding:12px 18px;color:#526585}.main-nav button[aria-current=page]{background:linear-gradient(125deg,#376fe8,#6554db);color:#fff;box-shadow:0 5px 13px #4868d12e}
+.panel,.summary .secondary-panel,.interval-card{background:rgba(255,255,255,.81);border:1px solid rgba(255,255,255,.95);border-radius:24px;box-shadow:0 12px 40px #244a9010,inset 0 1px 0 #fff;backdrop-filter:blur(10px)}.button{border-radius:12px;border-color:#cbd7f0;background:#ffffffc9;box-shadow:0 2px 4px #284c8507}.button.primary{border-color:transparent;background:linear-gradient(120deg,#306fe5,#6655d8);color:white;box-shadow:0 5px 14px #3d66d429}.button.primary:hover:not(:disabled){background:linear-gradient(120deg,#205cd2,#5543c4)}.button.compact{padding:8px 12px;min-height:36px;font-size:12px}
+input,select{background:rgba(255,255,255,.85);border-color:#bdcce8;border-radius:12px;color:#17335b}input:focus,select:focus{border-color:#6389ec}.hint{background:#eff3ffbd;border-color:#d2ddf5;border-radius:14px}.health{border-radius:16px;background:#f7faffbd;border-color:#d4dff6}.health.warning{background:#fff9eddb;border-color:#ead6b1}
+.energy-surface{background:linear-gradient(125deg,#14368d 0%,#3468dd 54%,#7751ce 100%)!important;border-radius:26px!important;border-color:#ffffff70!important;box-shadow:0 18px 40px #264fad26!important;color:white}.energy-surface .reading{letter-spacing:-2px}.energy-surface .live-stamp,.energy-surface .eyebrow{color:#e0ebff}
+.flow-panel{background:radial-gradient(ellipse at 90% 0%,#433a8780,transparent 58%),linear-gradient(125deg,#101e49,#173d78 72%,#244c86);border:1px solid #728ee045;border-radius:26px;box-shadow:0 15px 38px #24468524;color:#eff5ff}.flow-panel p,.flow-panel .muted{color:#c4d4f0}.flow-panel summary{color:#d9e6ff}.flow-panel code{color:#b6dcff}.flow-node{fill:#ffffff0c;stroke:#9ab7ee45}.flow-node-title{fill:#f0f5ff}.flow-node-detail{fill:#b6c8e7}.flow-reason{display:block;color:#f5c889;font-size:12px;margin-top:7px}.diagnostic-output{background:linear-gradient(135deg,#13213f,#192d53);color:#d7eaff;border-radius:18px}.notice{background:rgba(247,250,255,.97);border-color:#bcccf0;border-radius:18px;box-shadow:0 12px 35px #1c387d25}
+.wifi-scan-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px}.wifi-scan-heading label{margin:0}.wifi-picker{margin-bottom:20px}.network-panel #network-ap-ip{margin-bottom:12px}.data-table th{color:#526990}.bar-fill{fill:#3c70df}.bar-active{fill:#b9d1ff;stroke:#527ddd}.shift-switch{border-color:#d1ddf5;background:#e5edff}.shift-switch button.active{background:#fff;color:#2858d8;box-shadow:0 2px 8px #3153a020}
+@media(max-width:600px){.main-nav{gap:1px;border-radius:16px;padding:5px}.main-nav button{padding:11px 8px;font-size:12px;flex:1}.panel{border-radius:21px}.page-heading{padding-top:30px}.flow-panel{border-radius:22px}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.panel,.topbar,.main-nav,.notice,.interval-card{background:#f8faff;backdrop-filter:none;border-color:#a9bbdd}.muted,.small{color:#405678}.flow-panel .small{color:#d6e5ff}}
+
+.flow-phase{color:#c0dcff}.flow-phase.failed{color:#ffd095}.flow-panel .eyebrow,.flow-foot,.flow-note,.flow-node-labels{color:#bdd1f0}.flow-panel svg rect{fill:#ffffff0b;stroke:#a9c8ff44}.flow-panel svg text{fill:#e2edff}.flow-panel .flow-sub{fill:#b4ccf2}.secondary-readings{background:rgba(255,255,255,.82);border:1px solid #ffffffdb;border-radius:24px;box-shadow:0 12px 35px #244a9010}.wifi-picker select{width:100%;min-width:0}

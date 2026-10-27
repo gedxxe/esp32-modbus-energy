@@ -1,5 +1,7 @@
+import DeviceClock from "../components/DeviceClock.jsx";
 import { useEffect, useState } from "react";
 import ProcessMonitor from "../components/ProcessMonitor.jsx";
+import DisplayControls from "../components/DisplayControls.jsx";
 import NetworkControls from "../components/NetworkControls.jsx";
 import LedControls from "../components/LedControls.jsx";
 import Icon from "../components/Icon.jsx";
@@ -96,12 +98,13 @@ export default function DeviceRecords({ device }) {
       </section>
       <div className="device-right">
         <NetworkControls device={device} />
+        <DisplayControls device={device} />
         <LedControls device={device} />
         <section className="panel">
           <h2>{t("clock_title")}</h2>
           <p>{t("clock_intro")}</p>
           <div className="secondary-number mono">
-            {s?.clock || "—"} <small>WIB</small>
+            <DeviceClock device={device} /> <small>WIB</small>
           </div>
           <div className="actions">
             <button

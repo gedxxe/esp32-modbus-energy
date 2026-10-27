@@ -1,7 +1,7 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "transport": "gzip",
-  "compressed_total": 157191,
+  "compressed_total": 161800,
   "libraries": {
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -19,16 +19,16 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 447942,
-      "gzip": 149751,
-      "sha256": "b0f76a7f038672a042c457c2e92d0f88ff788df971c01c02b3a66f5025aeb914"
+      "raw": 458628,
+      "gzip": 153093,
+      "sha256": "4baacd6345650b8324f288c207c117370199da9f557daa804885290ce7a094a5"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 21968,
-      "gzip": 5480,
-      "sha256": "405b7ab46d80ae7441e749c95b30758d9d3cb467dd2d147a66e5a6062f7ea461"
+      "raw": 26464,
+      "gzip": 6747,
+      "sha256": "2e26b6352e1bf02f75186d737d48f8c65201d148c5b7c290619c97d67328ebed"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
@@ -39,24 +39,27 @@
     }
   },
   "inputs": {
-    "package-lock.json": "3ac90ae600a7a7df7cc5b8960b39e5a1a8909fd86d3d586b152070d5796fc1e4",
-    "package.json": "e02262ba5fc599657d80c325c75aca38df9740f32083169fc3aec50ae01fcd59",
+    "package-lock.json": "af2fb62e9b0653ab434f74b41b6ed0068ce38d663bf02f963e750d1f96105c25",
+    "package.json": "54dcbff7c45f483fe1ed094335049bc20345a98e9c9723df10a15712791b378b",
     "tools/build-web.cjs": "df7e6396cd301ef679246216276d2a05184fd035318b4ee2fe326ed6d948a241",
     "web/Application.jsx": "b748470b66b6ebac8e0c26c1afe848aefb61c237bb7bd73406682f5003015da6",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
+    "web/components/DeviceClock.jsx": "cdfc8af9aa6659abf50404aae0b13723e8ac15bb5101d5afeaf2923f02c7d1b7",
     "web/components/DiagnosticConsole.jsx": "21c30c44520dc6aba8b25e0de2bab2023bdefc73fe1d80eaf3d6c1c7be49b4c2",
+    "web/components/DisplayControls.jsx": "b05ed78136bf41b23b00dbe3060fed334fc1c9c03811e63db9baa6eb9752db0f",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/NetworkControls.jsx": "21f539ec553283b10129076d133bf9138afd16895d7767c00ae6367475b5724f",
+    "web/components/NetworkControls.jsx": "7ce28b2980e3590acbdf30a65d4a45e03f579ec05ae0562cb528ec2a5d338512",
     "web/components/ProcessMonitor.jsx": "f368da91033f1b7f0587237bf8ddce9424462a2870040a7ea9e6352ba13d2149",
     "web/components/RawTrace.jsx": "792b7e18198f1030c85e088e6fac11f9a5848c502a956a75ba5ceb51bd0d5ba7",
-    "web/components/UartFlow.jsx": "632eb61717f4ca2485f151fcde242633ebb5433e245265869dda5b7c50eae240",
+    "web/components/UartFlow.jsx": "8dd6e235acbf50871c7a50dcc3f851afb2c57d5a5e9ea9c9f0295dd87db008d7",
+    "web/components/WifiPicker.jsx": "72062f81943dd3248f92ff88e1a81fd50bc6173bb631c169254802d1095f31ab",
     "web/device.js": "e18d7f21a3595822a814e40438c8500c934613a9da548436a5bad8b96d61ae87",
-    "web/i18n.js": "ca29e7f5055dffda27f6bfd9a6e3e195fc17388056a6dc9748baaaa4e31de15c",
+    "web/i18n.js": "fe1b95e7eb71e5ae562fb59e5a5b6128348794500f1cb58755a960f18070c61b",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
-    "web/styles.css": "b5b420089e767406a9676104ab1970ecc8814fe0afc9d205185486e54bd271dd",
+    "web/styles.css": "3776aed3d699e2d6d1fee7becdbb836efef205bccbe3d90bbb9b33b34c72c55a",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
-    "web/validation.js": "406dc4998760844ad86dbc769407a789d82930b899545a7877766469647fefcf",
+    "web/validation.js": "14b3f45fc297afd7bf0a96d65823901e972d13447dfbdd723ae362a76e9cab96",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/FadeContent.jsx": "8311fcc4f3172ce66d7e0017ccdce19c8bf58c2a286425e974cd16820f8edb82",
     "web/vendor/react-bits/LICENSE.md": "4bdd1fa59a6b7d5954bc3b213dbc34e455c635a94bbcecf9293553797d0fad02",
@@ -64,9 +67,9 @@
     "web/vendor/react-bits/SpotlightCard.css": "b646b7da4bb46f0a4d819d0af275804c49a845a5c2dc848700aaf9282db13a92",
     "web/vendor/react-bits/SpotlightCard.jsx": "e0b91ba07c173c98b87b44ec451d0243fe0a3edc67864e2779ad8507d455af67",
     "web/vendor/react-bits/upstream.json": "8f9a578ac5cc29fe9d73cca05a8e0b1d569a5dc7671950099fb27929c6d926bf",
-    "web/views/DeviceRecords.jsx": "d943fdcbf4a18d0281ca167f18a2fa61cf305bcc989c576b999166c3261213d3",
+    "web/views/DeviceRecords.jsx": "c94e8b31efbeb2b7c7dcd674de59ead27ed5532b59387ac56ec8a1f8372889c6",
     "web/views/MeterSetup.jsx": "44cfd49084f7ab73bed6331592630595175388aa5944b25025dff0104dc31060",
-    "web/views/Overview.jsx": "af09810619876387ca948ec5efeb981a10c78c60ad6c3daad2c626706d378b9c"
+    "web/views/Overview.jsx": "13010101e804f82d3723d51af51dbeb2d51b6c2edaf79e0ddac57214cb05e647"
   },
-  "header_sha256": "4bc7bcb3e0d495168300459344865ab137006ad947cb5ca38984a125e03db074"
+  "header_sha256": "00085d96ed65afa5549eef5e2b3f343e187163066d1f72c511bf8dff61b13672"
 }

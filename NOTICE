@@ -39,3 +39,10 @@ The upstream util/crc16.h retains its BSD-3-Clause notice and util/word.h retain
 Original FortTransport/FortDiagnostics code is GPL-3.0-only, as is the rest of
 this project's original firmware. These statements do not relicense the
 upstream files. The Arduino library ZIP includes these sources and notices.
+
+OLED animation
+--------------
+firmware/assets/oled/ contains the original 772-frame animation supplied and
+owned by the project author. The frame pack preserves that artwork losslessly.
+The animation, decoder, timing, persistence and integration code are included
+as original project contributions under GPL-3.0-only.

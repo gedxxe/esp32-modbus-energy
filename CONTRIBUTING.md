@@ -29,7 +29,7 @@ On Linux/macOS, replace the native-test command with:
 
 ```sh
 mkdir -p tmp
-g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o tmp/fort-test
+g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp firmware/src/oled_frames.cpp -o tmp/fort-test
 ./tmp/fort-test
 ```
 

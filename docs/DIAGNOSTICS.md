@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/DIAGNOSTICS.md) · [Overview](../README.md)
 
-Firmware 2.1.0 uses the same FortMeter/ModbusMaster source for normal reads, scanner probes and the standalone sketch. The diagnostic console therefore tests the installed reading path rather than a separate parser. Its default connection is manual direction on TX17/RX18/DIR16, with a 2000 ms response timeout, 100 µs driver/receiver settling and 200 ms between requests.
+Firmware 2.2.0 uses the same FortMeter/ModbusMaster source for normal reads, scanner probes and the standalone sketch. The diagnostic console therefore tests the installed reading path rather than a separate parser. Its default connection is manual direction on TX17/RX18/DIR16, with a 2000 ms response timeout, 100 µs driver/receiver settling and 200 ms between requests.
 
 
 The web console now also shows the current session settings and evidence counters, with structured register and trial-setting controls. The primary-float preset prepares the same `primary` command available to the standalone sketch. Use the [complete web guide](WEB.md) for the feature-to-API map and AP/client connection steps.
@@ -10,7 +10,7 @@ The web console now also shows the current session settings and evidence counter
 
 ## First run at the panel
 
-1. Join **Midea Engineering AP**, password **betahdijre12345**, open **http://192.168.4.1**, and confirm Firmware 2.1.0 in the footer. In Meter setup, match the Fort CONi ID/baud/parity and select Manual direction for the confirmed DE-/RE installation.
+1. Join **Midea Engineering AP**, password **betahdijre12345**, open **http://192.168.4.1**, and confirm Firmware 2.2.0 in the footer. In Meter setup, match the Fort CONi ID/baud/parity and select Manual direction for the confirmed DE-/RE installation.
 2. Open **Diagnostic console**. Type `status` into the web **Command input**, then choose **Run command**. Read the printed ID, format, direction and timings before starting a test. These command lines are device input, not messages for a support chat.
 3. Enter `intermediate` as a new command and choose Run command. This sends the manual's phase-A current request at `0x0058`, two registers, and prints TX/RX plus the ModbusMaster result. At ID 1 the request bytes are `01 03 00 58 00 02 45 D8`.
 4. Enter `diagnose` separately when a wider record is needed. It first observes RX without TX for three seconds, then tries the selected probe and the configured raw register plan, including energy/ratio decoding when enabled. A silent first address does not prevent the later plan entries from running.

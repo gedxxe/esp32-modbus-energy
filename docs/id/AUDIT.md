@@ -1,4 +1,4 @@
-# Tinjauan implementasi versi 2.1.0
+# Tinjauan implementasi versi 2.2.0
 
 [English](../AUDIT.md) · **Bahasa Indonesia**
 
@@ -25,3 +25,5 @@ Aplikasi lokal kini menyediakan setting sesi, counter bukti, raw read terstruktu
 Timestamp UART merupakan observasi software, bukan pengukuran t1.5/t3.5 atau propagasi A/B. Respons Modbus tidak membawa transaction ID/alamat register sehingga asal seluruh balasan tertunda tidak selalu dapat dipastikan dari byte. Tidak ada input presence/power-good modul, sehingga UART diam, CRC gagal atau RX lokal berulang tidak meluluskan kesehatan komponen fisik.
 
 Interpolasi interval dibatasi pada gap sah 15 detik dan resolusi counter bergantung CT/PT. Tes checkpoint/backup mencakup jalur gagal terdefinisi, bukan seluruh kemungkinan flash atau putus daya. AP/HTTP tidak memiliki login/TLS terpisah, cloud, NTP ataupun OTA dan parser request upstream masih perlu diuji bebannya pada perangkat. [VALIDATION](VALIDATION.md) mencatat hasil software aktual, sedangkan [COMMISSIONING](COMMISSIONING.md) memuat penerimaan hardware terintegrasi.
+
+Integrasi 2.2 menambahkan scan Wi-Fi asinkron, editor jaringan OLED, record IP khusus yang kompatibel serta policy animasi idle persisten. Referensi animasi dikonversi lossless dengan decoder terbatas tanpa display/loop kedua. Input bangun dikonsumsi sebelum aksi tombol biasa. Animasi jam terpisah dari mutasi RTC, dan halaman API mempertahankan validasi sequence/kualitas dengan respons event yang lebih kecil. Timing radio, menu fisik dan animasi bersama banyak klien tetap perlu diuji pada perangkat.

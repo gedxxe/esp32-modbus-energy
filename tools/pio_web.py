@@ -12,3 +12,5 @@ if result.returncode:
     env.Exit(result.returncode)
 
 subprocess.run([sys.executable, str(root / "tools/build-diagnostic.py"), "--check"], check=True)
+
+subprocess.run([sys.executable, str(root / "tools/build-oled.py"), "--check"], check=True)

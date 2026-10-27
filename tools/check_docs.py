@@ -107,6 +107,8 @@ for recipe in (ROOT/'examples/FortSerialDebug/cases').glob('*.txt'):
     need('OUTPUT to support chat' in text,f'{recipe.name}: output destination missing')
 diagnostic_result=subprocess.run([sys.executable,str(ROOT/"tools/build-diagnostic.py"),"--check"],capture_output=True,text=True)
 need(diagnostic_result.returncode==0,diagnostic_result.stderr.strip() or diagnostic_result.stdout.strip())
+oled_result=subprocess.run([sys.executable,str(ROOT/'tools/build-oled.py'),'--check'],capture_output=True,text=True)
+need(oled_result.returncode==0,oled_result.stderr.strip() or oled_result.stdout.strip())
 web_result=subprocess.run([sys.executable,str(ROOT/'tools/check_web.py')],capture_output=True,text=True)
 need(web_result.returncode==0,web_result.stderr.strip() or web_result.stdout.strip())
 result=subprocess.run([sys.executable,str(ROOT/'tools/generate_docs.py'),'--check'],capture_output=True,text=True)

@@ -18,7 +18,7 @@ cd firmware
 pio run -e esp32s3
 ```
 
-Pada Linux/macOS: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o /tmp/fort-test && /tmp/fort-test`. Untuk Chromium gunakan `npx playwright install chromium`. Alternatif Edge adalah `node tools/preview-test.cjs playwright msedge`.
+Pada Linux/macOS: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp firmware/src/oled_frames.cpp -o /tmp/fort-test && /tmp/fort-test`. Untuk Chromium gunakan `npx playwright install chromium`. Alternatif Edge adalah `node tools/preview-test.cjs playwright msedge`.
 
 ## Source web dan dokumentasi
 

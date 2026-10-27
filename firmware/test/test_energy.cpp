@@ -1,3 +1,6 @@
+#include "screen_saver.h"
+#include "oled_frames.h"
+#include "oled_menu.h"
 #include "network.h"
 #include "energy.h"
 #include "debounce.h"
@@ -48,13 +51,36 @@ void testBoundedHTTP(){
   auto fatal=[](const char *,size_t){return -1;};
   assert(boundedWrite(bytes,sizeof(bytes),time,10,clock,ready,fatal,service)==0);
 }
+void testScreenSaver(){
+ using namespace fort;
+ DisplaySettings settings;assert(validDisplay(settings));uint8_t record[DISPLAY_RECORD_SIZE];encodeDisplay(settings,record);DisplaySettings decoded;assert(decodeDisplay(record,sizeof(record),decoded)&&decoded.idleSeconds==60);record[4]^=1;assert(!decodeDisplay(record,sizeof(record),decoded));assert(!decodeDisplay(record,2,decoded));settings.idleSeconds=9;assert(!validDisplay(settings));settings.idleSeconds=0;assert(validDisplay(settings));
+ IdleScreen idle;assert(!idle.poll(100,0,60,true).sleeping);assert(!idle.poll(60099,0,60,true).sleeping);assert(idle.poll(60100,0,60,true).sleeping);assert(idle.frame(60142,772,42)==1);
+ auto result=idle.poll(60200,1,60,true);assert(result.woke&&result.consume&&!result.sleeping);assert(idle.poll(61200,1,60,true).consume);assert(idle.poll(61210,0,60,true).consume);idle.poll(61310,0,60,true);assert(!idle.poll(61420,2,60,true).consume);
+ assert(idle.poll(121420,0,60,true).sleeping);result=idle.poll(121421,0,0,true);assert(result.woke&&!result.sleeping);
+ IdleScreen wrap;wrap.poll(0xFFFFFF00u,0,60,true);assert(wrap.poll(uint32_t(uint64_t(0xFFFFFF00u)+60000),0,60,true).sleeping);
+ uint8_t output[1024];assert(loadOLEDFrame(0,output));assert(loadOLEDFrame(771,output));assert(!loadOLEDFrame(772,output));
+ const uint8_t run[]={130,0x7f},literal[]={0,0x33},shortRun[]={128};assert(decodeOLEDRun(run,2,output,3)&&output[2]==0x7f);assert(!decodeOLEDRun(run,2,output,2));assert(decodeOLEDRun(literal,2,output,1)&&output[0]==0x33);assert(!decodeOLEDRun(shortRun,1,output,1));
+ std::cout<<"PASS: screensaver timeout/wake consumption/release/disable/rollover, display record CRC and actual compressed animation frames\n";
+}
 void testNetwork(){
   using namespace fort;
   NetworkSettings s{};assert(validNetwork(s));s.mode=NETWORK_CLIENT;assert(!validNetwork(s));
   strcpy(s.ssid,"Plant WiFi");assert(validNetwork(s));strcpy(s.password,"short");assert(!validNetwork(s));
   strcpy(s.password,"plant-key-123");assert(validNetwork(s));
+  uint32_t parsed=0;assert(parseAPAddress("192.168.8.1",parsed)&&parsed==0xC0A80801);assert(!parseAPAddress("192.168.8.0",parsed));assert(!parseAPAddress("8.8.8.8",parsed));assert(!parseAPAddress("192.168.1.256",parsed));
+  s.apIP=0xC0A80801;
   uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(s,bytes);NetworkSettings restored{};
   assert(decodeNetwork(bytes,sizeof(bytes),restored)&&!strcmp(restored.password,s.password)&&restored.mode==NETWORK_CLIENT);
+  assert(restored.apIP==s.apIP);
+  uint8_t legacy[104];memcpy(legacy,bytes,102);legacy[2]=1;uint16_t legacyCRC=networkCRC(legacy,102);legacy[102]=uint8_t(legacyCRC);legacy[103]=uint8_t(legacyCRC>>8);
+  assert(decodeNetwork(legacy,sizeof(legacy),restored)&&restored.apIP==0xC0A80401);assert(!decodeNetwork(legacy,2,restored));
+  assert(chooseAPAddress(0,0,0xC0A80801)==0xC0A80801);
+  {OledNetworkMenu menu;NetworkSettings current;menu.enter();assert(menu.screen==OledNetworkMenu::MAIN);
+    menu.handle(2,1,current,0);assert(menu.screen==OledNetworkMenu::MODE);menu.handle(1,1,current,0);assert(menu.handle(2,1,current,0)==OledNetworkMenu::SAVE_MODE&&menu.selected==1);
+    menu.enter();menu.handle(1,1,current,0);assert(menu.handle(2,1,current,0)==OledNetworkMenu::SCAN);assert(menu.handle(2,1,current,0)==OledNetworkMenu::NONE);assert(menu.handle(2,1,current,1)==OledNetworkMenu::SELECT_SSID);
+    menu.enterKey();for(int i=0;i<70;++i)menu.handle(2,1,current,0);assert(menu.length==63&&strlen(menu.key)==63);menu.handle(2,2,current,0);menu.handle(1,1,current,0);menu.handle(2,1,current,0);assert(menu.length==62);
+    menu.enter();menu.handle(1,1,current,0);menu.handle(1,1,current,0);menu.handle(2,1,current,0);assert(menu.screen==OledNetworkMenu::IP);menu.handle(1,1,current,0);assert(menu.address()==0xC1A80401);menu.handle(0,1,current,0);menu.handle(2,2,current,0);assert(menu.handle(2,1,current,0)==OledNetworkMenu::SAVE_IP);
+  }
   bytes[42]^=1;assert(!decodeNetwork(bytes,sizeof(bytes),restored));assert(!decodeNetwork(bytes,20,restored));
   memset(s.password,'a',64);s.password[64]=0;assert(validNetwork(s));s.password[10]='z';assert(!validNetwork(s));
   memset(s.ssid,'x',33);assert(!validNetwork(s));
@@ -72,6 +98,7 @@ void testNetwork(){
   assert(commandModeAllowed(SET_NETWORK,false,false,false));assert(!commandModeAllowed(SET_NETWORK,true,false,false));assert(!commandModeAllowed(SET_NETWORK,false,true,false));
 }
 int main(){
+  testScreenSaver();
   testNetwork();
   testBoundedHTTP();
   {Settings legacy;legacy.magic=0x46525431;legacy.slave=7;legacy.baud=19200;legacy.parity='E';legacy.direction=255;

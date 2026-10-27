@@ -71,7 +71,7 @@ let online = true,
   malformedTrace = false,
   malformedHistory = false,
   malformedSystem = false,
-  malformedNetwork = false, malformedDiagnostic = false,
+  malformedNetwork = false, malformedDiagnostic = false, malformedDisplay=false,
   diagnosticHold = false,
   delayedControls = 0,
   rejectNextControl = false;
@@ -92,7 +92,8 @@ const calls = [],
 const state = {
   version,
   token: "test-session",
-  network: {mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
+  display:{available:true,idleSeconds:60,stored:false,storageOK:true,sleeping:false},
+  network: {configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
   control: { accepted: 0, completed: 0, rejected: 0, lastError: "", pending: 0, results: [] },
   rtc: true,
   storage: true,
@@ -126,7 +127,7 @@ const state = {
   uptime: 11300,
   error: "Reading valid",
   error_code: "acquisition_ok",
-  clock: "08:42:16",
+  clock: "08:42:16",clockEpoch:Math.floor(Date.parse("2026-10-26T01:42:16Z")/1000),clockSampleAgeMs:0,clockRevision:0,
   date: "2026-10-26",
   dayDate: "2026-10-26",
   slots: starts.map((start, i) => ({
@@ -137,6 +138,8 @@ const state = {
   scan: { phase: "idle", tested: 0, total: 0 },
 };
 // Simulated instrumentation only; exported screenshots are representative.
+let wifiScanGeneration=0,wifiScanRequests=0,wifiScanFinish=0;
+const nearbyNetworks=[{ssid:"Plant WiFi",rssi:-48,channel:6,open:false,supported:true},{ssid:"Open test network",rssi:-62,channel:11,open:true,supported:true},{ssid:"Guest WiFi",rssi:-70,channel:1,open:false,supported:true}];
 let flowBoot = 1;
 let flowSequence = 0,
   flowEvents = [],
@@ -194,6 +197,11 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.setHeader("Content-Type", "application/json");
+  if(req.url==="/api/network/scan"){
+    if(req.method==="POST"){let body="";req.on("data",chunk=>body+=chunk);req.on("end",()=>{const data=new URLSearchParams(body);assert.equal(data.get("token"),state.token);calls.push({url:req.url,data});++wifiScanRequests;++wifiScanGeneration;wifiScanFinish=Date.now()+800;res.statusCode=202;res.end(JSON.stringify({code:"wifi_scanning"}));});}
+    else res.end(JSON.stringify({phase:!wifiScanGeneration?"idle":Date.now()<wifiScanFinish?"scanning":"ready",generation:wifiScanGeneration,ageMs:0,networks:Date.now()<wifiScanFinish?[]:nearbyNetworks}));
+    return;
+  }
   if (req.url.startsWith("/api/uart?")) {
     if (flowAuto && Date.now() - lastFlowFrame > 1200) {
       lastFlowFrame = Date.now();
@@ -211,7 +219,8 @@ const server = http.createServer((req, res) => {
         capacity: 32,
         gap: flowGap,
         diagnosticActive: diagnostic.active,
-        events: malformedFlow ? [null] : flowEvents.filter((e) => !after || e.seq > after),
+        more:flowEvents.filter((e)=>!after||e.seq>after).length>8,
+        events: malformedFlow ? [null] : flowEvents.filter((e) => !after || e.seq > after).slice(0,8),
       }),
     );
     return;
@@ -286,6 +295,7 @@ const server = http.createServer((req, res) => {
     res.end(
       JSON.stringify({
         ...state,
+        display:malformedDisplay?{idleSeconds:"bad"}:state.display,
         network: malformedNetwork ? {...state.network,address:{bad:true}} : state.network,
         slots: malformedStatus ? Array(9).fill(null) : state.slots,
         online: online && state.scan.phase !== "running" && !diagnostic.active,
@@ -410,9 +420,10 @@ const server = http.createServer((req, res) => {
         );
       }
       if (req.url === "/api/trace/stop") trace.active = false;
+      if(req.url==="/api/display"){state.display.idleSeconds=Number(data.get("idleSeconds"));state.display.stored=true;}
       if (req.url === "/api/network") {
         const mode=data.get("mode"),previous=state.network;
-        state.network={...previous,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
+        state.network={...previous,configuredAPIP:data.get("apIP")||previous.configuredAPIP,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
         if(mode!=="ap"){state.network.ssid=data.get("ssid");state.network.hasPassword=data.get("open")!=="1";}
       }
       if (req.url === "/api/config")
@@ -587,6 +598,13 @@ async function checkVectors(browser, out) {
       await page.locator("#version").textContent(),
       "Firmware " + version,
     );
+    const clockStart=await page.locator("#clock").innerText();
+    const beforeClockWrites=calls.filter(row=>row.url==="/api/time").length;
+    await page.waitForTimeout(2200);
+    assert.notEqual(await page.locator("#clock").innerText(),clockStart,"The clock must advance between status samples");
+    await page.waitForTimeout(13200);
+    assert.notEqual(await page.locator("#clock").innerText(),"—","Fresh identical status samples must keep the running clock alive");
+    assert.equal(calls.filter(row=>row.url==="/api/time").length,beforeClockWrites,"Clock animation must never synchronize the RTC automatically");
     await page.locator('[data-shift="1"]').click();
     assert.equal(await page.locator("#intervals tr").count(), 3);
     assert((await page.locator("#intervals").innerText()).includes("16:30"));
@@ -601,7 +619,8 @@ async function checkVectors(browser, out) {
     await page.locator("#nav-device").click();
     await page.waitForFunction(() => document.querySelectorAll("#history option").length === 2);
     await page.locator("#network-mode").selectOption("dual");
-    await page.locator("#network-ssid").fill("Plant WiFi");
+    await page.waitForFunction(()=>document.querySelectorAll("#network-ssid option").length>=4);
+    await page.locator("#network-ssid").selectOption("Plant WiFi/false");
     await page.locator("#network-password").fill("plant-secret-123");
     await page.locator("#network-save").click();
     await page.waitForFunction(() => document.getElementById("network-status")?.textContent.includes("Client connected"));
@@ -615,17 +634,23 @@ async function checkVectors(browser, out) {
     assert(calls.some(c=>c.url==="/api/network" && c.data.get("mode")==="client" && c.data.get("keep")==="1"));
     state.network.connected=false;state.network.phase="fallback";state.network.clientIP="";state.network.apActive=true;state.network.apIP="192.168.4.1";state.network.address="192.168.4.1";
     await refresh();await page.waitForFunction(() => document.getElementById("network-status")?.textContent.includes("recovery AP"));
-    await page.locator("#network-ssid").fill("é".repeat(17));
+    await page.locator("#network-ap-ip").fill("8.8.8.8");
     const beforeInvalidNetwork=calls.length;await page.locator("#network-save").click();assert.equal(calls.length,beforeInvalidNetwork);
-    await page.locator("#network-ssid").fill("Open test network");await page.locator("#network-open").check();
+    await page.locator("#network-ap-ip").fill("192.168.8.1");
+    await page.waitForFunction(()=>document.querySelectorAll("#network-ssid option").length>=4);
+    await page.locator("#network-ssid").selectOption("Open test network/true");
     await page.locator("#network-mode").selectOption("dual");await page.locator("#network-save").click();
     await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
     assert(calls.some(c=>c.url==="/api/network" && c.data.get("open")==="1"));
-    await page.locator("#network-ssid").fill("Unsubmitted draft");
+    await page.locator("#network-ap-ip").fill("192.168.9.1");
     malformedNetwork=true;await refresh();await page.waitForFunction(() => document.getElementById("network-save")?.disabled);
     assert(await page.locator("#mute").isVisible());malformedNetwork=false;await refresh();await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
-    assert.equal(await page.locator("#network-ssid").inputValue(),"Unsubmitted draft", "A malformed refresh must not erase the operator draft");
-    await page.locator("#network-ssid").fill(state.network.ssid);
+    assert.equal(await page.locator("#network-ap-ip").inputValue(),"192.168.9.1", "A malformed refresh must not erase the operator draft");
+    const scanRequestsBeforeRefresh=wifiScanRequests;
+    await page.locator("#wifi-rescan").click();
+    await page.waitForFunction((before)=>document.getElementById("wifi-rescan")?.disabled,null);
+    await page.waitForFunction(()=>!document.getElementById("wifi-rescan")?.disabled);
+    assert(wifiScanRequests>scanRequestsBeforeRefresh,"Network scanning must be available without typing an SSID");
     await page.locator("#network-ssid").blur();
     await page.setViewportSize({width:1440,height:1200});
     await page.locator("#network-panel").screenshot({path:path.join(assets,"ui-network-desktop.png")});
@@ -634,6 +659,21 @@ async function checkVectors(browser, out) {
     await page.setViewportSize({width:1440,height:1000});
     await page.locator("#network-mode").selectOption("ap");await page.locator("#network-save").click();
     await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
+    assert.equal(await page.locator("#display-idle").inputValue(),"60");
+    await page.locator("#display-idle").fill("120");await page.locator("#display-save").click();
+    await page.waitForFunction(()=>!document.getElementById("display-save")?.disabled);
+    assert(calls.some(row=>row.url==="/api/display"&&row.data.get("idleSeconds")==="120"));
+    await page.reload();await page.locator("#nav-device").click();
+    await page.waitForFunction(()=>document.getElementById("display-idle")?.value==="120");
+    await page.locator("#display-enabled").uncheck();await page.locator("#display-save").click();
+    await page.waitForFunction(()=>!document.getElementById("display-save")?.disabled);
+    assert(calls.some(row=>row.url==="/api/display"&&row.data.get("idleSeconds")==="0"));
+    malformedDisplay=true;await refresh();await page.waitForFunction(()=>document.getElementById("display-save")?.disabled);
+    assert(await page.locator("#mute").isEnabled());malformedDisplay=false;await refresh();await page.waitForFunction(()=>!document.getElementById("display-save")?.disabled);
+    await page.locator("#display-enabled").check();await page.locator("#display-idle").fill("60");await page.locator("#display-save").click();
+    await page.waitForFunction(()=>!document.getElementById("display-save")?.disabled);
+    await page.setViewportSize({width:1440,height:1000});await page.locator("#display-panel").screenshot({path:path.join(assets,"ui-display-desktop.png")});
+    await page.setViewportSize({width:390,height:1400});await page.locator("#display-panel").screenshot({path:path.join(assets,"ui-display-mobile.png")});await page.setViewportSize({width:1440,height:1000});
     delayedControls = 1200;
     await page.locator("#mute").click();
     await page.waitForTimeout(300);
@@ -1258,7 +1298,7 @@ async function checkVectors(browser, out) {
     await page.close();
     const vectors = await checkVectors(browser, out);
     console.log(
-      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; event-driven UART motion/no idle animation; diagnostic commands/export/pause/resume; process metrics/closed polling; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; AP/client/dual settings, credentials privacy, fallback and malformed network state; structured diagnostics and session settings; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
+      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; event-driven UART motion/no idle animation; diagnostic commands/export/pause/resume; process metrics/closed polling; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; screensaver save/reload/disable/schema handling; automatic SSID scan/picker, custom AP IPv4 and smooth clock without RTC writes; AP/client/dual settings, credentials privacy, fallback and malformed network state; structured diagnostics and session settings; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
     );
   } catch (error) {
     const failed = browser?.contexts()[0]?.pages()[0];

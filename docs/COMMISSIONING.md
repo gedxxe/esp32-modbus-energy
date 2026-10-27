@@ -2,11 +2,11 @@
 
 **English** · [Bahasa Indonesia](id/COMMISSIONING.md)
 
-The user reported a successful standalone ModbusMaster read with a manual transceiver and DIR16. Use that known connection as the baseline for firmware 2.1.0, then record integrated readings rather than treating a software test or screenshot as hardware acceptance.
+The user reported a successful standalone ModbusMaster read with a manual transceiver and DIR16. Use that known connection as the baseline for firmware 2.2.0, then record integrated readings rather than treating a software test or screenshot as hardware acceptance.
 
 ## Bench checks
 
-Before going to the meter, verify that the board boots without a Serial Monitor, exposes Midea Engineering AP at 192.168.4.1 and shows Firmware 2.1.0. Check the OLED's installed 180° orientation, all three debounced buttons, the optional buzzer and RGB settings across a restart. OLED absence must not prevent the AP from starting, and a failed filesystem must require the physical five-second OK confirmation before formatting.
+Before going to the meter, verify that the board boots without a Serial Monitor, exposes Midea Engineering AP at 192.168.4.1 and shows Firmware 2.2.0. Check the OLED's installed 180° orientation, all three debounced buttons, the optional buzzer and RGB settings across a restart. OLED absence must not prevent the AP from starting, and a failed filesystem must require the physical five-second OK confirmation before formatting.
 
 With A/B disconnected, run a bounded diagnostic and retain its output. Any RX in this condition is local circuitry activity, not a Fort response. A temporary UART-only loopback, with module TTL leads removed and GPIO17 joined to GPIO18, should produce an exact TX echo that the validator rejects as energy. Remove the jumper and restore the manual module before the meter test.
 
@@ -29,3 +29,5 @@ Set phone time after verifying its date/timezone, then compare the displayed WIB
 Retain firmware version/commit, physical module and wiring mode, meter menu values, raw words, display comparisons, RTC checks, interval/CSV samples and observed heap/stack headroom. The core monitor is a tick-sampling aid rather than an instruction profiler, and multi-client AP latency still needs an on-target run. [VALIDATION](VALIDATION.md) distinguishes these checks from local compiler/native/browser results.
 
 From the web Wi-Fi panel, verify AP-only, client and combined modes with a known 2.4 GHz network. Record the DHCP address, the 15-second client-mode AP grace and fallback when the router is removed. Check password retention, a rejected invalid credential, recovery after reboot and a router subnet that overlaps 192.168.4.0/24. Confirm UART polling continues during reconnect attempts, then return to the intended deployment mode.
+
+Set the OLED screensaver to ten seconds from the web, wait for the face sequence and wake with each physical button. Hold a wake button beyond 900 ms and confirm that it still performs no mute/navigation/save action, then release and press again for ordinary control. Verify the master 180° orientation, timeout persistence after reboot, disabled playback and acquisition/HTTP responsiveness during a full animation loop. Exercise OLED mode, SSID/password and AP-IP tools before retaining the intended deployment settings.

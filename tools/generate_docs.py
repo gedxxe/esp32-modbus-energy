@@ -175,11 +175,11 @@ s.save('architecture.svg')
 
 s=SVG(1400,650,'OLED screen and button reference')
 s.heading('OLED 128 × 64 · five pages + boot','Representative firmware screens, not hardware photographs. All sample values are simulated.')
-screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING INTERVAL','06:00 - 06:30','21.320','complete_estimated']),('EVENING',['EVENING INTERVAL','16:30 - 17:00','--.---','waiting']),('HOTSPOT',['HOTSPOT / WIFI','Midea Engineering','AP','192.168.4.1','OK: password']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
+screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING INTERVAL','06:00 - 06:30','21.320','complete_estimated']),('EVENING',['EVENING INTERVAL','16:30 - 17:00','--.---','waiting']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering AP','192.168.4.1','OK: network options']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
 for i,(title,lines) in enumerate(screens):
     x=45+i%3*450;y=145+i//3*230;s.rect(x,y,410,205);s.text(x+20,y+30,title,14,BLUE,700);s.rect(x+20,y+45,370,140,'#030b13',LINE,7)
     for j,line in enumerate(lines):s.text(x+35,y+70+j*23,line,16,color='#e2f4f0',mono=True)
-s.text(45,634,'PREV / NEXT: page  ·  OK: interval or password  ·  Hold OK 900 ms: toggle alarm mute',18,MUTED)
+s.text(45,634,'PREV / NEXT: page  ·  Network OK: options  ·  Hold OK outside Network: alarm mute',18,MUTED)
 s.save('oled-pages.svg')
 
 pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text(encoding='utf-8'))}
@@ -245,5 +245,38 @@ s.rect(45,645,1310,155);s.text(70,687,'CLIENT FAILURE / RECOVERY',22,AMBER,700)
 s.text(70,728,'Keep the AP while joining. Restore it after a lost link. Request another client attempt every 30 s.',19,MUTED)
 s.text(70,767,'Read the current AP and client IP from the web panel or OLED after a transition.',19,MUTED)
 s.save('network-modes.svg')
+
+s=SVG(1400,860,'OLED network controls','Representative screens for the three physical buttons. Password is masked. No hardware acceptance is implied.')
+s.heading('Network options on the OLED','PREV / NEXT selects or edits. OK confirms. Hold OK opens tools or returns to the menu.')
+frames=[('OPTIONS',['NETWORK OPTIONS','> Wi-Fi mode','  Scan / select SSID','  AP IPv4 address','Hold OK: tools/back']),('MODE',['NETWORK OPTIONS','  AP only','> Client + AP recovery','  AP + client','Hold OK: tools/back']),('SSID SCAN',['NETWORK OPTIONS','1/8  -48 dBm','Plant WiFi','Secured: key needed','Hold OK: tools/back']),('PASSWORD',['NETWORK OPTIONS','Key: 12/63 characters','************','Choose: [a]','OK:add Hold:tools']),('PASSWORD TOOLS',['NETWORK OPTIONS','Save and connect','PREV/NEXT to choose','OK to confirm','Hold OK: tools/back']),('AP ADDRESS',['NETWORK OPTIONS','192.168.8.1','Edit octet 3 / 4','OK:next Hold:save','Hold OK: tools/back'])]
+for i,(title,lines) in enumerate(frames):
+ x=45+i%3*450;y=150+i//3*265;s.rect(x,y,410,225);s.text(x+20,y+30,title,14,BLUE,700);s.rect(x+20,y+48,370,155,'#08162e',LINE,9)
+ for j,line in enumerate(lines):s.text(x+34,y+76+j*25,line,16,color='#d9e8ff',mono=True)
+s.text(45,744,'Hold PREV / NEXT for faster character or IP editing. Save uses the same core 1 NVS queue as the web.',18,MUTED)
+s.text(45,785,'Changing mode or AP IP applies after 8 s. The client link and actual AP address remain visible on the Network page.',17,MUTED)
+s.save('oled-network.svg')
+
+import json
+animation=json.loads((ROOT/'firmware/assets/oled/idle.json').read_text(encoding='utf-8'));packets=(ROOT/'firmware/assets/oled/idle.rle').read_bytes()
+s=SVG(1400,500,'OLED idle animation samples','Exact logical frames from the supplied artwork. Representative screen illustrations, not hardware photographs.')
+s.heading('Idle animation · 772 frames / 128 × 64','The first physical button press wakes the monitoring page and is consumed before it can run a control action.')
+for position,index in enumerate([0,250,500]):
+ source=packets[animation['offsets'][index]:animation['offsets'][index+1]];raw=bytearray();at=0
+ while at<len(source):
+  token=source[at];at+=1
+  if token<128:n=token+1;raw.extend(source[at:at+n]);at+=n
+  else:raw.extend([source[at]]*(token-127));at+=1
+ x=45+position*450;s.rect(x,145,410,245);s.text(x+22,180,'FRAME '+str(index),15,BLUE,700);s.rect(x+28,200,352,176,'#000000',LINE,8)
+ path=[]
+ for y in range(64):
+  start=None
+  for pixel in range(129):
+   white=pixel<128 and raw[y*16+pixel//8]&(128>>(pixel%8))
+   if white and start is None:start=pixel
+   if not white and start is not None:
+    length=pixel-start;path.append(f'M{start},{y}h{length}v1h-{length}z');start=None
+ s.parts.append(f'<g transform="translate({x+31},202) scale(2.7)"><path d="{" ".join(path)}" fill="#ffffff"/></g>')
+s.text(45,443,'Default idle: 60 s. Web setting: 10–3600 s, or disabled. Playback targets 42 ms and skips late frames.',18,MUTED)
+s.save('oled-screensaver.svg')
 
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

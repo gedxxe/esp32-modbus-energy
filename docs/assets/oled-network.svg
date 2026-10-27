@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860" role="img" aria-labelledby="title desc"><title id="title">OLED network controls</title><desc id="desc">Representative screens for the three physical buttons. Password is masked. No hardware acceptance is implied.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Network options on the OLED</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">PREV / NEXT selects or edits. OK confirms. Hold OK opens tools or returns to the menu.</text>
+<rect x="45" y="150" width="410" height="225" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="65" y="180" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">OPTIONS</text>
+<rect x="65" y="198" width="370" height="155" rx="9" fill="#08162e" stroke="#cbdada"/>
+<text x="79" y="226" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK OPTIONS</text>
+<text x="79" y="251" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">&gt; Wi-Fi mode</text>
+<text x="79" y="276" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">  Scan / select SSID</text>
+<text x="79" y="301" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">  AP IPv4 address</text>
+<text x="79" y="326" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Hold OK: tools/back</text>
+<rect x="495" y="150" width="410" height="225" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="515" y="180" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">MODE</text>
+<rect x="515" y="198" width="370" height="155" rx="9" fill="#08162e" stroke="#cbdada"/>
+<text x="529" y="226" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK OPTIONS</text>
+<text x="529" y="251" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">  AP only</text>
+<text x="529" y="276" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">&gt; Client + AP recovery</text>
+<text x="529" y="301" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">  AP + client</text>
+<text x="529" y="326" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Hold OK: tools/back</text>
+<rect x="945" y="150" width="410" height="225" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="965" y="180" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">SSID SCAN</text>
+<rect x="965" y="198" width="370" height="155" rx="9" fill="#08162e" stroke="#cbdada"/>
+<text x="979" y="226" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK OPTIONS</text>
+<text x="979" y="251" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">1/8  -48 dBm</text>
+<text x="979" y="276" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Plant WiFi</text>
+<text x="979" y="301" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Secured: key needed</text>
+<text x="979" y="326" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Hold OK: tools/back</text>
+<rect x="45" y="415" width="410" height="225" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="65" y="445" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">PASSWORD</text>
+<rect x="65" y="463" width="370" height="155" rx="9" fill="#08162e" stroke="#cbdada"/>
+<text x="79" y="491" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK OPTIONS</text>
+<text x="79" y="516" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Key: 12/63 characters</text>
+<text x="79" y="541" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">************</text>
+<text x="79" y="566" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Choose: [a]</text>
+<text x="79" y="591" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">OK:add Hold:tools</text>
+<rect x="495" y="415" width="410" height="225" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="515" y="445" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">PASSWORD TOOLS</text>
+<rect x="515" y="463" width="370" height="155" rx="9" fill="#08162e" stroke="#cbdada"/>
+<text x="529" y="491" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK OPTIONS</text>
+<text x="529" y="516" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Save and connect</text>
+<text x="529" y="541" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">PREV/NEXT to choose</text>
+<text x="529" y="566" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">OK to confirm</text>
+<text x="529" y="591" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Hold OK: tools/back</text>
+<rect x="945" y="415" width="410" height="225" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="965" y="445" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">AP ADDRESS</text>
+<rect x="965" y="463" width="370" height="155" rx="9" fill="#08162e" stroke="#cbdada"/>
+<text x="979" y="491" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK OPTIONS</text>
+<text x="979" y="516" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">192.168.8.1</text>
+<text x="979" y="541" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Edit octet 3 / 4</text>
+<text x="979" y="566" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">OK:next Hold:save</text>
+<text x="979" y="591" fill="#d9e8ff" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Hold OK: tools/back</text>
+<text x="45" y="744" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Hold PREV / NEXT for faster character or IP editing. Save uses the same core 1 NVS queue as the web.</text>
+<text x="45" y="785" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Changing mode or AP IP applies after 8 s. The client link and actual AP address remain visible on the Network page.</text>
+</svg>

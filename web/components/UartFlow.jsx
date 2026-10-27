@@ -8,6 +8,7 @@ export default function UartFlow() {
   const [events, setEvents] = useState([]),
     [failed, setFailed] = useState(false),
     [gap, setGap] = useState(false);
+  const [failureReason,setFailureReason]=useState("");
   const [automatic, setAutomatic] = useState(true);
   const [active, setActive] = useState(false),
     [latest, setLatest] = useState(null);
@@ -33,9 +34,9 @@ export default function UartFlow() {
       dot.setAttribute(
         "fill",
         event.kind === 2
-          ? "#78e5d3"
+          ? "#9bd8ff"
           : event.result === "valid"
-            ? "#78e5d3"
+            ? "#9bd8ff"
             : "#efb276",
       );
       dot.setAttribute("data-event", String(event.seq));
@@ -68,6 +69,7 @@ export default function UartFlow() {
       };
     }
     async function poll() {
+      let nextPoll=500;
       if (document.hidden) {
         timer = setTimeout(poll, 500);
         return;
@@ -80,7 +82,7 @@ export default function UartFlow() {
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error("flow");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const next = await response.json();
         if (!validFlow(next)) throw new Error("schema");
         if (!alive) return;
@@ -95,6 +97,7 @@ export default function UartFlow() {
           setGap(false);
           if (requestedCursor !== 0) return;
         }
+        nextPoll=next.more?50:500;
         setFailed(false);
         setGap((old) => old || Boolean(next.gap));
         setActive(Boolean(next.diagnosticActive));
@@ -137,11 +140,12 @@ export default function UartFlow() {
           }
           cursor.current = fresh[fresh.length - 1].seq;
         }
-      } catch {
-        if (alive) setFailed(true);
+      } catch(error) {
+        nextPoll=1200;
+        if (alive){setFailed(true);setFailureReason(error.name==="AbortError"?"timeout":error.message==="schema"?"schema":"network");}
       } finally {
         clearTimeout(timeout);
-        if (alive) timer = setTimeout(poll, 200);
+        if (alive) timer = setTimeout(poll, nextPoll);
       }
     }
     poll();
@@ -181,7 +185,7 @@ export default function UartFlow() {
           className={`flow-phase ${failed ? "failed" : ""}`}
           id="flow-phase"
         >
-          {t(phase)}
+          {t(phase)}{failed&&<small className="flow-reason">{t(`flow_reason_${failureReason}`)}</small>}
         </span>
       </div>
       <svg
@@ -192,8 +196,8 @@ export default function UartFlow() {
       >
         <defs>
           <linearGradient id="flow-line">
-            <stop stopColor="#57cdbb" stopOpacity=".75" />
-            <stop offset="1" stopColor="#57cdbb" stopOpacity=".12" />
+            <stop stopColor="#8dbaff" stopOpacity=".75" />
+            <stop offset="1" stopColor="#8dbaff" stopOpacity=".12" />
           </linearGradient>
         </defs>
         <path

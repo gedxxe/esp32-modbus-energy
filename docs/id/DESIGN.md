@@ -2,7 +2,7 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-Versi 2.1.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.2.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -64,10 +64,24 @@ INO mandiri mengikutsertakan FortDiagnostics dari library yang sama dengan firmw
 
 ## State Wi-Fi dan persistensi
 
-Driver Wi-Fi berjalan di core 0, sedangkan core 1 memvalidasi dan menyimpan record kredensial 104 byte ber-versi pada key Preferences `wifi`. Formatnya mengodekan mode, 33 byte SSID, 65 byte key dan CRC16 secara eksplisit agar tidak bergantung padding struct. CRC mendeteksi kerusakan record dan tidak mengenkripsi kredensial. WiFi.persistent(false) mencegah driver membuat konfigurasi persisten kedua di luar kepemilikan core 1.
+Driver Wi-Fi berjalan di core 0, sedangkan core 1 memvalidasi dan menyimpan record kredensial v2 108 byte ber-versi pada key Preferences `wifi`. Formatnya mengodekan mode, 33 byte SSID, 65 byte key, empat byte pilihan IPv4 AP dan CRC16 secara eksplisit agar tidak bergantung padding struct. CRC mendeteksi kerusakan record dan tidak mengenkripsi kredensial. WiFi.persistent(false) mencegah driver membuat konfigurasi persisten kedua di luar kepemilikan core 1.
 
 Perintah jaringan harus lolos guard mode/revisi/umur dan tersimpan sebelum dikirim melalui antrean satu slot ke core 0. Penundaan delapan detik memberi browser waktu membaca hasil HTTP. Kegagalan simpan mempertahankan koneksi, sedangkan record boot rusak menyisakan AP default. Mode AP mempertahankan kredensial client dan endpoint GET tidak mengembalikan password tersimpan.
 
 NetworkPolicy pada network.h menghitung waktu dengan aman terhadap rollover tanpa memanggil driver. Core 0 memeriksa link setiap 250 ms, menjaga AP selama percobaan serta retry, lalu memberi tenggang 15 detik sesudah DHCP berhasil sebelum menonaktifkan AP dalam mode client. Koneksi yang hilang mengembalikan AP dan percobaan diulang setiap 30 detik. Mode AP + client memakai radio bersama, dengan pemeriksaan prefix subnet LAN/AP untuk memilih alamat yang tidak bertabrakan. Timing WLAN, DHCP dan isolasi router tetap memerlukan penerimaan perangkat fisik.
 
 Endpoint diagnostik kini membawa setting sesi aktual serta counter bukti, dan mengikuti koneksi/status produksi ketika maintenance tidak aktif. Kontrol browser terstruktur menyusun perintah yang sama dengan konsol INO. Perbandingan capture juga mewajibkan direction, pin arah dan timing settle/gap sama agar perubahan transport tidak dibaca sebagai perubahan A/B semata. Peta route ke pemilik dan langkah operator tersedia pada [WEB](WEB.md).
+
+## Perubahan jaringan dan jam pada 2.2
+
+Setting jaringan memakai record v2 eksplisit 108 byte dengan empat byte alamat AP pilihan sebelum CRC. Record v1 berukuran 104 byte tetap dibaca dengan default 192.168.4.1. Serialisasi tidak memakai padding struct. AP tetap /24, mendahulukan alamat pilihan dan menghindari tumpang tindih subnet client.
+
+Scan SSID berjalan asinkron pada driver core 0 dengan cache 16 baris yang dipakai web serta OLED. Kredensial persisten tetap milik core 1, dan kedua antarmuka menghasilkan SET_NETWORK yang sama. State machine OledNetworkMenu tidak menyentuh GPIO atau NVS, sehingga perpindahan mode, pemilih jaringan, input ASCII tersamarkan dan tools IP dapat diuji pada host. Repeat tombol dimulai setelah 450 ms dengan langkah 80 ms dan event pelepasan diabaikan setelah repeat agar tidak menambah karakter lagi.
+
+API status membawa UTC perangkat, umur sampel monotonic dan revisi jam. Browser menghitung detik tampilan tanpa menulis RTC dan mempertahankan acuan selama lima menit kecuali sesi/perangkat/validitas waktu berubah. OLED juga memakai umur sampel untuk tampilan, sedangkan tracker hanya menerima pembacaan RTC tervalidasi. Halaman event UART dibatasi delapan entri dengan flag more agar catch-up serta gap sequence tetap terlihat.
+
+## Kepemilikan render idle
+
+Preferensi layar memakai record CRC delapan byte tersendiri dan melalui core 1 seperti setting LED. Core 0 mengamati input fisik dan menahan seluruh tekanan bangun sampai guard pelepasan selesai sebelum event debounce bisa menjalankan kontrol monitoring/menu. Policy IdleScreen dapat diuji untuk timeout, nonaktif, bangun dan rollover tanpa periferal.
+
+Artwork disimpan sebagai paket RLE per frame dengan offset tervalidasi. build-oled.py mendekode seluruh 772 frame dan memeriksa gabungan SHA256 mentah sebelum memeriksa/menghasilkan C++, sehingga header referensi tersebar tidak diperlukan saat deployment. Playback memakai satu bitmap kerja 1 KiB, rotasi display dan mutex I2C terbatas yang sudah ada, lalu maju berdasarkan waktu pada target 42 ms. Beban HTTP/I2C dapat melewati frame, sedangkan akuisisi tetap independen dan tidak menerima sampel dari animasi.

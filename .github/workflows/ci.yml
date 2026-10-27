@@ -20,7 +20,7 @@ jobs:
       - name: Native regression tests
         run: |
           mkdir -p tmp
-          g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o tmp/fort-test
+          g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp firmware/src/oled_frames.cpp -o tmp/fort-test
           ./tmp/fort-test
           g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/test/arduino_stub -Ifirmware/lib/FortMeter/src firmware/test/test_debug_sketch.cpp firmware/lib/FortMeter/src/ModbusMaster.cpp -o tmp/fort-debug-test
           ./tmp/fort-debug-test

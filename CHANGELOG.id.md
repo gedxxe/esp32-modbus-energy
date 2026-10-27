@@ -6,6 +6,14 @@
 
 
 
+## 2.2.0 / 27 Oktober 2026
+
+Pengaturan jaringan memulai scan SSID asinkron dan pemilih jaringan tanpa mengetik SSID manual. Web serta OLED dapat menyimpan pilihan IPv4 AP privat, dengan kompatibilitas record Wi-Fi v1 dan AP pemulihan. Menu OLED mencakup mode, pemilih jaringan, input password tersamarkan serta tools oktet IP.
+
+Pack lossless 772 frame di flash menggantikan referensi animasi yang tersebar. Screensaver diatur lewat web dengan default 60 detik, rentang 10–3600 detik atau nonaktif, dan mengonsumsi tekanan fisik pertama untuk bangun. Tidak ada inisialisasi OLED kedua maupun loop animasi yang menahan akuisisi.
+
+UI memakai gradasi biru/ungu dan panel kaca dengan fallback kontras/transparansi. Tampilan jam maju di antara sampel tanpa penulisan RTC otomatis, dengan pembaruan acuan lima menit atau saat referensi direvisi/kedaluwarsa. Halaman event UART dibatasi delapan entri dengan metadata catch-up serta polling yang menyesuaikan retry. Tes native mencakup pack frame aktual, policy menu, migrasi IP dan bangun/lepas, sedangkan browser memakai byte gzip generated.
+
 ## 2.1.0 / 27 Oktober 2026
 
 Dashboard lokal kini menyediakan mode Wi-Fi AP/client/gabungan dengan alamat DHCP, pergantian koneksi tertunda dan AP pemulihan. Kredensial melalui validasi serta record NVS ber-CRC di core 1 sebelum diterapkan driver core 0, dan password tersimpan tidak dikembalikan endpoint status.

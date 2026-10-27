@@ -1,3 +1,4 @@
+import DeviceClock from "../components/DeviceClock.jsx";
 import { useState } from "react";
 import SpotlightCard from "../vendor/react-bits/SpotlightCard.jsx";
 import Icon from "../components/Icon.jsx";
@@ -167,7 +168,7 @@ export default function Overview({ device }) {
             <div className="secondary-label">
               {t("rtc_clock")}
               <div className="secondary-number mono" id="clock">
-                {s?.clock || "—"}
+                <DeviceClock device={device} />
               </div>
             </div>
             <span className="small muted" id="date">

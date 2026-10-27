@@ -2,13 +2,13 @@
 
 [English](../WEB.md) · **Bahasa Indonesia**
 
-Firmware 2.1.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 2.2.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Membuka aplikasi dan memilih Wi-Fi
 
 Pada instalasi baru, hubungkan HP ke **Midea Engineering AP** memakai **betahdijre12345**, kemudian buka **http://192.168.4.1**. Password AP mengikuti [board.h](../../firmware/include/board.h). Bahasa awal adalah English dan dapat diganti ke Indonesia melalui pemilih bahasa. Jika ESP32 menjadi client, gunakan IP DHCP dari router yang ditampilkan pada halaman jaringan OLED maupun panel Wi-Fi.
 
-Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, isi SSID jaringan 2,4 GHz beserta password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Form ini tidak menyediakan identitas atau sertifikat untuk jaringan enterprise.
+Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, pilih SSID dari scan otomatis jaringan 2,4 GHz lalu isi password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Form ini tidak menyediakan identitas atau sertifikat untuk jaringan enterprise.
 
 | Mode | Jalur akses yang tersedia |
 | --- | --- |
@@ -21,6 +21,20 @@ Perintah simpan masuk ke core 1 untuk disimpan dalam record NVS ber-CRC. Jika pe
 ![Mode Wi-Fi dan pemulihan](../assets/network-modes.svg)
 
 AP dan client memakai satu radio, sehingga AP mengikuti kanal router dalam mode gabungan. Jika subnet LAN bertabrakan, firmware memilih alamat AP yang tidak tumpang tindih dari 192.168.4.1, 192.168.5.1, 10.42.0.1 atau 172.23.42.1. Baca alamat terbaru setelah perubahan jaringan. HP pada router harus diizinkan mengakses client LAN lain. Antarmuka HTTP lokal yang sama menjadi tersedia pada LAN tersebut, dengan token mutasi per boot dan tanpa akun/TLS tersendiri.
+
+## Memilih jaringan, IP khusus dan OLED
+
+Pemilih SSID memulai scan otomatis ketika cache belum tersedia atau berumur lebih dari 30 detik. Pindai lagi memperbaruinya secara eksplisit. Firmware menjalankan scan radio asinkron di core 0, menyimpan maksimal 16 jaringan terlihat dengan sinyal/keamanan, melepas hasil driver dan membiarkan akuisisi Modbus di core 1. Jaringan terbuka dan personal yang didukung dapat dipilih, sedangkan enterprise/WEP/keamanan lain yang belum didukung dinonaktifkan. SSID tersembunyi tidak ditampilkan oleh pemilih jaringan terlihat ini.
+
+Kolom alamat AP menerima host IPv4 privat dengan subnet tetap /24. Simpan mempertahankan alamat pilihan sebelum menerapkannya sesudah delapan detik. Hubungkan ulang HP ke hotspot untuk memperbarui DHCP dan buka IP baru. Jika subnet LAN bertabrakan, alamat runtime AP dapat berbeda dan ditampilkan terpisah dari alamat pilihan. Record Wi-Fi v1 tetap terbaca dengan default 192.168.4.1, lalu simpan berikutnya memakai format record baru.
+
+Halaman Network OLED kini membuka opsi mode, scan/pemilih SSID, editor password tersamarkan dan editor oktet IP. Simpan memakai antrean core 1 yang sama dengan browser. [OLED](OLED.md) menjelaskan alur tiga tombol beserta tools long press.
+
+## Tampilan jam
+
+Label jam sebelumnya baru maju ketika respons status 2,5 detik diterima, bukan karena RTC terus disetel dari HP. Sekarang tampilan berjalan dari acuan UTC perangkat memakai waktu monotonic browser. Acuan diperbarui setiap lima menit atau segera setelah revisi jam, koneksi pulih maupun RTC kembali valid. Polling pengukuran tetap berjalan seperti biasa, dan penyetelan RTC dari HP tetap merupakan tindakan eksplisit. Gangguan status singkat tidak mereset tampilan jam, tetapi setelah 15 detik tanpa pembaruan koneksi valid nilainya ditandai tidak tersedia.
+
+OLED juga memperkirakan detik tampilan dari sampel RTC valid terakhir. Perhitungan tersebut hanya untuk tampilan, sedangkan batas interval tetap memakai pembacaan RTC tervalidasi oleh pemilik akuisisi. Keduanya tidak menulis waktu otomatis maupun mengganti acuan jam tracker.
 
 ## Menjalankan pipeline meter dari web
 
@@ -44,7 +58,9 @@ Perintah lain tetap dapat diketik satu baris pada **Input perintah**, lalu klik 
 | Replay arah serta frame UART | `/api/uart` | Ring event software dengan informasi gap sequence |
 | Capture dan ekspor transaksi mentah | `/api/trace`, `/api/trace/start`, `/api/trace/stop` | Salinan trace terbatas tanpa melewati validasi CRC |
 | Core/task/heap/PSRAM | `/api/system` | Sampling tick dan metrik task milik aplikasi/idle |
-| Mode jaringan dan kredensial | `/api/network` | Persistensi core 1 lalu pesan satu slot ke state machine Wi-Fi core 0 |
+| Mode jaringan, IP AP khusus dan kredensial | `/api/network` | Persistensi core 1 lalu pesan satu slot ke state machine Wi-Fi core 0 |
+| Scan SSID terdekat | `/api/network/scan` GET/POST | Scan radio asinkron core 0 dan cache jaringan terlihat terbatas |
+| Setting animasi idle OLED | `/api/display` | Preferensi layar ber-CRC di core 1 dan playback/bangun di core 0 |
 | LED, mute dan jam RTC | `/api/led`, `/api/mute`, `/api/time` | Kontrol antrean dengan hasil eksekusi |
 | Arsip dan CSV | `/api/history`, `/api/export` | Akses filesystem terbatas dengan aturan pemulihan |
 
@@ -52,4 +68,8 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 2.1.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 2.2.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+
+Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
+
+Kontrol Screensaver OLED pada Perangkat & arsip memilih waktu idle 10–3600 detik atau mematikan animasi, dengan default 60 detik. Tekanan fisik pertama membangunkan dashboard tanpa menjalankan aksi tombolnya. [OLED](OLED.md#animasi-idle-dan-cara-bangun) menjelaskan playback dan perilaku bangun.

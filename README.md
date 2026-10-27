@@ -2,11 +2,11 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 2.1.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
+![Firmware 2.2.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
 This project reads a Fort power meter from an ESP32-S3 N16R8 and makes its energy counter available through a local Wi-Fi dashboard in AP or client mode. A phone can view live measurements, inspect half-hour consumption, export records and run diagnostics without an internet connection. The OLED provides a local reading and the access-point address when a phone is not connected.
 
-Version 2.1.0 replaces the previous response-gap parser with a shared ModbusMaster transport. Its reference is the user's successful sketch: UART1 on TX17/RX18, manual DE-/RE control on GPIO16, 100 µs settling around transmission, and the manual's phase-A current request at `0x0058`. The user reported that reference working on the meter. Acceptance of this integrated release is recorded separately in [VALIDATION](docs/VALIDATION.md).
+Version 2.2.0 replaces the previous response-gap parser with a shared ModbusMaster transport. Its reference is the user's successful sketch: UART1 on TX17/RX18, manual DE-/RE control on GPIO16, 100 µs settling around transmission, and the manual's phase-A current request at `0x0058`. The user reported that reference working on the meter. Acceptance of this integrated release is recorded separately in [VALIDATION](docs/VALIDATION.md).
 
 ## Dashboard
 
@@ -56,7 +56,7 @@ A normal firmware build uses the committed web header and does not require Node.
 | PlatformIO Core | 6.1.16 |
 | Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
 | Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 2.1.0 / 2.0.1+fort.1, local source |
+| FortMeter / ModbusMaster | 2.2.0 / 2.0.1+fort.1, local source |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / GSAP | 19.3.1 / 19.3.1 / 3.15.0 |
@@ -64,13 +64,13 @@ A normal firmware build uses the committed web header and does not require Node.
 
 ## 3. First startup and meter scan
 
-Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 2.1.0, match the meter's CONi slave ID/baud/parity in Meter setup, and confirm Manual direction. The firmware begins contact testing with FC03 at `0x0058`, two registers, before requesting the wider measurement profile. When contact fails it returns to a bounded retry rather than immediately querying every register.
+Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 2.2.0, match the meter's CONi slave ID/baud/parity in Meter setup, and confirm Manual direction. The firmware begins contact testing with FC03 at `0x0058`, two registers, before requesting the wider measurement profile. When contact fails it returns to a bounded retry rather than immediately querying every register.
 
 On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 
 ### AP and client Wi-Fi modes
 
-Open **Device & records → Wi-Fi connection** to choose AP, Client with AP recovery, or AP + client and enter a 2.4 GHz SSID. Settings are saved before the connection changes after eight seconds. Client mode keeps the AP during connection attempts and for 15 seconds after DHCP succeeds, then restores it if the link is lost. Read the current client/AP address from the web panel or OLED, especially when the LAN overlaps the default AP subnet. The [complete web guide](docs/WEB.md) explains password retention, recovery and every integrated feature.
+Open **Device & records → Wi-Fi connection** to choose AP, Client with AP recovery, or AP + client and select an SSID from the automatic 2.4 GHz scan. Settings are saved before the connection changes after eight seconds. Client mode keeps the AP during connection attempts and for 15 seconds after DHCP succeeds, then restores it if the link is lost. Read the current client/AP address from the web panel or OLED, especially when the LAN overlaps the default AP subnet. The [complete web guide](docs/WEB.md) explains password retention, recovery and every integrated feature.
 
 ![Wi-Fi connection modes](docs/assets/network-modes.svg)
 
@@ -92,11 +92,15 @@ The OLED is rotated 180° through `OLED_ROTATE_180` in [board.h](firmware/includ
 | --- | --- |
 | PREV / GPIO4 | Previous OLED page |
 | NEXT / GPIO5 | Next OLED page |
-| OK / GPIO6, short press | Change interval row or show AP password on its page |
-| OK, held 900 ms | Toggle alarm mute |
+| OK / GPIO6, short press | Change interval row or open Network options on its page |
+| OK, held 900 ms | Toggle alarm mute outside Network options |
 | OK held at boot after filesystem failure | Five-second archive-format confirmation |
 
 Switches use internal pull-ups and 35 ms stable-state debouncing, with one long-press event per hold. The boot buzzer sequence lasts about 1.5 seconds. After startup the fault indication is a 120 ms pulse every ten seconds when RTC, storage or measurement is unavailable, and is suppressed during a deliberate scan or maintenance session.
+
+The supplied 772-frame face animation now serves as an idle screensaver, with a web-configurable 10–3600-second delay or disable option. The first physical button press wakes the dashboard and is consumed before it can run an action.
+
+The Network OLED page also provides Wi-Fi mode selection, SSID scanning, a masked password editor and custom AP IPv4 entry. The [OLED guide](docs/OLED.md) describes PREV/NEXT, fast repeat and long-press tools. The web clock now runs between polls from a device-time reference and re-anchors every five minutes, while RTC changes remain explicit.
 
 ## 4. Energy calculation and recording quality
 

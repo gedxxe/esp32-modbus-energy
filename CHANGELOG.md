@@ -5,6 +5,14 @@
 
 
 
+## 2.2.0 / 27 October 2026
+
+Network setup now starts with an asynchronous SSID scan and picker instead of manual SSID entry. The web and OLED can save a private AP IPv4 preference, with v1 Wi-Fi record compatibility and the existing recovery AP policy. OLED options include mode selection, visible-network selection, masked password entry and IP-octet tools.
+
+A flash-resident, lossless 772-frame pack replaces the scattered animation reference. Its web-configurable screensaver defaults to 60 seconds, accepts 10–3600 seconds or disable, and consumes the first physical wake press. The display and tracker share their existing ownership/locks, with no second OLED initialization or animation loop blocking acquisition.
+
+The interface uses blue/violet gradients and glass surfaces with contrast/transparency fallbacks. Clock presentation now advances between status samples without automatic RTC writes and re-anchors every five minutes or after a revised/expired reference. UART event pages are limited to eight entries, with catch-up metadata and slower retry-aware polling. Native tests include the actual decoded frame pack, OLED menu policy, v1/v2 IP records and wake/release handling, while browser tests use the generated gzip assets.
+
 ## 2.1.0 / 27 October 2026
 
 The local dashboard now exposes AP/client/combined Wi-Fi configuration with DHCP addresses, a deferred connection change and recovery AP behavior. Credentials pass through core 1 validation and versioned CRC-protected NVS before core 0 applies driver changes, and saved passwords are not returned by status endpoints.

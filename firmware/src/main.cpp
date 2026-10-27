@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 #include <lwip/sockets.h>
 #include <errno.h>
 #include <driver/rmt.h>
@@ -28,6 +29,9 @@
 #include "command_policy.h"
 #include "bounded_write.h"
 #include "network.h"
+#include "oled_menu.h"
+#include "screen_saver.h"
+#include "oled_frames.h"
 
 SET_LOOP_TASK_STACK_SIZE(16384);
 using namespace fort;
@@ -55,6 +59,7 @@ SemaphoreHandle_t i2cMutex,fsMutex;
 QueueHandle_t snapshotQueue,commandQueue,networkQueue;
 bool oledOK=false,apOK=false;
 String apiToken;
+IdleScreen idleScreen;uint16_t lastIdleFrame=0xffff;
 
 // Wi-Fi driver calls stay on core 0. Only core 1 writes the credential record.
 struct NetworkUpdate {NetworkSettings settings{};bool stored=true,deferred=false;};
@@ -76,29 +81,62 @@ void applyNetwork(const NetworkSettings &settings){
   activeNetwork=settings;networkPolicy.begin(settings.mode,millis());
   WiFi.setAutoReconnect(false);if(WiFi.getMode()&WIFI_MODE_STA)WiFi.disconnect(false,false);
   WiFi.mode(settings.mode==NETWORK_AP?WIFI_AP:WIFI_AP_STA);WiFi.setSleep(false);
-  WiFi.setHostname("fort-energy");apOK=startAP(0xC0A80401);
+  WiFi.setHostname("fort-energy");apOK=startAP(settings.apIP);
   if(settings.mode!=NETWORK_AP)WiFi.begin(settings.ssid,settings.password[0]?settings.password:nullptr);
 }
+void networkNotice(const char *message);
+void syncNetworkCommandResult();
+void tickWiFiScan();
+bool wifiScanRunning();
 void tickNetwork(){
+  syncNetworkCommandResult();tickWiFiScan();
   uint32_t now=millis();NetworkUpdate update;
   if(xQueueReceive(networkQueue,&update,0)==pdTRUE){
     networkStored=update.stored;networkAwaitingSave=false;
     if(update.deferred){pendingNetwork=update.settings;networkPending=true;networkPendingAt=now;}
-    else if(memcmp(&activeNetwork,&update.settings,sizeof(activeNetwork)))applyNetwork(update.settings);
+    else if(!sameNetwork(activeNetwork,update.settings))applyNetwork(update.settings);
   }
   if(networkPending&&uint32_t(now-networkPendingAt)>=NETWORK_APPLY_DELAY_MS){networkPending=false;applyNetwork(pendingNetwork);}
   if(uint32_t(now-lastNetworkTick)<250)return;
   lastNetworkTick=now;bool ready=stationReady();
   bool retry=networkPolicy.update(now,ready);
   if(networkPolicy.apWanted(now)){
-    uint32_t address=ready?chooseAPAddress(ipv4(WiFi.localIP()),ipv4(WiFi.subnetMask())):apAddress;
+    uint32_t address=ready?chooseAPAddress(ipv4(WiFi.localIP()),ipv4(WiFi.subnetMask()),activeNetwork.apIP):apAddress;
     if((!apOK||address!=apAddress)&&uint32_t(now-lastAPTry)>=3000)apOK=startAP(address);
   }else if(apOK&&WiFi.enableAP(false)){apOK=false;}
-  if(retry){WiFi.disconnect(false,false);WiFi.begin(activeNetwork.ssid,activeNetwork.password[0]?activeNetwork.password:nullptr);}
+  if(retry&&!wifiScanRunning()){WiFi.disconnect(false,false);WiFi.begin(activeNetwork.ssid,activeNetwork.password[0]?activeNetwork.password:nullptr);}
+}
+struct WiFiEntry {char ssid[33]={};int32_t rssi=0;uint8_t auth=0,channel=0;};
+struct WiFiScanView {WiFiEntry rows[16]{};uint8_t count=0;uint32_t generation=0,started=0,finished=0;bool running=false,failed=false;};
+WiFiScanView wifiScan;
+bool wifiScanRunning(){return wifiScan.running;}
+bool supportedWiFiAuth(uint8_t auth){return auth==WIFI_AUTH_OPEN||auth==WIFI_AUTH_WPA2_PSK||auth==WIFI_AUTH_WPA_WPA2_PSK||auth==WIFI_AUTH_WPA3_PSK||auth==WIFI_AUTH_WPA2_WPA3_PSK;}
+bool startWiFiScan(){
+  if(wifiScan.running||networkPending||networkAwaitingSave)return false;
+  if(wifiScan.started&&uint32_t(millis()-wifiScan.started)<5000)return false;
+  wifiScan.count=0;wifiScan.failed=false;wifiScan.started=millis();++wifiScan.generation;
+  wifiScan.running=WiFi.scanNetworks(true,false,false,200)==WIFI_SCAN_RUNNING;
+  if(!wifiScan.running){wifiScan.failed=true;wifiScan.finished=millis();}
+  return wifiScan.running;
+}
+void tickWiFiScan(){
+  if(!wifiScan.running)return;
+  int count=WiFi.scanComplete();if(count==WIFI_SCAN_RUNNING&&uint32_t(millis()-wifiScan.started)<12000)return;
+  wifiScan.running=false;wifiScan.finished=millis();wifiScan.failed=count<0;
+  if(count<0)esp_wifi_scan_stop();
+  for(int i=0;i<count;++i){
+    String ssid=WiFi.SSID(i);if(!ssid.length()||ssid.length()>32)continue;
+    WiFiEntry entry;strlcpy(entry.ssid,ssid.c_str(),sizeof(entry.ssid));entry.rssi=WiFi.RSSI(i);entry.auth=WiFi.encryptionType(i);entry.channel=WiFi.channel(i);
+    bool duplicate=false;for(uint8_t j=0;j<wifiScan.count;++j)if(!strcmp(entry.ssid,wifiScan.rows[j].ssid)&&entry.auth==wifiScan.rows[j].auth){if(entry.rssi>wifiScan.rows[j].rssi)wifiScan.rows[j]=entry;duplicate=true;break;}
+    if(!duplicate){if(wifiScan.count<16)wifiScan.rows[wifiScan.count++]=entry;
+      else if(entry.rssi>wifiScan.rows[wifiScan.count-1].rssi)wifiScan.rows[wifiScan.count-1]=entry;}
+    for(unsigned a=0;a<wifiScan.count;++a)for(unsigned b=a+1;b<wifiScan.count;++b)if(wifiScan.rows[b].rssi>wifiScan.rows[a].rssi){WiFiEntry swap=wifiScan.rows[a];wifiScan.rows[a]=wifiScan.rows[b];wifiScan.rows[b]=swap;}
+  }
+  WiFi.scanDelete();if(activeNetwork.mode==NETWORK_AP)WiFi.enableSTA(false);
 }
 String preferredAddress(){return stationReady()?WiFi.localIP().toString():apOK?WiFi.softAPIP().toString():String();}
 
-struct Command { CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
+struct Command { CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
 struct CommandResult { uint32_t id=0;char error[80]={}; };
 constexpr uint8_t COMMAND_RESULTS=8;
 uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
@@ -107,10 +145,10 @@ struct Snapshot {
   char commandError[80]={};
   CommandResult commandResults[COMMAND_RESULTS]={};uint8_t commandResultNext=0;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
-  bool ledStored=false,ledStorageOK=false;
+  bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
   uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=NAN,ratio=0,secondaryEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN;
-  uint32_t lastContactMs=0,lastSecondaryMs=0;uint8_t modbusStatus=0xE2;
+  uint32_t lastContactMs=0,lastSecondaryMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
   char error[64]="Waiting for a response";
   char errorCode[32]="waiting_for_meter";
@@ -185,6 +223,12 @@ struct Checkpoint { uint32_t magic=0x46524432; Day day{}; uint16_t crc=0; };
 struct ConfigRecord { Settings settings{};uint16_t crc=0; };
 void setError(const char *s,const char *code) { strlcpy(state.error,s,sizeof(state.error));strlcpy(state.errorCode,code,sizeof(state.errorCode)); }
 bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
+void syncNetworkCommandResult(){
+  if(!networkAwaitingSave||!networkCommand)return;
+  Snapshot snapshot{};if(!readSnapshot(snapshot)||int32_t(snapshot.completedCommand-networkCommand)<0)return;
+  for(const auto &result:snapshot.commandResults)if(result.id==networkCommand&&result.error[0]){networkAwaitingSave=false;networkNotice("Wi-Fi save failed");}
+}
+
 DiagnosticEngine::Link diagnosticLink(const Settings &settings){DiagnosticEngine::Link link;link.id=settings.slave;link.baud=settings.baud;link.parity=settings.parity;return link;}
 void startBusFor(const Settings &config){normalReader.options.rx=PIN_RX;normalReader.options.tx=PIN_TX;normalReader.options.dir=PIN_RS485_DE;normalReader.options.manualDirection=config.direction==DIRECTION_MANUAL;normalReader.openLink(diagnosticLink(config));}
 void startBus(){startBusFor(state.config);}
@@ -405,6 +449,12 @@ void processCommands(){
         state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);state.ledStorageOK=state.ledStored;
         if(!state.ledStored)error="LED changed in RAM. Saving settings failed";break;
       }
+      case SET_DISPLAY:{
+        if(!validDisplay(cmd.display)){error="invalid_display";break;}
+        uint8_t bytes[DISPLAY_RECORD_SIZE];encodeDisplay(cmd.display,bytes);
+        if(!nvsOK||prefs.putBytes("display",bytes,sizeof(bytes))!=sizeof(bytes)){error="display_storage_failed";break;}
+        state.display=cmd.display;state.displayStored=true;state.displayStorageOK=true;break;
+      }
       case SET_NETWORK:{
         if(!validNetwork(cmd.network)){error="invalid_network";break;}
         if(!uxQueueSpacesAvailable(networkQueue)){error="network_queue_busy";break;}
@@ -418,7 +468,7 @@ void processCommands(){
         uint32_t effectiveUTC=0;
         auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,tracker.day.number,effectiveUTC);
         if(result!=CLOCK_ACCEPTED){error="RTC request expired or precedes retained records. Sync again";break;}
-        tracker.interrupt();clockKnown=false;rawKnown=false;
+        tracker.interrupt();clockKnown=false;rawKnown=false;++state.clockRevision;
         if(!rtcWrite(effectiveUTC)){error="RTC write or verification failed";setError(error,"rtc_write_failed");}
         saveCheckpoint(true);break;
       }
@@ -462,9 +512,15 @@ void acquisition(void *) {
   NetworkUpdate networkBoot;networkBoot.stored=nvsOK;
   if(nvsOK&&prefs.isKey("wifi")){
     uint8_t bytes[NETWORK_RECORD_SIZE]={};
-    networkBoot.stored=prefs.getBytesLength("wifi")==sizeof(bytes)&&prefs.getBytes("wifi",bytes,sizeof(bytes))==sizeof(bytes)&&decodeNetwork(bytes,sizeof(bytes),networkBoot.settings);
+    size_t size=prefs.getBytesLength("wifi");networkBoot.stored=(size==104||size==sizeof(bytes))&&prefs.getBytes("wifi",bytes,size)==size&&decodeNetwork(bytes,size,networkBoot.settings);
   }
   xQueueSend(networkQueue,&networkBoot,pdMS_TO_TICKS(100));
+  state.displayStorageOK=nvsOK;
+  if(nvsOK&&prefs.isKey("display")){
+    uint8_t bytes[DISPLAY_RECORD_SIZE]={};
+    state.displayStored=prefs.getBytesLength("display")==sizeof(bytes)&&prefs.getBytes("display",bytes,sizeof(bytes))==sizeof(bytes)&&decodeDisplay(bytes,sizeof(bytes),state.display);
+    state.displayStorageOK=state.displayStored;
+  }
   state.config=config;state.led=defaultLed();state.ledStorageOK=nvsOK;
   if(nvsOK&&prefs.isKey("led")) {
     uint8_t bytes[LED_RECORD_SIZE]={};
@@ -510,9 +566,9 @@ void acquisition(void *) {
       if(clockKnown) {
         int64_t delta=int64_t(utc)-lastClockUTC;
         uint32_t elapsed=(millis()-lastClockMono)/1000;
-        if(delta<0||llabs(delta-int64_t(elapsed))>2){tracker.interrupt();rawKnown=false;}
+        if(delta<0||llabs(delta-int64_t(elapsed))>2){tracker.interrupt();rawKnown=false;++state.clockRevision;}
       }
-      lastClockMono=millis();lastClockUTC=utc;clockKnown=true;state.utc=utc;
+      lastClockMono=millis();lastClockUTC=utc;clockKnown=true;state.utc=utc;state.utcSampleMs=millis();
       uint32_t local=utc+LOCAL_OFFSET,n=local/86400;
       if(tracker.day.number!=n) {
         if(tracker.day.number){tracker.tick(tracker.day.number*86400+86399);saveCheckpoint(true);}
@@ -652,16 +708,17 @@ void webSetup() {
     led["red"]=s.led.red;led["green"]=s.led.green;led["blue"]=s.led.blue;
     led["stored"]=s.ledStored;led["storageOK"]=s.ledStorageOK;
     if(networkAwaitingSave&&networkCommand&&int32_t(s.completedCommand-networkCommand)>=0){
-      for(const auto &result:s.commandResults)if(result.id==networkCommand&&result.error[0])networkAwaitingSave=false;
+      for(const auto &result:s.commandResults)if(result.id==networkCommand&&result.error[0]){networkAwaitingSave=false;networkNotice("Wi-Fi save failed");}
     }
     const NetworkSettings &shownNetwork=networkPending?pendingNetwork:activeNetwork;
     JsonObject network=d["network"].to<JsonObject>();
-    network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
+    network["configuredAPIP"]=ipv4Address(shownNetwork.apIP).toString();network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
     network["hasPassword"]=shownNetwork.password[0]!=0;network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
     bool station=stationReady();network["connected"]=station;network["rssi"]=station?WiFi.RSSI():0;
     network["clientIP"]=station?WiFi.localIP().toString():String();network["apIP"]=apOK?WiFi.softAPIP().toString():String();
     network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
     network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":networkPolicy.fallback?"fallback":"connecting";
+    JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
     if(isfinite(s.secondaryEnergy)){d["secondaryEnergy"]=s.secondaryEnergy;d["secondaryAge"]=(millis()-s.lastSecondaryMs)/1000;}else d["secondaryEnergy"]=nullptr;
     d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;
@@ -681,7 +738,7 @@ void webSetup() {
     scan["busBusy"]=s.scan.busBusy;scan["exceptions"]=s.scan.exceptions;scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
     if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);result["direction"]=s.scan.result.direction==DIRECTION_MANUAL?"manual":"auto";}
     d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
-    if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
+    if(s.rtc){d["clockEpoch"]=s.utc;d["clockSampleAgeMs"]=uint32_t(millis()-s.utcSampleMs);d["clockRevision"]=s.clockRevision;DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
     JsonArray rows=d["slots"].to<JsonArray>();
     for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["quality_code"]=qualityCode(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
@@ -706,10 +763,12 @@ void webSetup() {
     JsonDocument d;d["boot"]=s.flow.boot;d["sequence"]=s.flow.sequence;d["nowUs"]=micros();d["diagnosticActive"]=s.diagnosticActive;
     d["autoDirection"]=s.diagnosticActive?!s.diagnosticManual:s.config.direction==DIRECTION_AUTO;d["capacity"]=FLOW_CAPACITY;d["oldest"]=s.flow.count?s.flow.at(0).seq:0;
     d["gap"]=s.flow.count&&after&&int32_t(s.flow.at(0).seq-after)>1;
-    JsonArray rows=d["events"].to<JsonArray>();
+    uint8_t emitted=0;bool more=false;JsonArray rows=d["events"].to<JsonArray>();
     for(uint8_t i=0;i<s.flow.count;++i){const FlowEvent &e=s.flow.at(i);if(after&&int32_t(e.seq-after)<=0)continue;
+      if(emitted++>=8){more=true;break;}
       JsonObject row=rows.add<JsonObject>();row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
     }
+    d["more"]=more;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/diagnostic",HTTP_GET,[]{
@@ -772,12 +831,29 @@ void webSetup() {
     Command c{};c.type=SET_LED;c.led.mode=mode;c.led.brightness=brightness;c.led.periodMs=period;
     c.led.red=red;c.led.green=green;c.led.blue=blue;enqueueCommand(c);
   });
+  server.on("/api/display",HTTP_POST,[]{
+    if(!authorizePost())return;uint32_t seconds=0;
+    if(!parseNumber(server.arg("idleSeconds"),seconds)||seconds>3600||(seconds>0&&seconds<10)){jsonReply(400,"Choose 0 or 10 to 3600 idle seconds","invalid_display");return;}
+    Command c{};c.type=SET_DISPLAY;c.display.idleSeconds=uint16_t(seconds);enqueueCommand(c);
+  });
+  server.on("/api/network/scan",HTTP_GET,[]{
+    JsonDocument d;d["ageMs"]=wifiScan.finished?uint32_t(millis()-wifiScan.finished):0;d["generation"]=wifiScan.generation;d["phase"]=wifiScan.running?"scanning":wifiScan.failed?"failed":wifiScan.generation?"ready":"idle";
+    JsonArray rows=d["networks"].to<JsonArray>();for(uint8_t i=0;i<wifiScan.count;++i){const WiFiEntry &e=wifiScan.rows[i];JsonObject row=rows.add<JsonObject>();row["ssid"]=e.ssid;row["rssi"]=e.rssi;row["channel"]=e.channel;row["open"]=e.auth==WIFI_AUTH_OPEN;row["supported"]=supportedWiFiAuth(e.auth);}
+    String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/network/scan",HTTP_POST,[]{
+    if(!authorizePost())return;
+    if(wifiScan.running){jsonReply(202,"Wi-Fi scan is running","wifi_scanning");return;}
+    if(!startWiFiScan()){jsonReply(409,"Wait briefly before retrying the Wi-Fi scan","wifi_scan_busy");return;}
+    jsonReply(202,"Wi-Fi scan started","wifi_scanning");
+  });
   server.on("/api/network",HTTP_POST,[]{
     if(!authorizePost())return;
-    if(networkPending||networkAwaitingSave){jsonReply(409,"Network change is still pending","network_pending");return;}
+    if(networkPending||networkAwaitingSave||wifiScan.running){jsonReply(409,"Network change is still pending","network_pending");return;}
     String mode=server.arg("mode"),ssid=server.arg("ssid"),password=server.arg("password");
     if(mode!="ap"&&mode!="client"&&mode!="dual"){jsonReply(400,"Choose an available Wi-Fi mode","invalid_network");return;}
-    Command c{};c.type=SET_NETWORK;c.network=activeNetwork;c.network.mode=mode=="ap"?NETWORK_AP:mode=="client"?NETWORK_CLIENT:NETWORK_DUAL;
+    Command c{};c.type=SET_NETWORK;c.network=activeNetwork;
+    String ap=server.arg("apIP");if(ap.length()&&(strlen(ap.c_str())!=ap.length()||!parseAPAddress(ap.c_str(),c.network.apIP))){jsonReply(400,"Choose a private IPv4 host address for the AP","invalid_ap_ip");return;}c.network.mode=mode=="ap"?NETWORK_AP:mode=="client"?NETWORK_CLIENT:NETWORK_DUAL;
     if(c.network.mode!=NETWORK_AP){
       if(ssid.length()>32||strlen(ssid.c_str())!=ssid.length()||password.length()>64||strlen(password.c_str())!=password.length()){
         jsonReply(400,"SSID or password length is invalid","invalid_network");return;
@@ -865,24 +941,63 @@ struct Button {
   }
 };
 Button buttons[]={Button(PIN_PREV),Button(PIN_NEXT),Button(PIN_OK)};
-uint8_t page=0,slotPage=0;uint32_t lastPaint=0;bool showCredentials=false;
+OledNetworkMenu networkMenu;NetworkSettings oledNetworkDraft;
+char oledNotice[24]={};uint32_t oledNoticeAt=0;
+void networkNotice(const char *message){strlcpy(oledNotice,message,sizeof(oledNotice));oledNoticeAt=millis();}
+bool saveOLEDNetwork(const NetworkSettings &settings,const Snapshot &snapshot){
+  if(snapshot.diagnosticActive||snapshot.scan.phase==SCAN_RUNNING||networkPending||networkAwaitingSave||wifiScan.running){networkNotice("Busy. Finish work first");return false;}
+  if(settings.mode!=NETWORK_AP&&!settings.ssid[0]){networkNotice("Scan/select SSID first");return false;}
+  if(!validNetwork(settings)){networkNotice("Check SSID/key/AP IP");return false;}
+  Command c{};c.type=SET_NETWORK;c.network=settings;c.queuedAt=millis();c.modeRevision=snapshot.modeRevision;c.id=acceptedCommand+1;if(!c.id)c.id=1;
+  if(xQueueSend(commandQueue,&c,0)!=pdTRUE){networkNotice("Queue busy. Retry");return false;}
+  acceptedCommand=c.id;networkAwaitingSave=true;networkCommand=c.id;networkNotice("Saving. Apply in 8s");networkMenu.enter();return true;
+}
+void handleNetworkMenu(uint8_t button,uint8_t event,const Snapshot &snapshot){
+  auto action=networkMenu.handle(button,event,activeNetwork,wifiScan.count);
+  if(action==OledNetworkMenu::SCAN){if(!startWiFiScan()&&!wifiScan.running)networkNotice("Scan busy. Retry soon");}
+  if(action==OledNetworkMenu::SAVE_MODE){NetworkSettings s=activeNetwork;s.mode=networkMenu.selected;saveOLEDNetwork(s,snapshot);}
+  if(action==OledNetworkMenu::SAVE_IP){NetworkSettings s=activeNetwork;s.apIP=networkMenu.address();saveOLEDNetwork(s,snapshot);}
+  if(action==OledNetworkMenu::SELECT_SSID){
+    const auto &entry=wifiScan.rows[networkMenu.selected];
+    if(!supportedWiFiAuth(entry.auth)){networkNotice("Security unsupported");return;}
+    oledNetworkDraft=activeNetwork;if(oledNetworkDraft.mode==NETWORK_AP)oledNetworkDraft.mode=NETWORK_CLIENT;
+    bool reuse=!strcmp(entry.ssid,activeNetwork.ssid)&&activeNetwork.password[0];strlcpy(oledNetworkDraft.ssid,entry.ssid,sizeof(oledNetworkDraft.ssid));
+    if(entry.auth==WIFI_AUTH_OPEN){oledNetworkDraft.password[0]=0;saveOLEDNetwork(oledNetworkDraft,snapshot);}
+    else if(reuse)saveOLEDNetwork(oledNetworkDraft,snapshot);
+    else networkMenu.enterKey();
+  }
+  if(action==OledNetworkMenu::SAVE_KEY){oledNetworkDraft.apIP=activeNetwork.apIP;strlcpy(oledNetworkDraft.password,networkMenu.key,sizeof(oledNetworkDraft.password));if(saveOLEDNetwork(oledNetworkDraft,snapshot)){memset(networkMenu.key,0,sizeof(networkMenu.key));networkMenu.length=0;}}
+}
+void drawNetworkMenu(){
+  using Menu=OledNetworkMenu;oled.setTextSize(1);oled.setCursor(0,0);oled.println("NETWORK OPTIONS");oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
+  if(networkMenu.screen==Menu::MAIN){const char *items[]={"Wi-Fi mode","Scan / select SSID","AP IPv4 address","AP password","Back"};for(unsigned i=0;i<3;++i){unsigned n=(networkMenu.selected+i)%5;oled.print(i?"  ":"> ");oled.println(items[n]);}}
+  else if(networkMenu.screen==Menu::MODE){const char *items[]={"AP only","Client + AP recovery","AP + client"};for(unsigned i=0;i<3;++i){oled.print(networkMenu.selected==i?"> ":"  ");oled.println(items[i]);}}
+  else if(networkMenu.screen==Menu::NETWORKS){if(wifiScan.running)oled.println("Scanning Wi-Fi...");else if(!wifiScan.count)oled.println("No networks. Retry");else{const auto &e=wifiScan.rows[networkMenu.selected%wifiScan.count];oled.printf("%u/%u %ld dBm\n",networkMenu.selected+1,wifiScan.count,(long)e.rssi);oled.println(String(e.ssid).substring(0,21));oled.println(e.auth==WIFI_AUTH_OPEN?"Open network":"Secured: key needed");}}
+  else if(networkMenu.screen==Menu::KEY){oled.printf("Key: %u/63 characters\n",networkMenu.length);for(unsigned i=0;i<networkMenu.length&&i<19;++i)oled.print('*');oled.println();oled.printf("Choose: [%c]\n",networkMenu.letter);oled.println("OK:add Hold:tools");}
+  else if(networkMenu.screen==Menu::KEY_TOOLS){const char *items[]={"Save and connect","Delete last","Clear password","Cancel"};oled.println(items[networkMenu.selected]);oled.println("PREV/NEXT to choose");}
+  else if(networkMenu.screen==Menu::IP){oled.println(ipv4Address(networkMenu.address()).toString());oled.printf("Edit octet %u / 4\n",networkMenu.octet+1);oled.println("OK:next Hold:save");}
+  else if(networkMenu.screen==Menu::IP_TOOLS){const char *items[]={"Save AP address","Reset 192.168.4.1","Cancel"};oled.println(items[networkMenu.selected]);oled.println("Private IPv4 /24");}
+  else if(networkMenu.screen==Menu::AP_PASSWORD){oled.println(AP_SSID);oled.println(AP_PASSWORD);}
+  oled.setCursor(0,56);if(oledNotice[0]&&uint32_t(millis()-oledNoticeAt)<5000)oled.print(String(oledNotice).substring(0,21));else oled.print("Hold OK: tools/back");
+}
+uint8_t page=0,slotPage=0;uint32_t lastPaint=0;
 void drawOLED(const Snapshot &s) {
   if(!oledOK||xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(30))!=pdTRUE)return;
   oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(0,0);
+  if(networkMenu.screen!=OledNetworkMenu::CLOSED){drawNetworkMenu();oled.display();xSemaphoreGive(i2cMutex);return;}
   const char *titles[]={"MIDEA | ENERGY","MORNING INTERVAL","EVENING INTERVAL","NETWORK / WIFI","DIAGNOSTICS"};
   oled.println(titles[page]);oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
   if(page==0){
     if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.println("kWh import");}else oled.println("Waiting for meter");
-    oled.setCursor(0,45);if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char b[25];snprintf(b,sizeof(b),"%02u:%02u:%02u WIB",t.hour(),t.minute(),t.second());oled.println(b);}else oled.println("RTC: SET VIA WEB");
+    oled.setCursor(0,45);if(s.rtc){DateTime t(s.utc+uint32_t(millis()-s.utcSampleMs)/1000+LOCAL_OFFSET);char b[25];snprintf(b,sizeof(b),"%02u:%02u:%02u WIB",t.hour(),t.minute(),t.second());oled.println(b);}else oled.println("RTC: SET VIA WEB");
     oled.setCursor(98,45);oled.print(s.online?"OK":"OFF");
     oled.setCursor(0,56);oled.print(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");
   }else if(page==1||page==2){
     int i=page==1?slotPage%6:6+slotPage%3;const Slot &x=s.day.slots[i];int a=START_MIN[i],b=a+30;char t[24];snprintf(t,sizeof(t),"%02d:%02d - %02d:%02d",a/60,a%60,b/60,b%60);oled.println(t);
     oled.setTextSize(2);oled.setCursor(0,29);if(x.quality==COMPLETE)oled.print(String(x.end-x.start,3));else oled.print("--.---");oled.setTextSize(1);oled.setCursor(0,49);oled.println(qualityCode(x.quality));
   }else if(page==3){
-    if(showCredentials){oled.println("AP password:");oled.println(AP_PASSWORD);}
-    else{oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":"Midea Engineering AP");}
-    oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: AP password");
+    oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":"Midea Engineering AP");
+    oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: network options");
   }else{
     if(s.diagnosticActive){oled.println("UART DIAGNOSTICS");oled.println("Recording paused");oled.println("Resume via web");oled.display();xSemaphoreGive(i2cMutex);return;}
     oled.print("CRC:");oled.print(s.crcErrors);oled.print(" T/O:");oled.println(s.timeouts);
@@ -891,6 +1006,13 @@ void drawOLED(const Snapshot &s) {
     oled.println(s.muted?"ALARM MUTED":"ALARM ENABLED");
   }
   oled.display();xSemaphoreGive(i2cMutex);
+}
+void drawIdleFrame(uint32_t now){
+  uint16_t frame=idleScreen.frame(now,OLED_FRAME_COUNT,OLED_FRAME_PERIOD_MS);if(frame==lastIdleFrame)return;
+  if(!oledOK||xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(2))!=pdTRUE)return;
+  static uint8_t bitmap[1024];
+  if(loadOLEDFrame(frame,bitmap)){oled.clearDisplay();oled.drawBitmap(0,0,bitmap,OLED_FRAME_WIDTH,OLED_FRAME_HEIGHT,SSD1306_WHITE);oled.display();lastIdleFrame=frame;}
+  xSemaphoreGive(i2cMutex);
 }
 void bootAnimation() {
   uint32_t start=millis();
@@ -933,14 +1055,27 @@ void setup() {
 void loop() {
   static uint32_t previousCycle=millis();uiCycleMs=millis()-previousCycle;previousCycle=millis();
   esp_task_wdt_reset();server.handleClient();tickNetwork();Snapshot s{};readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
-  for(int i=0;i<3;++i){uint8_t event=buttons[i].update(now);if(!event)continue;
-    if(i==0){page=(page+4)%5;showCredentials=false;}
-    if(i==1){page=(page+1)%5;showCredentials=false;}
-    if(i==2&&event==1){if(page==1||page==2)++slotPage;else if(page==3)showCredentials=!showCredentials;else{Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}}
+  uint8_t pressed=0;for(unsigned i=0;i<3;++i)if(digitalRead(buttons[i].pin)==LOW)pressed|=uint8_t(1<<i);
+  IdleResult idle=idleScreen.poll(now,pressed,s.display.idleSeconds,oledOK&&!networkPending&&!networkAwaitingSave&&!wifiScan.running);
+  if(idle.woke){page=0;networkMenu.screen=OledNetworkMenu::CLOSED;memset(networkMenu.key,0,sizeof(networkMenu.key));networkMenu.length=0;lastIdleFrame=0xffff;lastPaint=now-300;}
+  static uint32_t heldAt[2]={},repeatAt[2]={},suppressUntil[2]={};static bool repeated[2]={};
+  for(int i=0;i<3;++i){uint8_t event=buttons[i].update(now);
+    if(i<2&&networkMenu.repeating()){
+      if(digitalRead(buttons[i].pin)==LOW){if(!heldAt[i])heldAt[i]=now;if(uint32_t(now-heldAt[i])>=450&&uint32_t(now-repeatAt[i])>=80){repeatAt[i]=now;repeated[i]=true;handleNetworkMenu(i,1,s);}}
+      else{if(heldAt[i]&&repeated[i])suppressUntil[i]=now+100;heldAt[i]=0;repeated[i]=false;}
+      if(repeated[i]||int32_t(suppressUntil[i]-now)>0)event=0;
+    }else if(i<2){heldAt[i]=0;repeated[i]=false;}
+    if(!event||idle.consume)continue;
+    if(networkMenu.screen!=OledNetworkMenu::CLOSED){handleNetworkMenu(i,event,s);continue;}
+    if(i==0){page=(page+4)%5;}
+    if(i==1){page=(page+1)%5;}
+    if(i==2&&event==1){if(page==1||page==2)++slotPage;else if(page==3)networkMenu.enter();else{Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}}
+    if(i==2&&event==2&&page==3){networkMenu.enter();continue;}
     if(i==2&&event==2){Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}
   }
   bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&!s.diagnosticActive&&now>20000&&(!s.rtc||!s.online||!s.storage);
   digitalWrite(PIN_BUZZER,alarm&&now%10000<120?HIGH:LOW);
-  if(now-lastPaint>=300){lastPaint=now;drawOLED(s);}
+  if(idle.sleeping)drawIdleFrame(now);
+  else if(now-lastPaint>=300){lastPaint=now;drawOLED(s);}
   delay(5); // Both idle tasks must run; Wi-Fi needs scheduler headroom.
 }

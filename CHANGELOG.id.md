@@ -6,6 +6,12 @@
 
 
 
+## 2.1.0 / 27 Oktober 2026
+
+Dashboard lokal kini menyediakan mode Wi-Fi AP/client/gabungan dengan alamat DHCP, pergantian koneksi tertunda dan AP pemulihan. Kredensial melalui validasi serta record NVS ber-CRC di core 1 sebelum diterapkan driver core 0, dan password tersimpan tidak dikembalikan endpoint status.
+
+Konsol web menampilkan setting sesi dan counter bukti, disertai kontrol register/setting uji serta preset float primer. Perbandingan capture menolak perubahan direction, pin arah dan timing settle/gap. Header serta OLED mengikuti IP aktual, sedangkan panduan web memetakan setiap route API produksi ke antarmukanya. Pengujian native dan byte browser generated mencakup pengaturan baru, kebijakan fallback dan payload rusak.
+
 ## 2.0.0 / 2026-10-27
 
 Jalur pengukuran sekarang mengikuti sketch ModbusMaster yang dilaporkan berhasil: DE-/RE manual pada GPIO16, TX17/RX18, settling 100 µs dan request awal 0x0058/dua word. Polling, scanner dan INO memakai satu source FortMeter bersama yang mengganti kolektor gap software. Jalur generator/header lama dipertahankan untuk kompatibilitas, bukan sebagai parser kedua.

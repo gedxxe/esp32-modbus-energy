@@ -2,7 +2,7 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-Versi 2.0.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.1.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -61,3 +61,13 @@ Checkpoint hari memiliki magic serta CRC. Penggantian CSV memakai file sementara
 HTTP 202 berarti perintah diterima antrean. Browser menunggu hasil ID yang tepat dari ring delapan completion, sementara Stop/Resume memiliki jalur prioritas. Skema payload melindungi tabel arsip/proses, trace dan event agar respons rusak tidak menjatuhkan halaman. Animasi hanya mereplay timestamp event dengan delay polling/jaringan, bukan mengukur waveform A/B. Persentase core mengambil sampel non-idle pada tick, sedangkan stack high-water merupakan minimum historis.
 
 INO mandiri mengikutsertakan FortDiagnostics dari library yang sama dengan firmware utama. File `diagnostic_engine.h` dan `build-diagnostic.py` dipertahankan sebagai jalur kompatibilitas/provenance yang tidak menduplikasi parser. Arduino IDE memakai ZIP FortMeter yang disertakan agar hook serta lisensinya cocok. Nilai diagnostik hanya RAM dan tidak menjadi data interval produksi. Langkah operator tersedia pada [DIAGNOSTICS](DIAGNOSTICS.md).
+
+## State Wi-Fi dan persistensi
+
+Driver Wi-Fi berjalan di core 0, sedangkan core 1 memvalidasi dan menyimpan record kredensial 104 byte ber-versi pada key Preferences `wifi`. Formatnya mengodekan mode, 33 byte SSID, 65 byte key dan CRC16 secara eksplisit agar tidak bergantung padding struct. CRC mendeteksi kerusakan record dan tidak mengenkripsi kredensial. WiFi.persistent(false) mencegah driver membuat konfigurasi persisten kedua di luar kepemilikan core 1.
+
+Perintah jaringan harus lolos guard mode/revisi/umur dan tersimpan sebelum dikirim melalui antrean satu slot ke core 0. Penundaan delapan detik memberi browser waktu membaca hasil HTTP. Kegagalan simpan mempertahankan koneksi, sedangkan record boot rusak menyisakan AP default. Mode AP mempertahankan kredensial client dan endpoint GET tidak mengembalikan password tersimpan.
+
+NetworkPolicy pada network.h menghitung waktu dengan aman terhadap rollover tanpa memanggil driver. Core 0 memeriksa link setiap 250 ms, menjaga AP selama percobaan serta retry, lalu memberi tenggang 15 detik sesudah DHCP berhasil sebelum menonaktifkan AP dalam mode client. Koneksi yang hilang mengembalikan AP dan percobaan diulang setiap 30 detik. Mode AP + client memakai radio bersama, dengan pemeriksaan prefix subnet LAN/AP untuk memilih alamat yang tidak bertabrakan. Timing WLAN, DHCP dan isolasi router tetap memerlukan penerimaan perangkat fisik.
+
+Endpoint diagnostik kini membawa setting sesi aktual serta counter bukti, dan mengikuti koneksi/status produksi ketika maintenance tidak aktif. Kontrol browser terstruktur menyusun perintah yang sama dengan konsol INO. Perbandingan capture juga mewajibkan direction, pin arah dan timing settle/gap sama agar perubahan transport tidak dibaca sebagai perubahan A/B semata. Peta route ke pemilik dan langkah operator tersedia pada [WEB](WEB.md).

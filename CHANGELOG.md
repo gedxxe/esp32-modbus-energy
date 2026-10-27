@@ -5,6 +5,12 @@
 
 
 
+## 2.1.0 / 27 October 2026
+
+The local dashboard now exposes AP/client/combined Wi-Fi configuration with DHCP addresses, a deferred connection change and recovery AP behavior. Credentials pass through core 1 validation and versioned CRC-protected NVS before core 0 applies driver changes, and saved passwords are not returned by status endpoints.
+
+Diagnostic session settings and evidence counters are visible in the web console, with structured register/trial controls and a primary-float shortcut. Capture comparison now rejects changed direction, direction pin and settling/gap timing. The header and OLED follow the current reachable IP, and the new web guide maps every production API route to its interface. Native and generated-byte browser coverage includes the new settings, fallback policy and malformed payloads.
+
 ## 2.0.0 / 2026-10-27
 
 The measurement path now follows the user's successful ModbusMaster sketch, with manual DE-/RE on GPIO16, TX17/RX18, 100 µs direction settling and 0x0058/two words as the first contact request. Production polling, scanner probes and the standalone sketch consume one source-shared FortMeter library, replacing the former software-gap collector. The preserved generator/header paths provide compatibility rather than a second parser.

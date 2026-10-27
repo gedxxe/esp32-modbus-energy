@@ -60,3 +60,23 @@ export function validSystem(value) {
       uint(task.core, 1) && uint(task.priority, 255) && uint(task.stackFreeMin) &&
       ["running", "ready", "blocked", "suspended", "deleted", "invalid"].includes(task.state));
 }
+
+const ipv4 = (value) => typeof value === "string" && (value === "" ||
+  (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) && value.split(".").every((part) => Number(part) <= 255)));
+export function validNetworkView(value) {
+  return object(value) && ["ap", "client", "dual"].includes(value.mode) &&
+    ["ap", "client", "dual"].includes(value.activeMode) &&
+    ["applying", "ap", "online", "fallback", "connecting"].includes(value.phase) &&
+    [value.pending, value.connected, value.apActive, value.hasPassword, value.stored].every((v) => typeof v === "boolean") &&
+    typeof value.ssid === "string" && value.ssid.length <= 32 &&
+    typeof value.apSSID === "string" && value.apSSID.length <= 32 &&
+    [value.clientIP, value.apIP, value.address].every(ipv4) && Number.isFinite(value.rssi);
+}
+export function validDiagnostic(value) {
+  return object(value) && typeof value.log === "string" && value.log.length <= 8192 &&
+    typeof value.active === "boolean" && typeof value.busy === "boolean" &&
+    uint(value.generation) && uint(value.discardedBytes) && uint(value.pendingCommands, 32) &&
+    object(value.evidence) && Object.values(value.evidence).every((v) => typeof v === "boolean" || uint(v)) &&
+    serial(value.settings) && ["manual", "auto"].includes(value.settings.direction) &&
+    ["rx", "tx", "dir", "timeout", "gap", "settle", "probe", "words", "status"].every((key) => uint(value.settings[key], 65535));
+}

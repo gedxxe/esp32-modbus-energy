@@ -1,4 +1,4 @@
-# Implementation review for version 2.0.0
+# Implementation review for version 2.1.0
 
 **English** · [Bahasa Indonesia](id/AUDIT.md)
 
@@ -15,6 +15,10 @@ The upstream source is pinned at v2.0.1 and the small service-hook patch is reta
 The first contact query is the manual's 0x0058/two-word current request. A valid exception preserves protocol contact while leaving that value missing, allowing other profile reads to continue. The secondary counter is available without valid ratios, whereas production intervals still require validated CT/PT applied once and accepted time/continuity. Primary float ordering stays an explicit comparison rather than an automatic fallback.
 
 CRC-valid v1 connection records migrate to manual direction while preserving serial settings. Day and LED records keep their formats, completed intervals remain protected, and filesystem formatting still requires physical confirmation. The web exposes direction and direct register readings, keeps stop/resume independent of ordinary command waits and validates rows before rendering them. Wiring and technical prose have been rewritten around the confirmed manual installation.
+
+## Web integration and Wi-Fi
+
+The local application now exposes session settings, evidence counters, structured raw reads, trial-setting controls and the primary-float command alongside the existing scanner, trace, flow and process views. AP/client/dual Wi-Fi configuration follows a separate core 1 persistence and core 0 driver pipeline, with credential validation, deferred application and recovery AP behavior. Header/OLED addresses now follow the actual interface rather than a fixed AP address. Capture comparisons also reject changed direction and settling/gap timing. The [web guide](WEB.md) maps every registered API route to its interface and owner.
 
 ## Limits that remain
 

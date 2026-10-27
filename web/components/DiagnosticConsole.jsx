@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
+import { validDiagnostic } from "../validation.js";
 const recipes = [
   ["diagnose", "diagnose"],
   ["basic", "basic"],
@@ -7,6 +8,8 @@ const recipes = [
   ["map", "deeper"],
   ["rx", "rxcheck"],
   ["report", "report"],
+  ["primary", "primary"],
+  ["status", "status"],
   ["connected", "check connected"],
   ["isolated", "check isolated"],
   ["compare", "compare"],
@@ -16,6 +19,8 @@ function ConsoleData({ device }) {
   const [view, setView] = useState(null),
     [command, setCommand] = useState("diagnose"),
     [failed, setFailed] = useState(false);
+  const [address, setAddress] = useState("0058"), [words, setWords] = useState(2);
+  const [setting, setSetting] = useState("timeout"), [value, setValue] = useState("2000");
   useEffect(() => {
     let alive = true,
       timer,
@@ -30,7 +35,7 @@ function ConsoleData({ device }) {
         });
         if (!response.ok) throw new Error();
         const body = await response.json();
-        if (typeof body.log !== "string" || body.log.length > 8192)
+        if (!validDiagnostic(body))
           throw new Error();
         if (alive) {
           setView(body);
@@ -92,6 +97,40 @@ function ConsoleData({ device }) {
           </button>
         ))}
       </div>
+      {view?.settings && <div className="diagnostic-summary">
+        <h3>{t("diag_values")}</h3><p className="small muted">{t("diag_values_intro")}</p>
+        <div className="pins" id="diagnostic-settings">
+          <code>ID {view.settings.slave} / {view.settings.baud} / 8{view.settings.parity}1</code>
+          <code>RX{view.settings.rx} / TX{view.settings.tx} / DIR{view.settings.dir} / {view.settings.direction}</code>
+          <code>timeout {view.settings.timeout} ms / gap {view.settings.gap} ms / settle {view.settings.settle} µs</code>
+          <code>Modbus 0x{view.settings.status.toString(16).padStart(2, "0").toUpperCase()}</code>
+        </div>
+      </div>}
+      {view?.evidence && <details className="diag-reference" id="diagnostic-evidence">
+        <summary>{t("diag_counts")}</summary><dl className="diagnostic-counts">
+          {["requests", "rxBytes", "data", "exceptions", "crcBad", "shortFrames", "timeouts", "echoes", "wrongFrames", "localErrors"].map((key) =>
+            <div key={key}><dt>{t(`diag_count_${key}`)}</dt><dd>{view.evidence[key] ?? 0}</dd></div>)}
+        </dl>
+      </details>}
+      <details className="diag-reference" id="diagnostic-tools">
+        <summary>{t("diag_read_title")} / {t("diag_setting_title")}</summary>
+        <form id="diagnostic-register-form" onSubmit={(event) => {
+          event.preventDefault();
+          const start = /^[0-9a-fA-F]{1,4}$/.test(address) ? parseInt(address, 16) : NaN;
+          if (!Number.isInteger(start) || start + Number(words) > 65536) { device.setNotice({key:"invalid_diagnostic_command"}); return; }
+          const line = `reg ${address} ${words}`;setCommand(line);send(line);
+        }}>
+          <div className="form-grid"><div><label htmlFor="diagnostic-address">{t("diag_address")}</label><input id="diagnostic-address" value={address} pattern="[0-9a-fA-F]{1,4}" maxLength={4} required disabled={blocked} onChange={(event) => setAddress(event.target.value)} /></div>
+          <div><label htmlFor="diagnostic-words">{t("diag_words")}</label><select id="diagnostic-words" value={words} disabled={blocked} onChange={(event) => setWords(Number(event.target.value))}>{[1,2,3].map((n) => <option key={n}>{n}</option>)}</select></div></div>
+          <button id="diagnostic-read" type="submit" className="button" disabled={blocked}>{t("diag_read_action")}</button>
+        </form>
+        <form id="diagnostic-setting-form" onSubmit={(event) => { event.preventDefault();const line=`${setting} ${value.trim()}`;setCommand(line);send(line); }}>
+          <div className="form-grid"><div><label htmlFor="diagnostic-setting">{t("diag_setting")}</label><select id="diagnostic-setting" value={setting} disabled={blocked} onChange={(event) => {setSetting(event.target.value);setValue(({id:"1",baud:"9600",parity:"N",direction:"manual",timeout:"2000",gap:"200",settle:"100",interval:"2000",probe:"0058 2",energy:"0082",ratios:"002C",scale:"0.001",order:"normal",decode:"on",pins:"18 17",range:"1 16",scanmode:"current",bauds:"9600 19200",parities:"NE"})[event.target.value]);}}>
+            {["id","baud","parity","direction","timeout","gap","settle","interval","probe","energy","ratios","scale","order","decode","pins","range","scanmode","bauds","parities"].map((key) => <option key={key}>{key}</option>)}
+          </select></div><div><label htmlFor="diagnostic-setting-value">{t("diag_setting_value")}</label><input id="diagnostic-setting-value" value={value} required maxLength={60} pattern="[ -~]+" disabled={blocked} autoCapitalize="none" spellCheck={false} onChange={(event) => setValue(event.target.value)} /></div></div>
+          <p className="small muted">{t("diag_setting_note")}</p><button id="diagnostic-setting-apply" type="submit" className="button" disabled={blocked}>{t("diag_setting_action")}</button>
+        </form>
+      </details>
       <form
         className="diag-input"
         onSubmit={(event) => {
@@ -195,7 +234,7 @@ function ConsoleData({ device }) {
           <br />
           energy 0082 · ratios 002C · scale 0.001 · order swap · decode off
           <br />
-          listen 5 · read · poll · stats clear · status · help · resume
+          primary · listen 5 · read · poll · stats clear · status · help · resume
         </code>
       </details>
       <p className="small muted">{t("diag_limits")}</p>

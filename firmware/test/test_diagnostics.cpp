@@ -9,6 +9,14 @@ static FortDiagnostics *stopTarget=nullptr;static int cooperateCount=0,lastObser
 std::vector<uint8_t> response(std::initializer_list<uint8_t> bytes){std::vector<uint8_t> out(bytes);uint16_t crc=meterCRC(out.data(),out.size());out.push_back(uint8_t(crc));out.push_back(uint8_t(crc>>8));return out;}
 int main(){
  uint8_t out[6]={};
+ {HardwareSerial port(1);FortDiagnostics engine(port);FortDiagnostics::Capture a,b;
+  assert(engine.sameCaptureSettings(a,b));b.settings.manualDirection=false;assert(!engine.sameCaptureSettings(a,b));b=a;
+  b.settings.settleUs=200;assert(!engine.sameCaptureSettings(a,b));b=a;
+  b.settings.gapMs=300;assert(!engine.sameCaptureSettings(a,b));b=a;
+  b.settings.dir=15;assert(!engine.sameCaptureSettings(a,b));
+  engine.options.dir=15;assert(!engine.allowedPin(15)&&engine.allowedPin(16));
+ }
+
  {HardwareSerial port(1);char log[8192];FortDiagnostics engine(port,log,sizeof(log));
   port.replies.push_back(response({1,3,4,0,0,0xC3,0x17}));assert(engine.readRegisters(engine.current,0x58,2,out));
   assert(meter::u32((out[0]<<8)|out[1],(out[2]<<8)|out[3])==49943);

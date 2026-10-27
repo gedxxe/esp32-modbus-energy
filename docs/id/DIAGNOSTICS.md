@@ -2,11 +2,15 @@
 
 [English](../DIAGNOSTICS.md) · **Bahasa Indonesia** · [Ringkasan](../../README.id.md)
 
-Firmware 2.0.0 memakai source FortMeter/ModbusMaster yang sama untuk pembacaan normal, probe scanner dan sketch mandiri. Konsol menguji jalur pembacaan yang benar-benar dipakai aplikasi, dengan default manual pada TX17/RX18/DIR16, timeout 2000 ms, settling driver/receiver 100 µs dan jarak request 200 ms.
+Firmware 2.1.0 memakai source FortMeter/ModbusMaster yang sama untuk pembacaan normal, probe scanner dan sketch mandiri. Konsol menguji jalur pembacaan yang benar-benar dipakai aplikasi, dengan default manual pada TX17/RX18/DIR16, timeout 2000 ms, settling driver/receiver 100 µs dan jarak request 200 ms.
+
+
+Konsol web juga menampilkan setting sesi serta counter bukti, dengan kontrol register dan setting uji terstruktur. Preset float primer menyiapkan perintah `primary` yang sama dengan sketch mandiri. [Panduan web terpadu](WEB.md) memuat peta fitur ke API beserta langkah koneksi AP/client.
+
 
 ## Langkah awal di panel
 
-1. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**, lalu buka **http://192.168.4.1** dan pastikan footer Firmware 2.0.0. Samakan ID/baud/parity dengan menu CONi Fort dan pilih Manual direction untuk rangkaian DE-/RE terkonfirmasi.
+1. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**, lalu buka **http://192.168.4.1** dan pastikan footer Firmware 2.1.0. Samakan ID/baud/parity dengan menu CONi Fort dan pilih Manual direction untuk rangkaian DE-/RE terkonfirmasi.
 2. Buka **Diagnostic console**, ketik `status` pada **Command input web**, lalu pilih **Run command**. Periksa ID, format, direction serta timing yang tercetak sebelum memulai tes. Baris ini merupakan input perangkat, bukan pesan ke chat dukungan.
 3. Ketik `intermediate` sebagai perintah baru dan pilih Run command untuk mengirim contoh arus fasa A pada `0x0058`, dua register. Pada ID 1, TX harus `01 03 00 58 00 02 45 D8`. Output memuat RX mentah dan status ModbusMaster.
 4. Masukkan `diagnose` secara terpisah jika memerlukan catatan lebih luas. Tes mengamati RX pasif tiga detik, mencoba probe dan melanjutkan plan register mentah, termasuk energi/rasio ketika decode aktif. Alamat pertama yang diam tidak menghentikan seluruh plan.

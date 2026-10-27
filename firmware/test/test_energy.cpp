@@ -1,3 +1,4 @@
+#include "network.h"
 #include "energy.h"
 #include "debounce.h"
 #include "recovery.h"
@@ -47,7 +48,31 @@ void testBoundedHTTP(){
   auto fatal=[](const char *,size_t){return -1;};
   assert(boundedWrite(bytes,sizeof(bytes),time,10,clock,ready,fatal,service)==0);
 }
+void testNetwork(){
+  using namespace fort;
+  NetworkSettings s{};assert(validNetwork(s));s.mode=NETWORK_CLIENT;assert(!validNetwork(s));
+  strcpy(s.ssid,"Plant WiFi");assert(validNetwork(s));strcpy(s.password,"short");assert(!validNetwork(s));
+  strcpy(s.password,"plant-key-123");assert(validNetwork(s));
+  uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(s,bytes);NetworkSettings restored{};
+  assert(decodeNetwork(bytes,sizeof(bytes),restored)&&!strcmp(restored.password,s.password)&&restored.mode==NETWORK_CLIENT);
+  bytes[42]^=1;assert(!decodeNetwork(bytes,sizeof(bytes),restored));assert(!decodeNetwork(bytes,20,restored));
+  memset(s.password,'a',64);s.password[64]=0;assert(validNetwork(s));s.password[10]='z';assert(!validNetwork(s));
+  memset(s.ssid,'x',33);assert(!validNetwork(s));
+  NetworkPolicy policy;policy.begin(NETWORK_CLIENT,0);assert(policy.apWanted(0));
+  assert(!policy.update(29999,false)&&!policy.fallback);assert(policy.update(30000,false)&&policy.fallback);
+  assert(!policy.update(30001,false));assert(!policy.update(31000,true)&&!policy.fallback);
+  assert(policy.apWanted(45999)&&!policy.apWanted(46000));
+  policy.update(46001,false);assert(policy.apWanted(46001));assert(!policy.fallback);
+  policy.begin(NETWORK_DUAL,0);policy.update(1,true);assert(policy.apWanted(90000));
+  policy.begin(NETWORK_AP,0);assert(!policy.update(60000,false)&&policy.apWanted(60000)&&!policy.fallback);
+  policy.begin(NETWORK_CLIENT,0xFFFFFF00UL);assert(policy.update(0xFFFFFF00UL+uint32_t(30000),false));
+  assert(chooseAPAddress(0,0)==0xC0A80401);assert(chooseAPAddress(0xC0A80428,0)==0);assert(chooseAPAddress(0xC0A80428,0xFFFFFFF0)==0xC0A80501);assert(chooseAPAddress(0xC0A80428,0xFFFFFF00)==0xC0A80501);
+  assert(chooseAPAddress(0xC0A80428,0xFFFF0000)==0x0A2A0001);
+  std::cout<<"PASS: Wi-Fi settings/CRC/key validation, AP/client/dual retry/grace/loss/rollover and LAN overlap policy\n";
+  assert(commandModeAllowed(SET_NETWORK,false,false,false));assert(!commandModeAllowed(SET_NETWORK,true,false,false));assert(!commandModeAllowed(SET_NETWORK,false,true,false));
+}
 int main(){
+  testNetwork();
   testBoundedHTTP();
   {Settings legacy;legacy.magic=0x46525431;legacy.slave=7;legacy.baud=19200;legacy.parity='E';legacy.direction=255;
    assert(migrateLegacySettings(legacy)&&validSettings(legacy)&&legacy.direction==DIRECTION_MANUAL&&legacy.slave==7&&legacy.baud==19200&&legacy.parity=='E');

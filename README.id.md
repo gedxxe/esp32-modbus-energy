@@ -2,11 +2,11 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 2.0.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 2.1.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
 Proyek ini membaca power meter Fort melalui ESP32-S3 N16R8 dan menyediakan dashboard pada access point lokal. HP dapat menampilkan counter energi, memeriksa konsumsi setengah jam, mengunduh arsip dan menjalankan diagnostik tanpa internet, sementara OLED menyediakan pembacaan serta alamat IP langsung pada perangkat.
 
-Firmware 2.0.0 mengganti parser berbasis jeda respons dengan transport ModbusMaster bersama. Acuannya adalah sketch yang dilaporkan berhasil oleh pengguna: UART1 pada TX17/RX18, kontrol DE-/RE manual pada GPIO16, settling 100 µs di sekitar transmisi, serta request contoh manual pada `0x0058`. Keberhasilan sketch acuan tidak dianggap otomatis membuktikan rilis terintegrasi. Hasil software dan penerimaan hardware dipisahkan pada [VALIDATION](docs/id/VALIDATION.md).
+Firmware 2.1.0 mengganti parser berbasis jeda respons dengan transport ModbusMaster bersama. Acuannya adalah sketch yang dilaporkan berhasil oleh pengguna: UART1 pada TX17/RX18, kontrol DE-/RE manual pada GPIO16, settling 100 µs di sekitar transmisi, serta request contoh manual pada `0x0058`. Keberhasilan sketch acuan tidak dianggap otomatis membuktikan rilis terintegrasi. Hasil software dan penerimaan hardware dipisahkan pada [VALIDATION](docs/id/VALIDATION.md).
 
 ## Dashboard
 
@@ -56,7 +56,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.16 |
 | Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 2.0.0 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 2.1.0 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / GSAP | 19.3.1 / 19.3.1 / 3.15.0 |
@@ -64,9 +64,15 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.0.0, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.1.0, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
+
+### Mode AP dan client Wi-Fi
+
+Buka **Perangkat & arsip → Koneksi Wi-Fi** untuk memilih AP, Client dengan pemulihan AP, atau AP + client dan memasukkan SSID 2,4 GHz. Setting disimpan sebelum koneksi berubah setelah delapan detik. Mode client mempertahankan AP selama mencoba terhubung dan 15 detik setelah DHCP berhasil, lalu memunculkannya kembali jika koneksi putus. Baca IP terbaru pada panel web atau OLED, khususnya jika subnet LAN bertabrakan dengan AP. [Panduan web terpadu](docs/id/WEB.md) menjelaskan penyimpanan password, pemulihan dan seluruh fitur yang tersedia.
+
+![Mode koneksi Wi-Fi](docs/assets/network-modes.svg)
 
 ### Diagnostik tanpa mengganti firmware
 

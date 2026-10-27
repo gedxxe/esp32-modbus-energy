@@ -182,7 +182,7 @@ export default function Application() {
           <div className="device-id mono">
             ESP32-S3 N16R8
             <br />
-            192.168.4.1
+            {typeof s?.network?.address === "string" && s.network.address ? s.network.address : location.hostname}
           </div>
         </div>
         <nav

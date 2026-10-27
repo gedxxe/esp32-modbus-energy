@@ -58,6 +58,16 @@ for file in svgs:
                 if key.endswith('href'):need(value.startswith('#'),f'{file.relative_to(ROOT)}: external SVG resource')
     except ET.ParseError as e:errors.append(f'{file.relative_to(ROOT)}: {e}')
 
+# All production API capabilities must be reachable and documented in the local app.
+main_source=(ROOT/'firmware/src/main.cpp').read_text(encoding='utf-8')
+device_routes=set(re.findall(r'server\.on\("(/api/[a-z/]+)"',main_source))
+web_source='\n'.join(p.read_text(encoding='utf-8') for p in (ROOT/'web').rglob('*') if p.suffix in ['.jsx','.js'] and 'vendor' not in p.parts)
+web_routes=set(re.findall(r'/api/[a-z/]+',web_source))
+need(device_routes==web_routes,f'Web/firmware API integration differs: {device_routes ^ web_routes}')
+for language_guide in ['docs/WEB.md','docs/id/WEB.md']:
+    documented=set(re.findall(r'/api/[a-z/]+',(ROOT/language_guide).read_text(encoding='utf-8')))
+    need(documented==device_routes,f'{language_guide}: incomplete API integration map')
+
 version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text(encoding='utf-8')).group(1)
 package=json.loads((ROOT/'package.json').read_text(encoding='utf-8'))
 need(package['version']==version,'package.json and firmware versions differ')

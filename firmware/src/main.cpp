@@ -27,6 +27,7 @@
 #include "clock_guard.h"
 #include "command_policy.h"
 #include "bounded_write.h"
+#include "network.h"
 
 SET_LOOP_TASK_STACK_SIZE(16384);
 using namespace fort;
@@ -51,11 +52,53 @@ class BoundedWebServer:public WebServer {
 };
 BoundedWebServer server(80);
 SemaphoreHandle_t i2cMutex,fsMutex;
-QueueHandle_t snapshotQueue,commandQueue;
+QueueHandle_t snapshotQueue,commandQueue,networkQueue;
 bool oledOK=false,apOK=false;
 String apiToken;
 
-struct Command { CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
+// Wi-Fi driver calls stay on core 0. Only core 1 writes the credential record.
+struct NetworkUpdate {NetworkSettings settings{};bool stored=true,deferred=false;};
+NetworkSettings activeNetwork{},pendingNetwork{};
+NetworkPolicy networkPolicy;
+bool networkStored=true,networkPending=false,networkAwaitingSave=false;
+uint32_t networkPendingAt=0,networkCommand=0,lastNetworkTick=0,apAddress=0xC0A80401,lastAPTry=0;
+uint32_t ipv4(const IPAddress &ip){return (uint32_t(ip[0])<<24)|(uint32_t(ip[1])<<16)|(uint32_t(ip[2])<<8)|ip[3];}
+IPAddress ipv4Address(uint32_t value){return IPAddress(value>>24,(value>>16)&255,(value>>8)&255,value&255);}
+bool stationReady(){return activeNetwork.mode!=NETWORK_AP&&WiFi.status()==WL_CONNECTED&&WiFi.SSID()==activeNetwork.ssid&&ipv4(WiFi.localIP())!=0;}
+bool startAP(uint32_t address){
+  lastAPTry=millis();if(!address)return false;
+  if(!WiFi.enableAP(true))return false;
+  IPAddress ip=ipv4Address(address),mask(255,255,255,0);
+  bool ready=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(AP_SSID,AP_PASSWORD,6,false,4);
+  if(ready)apAddress=address;return ready;
+}
+void applyNetwork(const NetworkSettings &settings){
+  activeNetwork=settings;networkPolicy.begin(settings.mode,millis());
+  WiFi.setAutoReconnect(false);if(WiFi.getMode()&WIFI_MODE_STA)WiFi.disconnect(false,false);
+  WiFi.mode(settings.mode==NETWORK_AP?WIFI_AP:WIFI_AP_STA);WiFi.setSleep(false);
+  WiFi.setHostname("fort-energy");apOK=startAP(0xC0A80401);
+  if(settings.mode!=NETWORK_AP)WiFi.begin(settings.ssid,settings.password[0]?settings.password:nullptr);
+}
+void tickNetwork(){
+  uint32_t now=millis();NetworkUpdate update;
+  if(xQueueReceive(networkQueue,&update,0)==pdTRUE){
+    networkStored=update.stored;networkAwaitingSave=false;
+    if(update.deferred){pendingNetwork=update.settings;networkPending=true;networkPendingAt=now;}
+    else if(memcmp(&activeNetwork,&update.settings,sizeof(activeNetwork)))applyNetwork(update.settings);
+  }
+  if(networkPending&&uint32_t(now-networkPendingAt)>=NETWORK_APPLY_DELAY_MS){networkPending=false;applyNetwork(pendingNetwork);}
+  if(uint32_t(now-lastNetworkTick)<250)return;
+  lastNetworkTick=now;bool ready=stationReady();
+  bool retry=networkPolicy.update(now,ready);
+  if(networkPolicy.apWanted(now)){
+    uint32_t address=ready?chooseAPAddress(ipv4(WiFi.localIP()),ipv4(WiFi.subnetMask())):apAddress;
+    if((!apOK||address!=apAddress)&&uint32_t(now-lastAPTry)>=3000)apOK=startAP(address);
+  }else if(apOK&&WiFi.enableAP(false)){apOK=false;}
+  if(retry){WiFi.disconnect(false,false);WiFi.begin(activeNetwork.ssid,activeNetwork.password[0]?activeNetwork.password:nullptr);}
+}
+String preferredAddress(){return stationReady()?WiFi.localIP().toString():apOK?WiFi.softAPIP().toString():String();}
+
+struct Command { CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
 struct CommandResult { uint32_t id=0;char error[80]={}; };
 constexpr uint8_t COMMAND_RESULTS=8;
 uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
@@ -118,6 +161,7 @@ uint32_t diagnosticActiveGeneration=0; // Core 1 only.
 struct DiagnosticView {
   uint32_t generation=0,discarded=0;bool active=false,busy=false;
   DiagnosticEngine::Evidence evidence{};
+  DiagnosticEngine::Link link{};DiagnosticEngine::DebugOptions options{};uint8_t status=0xE2;
   char log[DIAGNOSTIC_LOG_SIZE+1]={};
 };
 QueueHandle_t diagnosticInputQueue,diagnosticStopQueue,diagnosticViewQueue;
@@ -142,7 +186,7 @@ struct ConfigRecord { Settings settings{};uint16_t crc=0; };
 void setError(const char *s,const char *code) { strlcpy(state.error,s,sizeof(state.error));strlcpy(state.errorCode,code,sizeof(state.errorCode)); }
 bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
 DiagnosticEngine::Link diagnosticLink(const Settings &settings){DiagnosticEngine::Link link;link.id=settings.slave;link.baud=settings.baud;link.parity=settings.parity;return link;}
-void startBusFor(const Settings &config){normalReader.options.rx=PIN_RX;normalReader.options.tx=PIN_TX;normalReader.options.manualDirection=config.direction==DIRECTION_MANUAL;normalReader.openLink(diagnosticLink(config));}
+void startBusFor(const Settings &config){normalReader.options.rx=PIN_RX;normalReader.options.tx=PIN_TX;normalReader.options.dir=PIN_RS485_DE;normalReader.options.manualDirection=config.direction==DIRECTION_MANUAL;normalReader.openLink(diagnosticLink(config));}
 void startBus(){startBusFor(state.config);}
 uint8_t currentAttempt=1;bool readingNormally=true;
 void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,uint8_t words,const uint8_t *tx,const uint8_t *rx,size_t size,bool overflow){
@@ -279,6 +323,7 @@ void publish() {
 
 void publishDiagnostic(){
   diagnosticView.active=diagnosticActive;diagnosticView.busy=diagnostic.busy();diagnosticView.evidence=diagnostic.evidence;
+  diagnosticView.link=diagnosticActive?diagnostic.current:diagnosticLink(state.config);diagnosticView.options=diagnosticActive?diagnostic.options:normalReader.options;diagnosticView.status=diagnosticActive?diagnostic.lastStatus:normalReader.lastStatus;
   diagnosticView.discarded=diagnostic.logDiscarded;diagnostic.copyLog(diagnosticView.log,sizeof(diagnosticView.log));
   xQueueOverwrite(diagnosticViewQueue,&diagnosticView);lastDiagnosticPublish=millis();
 }
@@ -360,6 +405,15 @@ void processCommands(){
         state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);state.ledStorageOK=state.ledStored;
         if(!state.ledStored)error="LED changed in RAM. Saving settings failed";break;
       }
+      case SET_NETWORK:{
+        if(!validNetwork(cmd.network)){error="invalid_network";break;}
+        if(!uxQueueSpacesAvailable(networkQueue)){error="network_queue_busy";break;}
+        uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(cmd.network,bytes);
+        if(!nvsOK||prefs.putBytes("wifi",bytes,sizeof(bytes))!=sizeof(bytes)){error="network_storage_failed";break;}
+        NetworkUpdate update;update.settings=cmd.network;update.stored=true;update.deferred=true;
+        if(xQueueSend(networkQueue,&update,0)!=pdTRUE)error="network_queue_busy";
+        break;
+      }
       case SET_TIME:{
         uint32_t effectiveUTC=0;
         auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,tracker.day.number,effectiveUTC);
@@ -383,7 +437,7 @@ void processCommands(){
         ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
         configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
         if(!configOK)error="Connection changed in RAM. Saving settings failed";
-        saveCheckpoint(true);startBus();lastRatio=0;lastPoll=0;break;
+        saveCheckpoint(true);startBus();publishDiagnostic();lastRatio=0;lastPoll=0;break;
       }
       default:error="Unsupported command";break;
     }
@@ -405,6 +459,12 @@ void acquisition(void *) {
     }
     else {config=Settings{};configOK=false;setError("Stored configuration invalid. Defaults loaded","config_corrupt");}
   }
+  NetworkUpdate networkBoot;networkBoot.stored=nvsOK;
+  if(nvsOK&&prefs.isKey("wifi")){
+    uint8_t bytes[NETWORK_RECORD_SIZE]={};
+    networkBoot.stored=prefs.getBytesLength("wifi")==sizeof(bytes)&&prefs.getBytes("wifi",bytes,sizeof(bytes))==sizeof(bytes)&&decodeNetwork(bytes,sizeof(bytes),networkBoot.settings);
+  }
+  xQueueSend(networkQueue,&networkBoot,pdMS_TO_TICKS(100));
   state.config=config;state.led=defaultLed();state.ledStorageOK=nvsOK;
   if(nvsOK&&prefs.isKey("led")) {
     uint8_t bytes[LED_RECORD_SIZE]={};
@@ -417,7 +477,7 @@ void acquisition(void *) {
     else checkpointOK=false;
   }
   normalReader.service=serviceDiagnostic;normalReader.event=uartEvent;diagnostic.service=serviceDiagnostic;diagnostic.event=uartEvent;diagnostic.directionPinReserved=!RS485_AUTO_DIRECTION;diagnostic.onResume=[](){resumeRequested=true;diagnostic.emergencyStop();};
-  startBus();uint32_t previousCycle=millis(),lastRatioTry=0,lastContactTry=millis()-3000;bool previousRTC=false;
+  startBus();publishDiagnostic();uint32_t previousCycle=millis(),lastRatioTry=0,lastContactTry=millis()-3000;bool previousRTC=false;
   while(true) {
     state.acquisitionCycleMs=millis()-previousCycle;previousCycle=millis();
     esp_task_wdt_reset();pollDebugEntry();
@@ -591,6 +651,17 @@ void webSetup() {
     led["brightness"]=s.led.brightness;led["period"]=s.led.periodMs;
     led["red"]=s.led.red;led["green"]=s.led.green;led["blue"]=s.led.blue;
     led["stored"]=s.ledStored;led["storageOK"]=s.ledStorageOK;
+    if(networkAwaitingSave&&networkCommand&&int32_t(s.completedCommand-networkCommand)>=0){
+      for(const auto &result:s.commandResults)if(result.id==networkCommand&&result.error[0])networkAwaitingSave=false;
+    }
+    const NetworkSettings &shownNetwork=networkPending?pendingNetwork:activeNetwork;
+    JsonObject network=d["network"].to<JsonObject>();
+    network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
+    network["hasPassword"]=shownNetwork.password[0]!=0;network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
+    bool station=stationReady();network["connected"]=station;network["rssi"]=station?WiFi.RSSI():0;
+    network["clientIP"]=station?WiFi.localIP().toString():String();network["apIP"]=apOK?WiFi.softAPIP().toString():String();
+    network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
+    network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":networkPolicy.fallback?"fallback":"connecting";
     d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
     if(isfinite(s.secondaryEnergy)){d["secondaryEnergy"]=s.secondaryEnergy;d["secondaryAge"]=(millis()-s.lastSecondaryMs)/1000;}else d["secondaryEnergy"]=nullptr;
     d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;
@@ -645,6 +716,14 @@ void webSetup() {
     static DiagnosticView view; // UI core only; avoid an 8 KiB stack frame.
     if(xQueuePeek(diagnosticViewQueue,&view,0)!=pdTRUE){view.active=false;view.busy=false;view.log[0]=0;}
     JsonDocument d;d["pendingCommands"]=uxQueueMessagesWaiting(diagnosticInputQueue);d["version"]=FIRMWARE_VERSION;d["active"]=view.active;d["busy"]=view.busy;d["generation"]=view.generation;d["discardedBytes"]=view.discarded;d["log"]=view.log;
+    Snapshot production{};readSnapshot(production);
+    DiagnosticEngine::DebugOptions o=view.active?view.options:DiagnosticEngine::DebugOptions{};
+    auto link=view.active?view.link:diagnosticLink(production.config);
+    if(!view.active){o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
+    JsonObject settings=d["settings"].to<JsonObject>();
+    settings["slave"]=link.id;settings["baud"]=link.baud;settings["parity"]=String(link.parity);settings["rx"]=o.rx;settings["tx"]=o.tx;
+    settings["dir"]=o.dir;settings["direction"]=o.manualDirection?"manual":"auto";settings["timeout"]=o.responseMs;settings["gap"]=o.gapMs;settings["settle"]=o.settleUs;
+    settings["probe"]=o.probeAddress;settings["words"]=o.probeWords;settings["status"]=view.active?view.status:production.modbusStatus;
     const auto &e=view.evidence;JsonObject counts=d["evidence"].to<JsonObject>();
     counts["requests"]=e.requests;counts["rxBytes"]=e.rxBytes;counts["passiveBytes"]=e.passiveBytes;counts["preTxBytes"]=e.staleBytes;counts["busBusy"]=e.busBusy;counts["data"]=e.data;counts["exceptions"]=e.exceptions;counts["echoes"]=e.echoes;counts["echoPrefixes"]=e.echoPrefixes;counts["crcBad"]=e.crcBad;counts["shortFrames"]=e.shortFrames;counts["wrongFrames"]=e.wrongFrames;counts["overflows"]=e.overflows;counts["timeouts"]=e.timeouts;counts["localErrors"]=e.txErrors;counts["energyOK"]=e.energyOK;counts["energyBad"]=e.energyBad;counts["aborted"]=e.aborted;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
@@ -692,6 +771,26 @@ void webSetup() {
     }
     Command c{};c.type=SET_LED;c.led.mode=mode;c.led.brightness=brightness;c.led.periodMs=period;
     c.led.red=red;c.led.green=green;c.led.blue=blue;enqueueCommand(c);
+  });
+  server.on("/api/network",HTTP_POST,[]{
+    if(!authorizePost())return;
+    if(networkPending||networkAwaitingSave){jsonReply(409,"Network change is still pending","network_pending");return;}
+    String mode=server.arg("mode"),ssid=server.arg("ssid"),password=server.arg("password");
+    if(mode!="ap"&&mode!="client"&&mode!="dual"){jsonReply(400,"Choose an available Wi-Fi mode","invalid_network");return;}
+    Command c{};c.type=SET_NETWORK;c.network=activeNetwork;c.network.mode=mode=="ap"?NETWORK_AP:mode=="client"?NETWORK_CLIENT:NETWORK_DUAL;
+    if(c.network.mode!=NETWORK_AP){
+      if(ssid.length()>32||strlen(ssid.c_str())!=ssid.length()||password.length()>64||strlen(password.c_str())!=password.length()){
+        jsonReply(400,"SSID or password length is invalid","invalid_network");return;
+      }
+      strlcpy(c.network.ssid,ssid.c_str(),sizeof(c.network.ssid));
+      if(server.arg("open")=="1")c.network.password[0]=0;
+      else if(server.arg("keep")=="1"&&ssid==activeNetwork.ssid&&activeNetwork.password[0]){}
+      else if(password.length())strlcpy(c.network.password,password.c_str(),sizeof(c.network.password));
+      else{jsonReply(400,"Enter a password or explicitly choose an open network","invalid_network");return;}
+    }
+    if(!validNetwork(c.network)){jsonReply(400,"SSID or WPA password is invalid","invalid_network");return;}
+    uint32_t previous=acceptedCommand;enqueueCommand(c);
+    if(acceptedCommand!=previous){networkAwaitingSave=true;networkCommand=acceptedCommand;}
   });
   server.on("/api/config",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
@@ -770,19 +869,20 @@ uint8_t page=0,slotPage=0;uint32_t lastPaint=0;bool showCredentials=false;
 void drawOLED(const Snapshot &s) {
   if(!oledOK||xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(30))!=pdTRUE)return;
   oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(0,0);
-  const char *titles[]={"MIDEA | ENERGY","MORNING INTERVAL","EVENING INTERVAL","HOTSPOT / WIFI","DIAGNOSTICS"};
+  const char *titles[]={"MIDEA | ENERGY","MORNING INTERVAL","EVENING INTERVAL","NETWORK / WIFI","DIAGNOSTICS"};
   oled.println(titles[page]);oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
   if(page==0){
     if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.println("kWh import");}else oled.println("Waiting for meter");
     oled.setCursor(0,45);if(s.rtc){DateTime t(s.utc+LOCAL_OFFSET);char b[25];snprintf(b,sizeof(b),"%02u:%02u:%02u WIB",t.hour(),t.minute(),t.second());oled.println(b);}else oled.println("RTC: SET VIA WEB");
     oled.setCursor(98,45);oled.print(s.online?"OK":"OFF");
-    oled.setCursor(0,56);oled.print(apOK?"IP 192.168.4.1":"AP FAILED");
+    oled.setCursor(0,56);oled.print(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");
   }else if(page==1||page==2){
     int i=page==1?slotPage%6:6+slotPage%3;const Slot &x=s.day.slots[i];int a=START_MIN[i],b=a+30;char t[24];snprintf(t,sizeof(t),"%02d:%02d - %02d:%02d",a/60,a%60,b/60,b%60);oled.println(t);
     oled.setTextSize(2);oled.setCursor(0,29);if(x.quality==COMPLETE)oled.print(String(x.end-x.start,3));else oled.print("--.---");oled.setTextSize(1);oled.setCursor(0,49);oled.println(qualityCode(x.quality));
   }else if(page==3){
-    if(showCredentials){oled.println("Password:");oled.println(AP_PASSWORD);}else{oled.println("Midea Engineering");oled.println("AP");}
-    oled.setCursor(0,42);oled.println(apOK?WiFi.softAPIP().toString():"AP START FAILED");oled.println("OK: password");
+    if(showCredentials){oled.println("AP password:");oled.println(AP_PASSWORD);}
+    else{oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":"Midea Engineering AP");}
+    oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: AP password");
   }else{
     if(s.diagnosticActive){oled.println("UART DIAGNOSTICS");oled.println("Recording paused");oled.println("Resume via web");oled.display();xSemaphoreGive(i2cMutex);return;}
     oled.print("CRC:");oled.print(s.crcErrors);oled.print(" T/O:");oled.println(s.timeouts);
@@ -807,10 +907,10 @@ void setup() {
   pinMode(PIN_BUZZER,OUTPUT);digitalWrite(PIN_BUZZER,LOW);
   for(auto &b:buttons)pinMode(b.pin,INPUT_PULLUP);
   i2cMutex=xSemaphoreCreateMutex();fsMutex=xSemaphoreCreateMutex();
-  snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));
+  snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));networkQueue=xQueueCreate(1,sizeof(NetworkUpdate));
   diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(DiagnosticStop));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));
   state.flow.boot=esp_random();
-  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
+  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
   Wire.begin(PIN_SDA,PIN_SCL,100000);Wire.setTimeOut(40);
   Wire.beginTransmission(OLED_ADDRESS);bool present=Wire.endTransmission()==0;
   oledOK=present&&oled.begin(SSD1306_SWITCHCAPVCC,OLED_ADDRESS,false,false);
@@ -823,9 +923,7 @@ void setup() {
     uint32_t t=millis();while(digitalRead(PIN_OK)==LOW&&millis()-t<5000){tickLED();delay(20);}
     if(millis()-t>=5000){LittleFS.end();fsOK=LittleFS.format()&&LittleFS.begin(false);}
   }
-  WiFi.mode(WIFI_AP);WiFi.setSleep(false);
-  IPAddress ip(192,168,4,1),mask(255,255,255,0);
-  apOK=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(AP_SSID,AP_PASSWORD,6,false,4);
+  WiFi.persistent(false);applyNetwork(NetworkSettings{});
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
   initProcessMonitor();webSetup();esp_task_wdt_init(8,true);esp_task_wdt_add(nullptr);
@@ -834,7 +932,7 @@ void setup() {
 }
 void loop() {
   static uint32_t previousCycle=millis();uiCycleMs=millis()-previousCycle;previousCycle=millis();
-  esp_task_wdt_reset();server.handleClient();Snapshot s{};readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
+  esp_task_wdt_reset();server.handleClient();tickNetwork();Snapshot s{};readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
   for(int i=0;i<3;++i){uint8_t event=buttons[i].update(now);if(!event)continue;
     if(i==0){page=(page+4)%5;showCredentials=false;}
     if(i==1){page=(page+1)%5;showCredentials=false;}

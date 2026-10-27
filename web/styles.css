@@ -1464,3 +1464,11 @@ footer a {
 }
 
 .register-summary{margin:24px 0}.register-values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:28px 0}.register-values dt{font-size:13px;color:var(--muted)}.register-values code{display:block;margin-top:7px;font-size:11px}.register-values dd{margin:12px 0 0;font-variant-numeric:tabular-nums;font-size:23px;overflow-wrap:anywhere}.register-values small{font-size:12px;font-weight:400}@media(max-width:768px){.register-values{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px}.register-values dd{font-size:20px}}
+
+.network-state{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:24px 0 16px;color:var(--teal)}
+.network-addresses{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:16px 0 24px}.network-addresses dt,.diagnostic-counts dt{font-size:12px;color:var(--muted)}.network-addresses dd{margin:8px 0;font-family:Consolas,monospace;font-size:18px;overflow-wrap:anywhere}
+.network-credentials{margin:20px 0}.checkbox-line{display:flex;align-items:center;gap:10px;margin-top:18px}.checkbox-line input{width:18px;height:18px;flex-shrink:0}
+.diagnostic-summary{margin:24px 0}.diagnostic-summary .pins{display:flex;flex-direction:column;gap:8px;margin:16px 0;flex-wrap:wrap}.diagnostic-summary code{white-space:normal;overflow-wrap:anywhere}
+.diagnostic-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}.diagnostic-counts dd{font-size:22px;margin:6px 0}#diagnostic-tools form{margin:24px 0}#diagnostic-tools form+form{border-top:1px solid var(--line);padding-top:24px}
+
+.network-credentials > input{margin-bottom:16px}

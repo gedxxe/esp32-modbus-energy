@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="850" viewBox="0 0 1400 850" role="img" aria-labelledby="title desc"><title id="title">Wi-Fi modes and recovery</title><desc id="desc">AP and client share one radio. Core 1 persists settings and core 0 applies driver changes without blocking UART acquisition.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">One local application · three Wi-Fi modes</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">The same dashboard, diagnostics and API are served through every active interface.</text>
+<rect x="45" y="140" width="410" height="245" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="67" y="180" fill="#087e82" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="start">ACCESS POINT</text>
+<text x="67" y="225" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Midea Engineering AP</text>
+<text x="67" y="263" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Default: 192.168.4.1</text>
+<text x="67" y="301" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Direct phone connection</text>
+<text x="67" y="339" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Saved client credentials retained</text>
+<rect x="495" y="140" width="410" height="245" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="517" y="180" fill="#087e82" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="start">CLIENT + AP RECOVERY</text>
+<text x="517" y="225" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Join the configured 2.4 GHz SSID</text>
+<text x="517" y="263" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DHCP address shown on OLED</text>
+<text x="517" y="301" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">AP stays on during connection</text>
+<text x="517" y="339" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">AP closes 15 s after DHCP succeeds</text>
+<rect x="945" y="140" width="410" height="245" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="967" y="180" fill="#087e82" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="start">ACCESS POINT + CLIENT</text>
+<text x="967" y="225" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Both interfaces remain available</text>
+<text x="967" y="263" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">One radio follows the router channel</text>
+<text x="967" y="301" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">AP subnet avoids LAN overlap</text>
+<text x="967" y="339" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">No internet service is required</text>
+<rect x="45" y="430" width="590" height="170" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="70" y="471" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 1 / PREFERENCES</text>
+<text x="70" y="512" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Validate mode, SSID and key, then save the versioned CRC record.</text>
+<text x="70" y="552" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Failed save retains the active connection and reports an error.</text>
+<polyline points="635,515 765,515" fill="none" stroke="#6d5897" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="700" y="495" fill="#6d5897" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle">1-slot queue</text>
+<rect x="765" y="430" width="590" height="170" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="790" y="471" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 0 / WI-FI DRIVER</text>
+<text x="790" y="512" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Apply after 8 s, then sample link state every 250 ms.</text>
+<text x="790" y="552" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">UART acquisition continues independently on core 1.</text>
+<rect x="45" y="645" width="1310" height="155" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="70" y="687" fill="#906121" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CLIENT FAILURE / RECOVERY</text>
+<text x="70" y="728" fill="#587176" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">Keep the AP while joining. Restore it after a lost link. Request another client attempt every 30 s.</text>
+<text x="70" y="767" fill="#587176" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">Read the current AP and client IP from the web panel or OLED after a transition.</text>
+</svg>

@@ -13,7 +13,7 @@ class FortDiagnostics {
  public:
 // Defaults only: all diagnostic parameters below can be changed at runtime.
 struct DebugOptions {
-  int rx=18,tx=17;
+  int rx=18,tx=17,dir=16;
   bool manualDirection=true;uint16_t settleUs=100,gapMs=200;
   uint32_t responseMs=2000,pollMs=2000;
   uint16_t probeAddress=meter::CURRENT_A,energyAddress=0x0082,ratioAddress=0x002C;
@@ -84,7 +84,7 @@ bool supportedBaud(uint32_t baud) {
   return baud>=1200 && baud<=1000000;
 }
 void openLink(const Link &link) {
-  transport.options.rx=options.rx;transport.options.tx=options.tx;transport.options.dir=16;
+  transport.options.rx=options.rx;transport.options.tx=options.tx;transport.options.dir=options.dir;
   transport.options.manual=options.manualDirection;transport.options.settleUs=options.settleUs;
   transport.options.responseMs=uint16_t(options.responseMs);transport.options.gapMs=options.gapMs;
   if(!activeBaud)transport.invalidate();
@@ -142,7 +142,7 @@ bool readRegisters(const Link &link,uint16_t address,uint8_t words,uint8_t *out)
     auto self=static_cast<FortDiagnostics*>(context);if(self->event)self->event(kind,request,reg,count,tx,rx,size,overflow);
   };
   uint16_t values[3]={};
-  LOG("\n[t=%lu ms] MODBUSMASTER ID=%u %lu 8%c1 FC03 0x%04X words=%u direction=%s DIR16 settle=%uus gap=%ums timeout=%lums\n",(unsigned long)millis(),link.id,(unsigned long)link.baud,link.parity,address,words,options.manualDirection?"manual":"auto",options.settleUs,options.gapMs,(unsigned long)options.responseMs);
+  LOG("\n[t=%lu ms] MODBUSMASTER ID=%u %lu 8%c1 FC03 0x%04X words=%u direction=%s DIR%d settle=%uus gap=%ums timeout=%lums\n",(unsigned long)millis(),link.id,(unsigned long)link.baud,link.parity,address,words,options.manualDirection?"manual":"auto",options.dir,options.settleUs,options.gapMs,(unsigned long)options.responseMs);
   lastStatus=transport.read(link,address,words,values);const Transaction &result=transport.last;
   if(result.txSize)++evidence.requests;
   evidence.staleBytes+=result.staleBytes;evidence.rxBytes+=result.rxSize;
@@ -286,7 +286,7 @@ void rxCheck() {
 bool sameCaptureSettings(const Capture &a,const Capture &b){
   const DebugOptions &x=a.settings,&y=b.settings;
   if(a.link.id!=b.link.id||a.link.baud!=b.link.baud||a.link.parity!=b.link.parity||a.count!=b.count)return false;
-  if(x.rx!=y.rx||x.tx!=y.tx||x.responseMs!=y.responseMs||x.probeAddress!=y.probeAddress||x.probeWords!=y.probeWords||x.energyAddress!=y.energyAddress||x.ratioAddress!=y.ratioAddress||x.energyScale!=y.energyScale||x.swappedWords!=y.swappedWords||x.decodeEnergy!=y.decodeEnergy)return false;
+  if(x.rx!=y.rx||x.tx!=y.tx||x.dir!=y.dir||x.manualDirection!=y.manualDirection||x.gapMs!=y.gapMs||x.settleUs!=y.settleUs||x.responseMs!=y.responseMs||x.probeAddress!=y.probeAddress||x.probeWords!=y.probeWords||x.energyAddress!=y.energyAddress||x.ratioAddress!=y.ratioAddress||x.energyScale!=y.energyScale||x.swappedWords!=y.swappedWords||x.decodeEnergy!=y.decodeEnergy)return false;
   for(uint8_t i=0;i<a.count;++i)if(a.plan[i].address!=b.plan[i].address||a.plan[i].words!=b.plan[i].words)return false;
   return true;
 }
@@ -312,21 +312,21 @@ void captureCheck(bool connected){
 
 uint16_t scanTotal(){return uint16_t(lastID-firstID+1)*(options.scanCurrent?1:baudCount*parityCount);}
 bool validQuery(unsigned address,unsigned words){return address<=65535&&words>=1&&words<=3&&address+words<=65536UL;}
-bool allowedPin(unsigned pin){if(options.manualDirection&&pin==16)return false;return (pin>=10&&pin<=18)||pin==21||(pin>=39&&pin<=42)||pin==47;}
+bool allowedPin(unsigned pin){if(options.manualDirection&&pin==unsigned(options.dir))return false;return (pin>=10&&pin<=18)||pin==21||(pin>=39&&pin<=42)||pin==47;}
 void showPlan(){for(uint8_t i=0;i<auditCount;++i)LOG("[PLAN] %u address=0x%04X words=%u\n",i+1,auditPlan[i].address,auditPlan[i].words);}
 void showStatus(){
   LOG("[SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d timeout=%lu poll=%lu probe=0x%04X/%u range=%u..%u mode=%s candidates=%u\n",current.id,(unsigned long)current.baud,current.parity,options.rx,options.tx,(unsigned long)options.responseMs,(unsigned long)options.pollMs,options.probeAddress,options.probeWords,firstID,lastID,options.scanCurrent?"current":"matrix",scanTotal());
-  LOG("[TRANSPORT] direction=%s DIR16 settle=%uus gap=%ums last_status=0x%02X %s\n",options.manualDirection?"manual":"auto",options.settleUs,options.gapMs,lastStatus,statusName(lastStatus));
+  LOG("[TRANSPORT] direction=%s DIR%d settle=%uus gap=%ums last_status=0x%02X %s\n",options.manualDirection?"manual":"auto",options.dir,options.settleUs,options.gapMs,lastStatus,statusName(lastStatus));
   LOG("[PROFILE] energy=0x%04X ratios=0x%04X scale=%.12g order=%s decode=%s. RAM only\n",options.energyAddress,options.ratioAddress,options.energyScale,options.swappedWords?"swap":"normal",options.decodeEnergy?"on":"off");
   LOG("[SCAN_BAUDS]");for(uint8_t i=0;i<baudCount;++i)LOG(" %lu",(unsigned long)BAUDS[i]);
   LOG("\n[SCAN_PARITIES]");for(uint8_t i=0;i<parityCount;++i)LOG(" %c",PARITIES[i]);LOG("\n");
   showPlan();uartStatus();
 }
 void help(){
-  LOG("\nFort diagnostics 2.0.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nFort diagnostics 2.1.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the manual example at 0058/2. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
-  LOG("EVIDENCE: report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");
+  LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");
   LOG("LAYERS: basic | listen 1..30 | intermediate | deeper | diagnose | read | poll | status | help\n");
   LOG("RUNTIME: id 1 | baud 9600 | parity N | pins 18 17 (RX TX) | timeout 2000 | interval 2000\n");
   LOG("PROBES: probe 0058 2 | reg 0082 2 (HEX PDU address, 1..3 words. No offset added)\n");
@@ -345,7 +345,7 @@ void command(const char *line) {
   if (!strcmp(line,"report")) { reportEvidence(); return; }
   if (scanning) { LOG("Scan active. Use x to abort.\n"); return; }
   if(!strcmp(line,"direction manual")||!strcmp(line,"direction auto")){
-    bool manual=!strcmp(line,"direction manual");if(manual&&(options.rx==16||options.tx==16)){LOG("DIR16 overlaps UART. Restore pins 18 17 first\n");return;}
+    bool manual=!strcmp(line,"direction manual");if(manual&&(options.rx==options.dir||options.tx==options.dir)){LOG("Direction pin overlaps UART. Restore separate RX/TX pins first\n");return;}
     polling=false;options.manualDirection=manual;activeBaud=0;openLink(current);showStatus();return;
   }
   if(sscanf(line,"settle %u %c",&a,&extra)==1&&a>=20&&a<=1000){options.settleUs=uint16_t(a);showStatus();return;}

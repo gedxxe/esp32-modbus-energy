@@ -164,7 +164,7 @@ s.save('button-contacts.svg')
 
 s=SVG(1400,650,'Tasks, queues and peripheral ownership')
 s.heading('Task ownership and data flow','Commands and snapshots are copied through queues. I2C and filesystem operations use mutexes.')
-for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi tasks managed by ESP-IDF']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['ModbusMaster / direction / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
+for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi modes / connection recovery']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['ModbusMaster / direction / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
     s.rect(x,160,510,300);s.text(x+25,204,title,22,BLUE,700)
     for i,line in enumerate(lines):s.text(x+25,260+i*43,line,20)
 s.wire([(565,250),(835,250)],PURPLE,4);s.text(700,228,'Command →',18,PURPLE,anchor='middle');s.text(700,277,'queue: 6 values',15,MUTED,anchor='middle')
@@ -222,11 +222,28 @@ s.save('rtu-timing.svg')
 
 s=SVG(1400,650,'Firmware startup sequence','After the ESP32-S3 ROM and bootloader transfer control to Arduino setup().')
 s.heading('Startup sequence','After ROM / bootloader → setup() → core-0 UI loop + core-1 acquisition task')
-steps=[('01','GPIO + RTOS objects',['DE LOW. Button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','OLED: 180° before first frame','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['192.168.4.1 / 24','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
+steps=[('01','GPIO + RTOS objects',['DE LOW. Button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','OLED: 180° before first frame','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['AP first, then saved Wi-Fi mode','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
 for i,(num,title,lines) in enumerate(steps):
  x=45+(i%3)*450;y=145+(i//3)*235;s.rect(x,y,410,205);s.text(x+22,y+34,num,15,BLUE,700);s.text(x+64,y+34,title,19,weight=600)
  for j,line in enumerate(lines):s.text(x+22,y+83+j*33,line,17,MUTED)
 s.text(45,633,'No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported. Startup does not wait indefinitely.',18,MUTED)
 s.save('boot-flow.svg')
+
+s=SVG(1400,850,'Wi-Fi modes and recovery','AP and client share one radio. Core 1 persists settings and core 0 applies driver changes without blocking UART acquisition.')
+s.heading('One local application · three Wi-Fi modes','The same dashboard, diagnostics and API are served through every active interface.')
+for x,title,lines in [(45,'ACCESS POINT',['Midea Engineering AP','Default: 192.168.4.1','Direct phone connection','Saved client credentials retained']), (495,'CLIENT + AP RECOVERY',['Join the configured 2.4 GHz SSID','DHCP address shown on OLED','AP stays on during connection','AP closes 15 s after DHCP succeeds']), (945,'ACCESS POINT + CLIENT',['Both interfaces remain available','One radio follows the router channel','AP subnet avoids LAN overlap','No internet service is required'])]:
+ s.rect(x,140,410,245);s.text(x+22,180,title,21,BLUE,700)
+ for i,line in enumerate(lines):s.text(x+22,225+i*38,line,17,MUTED)
+s.rect(45,430,590,170);s.text(70,471,'CORE 1 / PREFERENCES',22,BLUE,700)
+s.text(70,512,'Validate mode, SSID and key, then save the versioned CRC record.',16,MUTED)
+s.text(70,552,'Failed save retains the active connection and reports an error.',16,MUTED)
+s.wire([(635,515),(765,515)],PURPLE,4);s.text(700,495,'1-slot queue',15,PURPLE,anchor='middle')
+s.rect(765,430,590,170);s.text(790,471,'CORE 0 / WI-FI DRIVER',22,BLUE,700)
+s.text(790,512,'Apply after 8 s, then sample link state every 250 ms.',17,MUTED)
+s.text(790,552,'UART acquisition continues independently on core 1.',17,MUTED)
+s.rect(45,645,1310,155);s.text(70,687,'CLIENT FAILURE / RECOVERY',22,AMBER,700)
+s.text(70,728,'Keep the AP while joining. Restore it after a lost link. Request another client attempt every 30 s.',19,MUTED)
+s.text(70,767,'Read the current AP and client IP from the web panel or OLED after a transition.',19,MUTED)
+s.save('network-modes.svg')
 
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

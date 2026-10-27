@@ -1,4 +1,4 @@
-# Tinjauan implementasi versi 2.0.0
+# Tinjauan implementasi versi 2.1.0
 
 [English](../AUDIT.md) · **Bahasa Indonesia**
 
@@ -15,6 +15,10 @@ Source upstream dikunci pada v2.0.1 dan patch hook layanan disimpan bersama hash
 Query kontak pertama memakai contoh arus 0x0058/dua word. Exception sah mempertahankan bukti kontak protokol dan membiarkan nilainya kosong, sehingga pembacaan profil lain dapat dilanjutkan. Counter sekunder tersedia tanpa rasio, tetapi interval produksi tetap memerlukan CT/PT sah yang diterapkan sekali serta waktu/kontinuitas yang diterima. Float primer tetap perbandingan eksplisit dan bukan fallback otomatis.
 
 Record koneksi v1 ber-CRC sah mempertahankan setting serial serta dimigrasikan ke arah manual. Format hari dan LED tetap, interval lengkap dilindungi dan format filesystem membutuhkan konfirmasi fisik. Dashboard menyediakan direction serta pembanding register, memisahkan Stop/Resume dari penantian kontrol biasa dan memvalidasi baris sebelum dirender. Wiring serta penjelasan teknis mengikuti instalasi manual terkonfirmasi.
+
+## Integrasi web dan Wi-Fi
+
+Aplikasi lokal kini menyediakan setting sesi, counter bukti, raw read terstruktur, kontrol setting uji dan perintah float primer bersama scanner, trace, flow serta process monitor. Mode AP/client/gabungan mengikuti persistensi core 1 dan driver core 0, dengan validasi kredensial, penundaan aplikasi serta AP pemulihan. IP header/OLED mengikuti antarmuka aktual. Perbandingan capture juga menolak perbedaan direction dan timing settle/gap. [Panduan web](WEB.md) memetakan setiap route API ke antarmuka dan pemiliknya.
 
 ## Batas yang masih ada
 

@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/DESIGN.md)
 
-Version 2.0.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
+Version 2.1.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
 
 ## Fort register reference
 
@@ -83,3 +83,13 @@ The standalone INO includes FortDiagnostics from the same FortMeter library as p
 ## References
 
 The root scanned Fort manual supplies the register map, the user's reported working sketch supplies the confirmed manual-direction baseline, and [ModbusMaster v2.0.1](https://github.com/4-20ma/ModbusMaster/tree/v2.0.1) supplies the transaction implementation. Local software results and the remaining integrated hardware checks are recorded in [VALIDATION](VALIDATION.md), with field steps in [DIAGNOSTICS](DIAGNOSTICS.md).
+
+## Wi-Fi state and persistence
+
+The Wi-Fi driver runs on core 0, while core 1 validates and stores the 104-byte versioned credential record under the `wifi` Preferences key. The record explicitly encodes mode, 33 SSID bytes, 65 key bytes and CRC16, avoiding structure-padding dependencies. CRC detects a damaged record and does not encrypt credentials. WiFi.persistent(false) prevents the driver from maintaining a second persistent configuration outside the application's core 1 ownership.
+
+An accepted network command must pass normal-mode/revision/age guards and save successfully before a one-entry queue hands it to core 0. The eight-second deferred application preserves time for its HTTP execution result. A failed save keeps the current driver configuration, and a corrupt boot record leaves the default AP available. Switching to AP retains client credentials without exposing the saved password through GET endpoints.
+
+NetworkPolicy in network.h makes rollover-safe decisions without driver calls. Core 0 samples the link on a 250 ms target, which bounded HTTP work can defer, and retains an AP during connection attempts and retry backoff, and allows a 15-second grace after client DHCP before disabling AP in client-only mode. Losing the client link restores AP, while explicit connection attempts repeat every 30 seconds. AP + client keeps both interfaces on the shared radio, and overlapping LAN/AP subnets are checked with the less-specific prefix before choosing another AP address. WLAN transition timing, DHCP and router isolation still require on-device acceptance.
+
+The diagnostic HTTP view now carries actual session settings and evidence counts, with production connection/status substituted when maintenance is inactive. Structured browser controls prepare the same commands used by the standalone console. Capture comparisons require matching direction, direction pin and settling/gap timing as well as their existing register/profile settings, preventing a changed transport setup from being interpreted as only an A/B change. The full route-to-owner map and operator steps are in [WEB](WEB.md).

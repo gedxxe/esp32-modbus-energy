@@ -71,6 +71,7 @@ let online = true,
   malformedTrace = false,
   malformedHistory = false,
   malformedSystem = false,
+  malformedNetwork = false, malformedDiagnostic = false,
   diagnosticHold = false,
   delayedControls = 0,
   rejectNextControl = false;
@@ -91,6 +92,7 @@ const calls = [],
 const state = {
   version,
   token: "test-session",
+  network: {mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
   control: { accepted: 0, completed: 0, rejected: 0, lastError: "", pending: 0, results: [] },
   rtc: true,
   storage: true,
@@ -149,6 +151,8 @@ const diagnostic = {
   active: false,
   busy: false,
   discardedBytes: 0,
+  pendingCommands:0,
+  settings:{slave:1,baud:9600,parity:"N",rx:18,tx:17,dir:16,direction:"manual",timeout:2000,gap:200,settle:100,probe:88,words:2,status:0xE2},
   evidence: { requests: 0 },
   log: "",
 };
@@ -215,7 +219,7 @@ const server = http.createServer((req, res) => {
   if (req.url === "/api/diagnostic" && req.method === "GET") {
     ++diagnosticRequests;
     if (diagnosticHold) return;
-    res.end(JSON.stringify(diagnostic));
+    res.end(JSON.stringify(malformedDiagnostic ? {...diagnostic,settings:null} : diagnostic));
     return;
   }
   if (req.url === "/api/system") {
@@ -282,6 +286,7 @@ const server = http.createServer((req, res) => {
     res.end(
       JSON.stringify({
         ...state,
+        network: malformedNetwork ? {...state.network,address:{bad:true}} : state.network,
         slots: malformedStatus ? Array(9).fill(null) : state.slots,
         online: online && state.scan.phase !== "running" && !diagnostic.active,
         diagnosticActive: diagnostic.active,
@@ -357,15 +362,21 @@ const server = http.createServer((req, res) => {
           diagnostic.busy = false;
           diagnostic.log += "Stopped. Queued commands cancelled.\n";
         } else {
-          if (!diagnostic.active) ++diagnostic.generation;
-          diagnostic.active = true;
+          const passive=["status","help","report","compare","plan show"].includes(command);
+          if (!passive && !diagnostic.active) ++diagnostic.generation;
+          if (!passive) diagnostic.active = true;
+          const [key,arg] = command.split(" ");
+          if (["timeout","gap","settle","baud","id"].includes(key)) diagnostic.settings[key==="id"?"slave":key]=Number(arg);
+          if (key==="direction") diagnostic.settings.direction=arg;
+          if (key==="parity") diagnostic.settings.parity=arg;
           diagnostic.log += `[COMMAND_INPUT] ${command}\n`;
-          if (command === "diagnose")
+          if (command === "diagnose") {
+            diagnostic.evidence={requests:8,rxBytes:0,data:0,exceptions:0,timeouts:8};
             diagnostic.log +=
               "[REPORT_BEGIN]\n[EVIDENCE] requests=8 valid_data=0\n[NO_RX_UNRESOLVED] No accepted reply.\n[REPORT_END]\n";
-          else
+          } else
             diagnostic.log +=
-              "[SETTINGS] ID=1 baud=9600 8N1 RX=18 TX=17; RAM only\n";
+              "[SETTINGS] ID=1 baud=9600 8N1 RX=18 TX=17. RAM only\n";
         }
       }
       if (req.url === "/api/trace/start") {
@@ -399,6 +410,11 @@ const server = http.createServer((req, res) => {
         );
       }
       if (req.url === "/api/trace/stop") trace.active = false;
+      if (req.url === "/api/network") {
+        const mode=data.get("mode"),previous=state.network;
+        state.network={...previous,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
+        if(mode!=="ap"){state.network.ssid=data.get("ssid");state.network.hasPassword=data.get("open")!=="1";}
+      }
       if (req.url === "/api/config")
         Object.assign(state, {
           slave: Number(data.get("slave")),
@@ -584,6 +600,40 @@ async function checkVectors(browser, out) {
     await page.locator("#nav-overview").click();
     await page.locator("#nav-device").click();
     await page.waitForFunction(() => document.querySelectorAll("#history option").length === 2);
+    await page.locator("#network-mode").selectOption("dual");
+    await page.locator("#network-ssid").fill("Plant WiFi");
+    await page.locator("#network-password").fill("plant-secret-123");
+    await page.locator("#network-save").click();
+    await page.waitForFunction(() => document.getElementById("network-status")?.textContent.includes("Client connected"));
+    assert(calls.some(c=>c.url==="/api/network" && c.data.get("mode")==="dual" && c.data.get("password")==="plant-secret-123"));
+    assert(!JSON.stringify(state.network).includes("plant-secret-123"));
+    await page.reload();await page.locator("#nav-device").click();
+    await page.waitForFunction(() => document.getElementById("network-mode")?.value==="dual");
+    assert.equal(await page.locator("#network-password").inputValue(),"");
+    await page.locator("#network-mode").selectOption("client");await page.locator("#network-save").click();
+    await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
+    assert(calls.some(c=>c.url==="/api/network" && c.data.get("mode")==="client" && c.data.get("keep")==="1"));
+    state.network.connected=false;state.network.phase="fallback";state.network.clientIP="";state.network.apActive=true;state.network.apIP="192.168.4.1";state.network.address="192.168.4.1";
+    await refresh();await page.waitForFunction(() => document.getElementById("network-status")?.textContent.includes("recovery AP"));
+    await page.locator("#network-ssid").fill("é".repeat(17));
+    const beforeInvalidNetwork=calls.length;await page.locator("#network-save").click();assert.equal(calls.length,beforeInvalidNetwork);
+    await page.locator("#network-ssid").fill("Open test network");await page.locator("#network-open").check();
+    await page.locator("#network-mode").selectOption("dual");await page.locator("#network-save").click();
+    await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
+    assert(calls.some(c=>c.url==="/api/network" && c.data.get("open")==="1"));
+    await page.locator("#network-ssid").fill("Unsubmitted draft");
+    malformedNetwork=true;await refresh();await page.waitForFunction(() => document.getElementById("network-save")?.disabled);
+    assert(await page.locator("#mute").isVisible());malformedNetwork=false;await refresh();await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
+    assert.equal(await page.locator("#network-ssid").inputValue(),"Unsubmitted draft", "A malformed refresh must not erase the operator draft");
+    await page.locator("#network-ssid").fill(state.network.ssid);
+    await page.locator("#network-ssid").blur();
+    await page.setViewportSize({width:1440,height:1200});
+    await page.locator("#network-panel").screenshot({path:path.join(assets,"ui-network-desktop.png")});
+    await page.setViewportSize({width:390,height:1800});
+    await page.locator("#network-panel").screenshot({path:path.join(assets,"ui-network-mobile.png")});
+    await page.setViewportSize({width:1440,height:1000});
+    await page.locator("#network-mode").selectOption("ap");await page.locator("#network-save").click();
+    await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
     delayedControls = 1200;
     await page.locator("#mute").click();
     await page.waitForTimeout(300);
@@ -1034,6 +1084,22 @@ async function checkVectors(browser, out) {
       await page.locator("#diagnostic-command").inputValue(),
       "diagnose",
     );
+    await page.locator("#diagnostic-command").fill("status");await page.locator("#diagnostic-send").click();
+    await page.waitForFunction(() => document.getElementById("diagnostic-output")?.textContent.includes("[COMMAND_INPUT] status"));
+    assert.equal(diagnostic.active,false,"Read-only session inspection must not pause recording");
+    await page.locator("#diagnostic-tools > summary").click();
+    await page.locator("#diagnostic-setting").selectOption("gap");await page.locator("#diagnostic-setting-value").fill("350");await page.locator("#diagnostic-setting-apply").click();
+    await page.waitForFunction(() => document.getElementById("diagnostic-settings")?.textContent.includes("gap 350 ms"));
+    await page.locator("#diagnostic-address").fill("008A");await page.locator("#diagnostic-read").click();
+    await page.waitForFunction(() => document.getElementById("diagnostic-output")?.textContent.includes("reg 008A 2"));
+    assert(calls.some(c=>c.url==="/api/diagnostic" && c.data.get("command")==="reg 008A 2"));
+    await page.locator("#diagnostic-command").fill("primary");await page.locator("#diagnostic-send").click();
+    await page.waitForFunction(() => document.getElementById("diagnostic-output")?.textContent.includes("[COMMAND_INPUT] primary"));
+    malformedDiagnostic=true;await page.waitForFunction(() => document.getElementById("diagnostic-send")?.disabled);
+    assert(await page.locator("#diagnostic-stop").isEnabled());malformedDiagnostic=false;
+    await page.waitForFunction(() => !document.getElementById("diagnostic-send")?.disabled);
+    await page.locator("#diagnostic-tools > summary").click();
+    await page.locator("#diagnostic-command").fill("diagnose");
     await page.locator("#diagnostic-send").click();
     await page.waitForFunction(() =>
       document
@@ -1046,6 +1112,7 @@ async function checkVectors(browser, out) {
     assert((await page.locator("#health").innerText()).includes("Maintenance"));
     await page.locator("#nav-device").click();
     assert(await page.locator("#sync").isDisabled(), "RTC sync must stay blocked during maintenance");
+    assert(await page.locator("#network-save").isDisabled(), "Network changes must stay blocked during maintenance");
     delayedControls = 2000;
     await page.locator("#mute").click();
     await page.waitForTimeout(100);
@@ -1079,7 +1146,7 @@ async function checkVectors(browser, out) {
         "Lanjutkan",
       ),
     );
-    await page.setViewportSize({ width: 390, height: 1600 });
+    await page.setViewportSize({ width: 390, height: 2400 });
     await page
       .locator("#diagnostic-console")
       .screenshot({ path: path.join(assets, "ui-diagnostic-mobile.png") });
@@ -1191,7 +1258,7 @@ async function checkVectors(browser, out) {
     await page.close();
     const vectors = await checkVectors(browser, out);
     console.log(
-      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; event-driven UART motion/no idle animation; diagnostic commands/export/pause/resume; process metrics/closed polling; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
+      `PASS: real gzip assets + upstream React Bits hashes; EN/ID persistence and errors; event-driven UART motion/no idle animation; diagnostic commands/export/pause/resume; process metrics/closed polling; raw TX/RX capture/echo/export/closed polling/errors; LED modes/POST/draft/reload/storage/disabled; scan/config/time/CSV; AP/client/dual settings, credentials privacy, fallback and malformed network state; structured diagnostics and session settings; stale/offline; 320–2560px; reduced motion; no external requests/JS errors; ${vectors} SVGs`,
     );
   } catch (error) {
     const failed = browser?.contexts()[0]?.pages()[0];

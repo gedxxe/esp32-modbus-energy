@@ -16,7 +16,9 @@ export default function WifiPicker({ device, ssid, open, onChoose, onBusy, disab
         const response=await fetch("/api/network/scan",{cache:"no-store",signal:controller.signal});if(!response.ok)throw new Error();
         const data=await response.json();if(!validWifiScan(data))throw new Error();if(!alive)return;
         if(!start&&data.phase!=="scanning"&&(data.phase==="idle"||data.ageMs>30000)){clearTimeout(timeout);await request(true);return;}
-        setRows(data.networks);setPhase(data.phase);onBusy(data.phase==="scanning");
+        const unique=new Map();
+        for(const row of data.networks){const key=`${row.ssid}/${row.open}`,old=unique.get(key);if(!old||(row.supported&&!old.supported)||(row.supported===old.supported&&row.rssi>old.rssi))unique.set(key,row);}
+        setRows([...unique.values()].sort((a,b)=>b.rssi-a.rssi));setPhase(data.phase);onBusy(data.phase==="scanning");
         if(data.phase==="scanning")timer=setTimeout(()=>request(),750);
       }catch{if(alive){setPhase("failed");onBusy(false);}}
       finally{clearTimeout(timeout);}

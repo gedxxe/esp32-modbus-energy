@@ -1,7 +1,7 @@
 {
   "version": "2.2.0",
   "transport": "gzip",
-  "compressed_total": 161800,
+  "compressed_total": 161893,
   "libraries": {
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -19,9 +19,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 458628,
-      "gzip": 153093,
-      "sha256": "4baacd6345650b8324f288c207c117370199da9f557daa804885290ce7a094a5"
+      "raw": 458824,
+      "gzip": 153186,
+      "sha256": "d3e14ae0168af24fb5a65a4509ce060ebfcbff8cb0882c5153917d5f2f8f4ce5"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -53,7 +53,7 @@
     "web/components/ProcessMonitor.jsx": "f368da91033f1b7f0587237bf8ddce9424462a2870040a7ea9e6352ba13d2149",
     "web/components/RawTrace.jsx": "792b7e18198f1030c85e088e6fac11f9a5848c502a956a75ba5ceb51bd0d5ba7",
     "web/components/UartFlow.jsx": "8dd6e235acbf50871c7a50dcc3f851afb2c57d5a5e9ea9c9f0295dd87db008d7",
-    "web/components/WifiPicker.jsx": "72062f81943dd3248f92ff88e1a81fd50bc6173bb631c169254802d1095f31ab",
+    "web/components/WifiPicker.jsx": "c69c2d37bdba8c4f505194c0a1cc6679ca64b92bff2bc3dbbb00dc39a0797a67",
     "web/device.js": "e18d7f21a3595822a814e40438c8500c934613a9da548436a5bad8b96d61ae87",
     "web/i18n.js": "fe1b95e7eb71e5ae562fb59e5a5b6128348794500f1cb58755a960f18070c61b",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
@@ -71,5 +71,5 @@
     "web/views/MeterSetup.jsx": "44cfd49084f7ab73bed6331592630595175388aa5944b25025dff0104dc31060",
     "web/views/Overview.jsx": "13010101e804f82d3723d51af51dbeb2d51b6c2edaf79e0ddac57214cb05e647"
   },
-  "header_sha256": "00085d96ed65afa5549eef5e2b3f343e187163066d1f72c511bf8dff61b13672"
+  "header_sha256": "1f7a9731812f85bfcdbbd93ff528179d82cc827636803d36f82c1e4a7b18a807"
 }

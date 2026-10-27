@@ -10,7 +10,7 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 82,936 | 1,420,973 |
+| Main `esp32s3` environment | 82,936 | 1,421,069 |
 | Standalone FortSerialDebug | 30,284 | 336,577 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
@@ -48,11 +48,11 @@ The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **1
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,030 | 527 |
-| `/assets/app.js` | 458,628 | 153,093 |
+| `/assets/app.js` | 458,824 | 153,186 |
 | `/assets/app.css` | 26,464 | 6,747 |
 | `/assets/third-party.txt` | 5,755 | 1,433 |
 
-The combined payload is **161,800 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **161,893 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
 The documentation checker validates 29 Markdown guides and their relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
@@ -66,6 +66,6 @@ The physical AP/client/dual transitions, router-loss recovery, DHCP/subnet chang
 
 Native tests cover the OLED menu transitions and editors, invalid private IPv4 input, reading the legacy 104-byte network record and writing the 108-byte custom-IP record. Idle tests cover the default timeout boundary, a consumed wake press held through a long-press interval, release guarding, disable and timer rollover. They link the actual generated frame pack, exercise its bounded decoder and reject truncated/oversized output. The generator verifies all 772 decompressed frames against their combined raw SHA256, preserving 790,528 original bytes in a 266,739-byte lossless pack. Import check also reproduces the pack from the supplied reference sequence.
 
-Generated-byte browser tests cover automatic and repeated Wi-Fi scans, choosing a network, preserving a custom-IP draft, display timeout save/reload/disable, malformed display data and a clock that keeps advancing across identical status samples without posting RTC changes. The interface uses blue/violet glass surfaces and reduced-transparency/contrast fallbacks. Representative controls are shown in [OLED](OLED.md), alongside logical frame samples rather than physical display photographs.
+Generated-byte browser tests cover automatic and repeated Wi-Fi scans, coalescing repeated SSIDs to their strongest supported entry, choosing a network, preserving a custom-IP draft, display timeout save/reload/disable, malformed display data and a clock that keeps advancing across identical status samples without posting RTC changes. The interface uses blue/violet glass surfaces and reduced-transparency/contrast fallbacks. Representative controls are shown in [OLED](OLED.md), alongside logical frame samples rather than physical display photographs.
 
 The nominal 42 ms animation target, I2C occupancy, physical wake latency, long-hold character repeat, actual AP discovery/association and sustained AP clients during playback remain hardware acceptance items. A passing host decoder or browser mock does not establish those physical timings. UART event retry reasons describe HTTP availability, not electrical evidence about the Fort.

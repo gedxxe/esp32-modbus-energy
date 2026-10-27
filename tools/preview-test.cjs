@@ -139,7 +139,7 @@ const state = {
 };
 // Simulated instrumentation only; exported screenshots are representative.
 let wifiScanGeneration=0,wifiScanRequests=0,wifiScanFinish=0;
-const nearbyNetworks=[{ssid:"Plant WiFi",rssi:-48,channel:6,open:false,supported:true},{ssid:"Open test network",rssi:-62,channel:11,open:true,supported:true},{ssid:"Guest WiFi",rssi:-70,channel:1,open:false,supported:true}];
+const nearbyNetworks=[{ssid:"Plant WiFi",rssi:-80,channel:1,open:false,supported:true},{ssid:"Plant WiFi",rssi:-48,channel:6,open:false,supported:true},{ssid:"Open test network",rssi:-62,channel:11,open:true,supported:true},{ssid:"Guest WiFi",rssi:-70,channel:1,open:false,supported:true}];
 let flowBoot = 1;
 let flowSequence = 0,
   flowEvents = [],

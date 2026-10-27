@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="740" viewBox="0 0 1400 740" role="img" aria-labelledby="title desc"><title id="title">UART1 RTU frame and transceiver direction</title><desc id="desc">Timing is schematic, not to scale. Hardware UART generates serial bits; GPIO16 controls direction.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
-<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">RTU timing · manual-direction alternative</text>
-<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Default automatic module leaves GPIO16 unconnected · function 03 only · schematic timing</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="740" viewBox="0 0 1400 740" role="img" aria-labelledby="title desc"><title id="title">UART1 RTU frame and transceiver direction</title><desc id="desc">Timing is schematic, not to scale. Hardware UART generates serial bits. GPIO16 controls direction.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">ModbusMaster transaction · manual direction</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">GPIO16 drives DE and /RE. The UART generates serial bits and CRC is checked in software.</text>
 <rect x="45" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="59" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">ID</text>
 <text x="59" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">01</text>
@@ -25,7 +25,7 @@
 <rect x="1193" y="135" width="153" height="86" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="1207" y="163" fill="#587176" font-family="Arial, sans-serif" font-size="12" font-weight="600" text-anchor="start">CRC HI</text>
 <text x="1207" y="199" fill="#087e82" font-family="Consolas, monospace" font-size="22" font-weight="600" text-anchor="start">CRC[15:8]</text>
-<text x="45" y="254" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Energy read request: 0x0082, two words. CRC covers the first six bytes; low CRC byte is sent first.</text>
+<text x="45" y="254" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Energy read request: 0x0082, two words. CRC covers the first six bytes. Low CRC byte is sent first.</text>
 <text x="45" y="327" fill="#6d5897" font-family="Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">GPIO16</text>
 <text x="45" y="353" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">DE + /RE</text>
 <polyline points="190,355 440,355 440,305 690,305 690,355 1345,355" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
@@ -38,12 +38,12 @@
 <rect x="825" y="416" width="445" height="54" rx="5" fill="#eef6f2" stroke="#28755e"/>
 <text x="1047" y="449" fill="#28755e" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">Response: ID / 03 / count / data / CRC</text>
 <polyline points="440,490 440,515" fill="none" stroke="#5d6f76" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="440" y="542" fill="#183438" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">Wait t3.5</text>
-<text x="440" y="568" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="middle">then HIGH + 30 µs</text>
+<text x="440" y="542" fill="#183438" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">GPIO16 HIGH</text>
+<text x="440" y="568" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="middle">wait 100 µs before TX</text>
 <polyline points="690,490 690,515" fill="none" stroke="#5d6f76" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="690" y="542" fill="#183438" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">UART.flush()</text>
-<text x="690" y="568" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="middle">then GPIO16 LOW</text>
+<text x="690" y="568" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="middle">LOW, then wait 100 µs</text>
 <rect x="45" y="614" width="1300" height="88" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="70" y="645" fill="#183438" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">RX deadline: 800 ms after TX flush. Software polls the RX buffer and yields one tick while waiting.</text>
+<text x="70" y="645" fill="#183438" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">ModbusMaster reads the expected response length within 2000 ms. Complete replies do not wait for a software gap.</text>
 <text x="70" y="678" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">UART and I2C use hardware peripherals. GPIO direction switching and software CRC are not serial bit banging.</text>
 </svg>

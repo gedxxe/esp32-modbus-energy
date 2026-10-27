@@ -84,8 +84,8 @@ for pin in pins.values():need('ESP32.GPIO'+str(pin) in all_endpoints,f'GPIO{pin}
 need('FORT.58/A' in all_endpoints and 'FORT.59/B' in all_endpoints,'Fort terminal mapping missing')
 need(not any('FORT.70' in x for x in all_endpoints),'Switch-input COM must not be wired as RS485 ground')
 need((ROOT/'AGENTS.md').exists(),'Root AGENTS.md missing')
-debug_source=(ROOT/'examples/FortSerialDebug/FortSerialDebug.ino').read_text(encoding='utf-8')
-debug_version=re.search(r'FortSerialDebug ([0-9.]+) \| Serial',debug_source).group(1)
+debug_source=(ROOT/'firmware/lib/FortMeter/src/FortDiagnostics.h').read_text(encoding='utf-8')
+debug_version=re.search(r'Fort diagnostics ([0-9.]+) \|',debug_source).group(1)
 for name in ['README.md','README.id.md']:
     guide=(ROOT/'examples/FortSerialDebug'/name).read_text(encoding='utf-8')
     need('FortSerialDebug '+debug_version in guide,f'{name}: diagnostic version mismatch')

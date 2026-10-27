@@ -3,11 +3,14 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # One ID, six baud rates, three parity modes; no energy-profile requirement.
 x
+direction manual
+settle 100
+gap 200
 range 1 1
 bauds 9600 19200 38400 4800 2400 1200
 parities NEO
 scanmode matrix
-probe 0034 1
+probe 0058 2
 timeout 800
 stats clear
 scan

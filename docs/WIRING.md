@@ -2,55 +2,41 @@
 
 **English** · [Bahasa Indonesia](id/WIRING.md)
 
-Use the GPIO labels on the actual DevKitC-style N16R8 board. This drawing represents electrical connections; its port positions do not represent physical header positions.
+The installed circuit uses a manual-direction RS485 transceiver, as confirmed with the successful ModbusMaster sketch. Follow the GPIO labels on the physical ESP32-S3 N16R8 and the signal names on the module because the drawing represents electrical nets rather than physical header positions.
 
-![Supplied automatic-direction module](assets/rs485-auto.svg)
+![Complete manual-direction wiring](assets/wiring-overview.svg)
 
-The supplied module uses TXD → GPIO18 and RXD ← GPIO17; GPIO16 is unconnected.
+## Supply and shared I2C
 
-**Manual-direction alternative:** the following complete schematic/netlist shows RO/DI/DE-/RE instead. Its OLED/RTC/buttons/buzzer nets also apply to the actual installation.
+With USB disconnected, route 3V3 and GND to separate low-voltage rails and bridge a split breadboard rail if both halves are used. Connect OLED VCC/GND to those rails, SDA to GPIO8 and SCL to GPIO9. Connect DS3231 VCC/GND to the same rails and branch its SDA/SCL onto the same GPIO8/9 nets. The firmware expects SSD1306 128×64 at 0x3C and DS3231 at 0x68, while RTC SQW/32K stay unconnected.
 
-![Manual-direction alternative full schematic](assets/wiring-overview.svg)
+Follow the printed module labels because connector order varies. I2C pull-ups should reference 3.3 V. If the RTC breakout includes a charging circuit, use the battery type specified for that circuit rather than assuming every DS3231 board accepts the same cell. The firmware continues starting its AP and reader when the OLED is absent.
 
-## Assemble in this order
+## RS485 and direction control
 
-1. With USB disconnected, connect ESP32 3V3 and GND to separate breadboard rails. Bridge a split rail if components use both halves.
-2. Connect OLED VCC → 3V3, GND → GND, SDA → GPIO8, SCL → GPIO9. The firmware expects an I2C SSD1306 128×64 at 0x3C. Follow the module's printed labels, because header order varies.
-3. Connect DS3231 VCC → 3V3, GND → GND, SDA → GPIO8, SCL → GPIO9. These are branches on the same I2C nets as the OLED. SQW and 32K stay unconnected. Its address is 0x68.
-4. Connect the confirmed 3.3 V-compatible RS485 module: VCC → 3V3, GND → GND, module TXD → GPIO18 (RX), module RXD ← GPIO17 (TX). The supplied four-pin module handles direction automatically: GPIO16 unconnected. Only the manual-direction alternative uses RO/DI and tied DE-/RE on GPIO16.
-5. Connect RS485 A → Fort 58/A and B → Fort 59/B. The manual's PDF page 7/table 3 and page 9/figure 5 identify those terminals. Terminal 70/COM is for switch inputs; it is not RS485 ground.
-6. If buttons are installed, connect one contact of PREV/NEXT/OK to GPIO4/5/6 respectively and the opposite contact to GND. Internal pull-ups keep an unpressed button HIGH.
-7. The buzzer can be omitted while testing. If fitted, connect its driver to GPIO7 using the circuit below.
-8. Check the [point-to-point netlist](wiring-netlist.csv), then power the board from USB. Confirm the AP works before moving to a panel installation.
+| From | To | Meaning |
+| --- | --- | --- |
+| GPIO17 / TX UART1 | DI | ESP32 drives the transceiver input |
+| RO | GPIO18 / RX UART1 | Transceiver drives the ESP32 input |
+| GPIO16 | DE and /RE joined | HIGH transmits with receiver disabled, LOW receives |
+| Board 3V3/GND | Compatible module VCC/GND | Shared local supply/reference |
+| A | Fort 58/A | Differential bus conductor |
+| B | Fort 59/B | Differential bus conductor |
 
-The user's Fort RS485 port is dedicated to this reader; no other master is present. The purchased “MAX485 TTL RS485 3.3V/5V flexible” module is confirmed suitable for ESP32 3.3 V TTL. Those facts are part of this project's configuration, not open assumptions.
+The Fort port is dedicated to this ESP32 as its only master. Terminal 70/COM is associated with switch inputs and is not an RS485 ground terminal, so it is excluded from the [point-to-point netlist](wiring-netlist.csv). The compatible TTL module and low-voltage circuit are already established project facts.
 
-## RS485 direction
+Select **Manual direction** in Meter setup for this installation. The transmitter is asserted 100 µs before the request and released after UART flush, followed by 100 µs receiver settling. A four-pin [automatic-direction module](assets/rs485-auto.svg) is a separate alternative that requires the Automatic selection and no GPIO16 lead. Do not mix the two diagrams or assume their connector labels have the same physical order.
 
-For a **manual-direction alternative**, RO is the transceiver's receive **output**, so it connects to the ESP32 RX **input**. DI is the transceiver's driver **input**, so it connects to ESP32 TX. With DE and /RE tied, GPIO16 HIGH transmits and LOW receives. A module exposing only TX/RX may handle direction automatically; determine connections by signal direction and check turnaround/local echo before acceptance.
+Use the installation's intended reference, shielding, termination and isolation arrangement. Check resistors already present on the cable/modules before adding bias or termination, and keep this reader connection separate from the meter's voltage/current measurement terminals.
 
-Use the panel's intended isolation/reference/shielding arrangement. A basic TTL module does not add galvanic isolation. Twisted pair, termination and bias depend on the cable and installed transceiver network; check existing resistors before adding more. About 120 Ω termination belongs at bus ends where required, not at every node. Do not modify the meter's voltage/current/CT measurement wiring to attach this reader.
+## Tactile switches
 
-## Four-leg tactile contacts
+![Switch contact pairs](assets/button-contacts.svg)
 
-![Contact pairs](assets/button-contacts.svg)
+A four-leg tactile switch has two internally joined contact pairs. Identify them with continuity, then connect one contact from each pair so that pressing joins the GPIO to GND. PREV uses GPIO4, NEXT uses GPIO5 and OK uses GPIO6. There is no button VCC connection because the firmware enables internal pull-ups and debounces the active-LOW input.
 
-A four-leg switch contains two internally joined pairs. Use a continuity meter to identify them: A–A is always joined, B–B is always joined, A–B joins only when pressed. Use one A and one B. The GPIO and ground must not land on an already joined pair. No button VCC connection is needed.
+## Optional buzzer and onboard LED
 
-## Optional two-leg buzzer
+The complete drawing includes a two-wire active buzzer with an NPN low-side driver. GPIO7 reaches the base through 1 kΩ, the emitter connects to GND, the collector connects to buzzer negative and buzzer positive connects to its compatible 3V3 supply. A 10 kΩ base-to-ground resistor keeps the transistor off during reset. Those driver parts are additional components, and the transistor package datasheet determines its physical B/C/E pin order.
 
-```text
-GPIO7 -- 1 kΩ -- NPN base
-                 emitter -- GND
-                 collector -- buzzer (-)
-3V3 ---------------------- buzzer (+), for a compatible 3 V unit
-base -- 10 kΩ -- GND
-```
-
-The transistor and two resistors are additional parts. A 2N2222/BC337 example identifies a transistor type, not a physical pin order; use its package datasheet for B/C/E. Add a flyback diode if the buzzer is electromagnetic and its datasheet calls for it. A three-pin buzzer module with its own 3.3 V-compatible driver can instead use GPIO7 → signal, VCC → rated supply, GND → GND. Firmware uses active HIGH; an active-low module needs a polarity change. Do not assume a bare buzzer's current is within GPIO drive capability.
-
-## RTC battery and display checks
-
-Some DS3231 breakouts charge LIR2032 cells. Use a battery appropriate to the module; do not connect a non-rechargeable CR2032 to an active charging circuit. I2C pull-ups must end at 3.3 V. Check the combined OLED/RTC pull-ups and the module supply labels.
-
-For a blank OLED, check 3V3/GND, GPIO8/9, address 0x3C/0x3D and the controller type. Change `OLED_ADDRESS` in [board.h](../firmware/include/board.h) for 0x3D. A 128×32 screen or SH1106 is a different layout/driver target. Firmware continues starting the AP and reader if the OLED is absent.
+A driver-equipped buzzer module can use GPIO7 as its signal when its input polarity and supply match the circuit. The firmware output is active HIGH. GPIO48 already drives the onboard addressable RGB LED and needs no external wiring, while OLED rotation is controlled by `OLED_ROTATE_180` in [board.h](../firmware/include/board.h).

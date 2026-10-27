@@ -1,70 +1,59 @@
-# Validation record — 27 October 2026
+# Validation record / 27 October 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware **1.4.1**, standalone **FortSerialDebug 1.3.1**. This record describes local software checks. Physical acceptance of the installed Fort is still required; use [COMMISSIONING](COMMISSIONING.md) and the [field diagnostic guide](DIAGNOSTICS.md). Previous release changes remain in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.0.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
-## Firmware compilation — passed
+## Compilation
 
-Both targets compiled with the pinned espressif32 **6.10.0** / Arduino ESP32 **2.0.17** toolchain, with no compiler warnings/errors in the final output. The target is the physical ESP32-S3 N16R8: 16 MB flash, OPI PSRAM.
+Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.0.17** toolchain for the physical ESP32-S3 N16R8, with 16 MB flash and OPI PSRAM. The final compiler output contained no warnings or errors.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| `pio run -e esp32s3` in `firmware/` | 79,328 | 1,094,969 |
-| `pio run -d examples/FortSerialDebug` | 21,476 | 332,101 |
+| Main `esp32s3` environment | 80,456 | 1,104,661 |
+| Standalone FortSerialDebug | 30,260 | 336,525 |
 
-Static RAM is not runtime heap/stack usage. Core 0's loop stack is 16 KiB and acquisition stack is 12 KiB. Queue storage, peripheral-driver allocations, real high-water values and sustained multi-client latency need on-device measurement. The standalone sketch has no external library dependencies; the Arduino IDE GUI and other ESP32 core versions were not exercised.
+Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
 
-## Native regressions — passed
+## Native regression tests
 
-`tools/test.ps1` builds three C++11 suites with `-Wall -Wextra -Werror`. The standalone suite includes the actual INO, and the production diagnostic suite includes the generated engine used by main firmware.
+`tools/test.ps1` passed all three C++11 suites with `-Wall -Wextra -Werror`. The diagnostic tests compile the actual vendored ModbusMaster implementation with the shared adapter, and the standalone suite includes the real INO. UART traffic and time are injected by a host stub rather than replacing ModbusMaster with a mock reader.
 
-- CRC corruption, incorrect ID/function/count/length, short/oversized/deadline-tail frames, exact echoes, concatenated request prefixes and valid exceptions. A valid exception establishes transport only and never produces kWh.
-- Delayed valid bytes arriving **during** the pre-TX quiet guard are discarded. Sustained pre-TX RX reaches a bounded no-TX bus-busy outcome. Exact echo plus a byte-wise 19200/8E1 response at minimum legal turnaround is accepted as two separately observed frames. A failed UART initialization is retried at the same serial settings. These new cases execute against both the real INO and generated production engine.
-- Silent-first-address fallback, configured raw plans, runtime pins/ID/baud/parity/timeouts/profile settings, scan lists/current-format mode, weak-pull observations, paired-capture configuration/abort guards, queued console input and all eight field recipes. Every emitted test request remains FC03 with a valid CRC and nonbroadcast ID.
-- Scan enumeration, preferred ID/format ordering, 4,446 unique matrix candidates, 247 current-format candidates, single-ID completion, invalid ranges, cancellation/restart and millis rollover.
-- Nine scheduled windows, interpolation, continuity gaps, missing samples, reboot/RTC/counter discontinuity, CT/PT changes, NaN/negative values and completed-record preservation. Backward local dates remain blocked independently of RTC availability; queued clock requests are age-compensated and revalidated at bounds/rollover.
-- Ordinary command mode/revision/10-second age guards, including scan/maintenance transitions and rollover. These pure guards do not execute FreeRTOS queues concurrently; the main integration was reviewed and compiled.
-- Bounded HTTP writer under partial progress, retry/no-progress, fatal error and timer rollover. Progress does not renew the total deadline; chunks remain at most 1 KiB and service callbacks run between attempts. These are socket fault-injection mocks, not a Wi-Fi saturation test.
-- Archive replacement fault recovery, RGB modes/versioned CRC-protected settings, debouncing and button timing, raw trace bounds/freeze/stop, UART event ordering and cursor wrap.
+The transport checks cover the exact `01 03 00 58 00 02 45 D8` request, manual direction callback order, byte-wise replies completed by their expected length, wrong CRC/ID/function/count, short and oversized input, exact echoes and CRC-verified exceptions. They also exercise failed UART initialization and retry, partial writes, cancellation before TX and during reception, deadline-tail rejection, automatic mode without direction writes, queued console input and deferred Serial `resume` handling. A reply arriving after the response deadline cannot become accepted data merely because its bytes later pass CRC.
 
-Tests do not prove real line timing, bus topology, module power/health, correct physical register mapping or actual installed-meter scaling. Frame separation uses task-observed buffer arrivals. RTOS stalls can hide a physical gap; RTU has no transaction ID for conclusive attribution of every delayed reply.
+Runtime configuration, raw plans, bounded scans, weak-pull observations, paired-capture guards, all eight field recipes and read-only FC03 output are covered. The scan enumerator checks the 4,446-candidate matrix, current-format ranges, preferred settings, cancellation and timer rollover. Settings tests check CRC-valid v1 migration to manual mode and retention of an explicitly selected v2 automatic mode.
 
-## Embedded browser — passed
+The existing energy and device suites also pass for the nine scheduled windows, interpolation and continuity gaps, missing/invalid time, reboot and counter discontinuity, CT/PT changes, completed-record preservation, backward-day protection, queued clock correction, command mode/revision/age guards, archive fault recovery, LED persistence, buttons and trace/event bounds. Bounded HTTP writer tests inject partial progress, no progress, fatal errors and timer rollover without extending the total deadline.
 
-`tools/preview-test.cjs` with Playwright and installed Microsoft Edge reads **the generated gzip arrays** in `firmware/include/web_ui.h`; APIs are simulated. No substitute HTML UI is tested.
+These tests establish software behavior under the injected cases. They do not measure physical UART timing, transceiver health, line noise, register acceptance or energy agreement with the installed meter. FreeRTOS ownership is reviewed and compiled, while pure command-policy tests do not execute concurrent hardware tasks. RTU carries no transaction ID or register address in its response, which limits attribution of delayed replies.
 
-- English default/Indonesian switching, persistence and blocked-storage fallback; all six morning and three evening rows; missing values remain missing.
-- Serial settings, phone time, LED modes/drafts/brightness/storage feedback, mute, scan mode/probe/range/progress/cancel/apply, CSV selection/download and raw capture/export.
-- HTTP 202 does not unlock ordinary controls before the exact execution result. Delayed completion and explicit rejection are exercised. Clock sync is disabled in maintenance; initial diagnostic state must load before Run is enabled. Priority Stop remains available while an ordinary action waits.
-- Malformed status slots, archive rows, process/core rows, raw-trace frames and UART events retain the last usable data and mark the panel stale/unavailable without crashing the application.
-- Diagnostic command/paste guard, pause/resume/log download, EN/ID labels and closed-panel polling. Process table, heap/PSRAM and stack metrics are simulated.
-- UART motion requires new events; idle time and pre-reboot history create no packet motion. Reduced motion is honored. All animation is a timestamp replay with network delay, not a wire analyzer.
-- Layouts from 320 to 2560 px, no document overflow, no JavaScript page errors, no external asset requests. Vendored React Bits files match upstream Git blob hashes. All 19 SVGs render with text inside their viewBox.
+## Browser and vector checks
 
-Representative, simulated screenshots: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scan](assets/ui-scan-desktop.png), [raw capture](assets/ui-trace-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png), [phone diagnostics](assets/ui-diagnostic-mobile.png). These are not hardware evidence.
+`tools/preview-test.cjs` passed with Playwright and installed Microsoft Edge, using the **generated gzip arrays** in `firmware/include/web_ui.h` with simulated APIs. It exercises the shipped browser bytes rather than a substitute page.
 
-## Asset provenance and documentation — passed
+Coverage includes English/Indonesian switching and persistence, blocked storage, all interval rows, direct register values and freshness, manual/automatic direction save and reload, scan/probe/cancel/apply, clock synchronization, LED controls, CSV and raw capture export. Command controls wait for the matching execution result after HTTP 202, and priority Stop remains available while an ordinary action is pending. Maintenance blocks clock changes and Run waits for the initial diagnostic state.
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1**, GSAP **3.15.0**. The browser header and manifest were rebuilt together after adding validation source. Python's input/header hash guard passed inside the successful PlatformIO build. A normal firmware checkout/build does not require Node. A deliberate extra web input was also tested through actual PlatformIO: it failed with the intended recovery instructions and no Python traceback; the temporary input was removed and the original provenance check passed again.
+Malformed status, archive, process, trace and UART-event payloads retain the last usable data with a stale/unavailable state. Diagnostics, process metrics and raw trace polling stop when their panel closes. UART animation requires new events, honors reduced motion and does not turn idle time or pre-reboot history into live packets. Its timestamp replay includes network delay and is not a wire analyzer.
+
+Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **20 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
+
+## Asset and source provenance
+
+The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** and GSAP **3.15.0**. The generated header and manifest agree, and the Python hash guard passed inside the successful firmware build. A normal PlatformIO build needs no Node installation.
 
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
-| / | 1030 | 527 |
-| /assets/app.js | 425195 | 143462 |
-| /assets/app.css | 20283 | 5172 |
-| /assets/third-party.txt | 5755 | 1433 |
+| `/` | 1,030 | 527 |
+| `/assets/app.js` | 431,200 | 145,203 |
+| `/assets/app.css` | 20,901 | 5,285 |
+| `/assets/third-party.txt` | 5,755 | 1,433 |
 
-Combined payload: **150,594 bytes gzip**, below 160 KiB. Input hashes normalize text line endings; generated gzip metadata is normalized. The build includes no source maps, external fonts or CDN assets. Browser code executes on the phone/computer; ESP32 serves compressed flash bytes.
+The combined payload is **152,448 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-`tools/check_docs.py` passed: **25 Markdown files, 221 relative links/anchors, 19 SVGs, 31 manual-alternative wires**, exact pin/version/license checks and generated provenance. Generated assets come from `tools/generate_docs.py`. Confirmed installation wiring remains module TXD → GPIO18, RXD ← GPIO17; GPIO16 unused on the automatic module; Fort terminals 58/A and 59/B. No register/scaling or terminal assignments changed in this audit.
+The documentation checker validates relative links, pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
-## Package and remote checks
+## Packaging and remaining hardware work
 
-`tools/package.py` compares the copied app with the current build, checks bootloader/partition/boot_app0/app offsets in the merged factory image and verifies every archived manifest SHA256 plus ZIP CRC. The package includes sources, docs, notices, tooling and the original manual; excludes caches/dependency directories. Flash offsets remain 0x0 / 0x8000 / 0xE000 / 0x10000 as documented in [FLASHING](FLASHING.md).
+The packager verifies the copied app against the current build, compares every component at its merged factory offset, checks the ZIP CRC and verifies each archived manifest SHA256. The release includes source, documentation, tooling, notices, the original Fort manual and a separate Arduino FortMeter library ZIP, while excluding build caches and installed dependencies. Image offsets remain 0x0 / 0x8000 / 0xE000 / 0x10000 as described in [FLASHING](FLASHING.md). Remote CI must be read for the actual pushed commit, since local checks alone do not establish its result.
 
-Remote CI must be read for the actual pushed commit. Local checks do not imply a passing GitHub Actions run.
-
-## Remaining physical checks
-
-Fort register acceptance/display agreement, RS485 turnaround/noise/echo behavior, I2C devices and RTC battery, OLED orientation, buttons/buzzer, GPIO48 LED output, power-cut persistence/recovery, HTTP parser limits and multiple AP clients remain unverified on the installed hardware. HTTP response writes are bounded; the upstream request parser is not replaced or claimed to withstand arbitrary hostile request streams. The four-pin RS485 module exposes no presence/power-good signal; a silent path cannot prove which physical component is absent or defective.
+The integrated Fort register/display comparison, RS485 turnaround and noise behavior, OLED/RTC and battery, buttons/buzzer, GPIO48 output, power-cut recovery and multiple AP clients still require physical acceptance. HTTP response writes are bounded, but the upstream request parser has not been replaced or certified against arbitrary hostile traffic. The transceiver exposes no presence or power-good input, so UART silence or local RX activity cannot identify a disconnected or defective component with certainty.

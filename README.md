@@ -2,170 +2,103 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 1.4.1](docs/assets/badges/firmware.svg) ![ESP32-S3 N16R8](docs/assets/badges/board.svg) ![GPL-3.0-only](docs/assets/badges/license.svg)
+![Firmware 2.0.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
-An ESP32-S3 reader for the existing Fort power meter at Midea. It reads imported kWh over Modbus RTU, records scheduled half-hour intervals, and serves a dashboard directly to a phone over Wi-Fi. The Fort RS485 port is dedicated to this reader; the ESP32 is its only master.
+This project reads a Fort power meter from an ESP32-S3 N16R8 and makes its energy counter available over a local Wi-Fi access point. A phone can view live measurements, inspect half-hour consumption, export records and run diagnostics without an internet connection. The OLED provides a local reading and the access-point address when a phone is not connected.
 
-The firmware builds for a generic DevKitC-style **ESP32-S3 N16R8**. The dashboard uses **React and actual React Bits components**, bundled locally. English is the default language; the language selector switches the full interface to Indonesian. No internet connection is needed at the meter.
-
-New releases need commissioning against the physical Fort meter. Compilation and browser tests do not establish measurement accuracy or wiring acceptance. [Validation results](docs/VALIDATION.md) identify what has actually been tested.
-
-## Contents
-
-1. [Connect the hardware](#1-connect-the-hardware)
-2. [Build and upload](#2-build-and-upload)
-3. [First startup and meter scan](#3-first-startup-and-meter-scan)
-4. [Energy calculation and recording quality](#4-energy-calculation-and-recording-quality)
-5. [Tasks, ownership and scheduling](#5-tasks-ownership-and-scheduling)
-6. [UART frames and RS485 direction](#6-uart-frames-and-rs485-direction)
-7. [Browser build and memory use](#7-browser-build-and-memory-use)
-8. [Tests and maintenance](#8-tests-and-maintenance)
+Version 2.0.0 replaces the previous response-gap parser with a shared ModbusMaster transport. Its reference is the user's successful sketch: UART1 on TX17/RX18, manual DE-/RE control on GPIO16, 100 µs settling around transmission, and the manual's phase-A current request at `0x0058`. The user reported that reference working on the meter. Acceptance of this integrated release is recorded separately in [VALIDATION](docs/VALIDATION.md).
 
 ## Dashboard
 
-![English dashboard, using simulated readings](docs/assets/ui-desktop.png)
+![Representative dashboard with simulated values](docs/assets/ui-desktop.png)
 
-The screenshot uses simulated API data. The chart is built from the same interval values as the table; it is not a synthetic load trend. Missing readings remain blank. [Phone layout](docs/assets/ui-mobile.png) · [Meter scan](docs/assets/ui-scan-desktop.png).
+The browser uses React 19.3.1 and locally vendored React Bits components. It runs on the phone or computer while the ESP32 serves compressed assets from flash. English is the default language and the language selector switches the interface to Indonesian. Screenshots in this repository contain simulated values and do not represent a hardware acceptance test.
 
 ## 1. Connect the hardware
 
-Use the **GPIO labels** printed on the board, not header position numbers. Disconnect USB while assembling the low-voltage connections. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL.
+The confirmed installation now uses a **manual-direction transceiver**. Connect GPIO16 to both DE and /RE so that a HIGH level enables the transmitter and disables the receiver, then a LOW level releases the bus and enables reception. The transceiver's DI and RO labels describe its TTL signals. They are not the A/B pair that goes to the meter.
 
-| Module pin | ESP32-S3 connection | Purpose |
+| ESP32 connection | Destination | Purpose |
 | --- | --- | --- |
-| OLED VCC / GND | 3V3 / GND | SSD1306, 128×64, I2C address 0x3C |
-| OLED SDA / SCL | GPIO8 / GPIO9 | Shared I2C bus |
-| DS3231 VCC / GND | 3V3 / GND | RTC, I2C address 0x68 |
-| DS3231 SDA / SCL | GPIO8 / GPIO9 | Connect to the same nets as the OLED |
-| RS485 VCC / GND | 3V3 / GND | Transceiver supply and logic ground |
-| RS485 module TXD | GPIO18, UART1 RX | Confirmed module output → ESP32 input |
-| RS485 module RXD | GPIO17, UART1 TX | ESP32 output → confirmed module input |
-| GPIO16 | Unconnected on supplied module | Four-pin automatic direction; manual DE-/RE alternative below |
-| RS485 A / B | Fort 58/A / 59/B | The meter communication terminals |
-| PREV / NEXT / OK buttons | GPIO4 / GPIO5 / GPIO6; other contact to GND | Internal pull-ups, active LOW |
-| Buzzer control, optional | GPIO7 → driver | Active HIGH; may be left unconnected |
+| GPIO17 / UART1 TX | RS485 DI | Request bytes from ESP32 |
+| GPIO18 / UART1 RX | RS485 RO | Response bytes into ESP32 |
+| GPIO16 | RS485 DE and /RE joined | Manual direction control |
+| 3V3 and GND | Compatible transceiver VCC and GND | Local low-voltage supply |
+| GPIO8 / SDA | OLED SDA and DS3231 SDA | Shared I2C data |
+| GPIO9 / SCL | OLED SCL and DS3231 SCL | Shared I2C clock |
+| 3V3 and GND | OLED/RTC VCC and GND | Shared low-voltage supply |
+| GPIO4, GPIO5, GPIO6 | PREV, NEXT, OK switches to GND | Internal pull-ups, pressed is LOW |
+| GPIO7 | Optional buzzer driver input | Active buzzer pattern |
+| GPIO48 | Onboard addressable RGB LED | No external connection |
 
-DS3231 SQW and 32K are unused. OLED and RTC each need four connections; their SDA/SCL wires branch to the same two GPIOs. All module GND pins share ESP32 GND. **Fort 70/COM is a switch-input common, not RS485 ground.** The GPIO mapping is defined in [board.h](firmware/include/board.h).
+Connect RS485 **A to Fort terminal 58/A** and **B to terminal 59/B**. Terminal 70/COM belongs to the meter's switch inputs and is not an RS485 ground terminal. The meter port is dedicated to this ESP32, which is its only master.
 
-<details>
-<summary>Full manual-direction alternative, including optional buttons and buzzer driver</summary>
+![Complete installed wiring](docs/assets/wiring-overview.svg)
 
-![Full wiring schematic](docs/assets/wiring-overview.svg)
+The diagram shows electrical nets rather than physical header positions. Repeated 3V3/GND labels refer to the same respective net. Dots mark joins, whereas crossings without dots do not. The optional two-wire buzzer uses an NPN low-side driver, a 1 kΩ base resistor and a 10 kΩ pull-down, which are additional parts. A transistor's physical B/C/E order must come from its part/package datasheet.
 
-Port positions in this drawing are logical, not a photograph of the board. Repeated 3V3/GND labels are connected nets; a crossing without a dot is not a connection. The buzzer driver requires an NPN transistor, 1 kΩ base resistor and 10 kΩ pull-down; these are additional parts. Physical B/C/E pin order depends on the transistor package.
-
-</details>
-
-![Supplied automatic-direction module wiring](docs/assets/rs485-auto.svg)
-
-The full diagram and 31-wire netlist use the **manual RO/DI/DE-/RE alternative**. For the supplied automatic module use the table and diagram above; GPIO16 is unused.
-
-Follow the [step-by-step wiring guide](docs/WIRING.md) when assembling. It covers tactile contacts, the optional buzzer, RTC battery and the [31-wire netlist](docs/wiring-netlist.csv).
+An [automatic-direction module](docs/assets/rs485-auto.svg) remains an explicit alternative. Select Automatic in Meter setup before using it and leave GPIO16 disconnected. The installed manual module is the default for a fresh configuration and for migration from v1.
 
 ## 2. Build and upload
 
-Open the **firmware** directory in VS Code/PlatformIO; it contains `platformio.ini`. Close Serial Monitor before uploading.
+Open **`firmware/`** in PlatformIO because that directory contains `platformio.ini`, close any Serial Monitor holding the upload port, then build the `esp32s3` environment. From a computer terminal already in `firmware/`, the commands are:
 
-```powershell
-cd firmware
+```sh
 pio run -e esp32s3
-pio run -e esp32s3 --target upload --upload-port COM10
-pio device monitor -e esp32s3 --port COM10
+pio run -e esp32s3 -t upload
+pio device monitor -e esp32s3
 ```
 
-Replace COM10 with the board's actual port. If `pio` is not on PATH, use `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"` in its place. The VS Code equivalent is **Project Tasks → esp32s3 → General → Upload**. The only supported target is `esp32s3`: 16 MB flash and OPI PSRAM for N16R8.
+A normal firmware build uses the committed web header and does not require Node. PlatformIO installs the pinned display/RTC/JSON dependencies and finds the local FortMeter library automatically. The same library contains the ModbusMaster source used by the standalone diagnostic. [FLASHING](docs/FLASHING.md) explains app/factory offsets and the separate Arduino library ZIP.
 
-The generated browser assets are committed with the firmware. A normal PlatformIO build verifies their hashes and **does not need Node or npm**. Install Node dependencies only when editing the web source; see [section 7](#7-browser-build-and-memory-use).
-
-| Dependency | Pinned version | Role |
-| --- | --- | --- |
-| PlatformIO Core | 6.1.16 | Development/build tool |
-| Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 | Toolchain and device runtime |
-| Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 | OLED and I2C driver support |
-| RTClib | 2.1.4 | Calendar/UTC conversion; checked DS3231 transactions are in the firmware |
-| ArduinoJson | 7.3.1 | HTTP JSON |
-| Node.js (web build only) | 24.22.1 | Reproducible browser build runtime |
-| React / React DOM | 19.3.1 | Browser application |
-| GSAP | 3.15.0 | React Bits page transitions |
-| esbuild | 0.28.2 | Browser bundler, development only |
-| Playwright | 1.62.1 | Browser regression tests |
-
-Versions come from [platformio.ini](firmware/platformio.ini), [package.json](package.json) and its lockfile. PlatformIO resolves firmware libraries automatically.
-
-For raw BIN flashing, use the offsets in [FLASHING](docs/FLASHING.md). An application BIN and a merged factory BIN have different purposes; do not put app-only firmware at address 0x0.
+| Component | Pinned version or configuration |
+| --- | --- |
+| PlatformIO Core | 6.1.16 |
+| Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
+| Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
+| FortMeter / ModbusMaster | 2.0.0 / 2.0.1+fort.1, local source |
+| Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
+| RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
+| React / React DOM / GSAP | 19.3.1 / 19.3.1 / 3.15.0 |
+| Node / esbuild / Playwright | 24.22.1 / 0.28.2 / 1.62.1 |
 
 ## 3. First startup and meter scan
 
-1. Power the board. Startup does not wait for USB Serial. The OLED animation and buzzer pattern take about 1.5 seconds; a missing OLED does not prevent startup.
-2. Connect the phone to **Midea Engineering AP**, password **betahdijre12345**. Stay on this network when the phone reports that it has no internet. Open **http://192.168.4.1**.
-3. Check the footer reports **Firmware 1.4.1**. English is the default; select **Indonesia** to switch language. This preference belongs to the browser, not to the meter.
-4. On a new installation, LittleFS may not yet contain a valid filesystem. If mounting fails, hold the physical **OK button (GPIO6)** during boot and keep holding for five seconds. This formats the archive partition and erases archives. Firmware never formats it automatically.
-5. In **Device & records**, choose **Set from this phone** to set the DS3231. It stores UTC; the screen and interval schedule use WIB. The phone's clock must be correct.
-6. Open **Meter setup**. Either enter the Fort communication settings or run **Scan Fort**. Defaults are slave 1, 9600 baud, 8N1. A manual supplied with the meter does not prove the installed slave ID.
+Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 2.0.0, match the meter's CONi slave ID/baud/parity in Meter setup, and confirm Manual direction. The firmware begins contact testing with FC03 at `0x0058`, two registers, before requesting the wider measurement profile. When contact fails it returns to a bounded retry rather than immediately querying every register.
+
+On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 
 ### Diagnostics without replacing the firmware
 
-Open **Meter setup → Diagnostic console → Staged test → Run command**. Wait for `[REPORT_END]`, then **Download output**. These controls run the same read-only tests as the standalone sketch while keeping the AP/dashboard available. Active tests enter maintenance; **Resume measurement** restores saved production settings. `status`/`report` inspection can run without pausing measurement. [Field procedure, result meanings and all commands](docs/DIAGNOSTICS.md).
-
-Polling and diagnostic tests now share the same strict transport. An exact request echo is rejected while waiting for a separate valid reply. A request prefix plus trailing bytes is logged, never silently stripped. Pre-TX bytes, short/CRC/wrong/oversized frames and exceptions remain separate evidence; none becomes fabricated kWh. Runtime pin/timing/register/scale/order tests do not alter the production energy map or saved serial settings.
-
-The main scanner accepts matching data **or a valid exception**, independently of energy/ratio support. It offers a fast current-format search and an explicit 18-format matrix. A failed probe or scan does not establish disconnected/damaged hardware. The [standalone Arduino sketch](examples/FortSerialDebug/README.md) remains an optional fallback, with [eight field recipes](examples/FortSerialDebug/README.md#choose-the-test-by-the-observation) also usable one command at a time in the web console.
-
-The communication panel replays timestamped UART events at 1×, with 200 ms polling plus network delay; no event means no movement. It exposes HEX, sequence gaps and actual test pins. The packet trail is schematic, not a physical A/B waveform. **Device & records → Process monitor** shows sampled core activity, heap/PSRAM and task stack headroom. [Measurement limits](docs/DIAGNOSTICS.md#live-communication-and-process-monitor).
-
-![Representative process monitor with simulated API data](docs/assets/ui-process-desktop.png)
-
-### OLED mounting and onboard RGB
-
-The entire OLED is rotated **180° by default**, including boot animation and the storage-recovery prompt. Set `OLED_ROTATE_180 = false` in [board.h](firmware/include/board.h) to return to normal orientation, then rebuild/upload. It is applied once through `oled.setRotation(2)` before any drawing; the illustrations show the readable result after mounting.
-
-Open **Device & records → Onboard RGB LED**. Choose **Off**, **Solid color**, **Hue rotation**, **Blink**, or **Breathing**; adjust brightness **0–255**, color, and full-cycle duration **0.5–30 seconds**, then choose **Apply & save LED**. Shorter cycles run faster. Color is used by Solid/Blink/Breathing; Hue selects its own colors. The form does not send requests while dragging a slider. Status updates after the acquisition task accepts the command. A storage warning means the setting cannot yet be relied on after reboot.
-
-Defaults are Hue, **128/255 brightness**, an **8-second** cycle and **GPIO48**, confirmed for this installation. Master settings `RGB_LED_ENABLED`, `RGB_LED_PIN`, `RGB_LED_DEFAULT_BRIGHTNESS` and `RGB_LED_DEFAULT_PERIOD_MS` live in [board.h](firmware/include/board.h). Saved web settings override the default brightness/period. The boot animation uses compile-time defaults until core 1 restores the saved record. To change defaults for an already-configured board, apply the desired values in the web panel too.
-
-The firmware explicitly selects physical GPIO48, confirmed on this installation. The driver reads `RGB_LED_PIN` directly rather than relying on a framework builtin alias. The [Espressif DevKitC v1.1 guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html) specifies GPIO38 for that revision. Keep GPIO48 for this installation; use GPIO38 only on a board whose physical LED is connected there. No external LED wiring is needed. This driver controls a three-channel addressable **RGB** pixel; it does not provide a separate white channel for a four-channel RGBW device. An accepted command confirms configuration, not optical feedback.
-
-![Representative RGB control panel with simulated API data](docs/assets/ui-led-desktop.png)
-
-### Local controls
-
-PREV/NEXT cycle through the main, morning, evening, AP and diagnostics OLED pages ([screen reference](docs/assets/oled-pages.svg)). Inputs use internal pull-ups and a 35 ms stable debounce window.
-
-| Control | Action |
-| --- | --- |
-| OK short press on an interval page | Select the next interval in that shift |
-| OK short press on the AP page | Show/hide the AP password |
-| OK short press on other pages | Toggle alarm mute |
-| OK held for 900 ms after debounce | Toggle mute once; release does not add a short action |
-| OK held at boot for five seconds, only after mount failure | Format the archive partition |
-
-The optional active buzzer has a roughly 1.5 s startup pattern. Afterwards it gives a short periodic alarm for invalid RTC, offline meter or storage faults; scan temporarily suppresses it. Leaving the buzzer unconnected does not stop operation.
-
-<a id="scan-fort-dari-dashboard"></a>
+Open **Meter setup → Diagnostic console**, enter `intermediate` in **Command input**, and choose **Run command** to repeat the manual's current request. Enter `diagnose` separately when you need passive RX observation followed by the configured register plan. The output includes raw TX/RX, ModbusMaster status and decoded words, while test values stay outside production interval records. [DIAGNOSTICS](docs/DIAGNOSTICS.md) explains the commands and how to save their output.
 
 ### Scan Fort from the dashboard
 
-![Scan controls with simulated replies](docs/assets/ui-scan-desktop.png)
+Start with the saved serial format and a known ID or a small range. The default probe is `0x0058/2`. A candidate that returns valid data or a CRC-verified exception is queried again before it becomes a result. Applying that result saves reader settings, not meter registers, and does not certify the energy scale. A full 247-ID, 18-format search has 4,446 candidates and can take about three hours when every probe reaches the default two-second timeout.
 
-Start with a known ID or **1–16**, using **Current saved baud/parity** and the editable probe address/count. At800ms silent timeouts,16 IDs take roughly 13 seconds plus overhead. All247 IDs take about 3–4 minutes. The selected format is the saved production connection, not an unsaved form draft.
+### OLED mounting and onboard RGB
 
-Choose **All 18 baud/parity formats** only when necessary: six baud rates × N/E/O,4,446 candidates for all IDs, about 70 minutes without replies. The preferred ID gets its serial combinations first. Cancellation is handled after one bounded800ms transaction. Closing the browser does not cancel the scan; reload recovers its range/mode/probe/progress.
+The OLED is rotated 180° through `OLED_ROTATE_180` in [board.h](firmware/include/board.h), before the first boot frame, so startup and recovery messages follow the installed orientation. The RGB LED uses GPIO48. Its mode, color, brightness and cycle can be saved from Device & records. LED writes use core 0's asynchronous RMT driver and do not generate the UART waveform.
 
-Matching FC03 data or a matching CRC-valid exception establishes communication, independently of energy compatibility. A silent unsupported probe can still be missed; use the staged multi-address diagnosis before attributing the result to wiring. **Apply result** saves only reader serial settings; normal energy/CTPT checks still gate production values. Previous settings return after match/cancel/exhaustion until applied. Active scanning interrupts the current interval, preserves completed intervals and suppresses the alarm. [Commissioning](docs/COMMISSIONING.md).
+### Local controls
+
+| Control | Action |
+| --- | --- |
+| PREV / GPIO4 | Previous OLED page |
+| NEXT / GPIO5 | Next OLED page |
+| OK / GPIO6, short press | Change interval row or show AP password on its page |
+| OK, held 900 ms | Toggle alarm mute |
+| OK held at boot after filesystem failure | Five-second archive-format confirmation |
+
+Switches use internal pull-ups and 35 ms stable-state debouncing, with one long-press event per hold. The boot buzzer sequence lasts about 1.5 seconds. After startup the fault indication is a 120 ms pulse every ten seconds when RTC, storage or measurement is unavailable, and is suppressed during a deliberate scan or maintenance session.
 
 ## 4. Energy calculation and recording quality
 
-The firmware reads these **zero-based hexadecimal PDU addresses**, without a 40001 offset:
+The live secondary counter is read from `0x0082–0x0083` as a high-word-first unsigned integer divided by 1000. It is available even when ratio validation fails. The main imported-energy value and interval tracker use `secondary_kWh × (PT numerator / PT denominator) × CT`, with the three ratios read at `0x002C–0x002E`. CT/PT is applied once and cumulative calculations use `double`.
 
-| Address | Words | Meaning | Conversion |
-| --- | --- | --- | --- |
-| 0x002C–0x002E | 3 | PT numerator, PT denominator, CT multiplier | ratio = PT numerator / PT denominator × CT |
-| 0x0082–0x0083 | 2 | Imported secondary active energy, unsigned big-endian 32-bit | primary kWh = raw × 0.001 × ratio |
-| 0x006A–0x006B | 2 | Total active power, signed big-endian 32-bit | primary kW = raw × 0.0001 × ratio |
+The primary float pair at `0x008A–0x008B` is a separate diagnostic view. The console's `primary` command prints both word-order candidates so they can be compared with the corresponding Fort display. It does not silently choose the plausible-looking number or change the production counter. The scanned energy table's length inconsistency is documented in [DESIGN](docs/DESIGN.md#fort-register-reference).
 
-Scaling is applied once. The integer secondary counter avoids subtracting large primary float32 values with poor resolution. Energy arithmetic uses `double`; the actual counter resolution is **0.001 × ratio kWh**, regardless of the number of decimal places shown.
-
-| Morning / WIB | Evening / WIB |
+| Morning windows, WIB | Evening windows, WIB |
 | --- | --- |
 | 06:00–06:30 | 16:30–17:00 |
 | 06:30–07:00 | 17:00–17:30 |
@@ -174,54 +107,27 @@ Scaling is applied once. The integer secondary counter avoids subtracting large 
 | 08:00–08:30 | |
 | 08:30–09:00 | |
 
-Consumption is the difference between boundary counters. When a boundary falls between two continuous samples no more than 15 seconds apart, the tracker interpolates it linearly. Consequently the complete flag is named `complete_estimated`, not a claim of exact boundary sampling. Gaps, late startup, scans, reboot, clock changes and counter decreases interrupt continuity; partial or missing intervals are never replaced with zero. Completed intervals survive interruption.
-
-The DS3231 is checked for ACK, byte count, valid BCD/calendar, 24-hour mode and oscillator-stop flag. Energy is time-bracketed by RTC reads; a window over two seconds or a transaction over 2.5 seconds is not accepted for interval accounting. A 100 MW sanity limit rejects implausible energy jumps; configure it for the actual installation before acceptance.
-
-CSV exports retain quality flags and up to 31 dates. Version 1.2 uses English shift/quality codes; existing CSV files are preserved in their original format. The status API retains legacy `quality` and adds stable English `quality_code` and `error_code` fields. Register references and the manual's inconsistent CRC example are documented in [DESIGN](docs/DESIGN.md).
+The DS3231 stores UTC and the application uses WIB for display, day boundaries and interval allocation. Boundaries may be interpolated only across accepted sample gaps of at most 15 seconds. Reboots, missing RTC, counter decreases, CT/PT changes, diagnostics and longer gaps interrupt continuity, so an incomplete interval cannot be presented as a complete half hour. Completed intervals remain preserved.
 
 ## 5. Tasks, ownership and scheduling
 
-![Tasks, queues and shared peripherals](docs/assets/architecture.svg)
+![RTOS ownership](docs/assets/architecture.svg)
 
-| Context | Core / priority | Owned work |
-| --- | --- | --- |
-| Arduino loop task | Core 0 / priority 1 | Synchronous HTTP, button debounce, OLED, buzzer, RGB/RMT |
-| `fort-acquisition` | Core 1 / priority 2; 12,288-byte stack | UART1, Preferences/NVS, tracker, CT/PT, RTC reads, archive writes, scan state |
-| ESP-IDF system tasks | Managed by the framework | Wi-Fi, TCP/IP and other services; they are not pinned by this application |
+Core 1 owns UART1, direction control, ModbusMaster transactions, tracker mutation and Preferences. Core 0 handles HTTP, OLED/buttons and RGB, while commands and copied snapshots cross RTOS queues. I2C and filesystem operations have bounded mutex waits. The acquisition period is a two-second target, electrical comparison values refresh about every ten seconds, and a failed contact probe backs off for three seconds. These periods yield to the scheduler and are not hard real-time guarantees.
 
-The UI sends `Command` values through a **six-item queue** with zero enqueue wait. A full queue returns HTTP 503. Acquisition publishes a **one-item snapshot queue** using `xQueueOverwrite`; the UI reads a copy with `xQueuePeek`. It never edits the live tracker. These are value copies, not shared pointers into a mutable `Day`.
-
-I2C is protected by a mutex because RTC and OLED share the bus. The filesystem mutex protects archive replacement/export; HTTP copies CSV files smaller than 8 KiB and releases the lock before sending. UART and Preferences need no cross-task mutex because only the acquisition task accesses them.
-
-| Operation | Scheduling rule |
-| --- | --- |
-| Energy/power poll | 2-second target; retries may extend it |
-| CT/PT refresh | Every 60 seconds, at least 5 seconds between attempts; invalidated after prolonged failure |
-| Acquisition loop | 100 ms yield normally; 10 ms between scan candidates |
-| UART receive wait | Yields one FreeRTOS tick while awaiting data |
-| OLED | At least 300 ms between draw attempts; skipped if its mutex cannot be taken |
-| Browser status | Every 2.5 seconds; 4-second request timeout |
-| Checkpoint/archive | Status/day/config changes and at most 5 minutes between periodic saves |
-| Watchdog | 8 seconds; fed per UI loop, UART attempt and asset-transfer chunk |
-
-These are cooperative timing targets, **not hard real-time guarantees**. A slow HTTP asset client can occupy the synchronous UI task for up to its five-second transfer deadline, while acquisition continues on core 1. Delays let idle/system tasks run; keeping both CPUs busy would reduce reliability rather than improve sampling. [Detailed scheduling and lock bounds](docs/DESIGN.md#task-and-lock-model) explain the execution order.
+The process monitor samples non-idle activity at FreeRTOS tick boundaries and shows heap/PSRAM plus owned/idle task state and stack high-water values. It is useful for headroom checks, but its percentages are not instruction-level profiling. [The design guide](docs/DESIGN.md#task-and-lock-model) covers cancellation, command revisions, lock order and persistence in more detail.
 
 ## 6. UART frames and RS485 direction
 
-![RTU request and direction timing](docs/assets/rtu-timing.svg)
+![Request and direction sequence](docs/assets/rtu-timing.svg)
 
-A request is eight bytes: slave ID, function 03, register address high/low, count high/low, CRC low/high. CRC16 starts at 0xFFFF, shifts LSB first with polynomial 0xA001, and covers the six request bytes. Responses are checked for ID, function, byte count, total length, CRC and exception 0x83.
+A transaction drains buffered stale RX, calls preTransmission to assert DIR16 and wait 100 µs, lets the hardware UART send the request, waits for `flush()`, then calls postTransmission to release DIR16 and wait another 100 µs before receiving. ModbusMaster completes a response from its expected length within the timeout rather than waiting for the old software gap detector. The default 200 ms inter-request spacing follows the working reference sketch.
 
-For the **manual-direction alternative**, the direction sequence is explicit: drain/count up to 256 stale RX bytes → wait at least the calculated t3.5 gap → GPIO16 HIGH → 30 µs turnaround delay → `UART.write` → `UART.flush` → GPIO16 LOW → collect the response. The 800 ms receive deadline starts after TX flush. Polling uses up to three attempts with bounded backoff; scan uses one attempt per register.
-
-**There is no software bit banging for UART or I2C.** `HardwareSerial(1)` drives UART1; `Wire` drives the hardware I2C controller at 100 kHz. GPIO16 controls transceiver direction, not individual serial bits. CPU work includes framing, CRC, parsing, tracker arithmetic and composing the OLED buffer. RX uses a 256-byte driver buffer and a fixed 64-byte frame buffer for responses up to 11 bytes. Since timestamps are observed while draining the UART buffer, the firmware does not claim exact per-byte t1.5 validation.
+The adapter records the bytes and independently checks response ID, FC03, requested count, exact length and CRC, including exception CRCs. Exact echo, extra trailing bytes and oversized input cannot become energy. UART serialization and I2C are hardware peripherals. GPIO direction switching and the software CRC loop are not serial bit banging. The [shared transport source](firmware/lib/FortMeter/src/FortTransport.h) and documented ModbusMaster patch make those boundaries inspectable.
 
 ## 7. Browser build and memory use
 
-Authoring files live in [web/](web/). React DOM and GSAP execute in the **phone/browser**, not on the ESP32. The board serves gzip bytes stored in flash and provides the JSON API. Both translations, CSS, icons and dependency notices are local; no CDN, external font, hosted API or separate filesystem upload is required.
-
-Use **Node 24.22.1** (recorded in `.node-version`) for web builds:
+After changing `web/`, `package.json` or the lockfile, use Node 24.22.1 and run the following **from the repository root**, where `package.json` resides:
 
 ```sh
 npm ci
@@ -229,38 +135,10 @@ npm run build:web
 npm run check:web
 ```
 
-The build writes [web_ui.h](firmware/include/web_ui.h) and a [bundle manifest](web/bundle.json) with source hashes, per-asset sizes and dependency versions. The build fails above **160 KiB compressed**. Static bytes are sent to lwIP in chunks up to 1 KiB with scheduler yields and watchdog resets; the entire JS bundle is never copied into an Arduino `String`.
-
-Actual React Bits `FadeContent` and `SpotlightCard` are vendored at commit `e12c22192ac7b4b452c5e2feb9b586d74765d696`. Page reveals respect reduced motion; the energy panel uses pointer/focus lighting without a continuous ambient animation. Numeric readings are displayed directly, without counting up through values the meter never reported. [Component provenance and license](web/vendor/react-bits/README.md).
-
-For technical changes, edit the web source and rebuild before PlatformIO. `tools/pio_web.py` rejects stale assets, preventing a successful firmware build from silently carrying the previous UI. [VALIDATION](docs/VALIDATION.md) records actual payload and firmware sizes.
-
-### If PlatformIO reports stale web inputs
-
-The release includes matching generated assets. If you edit `web/`, `package.json` or the lockfile, run these commands **from the repository root** (the folder containing `package.json`), using Node 24.22.1:
-
-```sh
-npm ci
-npm run build:web
-npm run check:web
-cd firmware
-pio run -e esp32s3
-```
-
-Keep `firmware/include/web_ui.h` and `web/bundle.json` in the same commit as the input changes. Do not remove the pre-build guard: it prevents a firmware build from serving an older UI. The error concerns generated asset provenance, not SSD1306 or other firmware libraries.
+Commit `firmware/include/web_ui.h` and `web/bundle.json` with those source changes before building firmware. The Python-only PlatformIO guard rejects stale inputs with recovery instructions instead of compiling an older dashboard. The gzip payload must remain below 160 KiB and is served in bounded chunks. No CDN, external font or separate filesystem web upload is required.
 
 ## 8. Tests and maintenance
 
-```powershell
-.\tools\test.ps1
-python tools/check_docs.py
-npm run test:ui
-```
+Run `tools/test.ps1` for native logic, the actual standalone INO and the actual ModbusMaster transport. Run `python tools/check_docs.py` for links, vectors, pins, versions and provenance. Browser checks render the generated gzip bytes with simulated APIs, while PlatformIO builds the physical `esp32s3` target and the standalone sketch. [VALIDATION](docs/VALIDATION.md) records actual outcomes and the remaining hardware checks, including confirmation that integrated readings agree with the meter.
 
-Linux/macOS native tests: `g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp -o /tmp/fort-test && /tmp/fort-test`. Install a Playwright browser with `npx playwright install chromium`, or use Edge: `node tools/preview-test.cjs playwright msedge`.
-
-Tests cover CRC/frame rejection, nine interval windows, boundaries/gaps, reboot recovery, debounce, scan enumeration/cancellation and filesystem fault paths. Browser tests serve the **embedded gzip arrays**, exercise both languages and network failures, and check phone/desktop layouts. They cannot validate the actual UART transceiver, meter scaling, RTC battery or power-cut endurance. Follow the [acceptance procedure](docs/COMMISSIONING.md).
-
-Repository map: `firmware/` device code; `web/` browser source; `tools/` build/tests; `docs/` English guides and diagrams; `docs/id/` Indonesian guides. Read [AGENTS.md](AGENTS.md) and [CONTRIBUTING](CONTRIBUTING.md) before changing ownership or register handling. [Changelog](CHANGELOG.md) · [Firmware design](docs/DESIGN.md) · [Wiring](docs/WIRING.md) · [Flashing](docs/FLASHING.md).
-
-Original project code and documentation are **GPL-3.0-only**. React Bits, React, GSAP, firmware libraries and the supplied Fort manual retain their own terms; they are not relicensed by this repository. See [LICENSE](LICENSE), [NOTICE](NOTICE) and the offline dashboard's third-party notices.
+Original project code is **GPL-3.0-only**. Dependency terms, the ModbusMaster source patch and the Fort manual's separate ownership are explained in [NOTICE](NOTICE). React Bits and the other dependencies retain their own licenses. Read [AGENTS](AGENTS.md), [CONTRIBUTING](CONTRIBUTING.md) and [CHANGELOG](CHANGELOG.md) before changing peripheral ownership, protocol handling or the register profile.

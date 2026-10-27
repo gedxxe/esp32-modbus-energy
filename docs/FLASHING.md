@@ -2,45 +2,30 @@
 
 **English** · [Bahasa Indonesia](id/FLASHING.md)
 
-Firmware **1.4.1**, ESP32-S3 DevKitC-style **N16R8**: 16 MB flash, 8 MB OPI PSRAM. Open the `firmware/` directory in PlatformIO.
+Firmware **2.0.0** targets the physical ESP32-S3 N16R8 with 16 MB flash and OPI PSRAM. Open `firmware/` in PlatformIO and select `esp32s3`. The local FortMeter library is part of the source checkout, so main polling and standalone diagnostics cannot silently select different registry versions.
 
 ## Physical board
 
-Close Serial Monitor, then run from `firmware` (replace COM10 with the actual port):
+Close Serial Monitor before upload and connect the board's USB port used for programming. From a **computer terminal in `firmware/`**, run `pio run -e esp32s3`, then `pio run -e esp32s3 -t upload`. Open `pio device monitor -e esp32s3` afterward. If automatic entry fails, hold BOOT while resetting/reconnecting and release it when the uploader begins communication.
 
-```powershell
-pio run -e esp32s3 --target upload --upload-port COM10
-pio device monitor -e esp32s3 --port COM10
-```
-
-PlatformIO chooses component files and offsets. If `pio` is absent from PATH, invoke `& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"` instead. The committed React bundle is checked before compile; no npm installation is required unless web sources change.
+A v1 CRC-valid connection record preserves ID/baud/parity and migrates to the confirmed manual direction on DIR16. Existing day and LED records keep their formats. A whole-chip erase is not part of an ordinary update and would remove stored records. Filesystem initialization remains the physical boot-confirmation procedure in the [README](../README.md#3-first-startup-and-meter-scan).
 
 ## Binary files
 
 | File | Offset | Use |
 | --- | --- | --- |
-| `midea-fort-factory.bin` | **0x0** | Combined bootloader, partition table, initial OTA metadata and application |
-| `midea-fort-app.bin` | **0x10000** | Application only; requires this project's existing partition layout |
-| `bootloader.bin` | 0x0 | Separate ESP32-S3 bootloader |
-| `partitions.bin` | 0x8000 | Partition table |
-| `boot_app0.bin` | 0xE000 | Initial OTA selection metadata |
+| `midea-fort-factory.bin` | 0x0 | Combined bootloader, partitions, boot_app0 and app |
+| `midea-fort-app.bin` | 0x10000 | App-only update with the matching partition layout |
+| `bootloader.bin` | 0x0 | Separate component flashing |
+| `partitions.bin` | 0x8000 | Separate component flashing |
+| `boot_app0.bin` | 0xE000 | Initial app-selection metadata |
 
-Example from a directory containing the packaged BIN files:
+An app-only image does not contain a bootloader and must not be flashed at 0x0. Factory images include initial selection metadata but do not include the CSV filesystem, so prefer PlatformIO for normal development updates and retain backups before deliberate erase operations.
 
-```powershell
-python -m esptool --chip esp32s3 --port COM10 --baud 460800 write_flash 0x0 midea-fort-factory.bin
-```
+## Arduino diagnostic library
 
-Do not write an app-only image at 0x0. Factory flashing resets initial app-selection metadata; use PlatformIO for normal updates. The dashboard is stored in firmware flash, so there is no separate web filesystem upload. CSV filesystem contents are not included in the factory image. On a new board, initialize storage with the physical OK-at-boot procedure in the [README](../README.md#3-first-startup-and-meter-scan).
+Install `FortMeter-library-v2.0.0.zip` through Arduino IDE's Add .ZIP Library menu, then open the standalone INO. The same ZIP can be generated without a firmware build using `python tools/package-library.py` from the repository-root computer terminal, or the source FortMeter folder can be copied into the configured Sketchbook libraries directory. Follow the [standalone guide](../examples/FortSerialDebug/README.md) for board options and explicit Serial Monitor INPUT/OUTPUT instructions.
 
 ## Rebuild browser assets
 
-From the repository root:
-
-```sh
-npm ci
-npm run build:web
-npm run check:web
-```
-
-Then compile/upload as above. The PlatformIO pre-build guard rejects source/hash mismatches instead of silently embedding an old dashboard. Keep the generated header and `web/bundle.json` with the source commit.
+A normal PlatformIO build uses committed assets and needs no Node. After editing browser inputs, run `npm ci`, `npm run build:web` and `npm run check:web` from the repository-root **computer terminal** with Node 24.22.1, then build firmware again. The header and manifest must be committed with the source changes. There is no separate filesystem upload for the dashboard.

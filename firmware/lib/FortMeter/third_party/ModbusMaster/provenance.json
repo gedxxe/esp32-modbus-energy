@@ -1,0 +1,27 @@
+{
+  "upstream": "https://github.com/4-20ma/ModbusMaster/tree/v2.0.1",
+  "version": "2.0.1",
+  "changes": [
+    "Runtime response timeout and cooperative cancellation hooks",
+    "Initialize requestFrom counter and receive indices; wire parsing remains ModbusMaster",
+    "FortTransport independently checks CRC, ID, function, byte count and exact captured length, including exceptions"
+  ],
+  "files": {
+    "src/ModbusMaster.h": {
+      "upstream_sha256": "3f989016833a8525bdbe48023ce72d54d1cdfe023fa168725314c4df43723bb1",
+      "sha256": "87ad1d8f7cb4a50bb269bf645b8a60925ccbde938a19a3481ba7d9ea254b2c14"
+    },
+    "src/ModbusMaster.cpp": {
+      "upstream_sha256": "fb8193867bbca543bb454fcb0ec05cc6ecde0626bb661178c9e9963608956f5a",
+      "sha256": "7ee2592ad43992daedec626020bcdefb0678bb047ecf51556c190e39e854174d"
+    },
+    "src/util/crc16.h": {
+      "upstream_sha256": "d9439cd1dd62d03225e920a3f72a1b8a7be4e1052bda3e67b73b8d61c08351c2",
+      "sha256": "d9439cd1dd62d03225e920a3f72a1b8a7be4e1052bda3e67b73b8d61c08351c2"
+    },
+    "src/util/word.h": {
+      "upstream_sha256": "685269ebc315d487167197df49380b40d2138983ca72d0c065f4d4a96259627f",
+      "sha256": "685269ebc315d487167197df49380b40d2138983ca72d0c065f4d4a96259627f"
+    }
+  }
+}

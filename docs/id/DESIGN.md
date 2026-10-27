@@ -1,192 +1,63 @@
+# Dasar desain firmware
+
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-# Dasar desain firmware
+Versi 2.0.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
-Sumber utama adalah PDF `Fort Power Meter_User Manual_compressed.pdf` di root project. PDF berupa scan; tabel dibaca dari gambar halaman.
+Gambar PDF halaman 26 memperlihatkan request `01 03 00 58 00 02 45 D8` untuk arus fasa A, dengan contoh `0000 C317` yang berarti 4,9943 A. CRC respons yang tercetak pada tabel tersebut tidak sama dengan perhitungan ulang, sehingga software selalu menghitung CRC dan tidak memakai nilai cetak sebagai pengecualian validasi. Halaman 27–30 diperiksa sebagai tabel rasio serta nilai listrik.
 
-| Lokasi PDF / nomor halaman tercetak | Informasi |
-| --- | --- |
-| Halaman PDF 18 / tercetak 16, §7.1 | RTU half-duplex, 1200–38400 baud, default 9600, N81/E81/O81, default N81 |
-| Halaman PDF 26 / tercetak 24, Tabel 13–14 | Contoh fungsi 03 mulai 0x0058 sebanyak dua register; urutan integer high word/high byte lebih dahulu |
-| Halaman PDF 27 / tercetak 25, Tabel 17 | PT numerator 0x002C, PT denominator 0x002D, CT multiplier 0x002E |
-| Halaman PDF 29 / tercetak 27, Tabel 17 | Total active power 0x006A–0x006B, signed long, 0.0001 kW |
-| Halaman PDF 30 / tercetak 28, Tabel 17 | Positive active energy sekunder 0x0082–0x0083, unsigned long, 0.001 kWh; primer float 0x008A–0x008B |
+| Alamat PDU | Word | Konversi | Halaman PDF |
+| --- | ---: | --- | ---: |
+| 0x002C–0x002E | 3 | PT numerator, denominator, CT, uint16 1–9999 | 27 |
+| 0x0042–0x0043 | 2 | Tegangan fasa A, uint32 / 10000 V | 28 |
+| 0x0058–0x0059 | 2 | Arus fasa A, uint32 / 10000 A | 26, 29 |
+| 0x006A–0x006B | 2 | Daya aktif total, int32 / 10000 kW | 29 |
+| 0x0080 | 1 | Frekuensi, uint16 / 100 Hz | 30 |
+| 0x0082–0x0083 | 2 | Counter impor sekunder, uint32 / 1000 kWh | 30 |
+| 0x008A–0x008B | 2 | Float impor primer, kandidat urutan word | 30 |
 
-Alamat di kode adalah alamat PDU **zero-based hexadecimal persis seperti tabel**, tanpa menambah angka 40001. Firmware hanya mengirim **fungsi 03**, tidak menulis register meter. Pengaturan web hanya mengubah UART/slave pembaca ESP32.
+Kolom panjang energi sekunder tercetak 3 meski nilainya bertipe unsigned long dan memakai dua alamat. V2 membaca dua register sesuai alamat serta sketch yang berhasil, sedangkan diagnostik dapat menguji satu/dua/tiga word secara eksplisit. Integer digabung high word lebih dahulu. Float ditampilkan dalam kandidat ABCD dan CDAB tanpa memilih otomatis berdasarkan angka yang terlihat masuk akal. Hanya kalkulasi energi produksi yang menerapkan CT/PT, satu kali pada counter sekunder.
 
-Rasio CT/PT dibaca otomatis sebelum energi, dan diperiksa lagi tiap 60 detik. Bila pembacaan rasio terus gagal hingga dua menit, konversi dihentikan. Perubahan rasio memutus kesinambungan interval. Pastikan setting rasio di meter memang sesuai CT/PT terpasang; pembaca tidak dapat memperbaiki setting instalasi yang salah.
+## UART dan kontrol RS485
 
-Topologi yang dikonfirmasi: port Fort belum terhubung ke perangkat lain, ESP32 menjadi satu-satunya master, dan modul RS485 pengguna kompatibel dengan TTL ESP32 3,3 V.
+![Urutan arah manual](../assets/rtu-timing.svg)
 
-Counter integer sekunder dipilih untuk menghindari pengurangan dua angka float32 primer besar yang dapat kehilangan resolusi. Konversi memakai `double` dan integer 32 bit big-endian. Resolusi akhir yang dilaporkan bergantung pada `0.001 × CT × PT`; enam angka desimal CSV tidak menjamin akurasi enam desimal.
+Instalasi terkonfirmasi memakai TX17→DI, RX18←RO dan GPIO16→DE+/RE. ModbusMaster membuang RX lama dari buffer, memanggil preTransmission untuk HIGH serta settling 100 µs, menulis request, menunggu flush UART, kemudian memanggil postTransmission untuk LOW dan settling 100 µs sebelum menerima. Respons lengkap selesai berdasarkan panjang yang diharapkan dalam timeout, tanpa menunggu gap t3.5 yang diamati task.
 
-### Kejanggalan manual yang tidak disalin ke protokol
+Default timeout dua detik dan jarak request 200 ms mengikuti acuan. Penantian memberi waktu ke scheduler, watchdog dan pemeriksaan Stop/Resume. Pre-drain serta capture dibatasi agar RX kontinu tidak membuat loop tanpa batas. Pilihan arah otomatis tetap tersedia secara eksplisit dan tidak mengubah GPIO arah saat transaksi.
 
-Contoh query `01 03 00 58 00 02 45 D8` memiliki CRC yang benar. Contoh respons Tabel 14 tercetak `01 03 04 00 00 C3 17 72 E5`, tetapi perhitungan Modbus untuk tujuh byte awal menghasilkan **EA CD** (low byte dahulu), bukan 72 E5. Tes otomatis memverifikasi bahwa respons tercetak ditolak dan versi dengan CRC EA CD diterima.
-
-Baris energi sekunder mencantumkan panjang “3”, tetapi memberikan tipe `ulong` dan dua alamat register; firmware meminta dua register / empat byte. Tabel juga memiliki salah label fase dan baud rate pada beberapa baris. Karena itu validasi pada meter aktual wajib: jangan mengganti CRC atau menggeser register untuk membuat data rusak lolos.
+Patch pada source ModbusMaster menambah timeout runtime, pembatalan kooperatif dan perbaikan inisialisasi, sementara konstruksi request serta loop respons tetap berasal dari library tersebut. Hash upstream/current dan diff disimpan pada provenance. Adapter memeriksa lagi ID, FC03, count, panjang tepat dan CRC. Pemeriksaan exception perlu dilakukan karena upstream 2.0.1 mengembalikan exception sebelum jalur CRC normal. Echo tidak dihapus untuk membuat respons baru, dan input berlebih tidak dapat menjadi energi.
 
 ## Penjadwalan dua core
 
-```text
-Core 0: task loop Arduino (priority 1)
-  WebServer + HTTP API
-  tombol/debounce + OLED sekitar 3 Hz + buzzer
-           | command queue (6 item)
-           v
-Core 1: task fort-acquisition (priority 2)
-  UART1/RS485 + CRC + retry
-  RTC + konversi CT/PT + tracker interval
-  checkpoint NVS + arsip LittleFS
-           | snapshot queue (1 item, overwrite)
-           v
-Core 0 membaca salinan snapshot konsisten
-```
+![Kepemilikan task](../assets/architecture.svg)
 
-Wi-Fi/system tasks tetap dikelola ESP-IDF. Mutex I2C menjaga transaksi RTC dan OLED tidak saling menyisip; mutex filesystem menjaga ekspor/arsip. UART dan Preferences dimiliki satu task. Web menyalin CSV kecil sebelum mengirimnya, sehingga koneksi HP lambat tidak menahan mutex filesystem.
+Core 1 memiliki UART1, ModbusMaster, GPIO arah, Preferences dan mutasi tracker. Core 0 menangani HTTP, tombol/OLED serta RMT RGB. Perintah dan snapshot dikirim sebagai salinan melalui antrean RTOS. Buffer log mempertahankan 8 KiB terbaru berikut hitungan byte terbuang, sehingga layanan web tidak membaca UART atau NVS langsung.
 
-Polling energi ditargetkan setiap 2 detik; retry, pembacaan rasio, atau gangguan bus dapat memperpanjangnya. Web refresh 2,5 detik. Task akuisisi memakai delay/yield ketika menunggu respons; core tidak dipaksa 100% sibuk. Memenuhi deadline pembacaan lebih berguna daripada memaksimalkan utilisasi CPU. PSRAM diaktifkan, tetapi jalur kritis dan queue kecil cukup memakai RAM internal.
+Perintah biasa membawa ID, waktu antre serta revisi mode dan divalidasi lagi oleh core 1. Perubahan yang mengganggu akuisisi ditolak jika lebih tua dari sepuluh detik atau berasal dari revisi mode lain. LED/mute/capture dieksekusi pada batas transaksi agar penulisan NVS tidak disengaja terjadi saat mengoleksi respons. Satu putaran menangani maksimal enam kontrol dan enam belas input diagnostik nonaktif.
 
-## Validasi Modbus
+Stop/Resume memakai mailbox dan generasi pembatalan tersendiri. Hanya core 1 yang mengeluarkan input, tanpa reset antrean lintas core. Input sesudah Resume masuk generasi berikutnya. Pemeriksaan stop juga berjalan saat byte terus datang. Mutex I2C dan filesystem memiliki waktu tunggu terbatas, serta filesystem dilepas sebelum mengirim CSV melalui jaringan. Respons HTTP memakai send nonblocking dalam potongan 1 KiB dengan budget lima detik. Parser request upstream tetap perlu pengujian beban fisik.
 
-- CRC16 init 0xFFFF, polinomial reversed 0xA001, low byte CRC dikirim pertama.
-- Satu request aktif, direction DE-/RE dijaga sampai `UART.flush()` selesai transmisi.
-- Buffer tetap 16 byte untuk respons maksimum 11 byte yang dipakai firmware; UART RX buffer 128 byte.
-- Tunggu silent gap minimal 3,5 karakter (atau 1,75 ms di atas 19200 baud), timeout 800 ms/request, tiga percobaan dengan jeda bertingkat.
-- Tolak CRC salah, panjang/ID/fungsi/byte count salah, respons terlalu panjang, dan exception 0x83.
-- Timestamp per byte UART tidak tersedia melalui polling Arduino ini; firmware tidak mengklaim memvalidasi t1.5 setiap byte secara presisi. CRC dan struktur frame menjadi pemeriksaan integritas utama. Modul harus menonaktifkan receiver/local echo ketika TX.
-- Penurunan counter, termasuk kemungkinan rollover, tidak direkonstruksi otomatis: interval terkait parsial agar reset meter tidak dianggap energi rollover yang sangat besar.
-- Penolakan lonjakan memakai batas fisik awal 100.000 kW (100 MW), ditambah toleransi dua tick counter. Sesuaikan batas di `main.cpp` berdasarkan kapasitas nyata pabrik. Ini pemeriksaan kasar, bukan validasi metrologi.
+## Alur akuisisi dan kualitas interval
 
-## Waktu dan kualitas interval
+Ketika kontak gagal, firmware hanya mencoba handshake manual lalu menunggu tiga detik sebelum mengulang, sehingga tidak langsung menyapu seluruh profil. Kontak yang berhasil membuka polling bertarget dua detik, pembacaan rasio dengan retry/backoff dan nilai pembanding sekitar setiap sepuluh detik. Timeout dapat memperpanjang periode aktual karena target tersebut bersifat kooperatif.
 
-RTC disimpan dalam UTC; tracker menerima UTC+7 untuk pembagian tanggal WIB. Seluruh batas memakai timestamp kalender, bukan menghitung 30 menit sejak boot. RTC dibaca dengan pemeriksaan ACK, jumlah byte, BCD, tanggal kalender, mode 24 jam, dan oscillator-stop flag. Data tidak dicatat ketika RTC gagal divalidasi.
+Counter sekunder tetap dibaca ketika rasio invalid, tetapi counter utama dan tracker tidak menerima pengganti tanpa skala. Energi produksi dihitung dengan `uint32 × 0,001 × PT_num / PT_den × CT` dalam double. UTC disimpan pada DS3231, sedangkan WIB diterapkan untuk tampilan, hari serta sembilan interval. Reboot, RTC invalid, counter turun, perubahan rasio dan gap lebih dari 15 detik memutus kontinuitas. Hanya sampel sah yang boleh diinterpolasi dan interval lengkap tetap tersimpan.
 
-Untuk batas di antara dua sampel kontinu, counter batas dihitung dengan interpolasi linier. Selisih waktu antarsampel maksimal 15 detik. Jika sampel tidak tersedia tepat batas, hasil memang estimasi. Beban yang berubah cepat di sekitar batas dapat memberi error alokasi antarinterval; jumlah energi antar dua counter tetap berasal dari meter.
+`clock_guard.h` melindungi hari rekaman terlepas dari kesehatan RTC. Timestamp HP antre dikompensasi dalam detik penuh, dibatasi umur sepuluh detik dan diperiksa lagi sebelum ditulis. Rollover otomatis menolak tanggal sebelum hari yang dipertahankan. Rotasi OLED diterapkan sebelum gambar boot dan tidak memengaruhi perhitungan waktu.
 
-Waktu RTC dibaca sebelum dan sesudah respons energi; jendela >2 detik / transaksi >2,5 detik tidak dipakai sebagai sampel interval. Perubahan RTC mundur atau loncat >2 detik dibanding jam monotonic memutus tracker. Mengirim sinkronisasi waktu dari web selalu memutus interval yang aktif, termasuk saat selisih jam kecil. Koreksi tanggal mundur ditolak ketika RTC saat ini valid, untuk menghindari menimpa arsip tanggal lalu.
+## Discovery dan penyimpanan
 
-Interval parsial tidak diisi dengan nol dan tidak dibagi rata secara otomatis. Checkpoint tidak dipakai untuk menginterpolasikan gap reboot. Interval yang sudah lengkap tidak diubah ketika waktu atau pengaturan komunikasi berubah.
+Enumerator menguji ID/format tersimpan lebih dahulu tanpa duplikasi, dengan pilihan current atau 18 kombinasi. Probe default 0x0058/dua word diulang setelah kontak sah. Data atau exception ber-CRC sah pada transaksi kedua diperlukan sebelum menjadi hasil. Exception membuktikan komunikasi, bukan ketersediaan register ataupun kebenaran skala. Direction mengikuti setting koneksi dan tidak ada broadcast atau write register meter.
 
-## Penyimpanan dan pemulihan
+Record koneksi v2 memakai magic baru dengan layout tetap 12 byte. Byte padding sebelumnya menampung direction serta reserved. Record v1 ber-CRC sah mempertahankan ID/baud/parity dan dimigrasikan ke default manual yang telah dikonfirmasi, tanpa mengubah record hari atau LED. Kegagalan menyimpan migrasi dilaporkan sebagai masalah storage.
 
-Konfigurasi dan checkpoint tersimpan sebagai blob NVS dengan CRC aplikasi. NVS menyediakan mekanisme commit internal; CRC tambahan mendeteksi blob yang tidak sesuai schema/isi. Checkpoint setiap pergantian status interval, perubahan setting/waktu, pergantian tanggal, dan paling lambat setiap 5 menit. Kerusakan checkpoint dapat menghilangkan hasil sejak checkpoint valid terakhir; perangkat ini belum memiliki cadangan eksternal.
+Checkpoint hari memiliki magic serta CRC. Penggantian CSV memakai file sementara dan backup agar kegagalan tidak sengaja menghapus semua salinan yang dapat dipulihkan. LittleFS tidak pernah melakukan format otomatis. Konfirmasi fisik hanya tersedia setelah mount gagal. Arsip dibatasi pada jendela 31 hari dan salinan CSV dibaca terbatas sebelum lock dilepas untuk transfer jaringan.
 
-Sejak 1.0.1, pemasangan arsip memakai helper yang sama dengan regression test fault injection. Jika backup tidak dapat direstorasi, proses berhenti sebelum menghapusnya. Kegagalan memasang file pengganti mempertahankan file backup. Ini menguji logika operasi, bukan perilaku flash terhadap seluruh kemungkinan mati daya.
+## Browser dan diagnostik mandiri
 
-CSV menyimpan sembilan baris dengan kualitas data dan counter batas. Arsip ditulis lewat file sementara dan salinan `.bak`; ekspor menggunakan backup jika file utama tidak ada. Penyimpanan penuh / kegagalan tulis ditampilkan sebagai storage error. Filesystem **tidak** diformat otomatis ketika mount gagal. Format fisik saat boot adalah tindakan pemulihan yang menghapus arsip.
+HTTP 202 berarti perintah diterima antrean. Browser menunggu hasil ID yang tepat dari ring delapan completion, sementara Stop/Resume memiliki jalur prioritas. Skema payload melindungi tabel arsip/proses, trace dan event agar respons rusak tidak menjatuhkan halaman. Animasi hanya mereplay timestamp event dengan delay polling/jaringan, bukan mengukur waveform A/B. Persentase core mengambil sampel non-idle pada tick, sedangkan stack high-water merupakan minimum historis.
 
-Arsip dibatasi ke 31 tanggal terakhir relatif terhadap tanggal RTC dan tanggal lama dibuang setelah penulisan baru berhasil. Unduh data berkala jika perlu retensi lebih lama. Gangguan daya persis saat operasi flash tidak dapat dijamin hanya lewat simulasi; uji power-cut diperlukan. Untuk pencatatan pabrik yang harus tetap tersedia saat listrik mati, tambahkan UPS dan strategi backup data.
-
-## HTTP lokal
-
-`GET /api/status`, `/api/history`, `/api/export[?day=nomor_hari_epoch]`; `POST /api/config`, `/api/time`, `/api/mute`. POST memakai token acak per boot yang diberikan melalui status; input angka diperiksa rentang. Kredensial AP menggunakan WPA2 bawaan ESP32, maksimum empat klien. HTTP berjalan lokal tanpa TLS/login terpisah; siapa pun yang punya password AP dapat mengakses data dan pengaturan. Token membatasi permintaan lintas situs sederhana dan bukan pengganti autentikasi pengguna.
-
-Tidak ada OTA, cloud, perubahan setting meter, captive DNS, atau sinkronisasi NTP pada versi ini. HP membuka IP secara manual. Waktu bersumber dari DS3231 dan sinkronisasi eksplisit dari HP.
-
-Versi firmware berasal dari `version.h` dan dikirim lewat field `version` di status API. Badge dokumentasi dan metadata paket mengambil versi yang sama. Pembacaan rasio di-refresh setiap 60 detik dengan jeda minimal lima detik antarpencobaan; watchdog di-feed pada tiap percobaan Modbus dan pembacaan overflow dibatasi.
-
-## Referensi protokol dan runtime
-
-- [Modbus Serial Line Specification V1.02](https://www.modbus.org/file/secure/modbusoverserial.pdf): CRC dan framing RTU.
-- [PlatformIO ESP32-S3 DevKitC-1](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitc-1.html): base board dan override konfigurasi.
-- [Espressif FreeRTOS](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/system/freertos_idf.html): task affinity, queue, dan sinkronisasi lintas core.
-- [DS3231 datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf): battery backup, waktu, dan oscillator-stop flag.
-
-## Pencarian setting Fort (1.1.0)
-
-`scan.h` menyediakan enumerator/state machine tanpa alokasi. Pada1.4.0, mode current menguji satu format tersimpan per ID dan matrix seluruh18format. ID pilihan mendapat fast pass kombinasi terpilih sebelum ID lain. Core1 menguji probe FC03 terkonfigurasi (default0x0034/satu word), lalu menerima data atau exception berCRC/ID/fungsi sesuai sebagai bukti komunikasi. Profil energi/rasio diperiksa terpisah pada polling normal. Tidak ada broadcast/write/bypass CRC. Satu transaksi800ms per kandidat, watchdog/yield aktif. Probe yang diabaikan tanpa balasan masih bisa terlewat; diagnosis beberapa alamat tersedia di konsol utama.
-
-State `idle/running/found/cancelled/exhausted` disalin melalui snapshot queue. `POST /api/scan/start` menerima `first/last`, `/api/scan/cancel` membatalkan, `/api/scan/apply` memasukkan hasil ke jalur konfigurasi/NVS normal; semuanya memakai token sesi. `/api/status` menyertakan objek `scan` dengan kandidat, progres, waktu, hasil dan penghitung error tersendiri. Duplikasi start ditolak saat running. Setting manual ditolak selama scan, termasuk pemeriksaan ulang di task pemilik UART. Setelah reboot state scan kembali idle.
-
-Mulai scan memutus tracker dan menyimpan checkpoint. Polling normal berhenti selama scan; RTC/day rollover dan UI tetap berjalan. Selesai/batal memulihkan UART ke konfigurasi tersimpan dan memaksa pembacaan ulang rasio serta baseline energi. Hasil tidak otomatis mengubah konfigurasi. Alarm ditunda selama scan. Waktu pembatalan dibatasi kandidat aktif, maksimal dua transaksi; tidak ada loop pencarian yang memblokir core UI. Respons kompatibel bukan autentikasi model meter. Uji logic/UI tidak menggantikan uji UART/Fort fisik.
-
-## Dashboard dan runtime 1.2.0
-
-Source React berada di `web/`. React DOM, GSAP dan React Bits berjalan di browser HP; ESP32 melayani gzip HTML/JS/CSS dari array PROGMEM. Tidak ada CDN atau font eksternal. Bahasa awal English, pilihan Indonesia disimpan pada localStorage browser, dengan fallback English bila storage browser diblokir.
-
-`npm run build:web` menghasilkan header dan manifest hash. Node 24.22.1 dikunci agar hasil gzip konsisten; batas total aset 160 KiB. PlatformIO memeriksa hash dengan Python sebelum compile dan tidak membutuhkan Node jika source web tidak diubah. HTTP mengirim maksimal 1 KiB tiap iterasi lewat lwIP nonblocking, melakukan yield/feed watchdog, dan memakai deadline transfer lima detik. Selama transfer, task UI sinkron dapat tertahan; akuisisi core 1 tetap berjalan.
-
-UART1 dan I2C memakai peripheral hardware, bukan bit banging. GPIO16 hanya memilih arah DE-/RE. Urutan RTU: drain RX lama, silent gap, DE HIGH, delay 30 µs, kirim delapan byte, flush TX, DE LOW, tunggu respons maksimal 800 ms. Timestamp byte didapat saat driver dibaca, sehingga t1.5 per byte tidak dijamin.
-
-Queue perintah memuat enam nilai dan enqueue tanpa menunggu; queue penuh menghasilkan 503. Snapshot satu nilai ditimpa core 1 dan dibaca salinannya oleh core 0. Stack task akuisisi 12.288 byte, prioritas 2; loop Arduino core 0 prioritas 1. Task sistem Wi-Fi tetap dikelola ESP-IDF. Mutex I2C: read 80 ms, write 100 ms, OLED 30 ms; filesystem: tulis 200 ms, HTTP 100 ms. Periode polling dua detik dan OLED 300 ms adalah target kooperatif, bukan hard real-time.
-
-Status menambah `quality_code`/`error_code` English; field `quality` lama tetap tersedia. CSV baru memakai shift/kualitas English, tanpa mengubah isi arsip lama. OLED memakai label English ringkas. React Bits dan GSAP tetap memakai ketentuan pihak ketiga pada NOTICE; tidak dilisensikan ulang GPL oleh repo.
-
-## Rotasi OLED dan penjadwalan RGB (1.2.1)
-
-`OLED_ROTATE_180=true` di board.h menerapkan `oled.setRotation(2)` sesudah begin dan sebelum frame pertama. Koordinat tetap 128×64; seluruh boot, prompt format dan halaman memakai objek yang sama. Nilai false memilih rotasi 0. OLED tidak ada tetap tidak menghambat AP atau akuisisi.
-
-Renderer RGB memiliki RMT TX channel 0 di core 0, tanpa task tambahan. Loop, boot, tunggu konfirmasi format, dan transfer aset memanggil tick dengan target minimum 20 ms antarframe. Warna tetap hanya dikirim saat berubah. Frame bisa terlambat karena pekerjaan HTTP/OLED; ini bukan deadline hard real-time. Core 1 tetap pemilik Preferences dan mengirim pengaturan terapan melalui salinan snapshot. Pengaturan LED tidak memutus tracker energi.
-
-RMT memakai satu blok 64 simbol dan clock APB/8 (tick 100 ns). Satu pixel berisi 24 bit GRB MSB-first: bit 1 HIGH 8/LOW 4 tick, bit 0 HIGH 4/LOW 8 tick. Stream nominal 28,8 µs, lalu idle LOW sampai update berikutnya, minimal 20 ms. `rmt_wait_tx_done(channel,0)` mengecek tanpa menunggu; channel sibuk melewati frame. Produsen tunggal memakai `rmt_write_items(...,false)` dengan buffer simbol statis yang tetap valid sampai selesai. Tidak ada bit banging CPU atau library LED tambahan. Channel ini tidak boleh dipakai driver lain. Gagal inisialisasi mematikan kontrol LED; tidak ada acknowledgement pixel atau deteksi cahaya. Watchdog task tetap menjadi batas pemulihan terakhir jika driver periferal macet.
-
-`led.h` memakai integer: hue enam sektor, kedip separuh siklus, breathing ramp linear naik/turun, brightness mengalikan kanal sekali. Selisih millis unsigned menjaga rollover; mengganti mode/periode mengulang fase. Saat boot default Hue/128/8000 ms berlaku sampai core 1 memuat NVS. Pengaturan Mati tersimpan baru diterapkan setelah inisialisasi akuisisi, sehingga tidak meniadakan cahaya boot.
-
-`POST /api/led` memerlukan token, mode `off|solid|hue|blink|breathe`, brightness dan RGB 0–255, serta period 500–30000 ms. Validasi dilakukan sebelum konversi ke integer kecil. Respons 202 hanya berarti antre; `/api/status` menampilkan objek led terapan termasuk available, pin, stored dan storageOK. Periode/warna tetap disimpan saat tidak dipakai mode terpilih. Polling tidak mereset draft yang belum diterapkan jika konfigurasi server belum berubah.
-
-Key NVS `led` adalah 12 byte: versi 1, mode, brightness, R/G/B, periode uint32 little-endian, CRC16 Modbus little-endian atas 10 byte pertama. Panjang/versi/CRC/range diperiksa. Key belum ada menggunakan default; record rusak menggunakan default dan storageOK=false. Gagal tulis tetap menerapkan RAM untuk boot ini, dengan stored=false dan peringatan web. Status ini terpisah dari kesehatan arsip energi. Tidak ada penulisan NVS LED berkala.
-
-GPIO48 adalah default yang sudah dikonfirmasi pada board pengguna; GPIO38 hanya alternatif untuk revisi DevKitC v1.1 yang menggunakan pin tersebut. Ini driver RGB tiga kanal, tanpa kanal putih RGBW terpisah. [Rincian English](../DESIGN.md#oled-rotation-and-onboard-rgb-scheduling) memuat kontrak lengkap.
-
-## Capture TX/RX pasif dan sketch Arduino (1.3.0)
-
-trace.h menyimpan 12 frame tetap di snapshot milik core 1. Satu frame memuat TX delapan byte, RX maksimal 16 byte, overflow, ID/baud/parity, alamat/count, percobaan, sumber polling/scan dan uptime awal tunggu respons. Capture tidak mengalokasikan heap, menulis NVS/CSV, menambah request atau memutus tracker. START_TRACE/STOP_TRACE melalui queue; setelah 12 percobaan hasil dibekukan sampai rekaman baru/restart. Scan tetap memutus kontinuitas seperti sebelumnya.
-
-Klasifikasi membedakan echo request persis, timeout, terlalu pendek, overflow, CRC gagal, exception, bentuk respons salah dan respons valid. Overflow tidak boleh dianggap echo hanya karena prefix sama. Klasifikasi hanya diagnostik: validator utama tidak diubah, CRC tidak dilewati dan echo tidak dipotong otomatis. Counter scan lama CRC juga mencakup frame pendek; rejected mencakup overflow, bentuk salah, exception atau rasio invalid.
-
-POST /api/trace/start dan /stop memakai token/queue biasa; 202 hanya antre. GET /api/trace membaca salinan snapshot, tanpa akses UART, dan menyertakan GPIO aktual serta frame. Data penuh tidak ditambahkan ke /api/status. Panel terbuka polling satu detik secara berurutan, timeout empat detik dan abort saat ditutup. Menutup panel tidak menghentikan capture perangkat. Ekspor TXT dibuat lokal browser. Snapshot membesar; pemakaian stack nyata masih perlu pengukuran hardware.
-
-Byte berasal dari buffer UART, bukan timing logic analyzer. Overflow hanya menyimpan prefix 16 byte. RX sama TX membuktikan request berulang, bukan lokasi loopback. Error yang tetap ada saat A/B Fort dilepas bukan balasan Fort.
-
-Sketch examples/FortSerialDebug/FortSerialDebug.ino berdiri sendiri tanpa library eksternal. Hanya fungsi 03 pada register energi/rasio yang sama. Scan 4.446 kandidat kini mencari respons/exception FC03 sah di0x0034; pemeriksaan energi/rasio dilakukan terpisah oleh deeper/read. Setting hasil hanya RAM pembaca. Buffer RX 64 byte, tunggu 800 ms, detail empat frame/request; echo standalone ditolak lalu menunggu respons terpisah dalam deadline awal. Data gabungan tidak dipotong sembarang. Perilaku ini tidak mengubah reader utama. Perintah x membatalkan, tanpa menunggu USB saat boot. Tidak ada AP/OLED/RTC/interval atau akses NVS/filesystem. Log Serial memengaruhi timing; [panduan Arduino](../../examples/FortSerialDebug/README.id.md) menjelaskan setup dan batasnya.
-
-## Audit gambar manual dan diagnostik 1.1.0
-
-Gambar PDF 18/cetak16, 27/cetak25 dan 30/cetak28 diperiksa langsung, bukan hanya OCR. Setting 1200–38400/N81/E81/O81 default9600N81, PT/CT 0x002C–0x002E, alamat/baud0x0034/35, frekuensi0x0080 dan energi sekunder0x0082–83 skala0,001 kWh sesuai tabel. Kolom panjang energi memang tercetak3 dan tidak konsisten dengan pasangan alamat/tipe; ini tetap dicatat sebagai ambiguitas, bukan dianggap bukti profil hardware sudah benar.
-
-Sketch mandiri memisahkan basic RX pasif tanpa TX, intermediate komunikasi termasuk exception sah, serta deeper raw register dan validasi kWh. Scan mandiri sekarang berhenti pada respons/exception sah di0x0034, tanpa mensyaratkan energi/CTPT. Scanner dashboard tetap mencari profil Fort lengkap; capture mentah menampilkan exception terpisah. Counter error UART atomik dicetak di loop utama. Test host memakai INO sebenarnya dengan UART/console tiruan untuk no-TX pasif, respons/exception sah, CRC/echo/ID salah, scan, kWh, bounds dan abort; bukan uji timing hardware.
-
-## Konfigurasi runtime diagnostik 1.2.0
-
-Pin/timing/probe/decode sekarang konfigurasi RAM tervalidasi. Daftar scan sampai6baud unik/3parity; mode current hanya format terpilih, matrix memakai perkalian daftar. Plan raw sampai8query. Alamat energi/rasio, scale finite positif dan urutan word dicetak; decode off juga memblokir konversi read/poll. Fungsi03 dan validasi respons tetap ketat. Override pin mengecualikan resource hardware pemasangan yang diketahui.
-
-Antrean console tetap16baris×96byte mempertahankan perintah selama UART/listen sibuk. Parser tidak mengeksekusi perintah bersarang. Loop mengeksekusi satu perintah saat aman, menunda selama scan dan menghentikan polling saat setting berubah. x di awal baris membatalkan/meniadakan antrean, x dalam alamatHEX tidak membatalkan. Overflow dilaporkan. Delapan filekasus disertakan dan dieksekusi melalui parser INO sebenarnya dalam tes host; pengujian juga memeriksa override probe, jumlahscan, inputinvalid/duplikat, batasplan, decodeoff serta perubahan alamat/scale/order. Ini bukan uji kualitas sinyal hardware.
-
-## Diagnostik berbasis bukti 1.3.0
-
-Diagnose tetap menjalankan plan raw sesudah probe pertama diam. Ini memperbaiki asumsi dukungan satu register pada alur sebelumnya, bukan membuktikan alamat energi unit terpasang. Evidence per uji memisahkan request, byte RX/pasif, data/exception sah, echo, CRC/short/wrong/overflow, timeout tanpa byte, error UART lokal dan konversi energi terkonfigurasi. Label report menyatakan observasi, bukan sensor keberadaan modul. Firmware utama tetap 1.3.0; scanner mensyaratkan energi/rasio, counter CRC juga mencakup frame pendek. Gagal profil scan atau counter CRC/rejected bukan vonis koneksi fisik.
-
-Rxcheck opsional menghentikan UART, memakai RX sebagai INPUT_PULLUP dan INPUT_PULLDOWN: masing-masing 32 sampel berjarak 1 ms setelah settling 2 ms. INPUT dan UART dipulihkan meski dibatalkan. RX tidak menjadi output, tidak ada request, pengukuran suplai atau deteksi pasti modul mati/dicabut. Hasil mengikuti bias/HIGH tertahan/LOW tertahan/berubah memiliki beberapa kemungkinan sebab. Timing dan perilaku pull pada target belum diuji fisik.
-
-Check connected/isolated menyimpan dua snapshot RAM berlabel operator. Perbandingan memeriksa ID, baud/parity, pin, timeout, probe, plan dan setting decode secara eksplisit; padding struct tidak dibandingkan. Uji dibatalkan/konfigurasi berbeda menolak inferensi. Respons sah saat disebut terisolasi ditandai kontradiktif. RX terisolasi hanya membuktikan aktivitas di luar jalur Fort A/B yang diklaim, belum menunjuk komponen. Keduanya diam tetap belum terpecahkan; perlu pengukuran suplai/TTL atau link pembanding sehat. Label operator bukan sensor sambungan.
-
-Gambar PDF27/30 diperiksa ulang. Alamat/skala produksi tidak berubah. Kasus05 membandingkan baca satu/dua/tiga word pada 0x0082 tanpa decode kWh; word tambahan tetap raw. Fungsi03, perbedaan word/byte dan tipe float primer versus integer sekunder dijelaskan. Panduan, resep dan bantuan Serial membedakan INPUT Serial Monitor dengan OUTPUT yang disalin ke chat.
-
-## Runtime diagnostik, event dan sampling proses — 1.4.0
-
-diagnostic_engine.h dihasilkan dari INO mandiri oleh tools/build-diagnostic.py dengan hook log terbatas/event/layanan core1. Polling normal dan tes memakai transport UART1 yang sama secara bergantian. PIO memeriksa provenance, tanpa include C++ dari file contoh, fungsi write meter atau profil diagnostik di NVS. Deskripsi scanner ketat pada catatan1.3.0 adalah riwayat;1.4.0 mencari data/exception sah pada probe terkonfigurasi, terpisah dari profil energi.
-
-Core1 memasuki maintenance hanya untuk tes/konfigurasi aktif, memutus/checkpoint tracker, menyalin default dari reader normal dan serial tersimpan, serta menghapus capture/counter sesi lama. Report/status/help/compare/plan-show dapat dibaca tanpa maintenance atau traffic UART. Antrean internal penuh menunda command HTTP yang sudah diterima, bukan membuangnya. Stop/resume membatalkan antrean; race dengan scan produksi ditolak. Resume mengembalikan pin board.h/serial tersimpan dan menginvalidasi kesinambungan energi/rasio. Data uji tidak masuk Tracker. Perubahan waktu/koneksi persisten diblokir selama maintenance.
-
-Antrean input16×96byte, console internal16baris, mailbox stop/resume1byte, dan queue snapshot diagnostik panjang1 dengan log8KiB/evidence. Core0 memakai view statis agar handler tidak menaruh8KiB di stack. Log melaporkan byte dibuang; USB dikirim maksimal128byte setiap service saat buffer cukup. Stack Arduino core0 menjadi16KiB, akuisisi12KiB; high-water fisik tetap perlu diukur.
-
-Core1 mencatat TX masuk antrean/selesai, RX pertama, frame/tail/timeout/pre-TX/error/pasif ke ring32event dengan timestamp dan pin aktual. Service publish maksimal setiap50ms saat wait serta feed watchdog. GET /api/uart?after=sequence memberi event baru berurutan, boot ID dan penanda gap tanpa membaca UART dari core0. Log polling1detik saat terbuka, flow200ms tanpa request tumpang-tindih, metrik proses1,5detik saat terbuka. Replay mempertahankan jeda1× dengan jeda polling/jaringan, tanpa menyamarkan history awal sebagai live atau merekonstruksi gap. Jalur/afterglow skematik, bukan bukti listrik.
-
-Sampling core memakai hook tick, counter32bit DRAM dengan satu penulis ISR per core dan handle idle stabil. Hook/fungsi SDK xTaskGetCurrentTaskHandleForCPU diperiksa berada di IRAM0x4037xxxx pada image ter-link. Delta counter unsigned sekitar1detik menghasilkan persentase sampel non-idle, bukan waktu instruksi. Tidak ada override ABI runtime-stats kernel atau task sampler tambahan. Alias tick mungkin, interrupt teratribusi pada task terinterupsi; gagal registrasi menghasilkan null. Tabel hanya handle task aplikasi/idle stabil, priority/state dan minimum byte stack bebas; jumlah sistem meliputi task lain. Heap/PSRAM dari SDK, tetap perlu penerimaan fisik. [Alur operator](DIAGNOSTICS.md).
-
-## Koreksi transport dan antrean — 1.4.1
-
-Transport bersama menguras RX sepanjang guard t3.5 kontinu sebelum TX. Byte baru mengulang waktu tenang; guard dibatasi timeout respons. `[BUS_NOT_QUIET]` berarti TX tidak dilakukan. `busBusy` tersedia terpisah pada status/scan/evidence, sekaligus termasuk percobaan scan tertolak. Ini bukan bukti modul/kabel rusak. Guard yang hampir habis dapat diikuti satu budget respons penuh; satu kandidat bisa memerlukan sekitar dua kali timeout.
-
-Frame kandidat sampai 11 byte diamati setiap 25 µs; buffer kosong/noise besar tetap yield 1 ms, dengan hook layanan/watchdog. Regresi echo diikuti respons byte-per-byte pada turnaround minimum 19200/8E1 sudah diuji. Latensi driver/RTOS masih dapat menyembunyikan gap fisik; frame gabungan tetap ditolak tanpa menghapus echo. Respons RTU tidak membawa transaction ID/alamat register sehingga balasan terlambat setelah TX berikutnya tidak selalu dapat diatribusikan hanya dari byte.
-
-Perintah HTTP biasa membawa ID, waktu antre dan revisi mode. Core 1 memvalidasi ulang mode/revisi serta umur maksimal 10 detik untuk perubahan yang mengganggu akuisisi. LED/mute/capture dieksekusi antar-transaksi; penulisan NVS tidak sengaja dijalankan di tengah koleksi UART. Setiap putaran maksimal enam kontrol dan enam belas input diagnostik nonaktif. `/api/status.control.results` menyimpan delapan hasil `{id,error}`; HTTP 202 hanya berarti diterima antrean. UI menunggu hasil eksekusi yang tepat. Stop/Resume tetap memiliki jalur prioritas; timeout browser tidak membatalkan pekerjaan yang sudah diterima.
-
-Pembatalan diagnostik memakai generasi pesan; hanya core 1 yang menghapus input. Tidak ada lagi reset antrean lintas core atau pasangan peek/pop yang bisa berganti pesan di antaranya. Input generasi lama dibuang; perintah sesudah Resume dipertahankan untuk sesi baru. Dispatcher mengeluarkan satu pesan secara atomik sebelum mengklasifikasikannya.
-
-`clock_guard.h` melindungi hari tersimpan terlepas dari validitas RTC. Admission HTTP dan eksekusi core 1 menolak hari lokal mundur. Waktu HP dikompensasi umur antrean dalam detik penuh, maksimal 10 detik, lalu diperiksa lagi. Rollover RTC otomatis juga menolak hari sebelum arsip aktif. `command_policy.h` memuat guard mode murni; keduanya memiliki tes batas/rollover.
-
-Seluruh respons WebServer, termasuk JSON/CSV, memakai pengiriman socket nonblocking maksimal 1 KiB, budget total 5 detik per request, layanan watchdog/LED dan yield. Progres parsial tidak memperpanjang deadline. Ini tidak mengganti parser HTTP upstream; request rusak/besar serta timing banyak klien tetap memerlukan evaluasi fisik.
+INO mandiri mengikutsertakan FortDiagnostics dari library yang sama dengan firmware utama. File `diagnostic_engine.h` dan `build-diagnostic.py` dipertahankan sebagai jalur kompatibilitas/provenance yang tidak menduplikasi parser. Arduino IDE memakai ZIP FortMeter yang disertakan agar hook serta lisensinya cocok. Nilai diagnostik hanya RAM dan tidak menjadi data interval produksi. Langkah operator tersedia pada [DIAGNOSTICS](DIAGNOSTICS.md).

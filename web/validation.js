@@ -17,7 +17,7 @@ const frame = (value) =>
 
 export function validStatus(value) {
   return (
-    serial(value) &&
+    serial(value) && ["manual", "auto"].includes(value.direction) &&
     typeof value.token === "string" && value.token.length > 0 &&
     Array.isArray(value.slots) && value.slots.length === 9 &&
     value.slots.every((slot) => object(slot) && uint(slot.start, 1439) && typeof slot.quality_code === "string" &&

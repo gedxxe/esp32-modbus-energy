@@ -3,6 +3,9 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Raw words only. No kWh interpretation. Add/edit queries as needed.
 x
+direction manual
+settle 100
+gap 200
 decode off
 plan clear
 plan add 0034 1

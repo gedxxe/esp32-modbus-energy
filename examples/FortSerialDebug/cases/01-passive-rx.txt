@@ -3,6 +3,9 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Basic RX only. No Modbus request is sent by listen.
 x
+direction manual
+settle 100
+gap 200
 pins 18 17
 baud 9600
 parity N

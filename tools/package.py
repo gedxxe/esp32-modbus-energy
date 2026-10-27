@@ -18,6 +18,7 @@ if app.read_bytes() != built.read_bytes():
     raise SystemExit("Output app differs from current build. Copy and merge again.")
 sources = [*sorted((root / "firmware/src").rglob("*.cpp")),
            *sorted((root / "firmware/include").rglob("*.h")),
+           *(p for p in sorted((root/"firmware/lib").rglob("*")) if p.is_file() and p.suffix in [".h",".cpp"]),
            root / "firmware/platformio.ini"]
 if any(p.stat().st_mtime > built.stat().st_mtime for p in sources):
     raise SystemExit("Sources changed after build; compile again before packaging.")
@@ -28,9 +29,13 @@ if factory[0x10000:]!=app.read_bytes():
 for name,offset in [('bootloader.bin',0),('partitions.bin',0x8000),('boot_app0.bin',0xe000)]:
     part=(root/'output/firmware'/name).read_bytes()
     if factory[offset:offset+len(part)]!=part:raise SystemExit('Factory component mismatch: '+name)
-root_names=['README.md','README.id.md','AGENTS.md','CHANGELOG.md','CHANGELOG.id.md','CONTRIBUTING.md','CONTRIBUTING.id.md','LICENSE','NOTICE','.gitignore',
+library_files=[p for p in sorted((root/'firmware/lib/FortMeter').rglob('*')) if p.is_file()]
+library_zip=root/f'output/FortMeter-library-v{version}.zip'
+subprocess.run([sys.executable,str(root/'tools/package-library.py')],check=True)
+root_names=['README.md' ,'README.id.md','AGENTS.md','CHANGELOG.md','CHANGELOG.id.md','CONTRIBUTING.md','CONTRIBUTING.id.md','LICENSE','NOTICE','.gitignore',
             '.gitattributes','.editorconfig','.node-version','requirements-dev.txt','package.json','package-lock.json']
 files=[*(root/name for name in root_names),*sources,
+       *(p for p in library_files if p not in sources),library_zip,
        *(p for p in sorted((root/'firmware/test').rglob('*')) if p.is_file() and p.suffix in ['.cpp','.h']),
        *(p for p in sorted((root/'examples').rglob('*')) if p.is_file() and '.pio' not in p.parts and p.suffix in ['.ino','.md','.ini','.csv','.txt']),
        *(p for p in sorted((root/'web').rglob('*')) if p.is_file()),
@@ -46,6 +51,8 @@ manifest = {
     "license_scope": "Original project code; third-party terms are recorded in NOTICE",
     "web": json.loads((root / "web/bundle.json").read_text(encoding="utf-8"))["compressed_total"],
     "hardware_tested": False,
+    "reference_sketch_report": "User reports successful reads with manual DE-/RE on GPIO16; integrated release still needs field acceptance",
+    "modbus_transport": "ModbusMaster 2.0.1+fort.1",
     "sha256": {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
 }
 manifest_path = root / "output/manifest.json"

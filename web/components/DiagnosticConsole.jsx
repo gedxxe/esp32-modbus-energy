@@ -184,10 +184,11 @@ function ConsoleData({ device }) {
         <summary>{t("diag_commands")}</summary>
         <p className="small">{t("diag_reference")}</p>
         <code>
-          id 7 · baud 19200 · parity E · pins 18 17 · timeout 1200 · interval
+          id 7 · baud 19200 · parity E · pins 18 17 · timeout 2000 · interval
           3000
           <br />
-          probe 0080 1 · reg 0082 2 · range 1 16 · scanmode current
+          direction manual · settle 100 · gap 200
+          <br />probe 0058 2 · reg 0082 2 · range 1 16 · scanmode current
           <br />
           bauds 9600 19200 · parities NE · scan · x<br />
           plan clear · plan add 0080 1 · plan show

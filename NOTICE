@@ -1,4 +1,4 @@
-Fort Energy Station — ESP32 Modbus Energy Monitor
+Fort Energy Station / ESP32 Modbus Energy Monitor
 
 The project source code and original documentation/assets are licensed under
 the GNU General Public License, version 3 only (SPDX: GPL-3.0-only).
@@ -26,3 +26,16 @@ GPL-3.0-only. Generated bundles include third-party code under the terms above;
 no blanket GPL license is claimed over those dependencies. The browser serves
 their notices offline at /assets/third-party.txt. No assets or source from the
 JRE UNILAND project have been copied; it was used as a visual reference only.
+
+Firmware transport dependency
+-----------------------------
+firmware/lib/FortMeter/src/ModbusMaster.h and ModbusMaster.cpp are based on
+Doc Walker's ModbusMaster v2.0.1 and retain their Apache-2.0 notices. The
+upstream Apache license, source hashes and patch are preserved under
+firmware/lib/FortMeter/third_party/ModbusMaster/. The integration adds a runtime
+response deadline, cooperative cancellation and initialization fixes; its wire
+transaction code remains ModbusMaster and is identified as 2.0.1+fort.1.
+The upstream util/crc16.h retains its BSD-3-Clause notice and util/word.h retains its GPL-3.0-or-later notice.
+Original FortTransport/FortDiagnostics code is GPL-3.0-only, as is the rest of
+this project's original firmware. These statements do not relicense the
+upstream files. The Arduino library ZIP includes these sources and notices.

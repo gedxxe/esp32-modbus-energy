@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="650" viewBox="0 0 1400 650" role="img" aria-labelledby="title desc"><title id="title">Tasks, queues and peripheral ownership</title><desc id="desc">Midea Fort schematic. Labels and colors identify connections. Screen values are simulated.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
 <text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Task ownership and data flow</text>
-<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Commands and snapshots are copied through queues; I2C and filesystem operations use mutexes.</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Commands and snapshots are copied through queues. I2C and filesystem operations use mutexes.</text>
 <rect x="55" y="160" width="510" height="300" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="80" y="204" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 0 / UI · PRIORITY 1</text>
 <text x="80" y="260" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">HTTP + browser API</text>
@@ -9,7 +9,7 @@
 <text x="80" y="389" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Wi-Fi tasks managed by ESP-IDF</text>
 <rect x="835" y="160" width="510" height="300" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="860" y="204" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 1 / ACQUISITION · PRIORITY 2</text>
-<text x="860" y="260" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">UART1 / CRC / retry / scan</text>
+<text x="860" y="260" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">ModbusMaster / direction / scan</text>
 <text x="860" y="303" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">RTC + CT/PT + kWh counter</text>
 <text x="860" y="346" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">9 scheduled intervals + quality</text>
 <text x="860" y="389" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">NVS checkpoint + CSV / LittleFS</text>

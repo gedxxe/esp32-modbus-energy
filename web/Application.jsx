@@ -38,6 +38,8 @@ function Health({ device }) {
               ? "health_rtc"
               : !s.online
                 ? "health_offline"
+                : !s.ratios || s.energy == null || s.age > 15
+                ? "health_profile"
                 : "health_ok";
   return (
     <div

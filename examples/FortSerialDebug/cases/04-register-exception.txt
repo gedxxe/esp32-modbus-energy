@@ -3,8 +3,11 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Use a known responsive reader ID/format; adjust via runtime commands first.
 x
+direction manual
+settle 100
+gap 200
 stats clear
-probe 0034 1
+probe 0058 2
 intermediate
 reg 0034 1
 reg 0080 1

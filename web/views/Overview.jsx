@@ -112,6 +112,7 @@ export default function Overview({ device }) {
   const s = device.data;
   const rows = s?.slots.filter((_, i) => (shift === 0 ? i < 6 : i >= 6)) || [];
   const live = device.fresh && s?.online;
+  const energyFresh = live && s?.ratios && s?.energy != null && s?.age <= 15;
   return (
     <>
       <div className="summary">
@@ -133,7 +134,7 @@ export default function Overview({ device }) {
             <span className="label">{t("energy")}</span>
             <span className="live-stamp">
               <span className="dot" />
-              {live ? "MODBUS RTU" : t("counter")}
+              {energyFresh ? "MODBUS RTU" : t("counter")}
             </span>
           </div>
           <div className="reading">
@@ -175,6 +176,14 @@ export default function Overview({ device }) {
           </div>
         </div>
       </div>
+      <section className="panel register-summary" aria-labelledby="register-title">
+        <div><h2 id="register-title">{t("register_title")}</h2><p>{t("register_intro")}</p></div>
+        <dl className="register-values">
+          {[["current_a", "currentA", "A", "0058"], ["voltage_a", "voltageA", "V", "0042"], ["frequency", "frequency", "Hz", "0080"], ["secondary_energy", "secondaryEnergy", "kWh", "0082"]].map(([label, key, unit, address]) => (
+            <div key={key}><dt>{t(label)} <code>0x{address}</code></dt><dd id={`value-${key}`}>{live ? number(s?.[key], key === "frequency" ? 2 : 3) : "—"} <small>{unit}</small>{key === "secondaryEnergy" && s?.secondaryAge != null && <div className="small muted">{t("sample", { seconds: s.secondaryAge })}</div>}</dd></div>
+          ))}
+        </dl><p className="small muted">{t("register_note")}</p>
+      </section>
       <section aria-labelledby="interval-title">
         <div className="section-heading">
           <div>

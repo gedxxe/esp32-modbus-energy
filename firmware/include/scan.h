@@ -2,11 +2,16 @@
 #include <stdint.h>
 
 namespace fort {
-struct Settings { uint32_t magic=0x46525431; uint32_t baud=9600; uint8_t slave=1; char parity='N'; };
+enum Direction:uint8_t { DIRECTION_MANUAL=0,DIRECTION_AUTO=1 };
+struct Settings { uint32_t magic=0x46525432; uint32_t baud=9600; uint8_t slave=1; char parity='N';uint8_t direction=DIRECTION_MANUAL,reserved=0; };
 static_assert(sizeof(Settings)==12,"Persisted settings layout changed");
 inline bool validBaud(uint32_t b) { return b==1200||b==2400||b==4800||b==9600||b==19200||b==38400; }
 inline bool validSettings(const Settings &s) {
-  return s.magic==0x46525431&&s.slave>=1&&s.slave<=247&&validBaud(s.baud)&&(s.parity=='N'||s.parity=='E'||s.parity=='O');
+  return s.magic==0x46525432&&s.direction<=DIRECTION_AUTO&&s.slave>=1&&s.slave<=247&&validBaud(s.baud)&&(s.parity=='N'||s.parity=='E'||s.parity=='O');
+}
+inline bool migrateLegacySettings(Settings &s){
+  if(s.magic!=0x46525431||s.slave<1||s.slave>247||!validBaud(s.baud)||(s.parity!='N'&&s.parity!='E'&&s.parity!='O'))return false;
+  s.magic=0x46525432;s.direction=DIRECTION_MANUAL;s.reserved=0;return true;
 }
 enum ScanPhase:uint8_t { SCAN_IDLE,SCAN_RUNNING,SCAN_FOUND,SCAN_CANCELLED,SCAN_EXHAUSTED };
 inline const char *scanName(ScanPhase phase) {
@@ -31,7 +36,7 @@ class ScanController {
     const char parities[]={'N','E','O'};
     bauds[0]=preferred.baud;int i=1;for(auto b:defaults)if(b!=preferred.baud)bauds[i++]=b;
     modes[0]=preferred.parity;i=1;for(auto p:parities)if(p!=preferred.parity)modes[i++]=p;
-    preferredID=preferred.slave;started=now;progress=ScanProgress{};
+    preferredDirection=preferred.direction;preferredID=preferred.slave;started=now;progress=ScanProgress{};
     combinations=currentOnly?1:18;progress.currentOnly=currentOnly;
     progress.first=first;progress.last=last;progress.total=(last-first+1)*combinations;
     progress.phase=SCAN_RUNNING;updateCandidate();return true;
@@ -51,7 +56,7 @@ class ScanController {
  private:
   uint32_t bauds[6]{},started=0;
   char modes[3]{};
-  uint8_t preferredID=1,combinations=18;
+  uint8_t preferredID=1,combinations=18,preferredDirection=DIRECTION_MANUAL;
   void updateCandidate() {
     uint16_t count=progress.last-progress.first+1,index=progress.tested%count,combo=progress.tested/count;
     uint16_t id=progress.first+index;
@@ -64,7 +69,7 @@ class ScanController {
       }
     }
     progress.candidate=Settings{};progress.candidate.baud=bauds[combo/3];
-    progress.candidate.parity=modes[combo%3];progress.candidate.slave=id;
+    progress.candidate.direction=preferredDirection;progress.candidate.parity=modes[combo%3];progress.candidate.slave=id;
   }
 };
 inline bool validScanRatios(const uint8_t *p) {

@@ -4,7 +4,7 @@
 <rect x="45" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="67" y="179" fill="#087e82" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="start">01</text>
 <text x="109" y="179" fill="#183438" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">GPIO + RTOS objects</text>
-<text x="67" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DE LOW; button pull-ups</text>
+<text x="67" y="228" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DE LOW. Button pull-ups</text>
 <text x="67" y="261" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">I2C / FS mutexes</text>
 <text x="67" y="294" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Command + snapshot queues</text>
 <rect x="495" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
@@ -37,5 +37,5 @@
 <text x="967" y="463" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">HTTP + queued commands</text>
 <text x="967" y="496" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Buttons / OLED / buzzer / RGB</text>
 <text x="967" y="529" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Publish/read copied state</text>
-<text x="45" y="633" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported; startup does not wait indefinitely.</text>
+<text x="45" y="633" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported. Startup does not wait indefinitely.</text>
 </svg>

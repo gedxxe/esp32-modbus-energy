@@ -2,85 +2,72 @@
 
 [English](../DIAGNOSTICS.md) · **Bahasa Indonesia** · [Ringkasan](../../README.id.md)
 
-Firmware **1.4.1** menyediakan kemampuan diagnostik INO di aplikasi utama. Tidak perlu mengganti firmware dengan sketch terpisah. AP, dashboard, tombol dan RGB tetap berjalan; UART tetap dimiliki core 1.
+Firmware 2.0.0 memakai source FortMeter/ModbusMaster yang sama untuk pembacaan normal, probe scanner dan sketch mandiri. Konsol menguji jalur pembacaan yang benar-benar dipakai aplikasi, dengan default manual pada TX17/RX18/DIR16, timeout 2000 ms, settling driver/receiver 100 µs dan jarak request 200 ms.
 
 ## Langkah awal di panel
 
-1. Upload firmware utama `esp32s3`. HP ke **Midea Engineering AP**, password **betahdijre12345**, buka **http://192.168.4.1**. Pastikan footer Firmware 1.4.1.
-2. Buka **Koneksi meter → Konsol diagnostik**. Kolom **Input perintah** adalah tempat mengetik perintah web, bukan chat.
-3. Pilih **Tes bertahap**. Ini mengisi `diagnose`, belum menjalankan. Klik **Jalankan perintah**.
-4. Tunggu `[REPORT_END]` pada **Output diagnostik perangkat**. Default tanpa respons biasanya sekitar 10 detik. Tes mendengarkan tanpa TX selama 3 detik, mencoba probe komunikasi, tetap menjalankan daftar raw register meski probe pertama diam, lalu mencoba energi/rasio terkonfigurasi. Tidak otomatis scan seluruh ID/format.
-5. Klik **Unduh output**, simpan TXT di HP. Jika perlu analisis, kirim file/teks OUTPUT itu ke chat. Jangan tempel OUTPUT ke Input perintah.
-6. Selesai tes, klik **Lanjutkan pengukuran**. Peringatan maintenance harus hilang dan polling normal kembali. Nilai uji tidak pernah masuk pencatatan interval produksi.
+1. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**, lalu buka **http://192.168.4.1** dan pastikan footer Firmware 2.0.0. Samakan ID/baud/parity dengan menu CONi Fort dan pilih Manual direction untuk rangkaian DE-/RE terkonfirmasi.
+2. Buka **Diagnostic console**, ketik `status` pada **Command input web**, lalu pilih **Run command**. Periksa ID, format, direction serta timing yang tercetak sebelum memulai tes. Baris ini merupakan input perangkat, bukan pesan ke chat dukungan.
+3. Ketik `intermediate` sebagai perintah baru dan pilih Run command untuk mengirim contoh arus fasa A pada `0x0058`, dua register. Pada ID 1, TX harus `01 03 00 58 00 02 45 D8`. Output memuat RX mentah dan status ModbusMaster.
+4. Masukkan `diagnose` secara terpisah jika memerlukan catatan lebih luas. Tes mengamati RX pasif tiga detik, mencoba probe dan melanjutkan plan register mentah, termasuk energi/rasio ketika decode aktif. Alamat pertama yang diam tidak menghentikan seluruh plan.
+5. Tunggu `[REPORT_END]` pada **Device diagnostic output**, lalu pilih **Download output**. Simpan TXT tersebut dan salin OUTPUT atau filenya ke chat jika meminta analisis. Jangan masukkan label log kembali ke Command input.
+6. Pilih **Resume measurement** setelah selesai dan pastikan peringatan maintenance hilang sebelum meninggalkan panel.
 
-Sampling RTC/interval juga dijeda saat tes aktif; waktu pada dashboard adalah sampel RTC terakhir sampai resume.
+Tes UART aktif menghentikan sementara sampling RTC/interval serta memutus kontinuitas interval berjalan, sementara interval lengkap tetap dipertahankan. Setting dan nilai uji berada di RAM. Menutup panel atau browser tidak melanjutkan pencatatan, sehingga buka kembali dashboard untuk memeriksa sesi yang masih aktif. `status`, `report`, `help`, `compare` dan `plan show` dapat membaca informasi tanpa memasuki maintenance.
 
-Tes UART aktif memasuki maintenance dan memutus kontinuitas interval. Interval terputus menjadi parsial, interval selesai tetap tersimpan. Menutup panel/browser tidak membatalkan tes atau melanjutkan pengukuran. Buka kembali dashboard dan Lanjutkan pengukuran. Reboot memulihkan setting produksi tersimpan dan menghapus RAM diagnostik.
+## Arti hasil transaksi
 
-`status`, `help`, `report`, `compare` dan `plan show` dapat membaca hasil uji tersimpan tanpa memasuki maintenance. Status saat tidak aktif juga mencetak setting produksi terpisah. Sesi baru menyalin default engine dan ID/format tersimpan; override/capture hanya milik sesi itu. Perintah LED biasa dapat menunggu tes panjang selesai. Perubahan koneksi/waktu produksi serta scan produksi diblokir selama maintenance.
+| Output | Makna dan tindak lanjut |
+| --- | --- |
+| `0x00 OK` dan `[VALID_RESPONSE]` | ID, FC03, count, panjang serta CRC sah, bandingkan nilai dengan halaman Fort yang sesuai. |
+| `0x01–0x04` dan `[COMM_VALID_EXCEPTION]` | Exception cocok dan CRC terverifikasi, tetapi data yang diminta tidak dibaca, periksa alamat/count serta dukungan register. |
+| `0xE0 WRONG_SLAVE_ID` | Prefix memakai ID lain atau rusak, periksa HEX tanpa menganggapnya balasan Fort. |
+| `0xE1 WRONG_FUNCTION` | Fungsi yang diterima berbeda dari FC03/exception terkait. |
+| `0xE2 RESPONSE_TIMEOUT` | Respons lengkap tidak tiba dalam deadline, termasuk kemungkinan RX parsial. |
+| `0xE3 CRC_ERROR` | Integritas respons gagal, termasuk CRC exception. |
+| `0xE4 ABORTED` | Stop/Resume memutus penantian tanpa menerima nilai baru. |
+| `0xE5 LOCAL_UART_ERROR` | Driver lokal atau penulisan byte gagal sehingga jalur eksternal belum dapat dinilai. |
+| `0xE6 INVALID_FRAME_LENGTH_OR_ECHO` | Bentuk respons tidak sesuai atau request dipantulkan persis, tidak ada byte yang dihapus agar tampak sah. |
+| `0xE7 RX_OVERFLOW` | Input melewati batas penerimaan/capture dan ditolak. |
+
+RX, CRC gagal dan BREAK merupakan observasi jalur UART lokal, bukan bukti mandiri bahwa Fort membalas atau modul sehat. Ketika A/B dilepas, aktivitas yang diterima berasal dari rangkaian yang masih terhubung. Sebaliknya, slave boleh diam sebelum diminta, sehingga tes pasif yang sunyi tidak membuktikan komponen rusak. Log mempertahankan ketidakpastian tersebut agar kesimpulan tidak melampaui bukti.
 
 ## Pilih tes terbatas
 
-Ketik **satu perintah di Input perintah web**, klik Jalankan perintah, tunggu output. Perintah yang sama tersedia melalui Serial sesudah masuk mode diagnostik.
+Masukkan **satu baris setiap kali di Command input web dan klik Run command untuk baris tersebut**. Alamat memakai PDU heksadesimal dan jumlah memakai register 16-bit, tanpa konversi offset 40001.
 
-| Kondisi | Perintah / tindakan | Makna |
-| --- | --- | --- |
-| Bukti awal | `diagnose` | ID/format saat ini, beberapa query independen, bukan pencarian seluruh setting |
-| RX pasif | `listen 5` | Tanpa request Modbus selama 5 detik; slave tanpa request memang dapat diam |
-| Satu alamat | `probe 0080 1`, lalu `intermediate` | HEX/word; data atau exception CRC sah menjadi bukti balasan |
-| Word mentah | `reg 0082 2` / `deeper` | Data gagal tidak menjadi nol; raw terpisah dari validasi kWh |
-| CRC/echo/frame pendek | `status`, baca HEX, scan format terbatas | Counter saja bukan bukti Fort membalas |
-| Input TTL diragukan | `rxcheck` | Observasi pull lemah, bukan deteksi pasti modul/tegangan/continuity |
-| Dua keadaan A/B | `check connected`; ubah fisik hanya A/B di modul; `check isolated`; `compare` | Label operator, konfigurasi sama dan tes selesai; jangan jalankan keduanya tanpa perubahan fisik |
-| Bukti sebelumnya | `report` | Tanpa request baru; counter uji terpisah dari produksi |
-| Hentikan | `x` / Hentikan tes | Membatalkan wait/scan/poll/antrean tes, maintenance masih aktif |
-| Selesai | `resume` / Lanjutkan pengukuran | Pulihkan UART/pin produksi tersimpan dan akuisisi normal |
+| Tujuan | Perintah |
+| --- | --- |
+| Contoh arus manual | `probe 0058 2`, lalu `intermediate` |
+| Tegangan, daya atau frekuensi langsung | `reg 0042 2`, `reg 006A 2`, `reg 0080 1` |
+| Counter sekunder | `reg 0082 2` |
+| Dua kandidat urutan float primer | `primary` |
+| RX tanpa TX | `listen 5` |
+| Observasi TTL dengan pull lemah | `rxcheck` |
+| Bukti tersimpan tanpa request baru | `report` |
+| Hentikan tes serta antrean lama | `x` atau Stop test |
+| Pulihkan koneksi dan pencatatan | `resume` atau Resume measurement |
 
-[Delapan resep](../../examples/FortSerialDebug/README.id.md#pilih-pengujian-berdasarkan-hasil) juga berlaku di Input perintah web, satu baris non-komentar setiap klik. Baris `#`/path file bukan perintah web; paste multi-baris ditolak. Tidak ada write register atau broadcast.
+Parameter runtime mencakup `id 1`, `baud 9600`, `parity N`, `pins 18 17`, `direction manual`, `settle 100`, `gap 200`, `timeout 2000` serta `interval 2000`. `direction auto` hanya untuk rangkaian yang memang mengendalikan arah otomatis, bukan pengganti kabel DE-/RE pada transceiver manual. Pin arah tidak dapat dipakai sebagai pin UART selama mode manual aktif.
 
-Setting runtime mencakup `id`, `baud`, `parity`, pin terjaga `pins RX TX`, `timeout`, `interval`, `probe`, raw `plan`, `range`/`scanmode`/`bauds`/`parities`, serta diagnostik `energy`/`ratios`/`scale`/`order`/`decode`. Alamat adalah HEX PDU tanpa translasi 40001/minus1, count adalah word 16-bit. Map energi produksi tidak berubah; override hanya RAM, tidak mengubah profil produksi.
+Plan raw menggunakan `plan clear`, maksimal delapan `plan add ADDRESS WORDS`, dan `plan show`. Profil energi uji dapat diubah melalui `energy 0082`, `ratios 002C`, `scale 0.001`, `order normal/swap` dan `decode on/off`, tetapi seluruh perubahan itu hanya berlaku di sesi RAM. Perbedaan panjang pada tabel manual dapat diaudit dengan satu/dua/tiga word. Float primer tidak otomatis dianggap integer sekunder hanya karena salah satu hasil terlihat masuk akal.
 
-Panjang energi pada manual scan masih tidak konsisten. Resep 05 membandingkan raw 1/2/3 word tanpa menganggap word tambahan sebagai energi. Float primer berbeda dari integer sekunder. Jangan memilih scale/order karena angkanya tampak masuk akal; bandingkan display yang sesuai.
+## Cari setting koneksi
 
-## Cari koneksi tanpa memulai scan satu jam
+Scanner produksi memakai baud/parity/direction tersimpan serta rentang ID terpilih, dengan `0x0058/2` sebagai probe awal. Respons data atau exception sah diulang sebelum ditawarkan. Apply result menyimpan setting pembaca, sedangkan energi/rasio tetap diperiksa oleh akuisisi normal. Discovery tidak mengautentikasi model meter atau memverifikasi skala fisik.
 
-Pada **Koneksi meter → Cari meter Fort**, mulai dari ID yang diketahui/rentang kecil dan **Baud/parity tersimpan saat ini**. Hanya satu probe per ID. ID 1–16 tanpa respons sekitar 13 detik pada 800 ms; seluruh 247 ID sekitar 3–4 menit dengan overhead. Setting menu meter lebih kuat daripada default.
-
-Bila diperlukan pilih **Seluruh 18 format baud/parity**. Matriks1–247 memiliki 4.446 kandidat dan bisa sekitar 70 menit tanpa respons. Pembatalan diproses setelah satu transaksi 800 ms aktif. Jangan memulai matriks penuh hanya karena satu pembacaan gagal.
-
-Alamat/count probe bisa diedit, default 0x0034/1 word. Slave dapat mengabaikan register yang tidak didukung; gunakan tes bertahap beberapa alamat atau probe lain berdasarkan manual. Data dan exception CRC sah sama-sama dapat menghentikan pencarian. Koneksi ditemukan belum membuktikan model/profil energi. Terapkan hasil hanya menyimpan serial pembaca; validasi energi/rasio tetap wajib. Echo persis tidak menghentikan pencarian secara prematur, karena modul dapat meng-echo request pada setting yang tidak dijawab meter.
-
-Untuk daftar custom, masuk maintenance lalu gunakan `range 1 16`, `scanmode current`, `scan`; ubah parameter bertahap. Daftar baud/parity matrix dapat dikonfigurasi, `x` diperiksa selama wait RX. Batalkan scan produksi sebelum tes konsol; race perintah ditolak eksplisit di pemilik UART.
-
-## Arti bukti
-
-`TRANSPORT_DATA_CONFIRMED`: ID/fungsi/count/panjang/CRC data sesuai. `TRANSPORT_EXCEPTION_ONLY`: exception sah, register belum dibaca. `PROFILE_DECODED_UNVERIFIED`: konversi terkonfigurasi berhasil, masih perlu perbandingan display. `NO_RX_UNRESOLVED`, `RX_UNVALIDATED`, `ECHO_WITHOUT_REPLY` mempertahankan ketidakpastian, bukan vonis komponen rusak.
-
-Echo satu request utuh ditolak, lalu menunggu respons sah terpisah dalam deadline awal. Prefix request dengan byte tambahan dicatat `TX_PREFIX_WITH_TRAILING_RX`, tidak dipotong/diterima sembarang. Byte sebelum TX dibuang dengan prefix/count tercatat, bukan respons request baru. Frame invalid/terlalu panjang/tail deadline tidak menjadi energi. Counter frame rusak/pendek/ditolak tetap bertambah meski respons sah berikutnya berhasil dalam budget request yang sama.
-
-Modul empat pin tidak memberi telemetry presence/power-good. Modul dicabut/mati/rusak, RX terbuka, setting salah dan jalur diam lain bisa identik. Uji bias lemah/perbandingan keadaan mempersempit observasi tanpa membuktikan komponen rusak tertentu. Keduanya diam tetap perlu ukur suplai/TTL atau link pembanding sehat.
+Dengan timeout dua detik, 16 ID yang diam membutuhkan sekitar 35 detik termasuk jeda request. Matriks 1–247 dan 18 format dapat mencapai sekitar tiga jam, sehingga mulai dari setting CONi yang diketahui atau rentang kecil. Daftar konsol dapat dipersempit lewat `range 1 16`, `scanmode current`, `bauds 9600 19200`, `parities NE` dan `scan`. Perintah `x` diproses selama penantian. Scanner produksi dan tes aktif konsol tidak memiliki UART bersamaan.
 
 ## Aliran komunikasi dan monitor proses
 
-Panel gelap mengambil **event UART baru saja** setiap 200 ms: TX masuk antrean/selesai, RX pertama diamati, frame selesai/ditolak, tail deadline, timeout tanpa byte, RX sebelum TX, error driver dan RX pasif. Timestamp mikrodetik dan pin uji sebenarnya ikut dicatat. Ring 32 event menandai kehilangan; history awal tidak diputar seolah traffic baru. Tanpa event baru tidak ada paket bergerak. Reduced motion menonaktifkan gerakan.
+Panel komunikasi mengikuti event TX diantrekan/selesai, RX pertama serta hasil transaksi. Ring 32 event memperlihatkan gap urutan, sementara browser mereplay selang timestamp 1× dengan delay polling/jaringan tanpa gerakan dekoratif ketika diam. Tampilan bukan pengukuran propagasi A/B atau bukti bahwa perangkat jauh menerima request.
 
-Browser mereplay jeda timestamp teramati 1× dengan polling sekitar 200 ms ditambah jaringan. Posisi paket dan afterglow 250 ms adalah skematik, bukan pengukuran propagasi A/B atau bukti Fort menerima request. `micros()` berputar sekitar 71 menit; selisih memakai unsigned. HEX/nomor urut tetap dapat diperiksa tanpa animasi.
-
-Buka **Perangkat & arsip → Monitor proses**: sampel task non-idle dua core, heap bebas/minimum/blok terbesar, PSRAM, state/prioritas/high-water stack task milik aplikasi/idle. Hook tick bekerja terbatas di IRAM tanpa task sampler tambahan. Persentase adalah estimasi batas tick sekitar 1 detik, bukan waktu instruksi; interrupt teratribusi ke task yang diinterupsi. Tabel hanya task aplikasi/idle, jumlah sistem juga meliputi Wi-Fi/USB. Stack adalah minimum byte bebas historis, bukan penggunaan saat ini. Refresh 1,5 detik hanya ketika panel terbuka.
+Monitor proses pada Perangkat & arsip menampilkan sampel non-idle core, heap/PSRAM, state/priority task dan stack high-water. Panel rinci hanya polling ketika terbuka. Nilai stack merupakan minimum historis dan persentase tick bukan profiler instruksi. Gunakan untuk memeriksa headroom sebelum menguji beban serta ketahanan pada perangkat fisik.
 
 ## Alternatif Serial Monitor pada firmware utama
 
-Buka **Serial Monitor Arduino IDE/PlatformIO,115200 baud, Newline**. **Ketik `debug` di INPUT Serial Monitor, Enter** untuk masuk maintenance. Lalu `status`, Enter, `diagnose`, Enter. Salin OUTPUT bergulir ke chat bila meminta analisis. `x`, Enter menghentikan tes; **`resume`, Enter** memulihkan pengukuran. Output USB dikirim dalam potongan terbatas tanpa memblokir UART. Log web menyimpan 8 KiB terbaru dan melaporkan byte terbuang. Simpan log antar-tes; restart menghapusnya.
+Buka **Serial Monitor Arduino IDE/PlatformIO pada 115200 baud, Newline**. Ketik `debug` di **INPUT Serial Monitor**, tekan Enter/Send, lalu masukkan `status` dan `intermediate` sebagai baris terpisah. `x` menghentikan tes dan `resume` memulihkan pengukuran. OUTPUT dapat disalin ke chat dukungan, sedangkan log web tetap bisa diunduh tanpa USB.
 
-## Implementasi dan batas
+## Perbandingan fisik berpasangan
 
-![Kepemilikan diagnostik dan event](../assets/diagnostic-flow.svg)
-
-`tools/build-diagnostic.py` menghasilkan class C++ committed dari INO mandiri. Compiler utama memakai `firmware/include/diagnostic_engine.h`, bukan include file contoh. Polling normal dan tes memakai transport yang sama. PlatformIO memverifikasi provenance tanpa Node. Tes host menjalankan engine produksi termasuk seluruh resep dan kasus CRC/ID/fungsi/count/echo/exception. Tes browser memakai byte gzip asli dengan API simulasi. Lihat [validasi](VALIDATION.md); tes tersebut bukan penerimaan meter fisik.
-## Perubahan pada 1.4.1
-
-`BUS_NOT_QUIET` / hitungan bus sibuk berarti RX belum memberi jeda tenang; probe tersebut **tidak ditransmisikan**. Simpan OUTPUT `report` dan HEX sebelum TX. CRC/echo/rejected bukan bukti respons Fort. Byte yang datang saat guard sebelum TX dibuang, bukan diterima sebagai balasan baru.
-
-Kontrol web menunggu eksekusi core 1, bukan hanya HTTP diterima. Perubahan waktu/koneksi/scan dicek lagi bila mode berubah saat antre. LED/mute/capture menunggu batas transaksi aman selama diagnostik panjang. Stop test/Resume measurement tetap dapat dipakai saat kontrol biasa menunggu. Stop/Resume membatalkan tes lama; perintah sesudahnya masuk generasi berikutnya. Jika eksekusi belum terkonfirmasi, periksa setting saat ini sebelum mengulang.
-
-Tanggal RTC sebelum hari rekaman dipertahankan akan ditolak walau RTC invalid. Benarkan tanggal HP lalu sinkronkan di Perangkat & arsip setelah Resume measurement. Baris lengkap yang sudah tersimpan tetap dilindungi.
+`check connected`, `check isolated` dan `compare` menyimpan capture berlabel operator dengan pemeriksaan konfigurasi serta completion. Gunakan label tersebut hanya ketika A/B benar-benar diubah secara fisik di modul antara dua capture. Menjalankan kedua perintah pada koneksi yang sama bukan deteksi kabel otomatis. [Delapan resep lapangan](../../examples/FortSerialDebug/README.id.md#pilih-pengujian-berdasarkan-hasil) menyediakan variasi terbatas untuk RX pasif, format, map mentah dan urutan word.

@@ -1,13 +1,25 @@
 export const catalog = {
   en: {
+    health_profile: "The connection is responding, but the primary energy value is not ready or is stale. Check the ratio and energy-register results before accepting intervals.",
+    secondary_energy: "Secondary import counter",
+    frequency: "Frequency",
+    voltage_a: "Phase-A voltage",
+    current_a: "Phase-A current",
+    register_note: "The main imported-energy counter applies CT/PT once to the secondary kWh counter. Values here show the direct register conversion. A missing or rejected reading is left blank rather than replaced with zero.",
+    register_intro: "These values use the same ModbusMaster read path as the diagnostic sketch, beginning with phase-A current at 0x0058. The secondary energy counter remains visible even while CT/PT validation is pending.",
+    register_title: "Live register readings",
+    direction_auto_note: "Choose this only for an automatic-direction module. Its TTL input connects to GPIO17, its TTL output connects to GPIO18, and GPIO16 stays disconnected. This selection is saved with the reader connection.",
+    direction_manual_note: "This installation uses manual direction. GPIO17 connects to DI, GPIO18 receives from RO, and GPIO16 drives DE and /RE together. The driver settles for 100 µs before transmission and the receiver settles for 100 µs after UART flush.",
+    direction_auto: "Automatic module: no direction GPIO",
+    direction_manual: "Manual: GPIO16 drives DE and /RE",
+    direction_label: "RS485 direction control",
     diag_queued: "Command queued · waiting for the UART owner",
     scan_formats: "Serial formats",
     scan_current: "Current saved baud/parity",
     scan_matrix: "All 18 baud/parity formats",
-    scan_current_limits:
-      "One request per ID with the saved connection format. Try this bounded search first; 247 silent IDs take roughly 3–4 minutes.",
+    scan_current_limits: "The saved baud rate, parity and direction are tested at each ID, using the manual example at 0x0058 by default. A silent ID takes about two seconds. Successful candidates are checked again before a result is offered.",
     scan_exception:
-      "The peer returned a CRC-valid exception. Communication replied; this register and the energy profile remain unverified.",
+      "The peer returned a CRC-valid exception. Communication replied. This register and the energy profile remain unverified.",
     trace_diagnostic: "Diagnostic",
     flow_title: "Live communication",
     flow_diagram: "Observed UART request and response direction",
@@ -19,16 +31,13 @@ export const catalog = {
     flow_idle: "No new transaction",
     flow_diagnostic: "Diagnostic traffic · recording paused",
     flow_production: "Production polling / scan",
-    flow_note:
-      "Device timestamps · 1× observed timing replay · 200 ms polling plus network delay. The packet trail is schematic; A/B voltage and remote delivery are not measured. No event, no motion.",
+    flow_note: "The animation follows UART events at their observed timestamp spacing, with a 200 ms poll interval and network delay. It shows when the firmware queues TX, releases DE and receives bytes. Packet travel is schematic because A/B voltage and delivery at the meter are not measured.",
     flow_gap:
       "Some events fell outside the 32-event buffer. The view does not reconstruct missing traffic.",
     flow_events: "Inspect timestamped frames",
     diag_title: "Diagnostic console",
-    diag_intro:
-      "Run the same read-only field diagnostics inside the main firmware. Select a test below, then choose Run command. The AP remains available.",
-    diag_pause:
-      "Active tests and configuration changes enter maintenance: scheduled recording pauses and the interrupted interval becomes partial. Test settings stay in RAM. Choose Resume measurement to restore saved production settings.",
+    diag_intro: "The console runs the same ModbusMaster transport used for measurement. Begin with One probe to read 0x0058, inspect the returned words and status code, then use Staged test when you need the wider register plan.",
+    diag_pause: "An active UART test pauses scheduled recording and interrupts the current interval. Its settings and readings stay in RAM, while completed intervals remain available. Choose Resume measurement when you are ready to return to the saved connection.",
     diag_input: "Command input · one line",
     diag_output: "Device diagnostic output",
     diag_run: "Run command",
@@ -43,10 +52,8 @@ export const catalog = {
       "The oldest {count} log bytes were discarded. Download output between tests to retain it.",
     diag_empty: "No diagnostic output yet.",
     diag_commands: "Command reference",
-    diag_reference:
-      "Type commands in the input above and run one at a time. Addresses are hexadecimal PDU values; counts are 16-bit words. Scan can take a long time: start with a known ID/current format. Connected/isolated are operator labels; physically change only A/B at the module between those two tests.",
-    diag_limits:
-      "UART silence cannot distinguish a missing, unpowered or failed module from every other silent path. Valid communication and verified energy scaling are separate findings. Test values never enter production records.",
+    diag_reference: "Enter one command above and choose Run command for each line. Addresses are hexadecimal PDU addresses and counts are 16-bit registers. The default is direction manual with DIR16, settle 100 and gap 200. Use a known ID and current format before expanding a scan.",
+    diag_limits: "A valid response requires matching ID, function, count, length and CRC. UART activity by itself cannot prove module health, and a successful transaction does not verify the energy scale. Test readings are kept out of production records.",
     diagnostic_busy:
       "Resume measurement before changing production settings or time.",
     invalid_diagnostic_command:
@@ -54,11 +61,10 @@ export const catalog = {
     invalid_cursor: "Invalid event cursor.",
     local_uart_error: "Local UART initialization or write failed.",
     health_diagnostic:
-      "Maintenance active. Measurement and scheduled recording are paused; use Resume measurement in the diagnostic console.",
+      "Maintenance active. Measurement and scheduled recording are paused. Use Resume measurement in the diagnostic console.",
     process_title: "Process monitor",
-    process_intro:
-      "Two-core activity, memory headroom and the firmware tasks. Refreshed every 1.5 seconds while this panel is open.",
-    process_failed: "Metrics are stale; cannot reach the device.",
+    process_intro: "This panel shows how work is divided between the two cores and how much memory remains available. Its task table and core samples refresh every 1.5 seconds while the panel is open.",
+    process_failed: "Metrics are stale. Cannot reach the device.",
     process_core0: "HTTP · OLED · buttons · RGB",
     process_core1: "UART · tracker · storage",
     process_heap: "Free heap",
@@ -73,15 +79,15 @@ export const catalog = {
     process_runtime:
       "{mhz} MHz · {tasks} total system tasks · UI cycle {ui} ms · acquisition cycle {uart} ms · queues {queue} / {debug}",
     process_limits:
-      "Core percentages are non-idle task samples at FreeRTOS tick boundaries over roughly one second, not instruction-time accounting. Interrupt work is attributed to the interrupted task. The table covers owned and idle tasks; the system count also includes Wi-Fi/USB tasks. Stack values are historical minimum free bytes, not current usage.",
+      "Core percentages are non-idle task samples at FreeRTOS tick boundaries over roughly one second, not instruction-time accounting. Interrupt work is attributed to the interrupted task. The table covers owned and idle tasks. The system count also includes Wi-Fi/USB tasks. Stack values are historical minimum free bytes, not current usage.",
     scan_probe: "Probe address · HEX",
     scan_words: "Register words",
     flow_kind_1: "Queued TX",
     flow_kind_2: "TX complete",
     flow_kind_3: "First RX bytes",
     flow_kind_4: "Frame complete",
-    flow_kind_5: "Tail at deadline",
-    flow_kind_6: "No-byte timeout",
+    flow_kind_5: "Interrupted or incomplete capture",
+    flow_kind_6: "Response timeout",
     flow_kind_7: "RX before TX",
     flow_kind_8: "Local UART error",
     flow_kind_9: "Passive RX",
@@ -125,9 +131,8 @@ export const catalog = {
     trace_result_exception: "Modbus exception",
     trace_result_invalid: "Wrong response ID/function/length",
     trace_note:
-      "Exact echo means the captured RX equals the complete 8-byte request; it does not prove where the loopback occurs. CRC/rejected traffic does not prove the meter replied. The first 12 attempts are frozen in RAM until a new capture or restart; closing this panel does not stop capture. Raw bytes are UART-buffer observations, not oscilloscope timings.",
-    wiring_auto:
-      "Your pictured 4-pin VCC/TXD/RXD/GND module controls direction automatically: leave GPIO16 unconnected. ESP32 GPIO17 must reach the module TTL input and GPIO18 its output. The confirmed crossed TXD/RXD wiring is not independently verified. The RO/DI/DE/RE reference below applies to manual-direction modules.",
+      "Exact echo means the captured RX equals the complete 8-byte request. It does not prove where the loopback occurs. CRC/rejected traffic does not prove the meter replied. The first 12 attempts are frozen in RAM until a new capture or restart. Closing this panel does not stop capture. Raw bytes are UART-buffer observations, not oscilloscope timings.",
+    wiring_auto: "The installed manual transceiver uses DI, RO and tied DE-/RE terminals. Follow the GPIO labels in the wiring guide. Logical diagram port positions do not describe the physical order of a particular module.",
 
     led_title: "Onboard RGB LED",
     led_intro: "Choose the light pattern on the ESP32 board.",
@@ -145,7 +150,7 @@ export const catalog = {
     led_stored: "Saved on the device. Restored after restart.",
     led_defaults: "Factory defaults active. Apply to save your settings.",
     led_storage_error:
-      "Settings are active for this boot. Storage failed or the stored record was invalid; apply again to save.",
+      "Settings are active for this boot. Storage failed or the stored record was invalid. Apply again to save.",
     led_unavailable:
       "Onboard LED is disabled in board.h or its driver is unavailable.",
     invalid_led: "Invalid LED pattern, color, brightness or cycle duration.",
@@ -200,8 +205,7 @@ export const catalog = {
     attention: "Needs attention",
     unknown: "Unavailable",
     manual_title: "Serial connection",
-    manual_intro:
-      "Match the Fort communication menu, or find its settings with a scan.",
+    manual_intro: "Match the Fort CONi menu and select the direction circuit that is actually wired. This changes the ESP32 reader. It does not write to the meter.",
     slave: "Slave ID",
     baud: "Baud rate",
     parity: "Parity / stop bit",
@@ -212,8 +216,7 @@ export const catalog = {
     manual_note:
       "Changes apply to this reader. The Fort meter registers are never written.",
     scan_title: "Find your Fort meter",
-    scan_intro:
-      "Search slave IDs and serial formats on the connected RS485 port.",
+    scan_intro: "Discovery starts with the manual phase-A current request and uses the same transaction engine as normal measurement. Keep the ID range small until the saved communication format has been checked.",
     first_id: "First slave ID",
     last_id: "Last slave ID",
     quick_range: "Range",
@@ -234,9 +237,8 @@ export const catalog = {
     scan_cancelled:
       "Scan cancelled. The previous connection has been restored.",
     scan_exhausted:
-      "No validated reply in IDs {first}–{last} for this probe. Check reader settings or run the diagnostic console; this does not prove a cable fault.",
-    scan_limits:
-      "6 baud rates × 3 parity modes. All 247 IDs can take about 70 minutes without a response.",
+      "No validated reply in IDs {first}–{last} for this probe. Check reader settings or run the diagnostic console. This does not prove a cable fault.",
+    scan_limits: "The full search tries six baud rates and three parity modes for each selected ID. At the default two-second timeout a silent 1–247 search takes about three hours, so begin with the known meter settings and a small range.",
     scan_pause_note:
       "Scanning interrupts the current interval. Old settings are restored until you apply a result.",
     scan_counts: "Timeout {timeouts} · CRC {crc} · Rejected {rejected}",
@@ -276,7 +278,7 @@ export const catalog = {
     health_rtc:
       "Set the RTC before recording intervals. Live meter readings can still be shown.",
     health_storage:
-      "Storage needs attention. Live readings continue; check the Device & records tab.",
+      "Storage needs attention. Live readings continue. Check the Device & records tab.",
     health_offline:
       "Waiting for a valid meter response. Check the serial settings or run Scan Fort.",
     health_stale:
@@ -284,7 +286,7 @@ export const catalog = {
     mute: "Mute alarm",
     unmute: "Enable alarm",
     rtc_before_records: "RTC date is earlier than retained records. Correct the phone date and sync after resuming measurement.",
-    bus_not_quiet: "RX stayed active before TX; no request was sent.",
+    bus_not_quiet: "RX stayed active before TX. No request was sent.",
     scan_bus_busy: "{count} probes withheld: RX did not become quiet before transmission.",
     mode_changed: "Device mode changed. Refresh status, then retry.",
     request_timeout: "Execution is not confirmed yet. The request may still be queued. Check device status before retrying.",
@@ -314,25 +316,49 @@ export const catalog = {
     response_overflow: "RTU response exceeds the buffer",
     crc_mismatch: "Response CRC mismatch",
     modbus_exception: "Meter returned a Modbus exception",
-    scan_result_pending: "Scan finished; result not applied",
-    scan_was_cancelled: "Scan cancelled; previous settings restored",
+    scan_result_pending: "Scan finished. Result not applied",
+    scan_was_cancelled: "Scan cancelled. Previous settings restored",
     scan_no_meter: "Scan finished without a match",
-    config_corrupt: "Stored configuration invalid; defaults loaded",
+    config_corrupt: "Stored configuration invalid. Defaults loaded",
     rtc_write_failed: "RTC write or verification failed",
     ratio_out_of_range: "CT/PT ratio outside the manual range",
-    counter_reset: "Counter decreased; continuity interrupted",
+    counter_reset: "Counter decreased. Continuity interrupted",
     energy_jump: "Energy increase exceeds the configured limit",
     acquisition_ok: "Reading valid",
   },
   id: {
+    health_profile: "Koneksi membalas, tetapi energi primer belum tersedia atau sampelnya sudah lama. Periksa hasil rasio dan register energi sebelum menerima interval.",
+    secondary_energy: "Counter impor sekunder",
+
+    frequency: "Frekuensi",
+
+    voltage_a: "Tegangan fasa A",
+
+    current_a: "Arus fasa A",
+
+    register_note: "Counter energi utama menerapkan CT/PT satu kali pada kWh sekunder. Nilai di bagian ini merupakan konversi register langsung. Pembacaan hilang atau tertolak tidak diganti dengan nol.",
+
+    register_intro: "Nilai berikut memakai jalur ModbusMaster yang sama dengan sketch diagnostik, dimulai dari arus fasa A pada 0x0058. Counter energi sekunder tetap ditampilkan ketika validasi CT/PT belum berhasil.",
+
+    register_title: "Pembacaan register langsung",
+
+    direction_auto_note: "Pilih ini hanya untuk modul dengan arah otomatis. Input TTL modul terhubung ke GPIO17, output TTL ke GPIO18, dan GPIO16 tidak dihubungkan. Pilihan ini disimpan bersama koneksi pembaca.",
+
+    direction_manual_note: "Instalasi ini memakai arah manual. GPIO17 terhubung ke DI, GPIO18 menerima dari RO, dan GPIO16 mengendalikan DE serta /RE yang disatukan. Driver diberi waktu 100 µs sebelum TX dan receiver diberi waktu 100 µs setelah UART selesai mengirim.",
+
+    direction_auto: "Modul otomatis: tanpa GPIO arah",
+
+    direction_manual: "Manual: GPIO16 mengendalikan DE dan /RE",
+
+    direction_label: "Kontrol arah RS485",
+
     diag_queued: "Perintah diantre · menunggu pemilik UART",
     scan_formats: "Format serial",
     scan_current: "Baud/parity tersimpan saat ini",
     scan_matrix: "Seluruh 18 format baud/parity",
-    scan_current_limits:
-      "Satu request per ID memakai format koneksi tersimpan. Mulai dari pencarian terbatas ini; 247 ID tanpa balasan sekitar 3–4 menit.",
+    scan_current_limits: "Baud, parity dan arah tersimpan diuji pada setiap ID dengan contoh manual 0x0058 sebagai probe awal. Satu ID yang diam membutuhkan sekitar dua detik. Kandidat yang membalas diperiksa lagi sebelum ditawarkan sebagai hasil.",
     scan_exception:
-      "Peer mengirim exception ber-CRC sah. Komunikasi membalas; register ini dan profil energi belum terverifikasi.",
+      "Peer mengirim exception ber-CRC sah. Komunikasi membalas. Register ini dan profil energi belum terverifikasi.",
     trace_diagnostic: "Diagnostik",
     flow_title: "Komunikasi langsung",
     flow_diagram: "Arah request dan respons UART yang diamati",
@@ -344,16 +370,13 @@ export const catalog = {
     flow_idle: "Tidak ada transaksi baru",
     flow_diagnostic: "Traffic diagnostik · pencatatan dijeda",
     flow_production: "Polling / scan produksi",
-    flow_note:
-      "Timestamp perangkat · replay timing teramati 1× · polling 200 ms ditambah jeda jaringan. Jejak paket skematik; tegangan A/B dan penerimaan di meter tidak diukur. Tanpa event, tanpa gerakan.",
+    flow_note: "Animasi mengikuti selang timestamp event UART dengan polling 200 ms ditambah waktu jaringan. Tampilan menunjukkan saat TX diantrekan, DE dilepas dan byte diterima. Perjalanan paket bersifat skematis karena tegangan A/B serta penerimaan di meter tidak diukur.",
     flow_gap:
       "Sebagian event terlewat dari buffer 32 event. Tampilan tidak merekonstruksi traffic yang hilang.",
     flow_events: "Periksa frame bertimestamp",
     diag_title: "Konsol diagnostik",
-    diag_intro:
-      "Jalankan diagnostik lapangan yang sama pada firmware utama. Pilih tes di bawah, lalu Jalankan perintah. AP tetap tersedia.",
-    diag_pause:
-      "Tes aktif dan perubahan konfigurasi memasuki maintenance: pencatatan dijeda dan interval terputus menjadi parsial. Setting uji hanya RAM. Pilih Lanjutkan pengukuran untuk memulihkan setting produksi tersimpan.",
+    diag_intro: "Konsol memakai transport ModbusMaster yang juga menjalankan pengukuran. Mulai dari Satu probe untuk membaca 0x0058, periksa word dan status hasilnya, lalu jalankan Tes bertahap jika memerlukan plan register yang lebih luas.",
+    diag_pause: "Tes UART aktif menghentikan sementara pencatatan dan memutus kontinuitas interval berjalan. Setting serta nilai uji hanya berada di RAM, sedangkan interval lengkap tetap tersimpan. Pilih Lanjutkan pengukuran untuk kembali ke koneksi produksi.",
     diag_input: "Input perintah · satu baris",
     diag_output: "Output diagnostik perangkat",
     diag_run: "Jalankan perintah",
@@ -369,10 +392,8 @@ export const catalog = {
       "Sebanyak {count} byte log terlama dibuang. Unduh output di antara tes untuk menyimpannya.",
     diag_empty: "Belum ada output diagnostik.",
     diag_commands: "Referensi perintah",
-    diag_reference:
-      "Ketik perintah pada input di atas dan jalankan satu per satu. Alamat berupa HEX PDU; count adalah word 16-bit. Scan dapat lama: mulai dari ID yang diketahui/format saat ini. Connected/isolated adalah label operator; ubah fisik hanya A/B pada modul di antara kedua tes.",
-    diag_limits:
-      "UART diam tidak dapat membedakan modul dicabut, tanpa daya atau rusak dari semua jalur diam lain. Komunikasi valid dan skala energi terverifikasi adalah bukti berbeda. Nilai uji tidak masuk arsip produksi.",
+    diag_reference: "Masukkan satu perintah di atas lalu pilih Jalankan perintah untuk setiap baris. Alamat memakai PDU heksadesimal dan jumlah memakai register 16-bit. Default direction manual menggunakan DIR16, settle 100 dan gap 200. Mulai dari ID serta format yang diketahui sebelum memperluas scan.",
+    diag_limits: "Respons sah memerlukan ID, fungsi, count, panjang dan CRC yang cocok. Aktivitas UART saja tidak membuktikan modul sehat, sedangkan transaksi berhasil belum memverifikasi skala energi. Nilai uji tidak masuk rekaman produksi.",
     diagnostic_busy:
       "Lanjutkan pengukuran sebelum mengubah setting produksi atau waktu.",
     invalid_diagnostic_command:
@@ -380,11 +401,10 @@ export const catalog = {
     invalid_cursor: "Cursor event tidak valid.",
     local_uart_error: "Inisialisasi atau penulisan UART lokal gagal.",
     health_diagnostic:
-      "Maintenance aktif. Pengukuran dan pencatatan dijeda; gunakan Lanjutkan pengukuran di konsol diagnostik.",
+      "Maintenance aktif. Pengukuran dan pencatatan dijeda. Gunakan Lanjutkan pengukuran di konsol diagnostik.",
     process_title: "Monitor proses",
-    process_intro:
-      "Aktivitas dua core, sisa memori dan task firmware. Disegarkan setiap 1,5 detik saat panel terbuka.",
-    process_failed: "Metrik sudah lama; perangkat tidak terjangkau.",
+    process_intro: "Panel ini menunjukkan pembagian pekerjaan antara dua core serta sisa memori yang tersedia. Tabel task dan sampel beban diperbarui setiap 1,5 detik selama panel terbuka.",
+    process_failed: "Metrik sudah lama. Perangkat tidak terjangkau.",
     process_core0: "HTTP · OLED · tombol · RGB",
     process_core1: "UART · tracker · storage",
     process_heap: "Heap bebas",
@@ -399,15 +419,15 @@ export const catalog = {
     process_runtime:
       "{mhz} MHz · total {tasks} task sistem · siklus UI {ui} ms · siklus akuisisi {uart} ms · antrean {queue} / {debug}",
     process_limits:
-      "Persentase core adalah sampel task non-idle pada batas tick FreeRTOS selama sekitar satu detik, bukan hitungan waktu instruksi. Kerja interrupt teratribusi ke task yang diinterupsi. Tabel mencakup task milik aplikasi dan idle; jumlah sistem juga meliputi Wi-Fi/USB. Stack menunjukkan minimum byte bebas historis, bukan pemakaian saat ini.",
+      "Persentase core adalah sampel task non-idle pada batas tick FreeRTOS selama sekitar satu detik, bukan hitungan waktu instruksi. Kerja interrupt teratribusi ke task yang diinterupsi. Tabel mencakup task milik aplikasi dan idle. Jumlah sistem juga meliputi Wi-Fi/USB. Stack menunjukkan minimum byte bebas historis, bukan pemakaian saat ini.",
     scan_probe: "Alamat probe · HEX",
     scan_words: "Jumlah word register",
     flow_kind_1: "TX masuk antrean",
     flow_kind_2: "TX selesai",
     flow_kind_3: "Byte RX pertama",
     flow_kind_4: "Frame selesai",
-    flow_kind_5: "Tail saat deadline",
-    flow_kind_6: "Timeout tanpa byte",
+    flow_kind_5: "Capture terputus atau belum lengkap",
+    flow_kind_6: "Timeout respons",
     flow_kind_7: "RX sebelum TX",
     flow_kind_8: "Error UART lokal",
     flow_kind_9: "RX pasif",
@@ -453,9 +473,8 @@ export const catalog = {
     trace_result_exception: "Exception Modbus",
     trace_result_invalid: "ID/fungsi/panjang respons tidak sesuai",
     trace_note:
-      "Echo persis berarti RX sama dengan seluruh request 8 byte; belum menentukan lokasi loopback. CRC/rejected bukan bukti meter membalas. Sebanyak 12 frame pertama dibekukan di RAM sampai rekaman baru atau restart; menutup panel tidak menghentikan rekaman. Byte berasal dari buffer UART, bukan pengukuran timing osiloskop.",
-    wiring_auto:
-      "Modul 4 pin VCC/TXD/RXD/GND pada fotomu mengatur arah otomatis: GPIO16 tidak disambungkan. GPIO17 ESP32 harus ke input TTL modul, GPIO18 ke output. Gunakan wiring terkonfirmasi TXD modul → GPIO18 dan RXD modul ← GPIO17. Referensi RO/DI/DE/RE di bawah berlaku untuk modul arah manual.",
+      "Echo persis berarti RX sama dengan seluruh request 8 byte. Belum menentukan lokasi loopback. CRC/rejected bukan bukti meter membalas. Sebanyak 12 frame pertama dibekukan di RAM sampai rekaman baru atau restart. Menutup panel tidak menghentikan rekaman. Byte berasal dari buffer UART, bukan pengukuran timing osiloskop.",
+    wiring_auto: "Transceiver manual yang terpasang memakai DI, RO dan DE-/RE yang disatukan. Ikuti label GPIO pada diagram karena posisi port logis tidak menunjukkan urutan kaki fisik setiap modul.",
 
     led_title: "LED RGB bawaan",
     led_intro: "Pilih pola lampu pada board ESP32.",
@@ -474,7 +493,7 @@ export const catalog = {
     led_defaults:
       "Pengaturan bawaan aktif. Terapkan untuk menyimpan pilihanmu.",
     led_storage_error:
-      "Pengaturan aktif untuk boot ini. Penyimpanan gagal atau data sebelumnya tidak valid; terapkan lagi untuk menyimpan.",
+      "Pengaturan aktif untuk boot ini. Penyimpanan gagal atau data sebelumnya tidak valid. Terapkan lagi untuk menyimpan.",
     led_unavailable:
       "LED bawaan dinonaktifkan di board.h atau drivernya tidak tersedia.",
     invalid_led: "Pola, warna, kecerahan, atau durasi siklus LED tidak valid.",
@@ -529,8 +548,7 @@ export const catalog = {
     attention: "Perlu diperiksa",
     unknown: "Belum tersedia",
     manual_title: "Koneksi serial",
-    manual_intro:
-      "Samakan dengan menu komunikasi Fort, atau cari setting melalui scan.",
+    manual_intro: "Samakan dengan menu CONi Fort dan pilih kontrol arah yang sesuai rangkaian terpasang. Perubahan berlaku pada ESP32 dan tidak menulis setting meter.",
     slave: "Slave ID",
     baud: "Baud rate",
     parity: "Parity / stop bit",
@@ -541,8 +559,7 @@ export const catalog = {
     manual_note:
       "Perubahan berlaku pada pembaca ini. Register meter Fort tidak ditulis.",
     scan_title: "Cari meter Fort",
-    scan_intro:
-      "Cari slave ID dan format serial pada port RS485 yang terhubung.",
+    scan_intro: "Discovery dimulai dari request arus fasa A pada manual dan memakai engine transaksi yang sama dengan pengukuran normal. Gunakan rentang ID kecil sampai format komunikasi tersimpan diperiksa.",
     first_id: "Slave ID awal",
     last_id: "Slave ID akhir",
     quick_range: "Rentang",
@@ -562,9 +579,8 @@ export const catalog = {
     scan_applied: "Pembaca sudah memakai hasil ini.",
     scan_cancelled: "Scan dibatalkan. Koneksi sebelumnya dipulihkan.",
     scan_exhausted:
-      "Tidak ada balasan sah pada ID {first}–{last} untuk probe ini. Periksa setting pembaca atau konsol diagnostik; belum membuktikan kabel bermasalah.",
-    scan_limits:
-      "6 baud rate × 3 mode parity. Seluruh 247 ID dapat memerlukan sekitar 70 menit tanpa respons.",
+      "Tidak ada balasan sah pada ID {first}–{last} untuk probe ini. Periksa setting pembaca atau konsol diagnostik. Belum membuktikan kabel bermasalah.",
+    scan_limits: "Pencarian penuh menguji enam baud dan tiga parity per ID. Dengan timeout dua detik, rentang 1–247 yang diam membutuhkan sekitar tiga jam, sehingga mulai dari setting meter yang diketahui dan rentang kecil.",
     scan_pause_note:
       "Scan memutus interval aktif. Setting lama dipulihkan sampai hasil diterapkan.",
     scan_counts: "Timeout {timeouts} · CRC {crc} · Ditolak {rejected}",
@@ -604,7 +620,7 @@ export const catalog = {
     health_rtc:
       "Atur RTC sebelum mencatat interval. Pembacaan meter langsung tetap dapat ditampilkan.",
     health_storage:
-      "Penyimpanan perlu diperiksa. Pembacaan langsung berlanjut; buka tab Perangkat & arsip.",
+      "Penyimpanan perlu diperiksa. Pembacaan langsung berlanjut. Buka tab Perangkat & arsip.",
     health_offline:
       "Menunggu respons meter valid. Periksa setting serial atau jalankan Scan Fort.",
     health_stale:
@@ -612,7 +628,7 @@ export const catalog = {
     mute: "Senyapkan alarm",
     unmute: "Aktifkan alarm",
     rtc_before_records: "Tanggal RTC mendahului rekaman tersimpan. Benarkan tanggal HP lalu sinkronkan setelah Resume measurement.",
-    bus_not_quiet: "RX terus aktif sebelum TX; permintaan tidak dikirim.",
+    bus_not_quiet: "RX terus aktif sebelum TX. Permintaan tidak dikirim.",
     scan_bus_busy: "{count} probe tidak dikirim: RX belum tenang sebelum transmisi.",
     mode_changed: "Mode perangkat berubah. Segarkan status, lalu coba lagi.",
     request_timeout:
@@ -643,13 +659,13 @@ export const catalog = {
     response_overflow: "Respons RTU melebihi buffer",
     crc_mismatch: "CRC respons tidak cocok",
     modbus_exception: "Meter mengirim Modbus exception",
-    scan_result_pending: "Scan selesai; hasil belum diterapkan",
-    scan_was_cancelled: "Scan dibatalkan; setting lama dipulihkan",
+    scan_result_pending: "Scan selesai. Hasil belum diterapkan",
+    scan_was_cancelled: "Scan dibatalkan. Setting lama dipulihkan",
     scan_no_meter: "Scan selesai tanpa hasil",
-    config_corrupt: "Konfigurasi tersimpan tidak valid; default dipakai",
+    config_corrupt: "Konfigurasi tersimpan tidak valid. Default dipakai",
     rtc_write_failed: "Penulisan atau verifikasi RTC gagal",
     ratio_out_of_range: "Rasio CT/PT di luar batas manual",
-    counter_reset: "Counter menurun; kontinuitas terputus",
+    counter_reset: "Counter menurun. Kontinuitas terputus",
     energy_jump: "Kenaikan energi melebihi batas konfigurasi",
     acquisition_ok: "Pembacaan valid",
   },

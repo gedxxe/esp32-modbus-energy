@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc"><title id="title">Main firmware diagnostic ownership</title><desc id="desc">Logical RTOS ownership. Core1 alone drives UART and persistence; tests never enter production energy records.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc"><title id="title">Main firmware diagnostic ownership</title><desc id="desc">Logical RTOS ownership. Core1 alone drives UART and persistence. Tests never enter production energy records.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
 <text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Diagnostics · one UART owner</text>
 <text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Phone dashboard + USB console · same strict transport as production polling · bounded RAM</text>
 <rect x="45" y="160" width="345" height="160" rx="16" fill="#ffffff" stroke="#cbdada"/>
@@ -16,16 +16,16 @@
 <text x="945" y="205" fill="#28755e" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle">FC03 only</text>
 <rect x="45" y="390" width="600" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="70" y="430" fill="#183438" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="start">OBSERVED EVIDENCE</text>
-<text x="70" y="466" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">32 timestamped UART events; gaps stay explicit</text>
-<text x="70" y="501" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">8 KiB diagnostic log; export from the phone</text>
+<text x="70" y="466" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">32 timestamped UART events. Gaps stay explicit</text>
+<text x="70" y="501" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">8 KiB diagnostic log. Export from the phone</text>
 <text x="70" y="536" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Core samples / heap / PSRAM / stack high-water</text>
 <rect x="745" y="390" width="610" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="770" y="430" fill="#183438" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="start">MAINTENANCE BOUNDARY</text>
-<text x="770" y="466" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Interrupt active interval; preserve completed records</text>
-<text x="770" y="501" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">RAM-only test settings; no trial values in Tracker</text>
+<text x="770" y="466" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Interrupt active interval. Preserve completed records</text>
+<text x="770" y="501" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">RAM-only test settings. No trial values in Tracker</text>
 <text x="770" y="536" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Resume restores board pins + saved production UART</text>
 <polyline points="1182,320 1182,365 1045,365 1045,390" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="535,280 462,280 462,365 345,365 345,390" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="45" y="645" width="1310" height="70" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="70" y="675" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">UART-buffer timestamps are observations; packet trails are schematic. No presence or power-good sensor exists.</text>
+<text x="70" y="675" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">UART-buffer timestamps are observations. Packet trails are schematic. No presence or power-good sensor exists.</text>
 </svg>

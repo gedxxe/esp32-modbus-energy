@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](CONTRIBUTING.id.md)
 
-Read [AGENTS.md](AGENTS.md) for confirmed hardware and ownership rules. Keep changes to the dedicated Fort reader; do not add meter writes or alter the register map to work around a wiring fault.
+Read [AGENTS.md](AGENTS.md) for confirmed hardware and ownership rules. Keep changes focused on the dedicated Fort reader and retain its FC03-only application boundary. Register changes need the relevant manual image and a physical comparison, while diagnosis must follow observed evidence.
 
 ## Development tools
 
@@ -11,7 +11,7 @@ Read [AGENTS.md](AGENTS.md) for confirmed hardware and ownership rules. Keep cha
 - Python 3.10+ for SVG generation, source checks and packaging.
 - Node 24.22.1 and `npm ci` when editing/testing the browser app.
 
-The device build uses a committed generated browser header. `pio run` checks it using Python without installing Node. For browser changes, edit `web/Application.jsx`, the views in `web/views/`, `web/i18n.js` or `web/styles.css`, then run `npm run build:web`. Do not hand-edit the generated header. `npm run check:web` rebuilds in memory and compares generated output; the PlatformIO guard checks source/header hashes.
+The device build uses a committed generated browser header. `pio run` checks it using Python without installing Node. For browser changes, edit `web/Application.jsx`, the views in `web/views/`, `web/i18n.js` or `web/styles.css`, then run `npm run build:web`. Do not hand-edit the generated header. `npm run check:web` rebuilds in memory and compares generated output. The PlatformIO guard checks source/header hashes.
 
 ## Checks
 
@@ -37,7 +37,7 @@ Install Chromium using `npx playwright install chromium`, or use an installed Ed
 
 ## Documentation
 
-English is the primary language. Keep [README.id.md](README.id.md) and `docs/id/` usable alongside their English counterparts. Use short operational sentences and explain implementation limits where they affect decisions. SVG text/layout belongs in `tools/generate_docs.py`; generated files must be reproducible and readable at the intended size. Preserve pin labels, Fort 58/59 and the distinction from switch-input 70/COM.
+English is the primary language. Keep [README.id.md](README.id.md) and `docs/id/` usable alongside their English counterparts. Write connected paragraphs that explain the flow and the reasons behind it, using concrete steps or tables where the reader needs to act or compare. Avoid clipped fragments, repeated semicolons and em-dash phrasing. Explain limits where they affect an engineering decision. SVG text/layout belongs in `tools/generate_docs.py`. Generated files must be reproducible and readable at the intended size. Preserve pin labels, Fort 58/59 and the distinction from switch-input 70/COM.
 
 Changes to frame parsing, interval quality, recovery or debounce need meaningful native regression coverage. Changes to visible actions or language behavior need browser coverage. Update [VALIDATION](docs/VALIDATION.md) with results actually obtained, including the difference between software tests and physical commissioning.
 
@@ -48,10 +48,14 @@ Keep `version.h`, `package.json`, lockfile, badges and changelog aligned. A pack
 1. Compile after the last web/firmware edit.
 2. Copy the current hardware app, bootloader and partition BINs into `output/firmware/` and merge the factory image using the [documented offsets](docs/FLASHING.md).
 3. Run `python tools/package.py`.
-4. Check the manifest SHA-256 entries and ZIP integrity. Include web source, dependency notices, guides and diagrams; exclude build caches and installed dependencies.
+4. Check the manifest SHA-256 entries and ZIP integrity. Include web source, dependency notices, guides and diagrams. Exclude build caches and installed dependencies.
 
-`output/`, `.pio/`, `node_modules/` and temporary files are ignored by Git. Local build caches and installed dependencies may be removed after verification; PlatformIO restores its libraries/build output, and `npm ci` restores web development dependencies. Keep the committed browser header/manifest and documentation assets. Source publication and release-asset publication are separate operations. Do not substitute a binary-only ZIP for source.
+`output/`, `.pio/`, `node_modules/` and temporary files are ignored by Git. Local build caches and installed dependencies may be removed after verification. PlatformIO restores its libraries/build output, and `npm ci` restores web development dependencies. Keep the committed browser header/manifest and documentation assets. Source publication and release-asset publication are separate operations. Do not substitute a binary-only ZIP for source.
+
+## Shared meter library
+
+Edit FortTransport.h and FortDiagnostics.h under firmware/lib/FortMeter for protocol and diagnostic behavior, then run the native suites against the actual ModbusMaster source. The old diagnostic header/generator paths remain compatibility checks. Changes to vendored ModbusMaster must update its provenance hashes and patch rather than being hidden as application code. The standalone sketch and Arduino library ZIP must continue using the same source as production.
 
 ## Third-party code
 
-Original project code is GPL-3.0-only. `web/vendor/react-bits/` retains its own MIT + Commons Clause terms; do not describe it as GPL or as plain MIT. Upstream files are pinned in `upstream.json` and included only as dependencies of this monitor application. React/React DOM and GSAP retain their own notices. Update [NOTICE](NOTICE) and offline `/assets/third-party.txt` whenever shipped dependencies change. The Fort PDF is a third-party reference and is not relicensed.
+Original project code is GPL-3.0-only. `web/vendor/react-bits/` retains its own MIT + Commons Clause terms. Do not describe it as GPL or as plain MIT. Upstream files are pinned in `upstream.json` and included only as dependencies of this monitor application. React/React DOM and GSAP retain their own notices. Update [NOTICE](NOTICE) and offline `/assets/third-party.txt` whenever shipped dependencies change. The Fort PDF is a third-party reference and is not relicensed.

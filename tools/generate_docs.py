@@ -53,6 +53,7 @@ def badge(name,label,value,color,icon):
     s.text(35,20,label,12,TEXT,600);s.text(left+right/2,20,value,12,BG,700,anchor='middle');s.save('badges/'+name+'.svg')
 
 badge('firmware','Firmware',version,BLUE,'chip')
+badge('modbusmaster','ModbusMaster','2.0.1 + fort.1',GREEN,'wave')
 badge('license','License','GPL-3.0-only',GREEN,'check')
 badge('platformio','Espressif32','6.10.0',AMBER,'wave')
 badge('arduino','Arduino ESP32','2.0.17',GREEN,'chip')
@@ -67,7 +68,7 @@ for name,key,label,icon,c in [
 
 # Full schematic. Net labels are electrical connections, not physical header positions.
 s=SVG(1800,1320,'ESP32-S3, OLED, RTC, RS485, Fort, buttons and optional buzzer wiring')
-s.heading('Full wiring · manual-direction alternative','RO/DI/DE-/RE module only · Supplied automatic module uses rs485-auto.svg · Shared I2C/buttons/buzzer unchanged')
+s.heading('Installed wiring · manual RS485 direction','GPIO17 to DI, GPIO18 from RO, GPIO16 to tied DE and /RE. All low-voltage grounds share one net.')
 s.rect(650,180,350,780,'#e5f1ef',BLUE);s.text(825,225,'ESP32-S3',30,weight=700,anchor='middle');s.text(825,258,'N16R8 · DevKitC style',18,MUTED,anchor='middle')
 s.rect(715,120,220,45);s.text(825,149,'USB-C / board supply',16,anchor='middle');s.wire([(825,165),(825,180)],RED)
 s.text(825,590,'UART1 + I2C',20,BLUE,600,anchor='middle');s.text(825,625,'Core 0: web / UI',17,MUTED,anchor='middle');s.text(825,653,'Core 1: acquisition',17,MUTED,anchor='middle');s.text(825,705,'3V3 from board regulator',16,RED,anchor='middle')
@@ -114,12 +115,12 @@ s.text(1160,1100,'Q1 + 1 kΩ + 10 kΩ are additional parts.',15,MUTED)
 s.text(1160,1127,'Find physical B/C/E pin order in the transistor datasheet.',14,MUTED)
 s.rect(45,1185,1710,102);s.text(70,1215,'NET LABELS',13,BLUE,700)
 for x,label,c in [(70,'3V3',RED),(215,'GND',GRAY),(360,'SDA / RX',BLUE),(560,'SCL / TX / B',GREEN),(810,'GPIO / DIR',PURPLE),(1040,'RS485 A / buzzer',AMBER)]:s.wire([(x,1245),(x+35,1245)],c,4);s.text(x+45,1251,label,16,c)
-s.text(70,1276,'Repeated GND/3V3 labels identify one net. Dots mark joins; crossings without dots do not connect. Port positions are not physical headers.',15,MUTED)
+s.text(70,1276,'Repeated GND/3V3 labels identify one net. Dots mark joins. Crossings without dots do not connect. Port positions are not physical headers.',15,MUTED)
 s.save('wiring-overview.svg')
 
 # Confirmed four-pin installation, kept separate from manual DE-/RE alternative.
-s=SVG(1400,620,'Confirmed automatic-direction RS485 installation','Logical nets, not physical header positions. User-confirmed module TXD to ESP32 GPIO18, RXD from GPIO17. GPIO16 unconnected.')
-s.heading('Installed RS485 module · automatic direction','Confirmed crossed TXD/RXD wiring · 3.3 V TTL · No external DE-/RE connection')
+s=SVG(1400,620,'Automatic-direction module alternative','Logical nets, not physical header positions. User-confirmed module TXD to ESP32 GPIO18, RXD from GPIO17. GPIO16 unconnected.')
+s.heading('Alternative module · automatic direction','Use only after selecting automatic direction in Meter setup. The confirmed installation uses the manual diagram.')
 s.rect(45,160,340,320);s.text(70,200,'ESP32-S3 N16R8',25,weight=700)
 s.rect(610,160,330,320);s.text(635,200,'4-pin TTL module',25,weight=700)
 s.rect(1110,160,245,320);s.text(1135,200,'FORT meter',25,weight=700)
@@ -128,29 +129,29 @@ for y,left,right,color in [(250,'3V3','VCC',RED),(300,'GND','GND',GRAY),(350,'GP
 for y,lab,target,color in [(290,'A+','58 / A',AMBER),(365,'B−','59 / B',GREEN)]:
     s.port(940,y,lab,color);s.port(1110,y,target,color,'left');s.wire([(940,y),(1110,y)],color)
 s.text(70,450,'GPIO16: unconnected',18,PURPLE,600)
-s.text(45,530,'Arrows show signal direction. Positions are logical ports; follow the printed GPIO and module labels.',18,MUTED)
+s.text(45,530,'Arrows show signal direction. Positions are logical ports. Follow the printed GPIO and module labels.',18,MUTED)
 s.text(45,565,'Fort 70 / COM belongs to switch inputs. Do not connect it as RS485 ground.',18,MUTED)
 s.save('rs485-auto.svg')
 
 # Production diagnostics ownership and data isolation.
-s=SVG(1400,760,'Main firmware diagnostic ownership','Logical RTOS ownership. Core1 alone drives UART and persistence; tests never enter production energy records.')
+s=SVG(1400,760,'Main firmware diagnostic ownership','Logical RTOS ownership. Core1 alone drives UART and persistence. Tests never enter production energy records.')
 s.heading('Diagnostics · one UART owner','Phone dashboard + USB console · same strict transport as production polling · bounded RAM')
 for x,title,sub in [(45,'CORE 0','HTTP / UI / OLED / RGB'),(535,'RTOS MAILBOXES','Commands and copied snapshots'),(1010,'CORE 1','UART / tracker / persistence')]:
     s.rect(x,160,345,160);s.text(x+22,200,title,23,weight=700);s.text(x+22,237,sub,16,MUTED)
 s.wire([(390,220),(535,220)],BLUE);s.text(462,205,'16 lines',15,BLUE,anchor='middle')
 s.wire([(880,220),(1010,220)],GREEN);s.text(945,205,'FC03 only',15,GREEN,anchor='middle')
 s.rect(45,390,600,205);s.text(70,430,'OBSERVED EVIDENCE',21,weight=700)
-for y,line in [(466,'32 timestamped UART events; gaps stay explicit'),(501,'8 KiB diagnostic log; export from the phone'),(536,'Core samples / heap / PSRAM / stack high-water')]:s.text(70,y,line,17,MUTED)
+for y,line in [(466,'32 timestamped UART events. Gaps stay explicit'),(501,'8 KiB diagnostic log. Export from the phone'),(536,'Core samples / heap / PSRAM / stack high-water')]:s.text(70,y,line,17,MUTED)
 s.rect(745,390,610,205);s.text(770,430,'MAINTENANCE BOUNDARY',21,weight=700)
-for y,line in [(466,'Interrupt active interval; preserve completed records'),(501,'RAM-only test settings; no trial values in Tracker'),(536,'Resume restores board pins + saved production UART')]:s.text(770,y,line,17,MUTED)
+for y,line in [(466,'Interrupt active interval. Preserve completed records'),(501,'RAM-only test settings. No trial values in Tracker'),(536,'Resume restores board pins + saved production UART')]:s.text(770,y,line,17,MUTED)
 s.wire([(1182,320),(1182,365),(1045,365),(1045,390)],GREEN)
 s.wire([(535,280),(462,280),(462,365),(345,365),(345,390)],BLUE)
-s.rect(45,645,1310,70);s.text(70,675,'UART-buffer timestamps are observations; packet trails are schematic. No presence or power-good sensor exists.',16,MUTED)
+s.rect(45,645,1310,70);s.text(70,675,'UART-buffer timestamps are observations. Packet trails are schematic. No presence or power-good sensor exists.',16,MUTED)
 s.save('diagnostic-flow.svg')
 
 # Separate tactile contact illustration.
 s=SVG(1100,480,'Tactile contact pairs and ESP32 connection')
-s.heading('4-leg switch · use two different contact pairs','Electrical contact illustration; identify the actual pairs with a continuity meter.')
+s.heading('4-leg switch · use two different contact pairs','Electrical contact illustration. Identify the actual pairs with a continuity meter.')
 s.rect(355,155,330,230);s.text(520,194,'TACTILE SWITCH',20,weight=700,anchor='middle')
 for x,label,c in [(355,'A',PURPLE),(685,'B',GRAY)]:
     s.wire([(x,240),(x,335)],c,5)
@@ -162,8 +163,8 @@ s.text(55,434,'A–A and B–B are always joined. Pressing joins A to B. Connect
 s.save('button-contacts.svg')
 
 s=SVG(1400,650,'Tasks, queues and peripheral ownership')
-s.heading('Task ownership and data flow','Commands and snapshots are copied through queues; I2C and filesystem operations use mutexes.')
-for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi tasks managed by ESP-IDF']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['UART1 / CRC / retry / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
+s.heading('Task ownership and data flow','Commands and snapshots are copied through queues. I2C and filesystem operations use mutexes.')
+for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi tasks managed by ESP-IDF']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['ModbusMaster / direction / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
     s.rect(x,160,510,300);s.text(x+25,204,title,22,BLUE,700)
     for i,line in enumerate(lines):s.text(x+25,260+i*43,line,20)
 s.wire([(565,250),(835,250)],PURPLE,4);s.text(700,228,'Command →',18,PURPLE,anchor='middle');s.text(700,277,'queue: 6 values',15,MUTED,anchor='middle')
@@ -201,31 +202,31 @@ write_generated(ROOT/'docs/wiring-netlist.csv',stream.getvalue())
 
 
 
-s=SVG(1400,740,'UART1 RTU frame and transceiver direction','Timing is schematic, not to scale. Hardware UART generates serial bits; GPIO16 controls direction.')
-s.heading('RTU timing · manual-direction alternative','Default automatic module leaves GPIO16 unconnected · function 03 only · schematic timing')
+s=SVG(1400,740,'UART1 RTU frame and transceiver direction','Timing is schematic, not to scale. Hardware UART generates serial bits. GPIO16 controls direction.')
+s.heading('ModbusMaster transaction · manual direction','GPIO16 drives DE and /RE. The UART generates serial bits and CRC is checked in software.')
 labels=[('ID','01'),('FUNCTION','03'),('ADDR HI','00'),('ADDR LO','82'),('COUNT HI','00'),('COUNT LO','02'),('CRC LO','CRC[7:0]'),('CRC HI','CRC[15:8]')]
 for i,(a,b) in enumerate(labels):
  x=45+i*164;s.rect(x,135,153,86);s.text(x+14,163,a,12,MUTED,600);s.text(x+14,199,b,22,BLUE,600,mono=True)
-s.text(45,254,'Energy read request: 0x0082, two words. CRC covers the first six bytes; low CRC byte is sent first.',18,MUTED)
+s.text(45,254,'Energy read request: 0x0082, two words. CRC covers the first six bytes. Low CRC byte is sent first.',18,MUTED)
 s.text(45,327,'GPIO16',18,PURPLE,600);s.text(45,353,'DE + /RE',15,MUTED)
 s.wire([(190,355),(440,355),(440,305),(690,305),(690,355),(1345,355)],PURPLE,3)
 s.text(275,389,'RX / idle',15,MUTED);s.text(508,289,'TX enabled',15,PURPLE);s.text(900,389,'RX enabled',15,MUTED)
 s.text(45,447,'UART1',18,BLUE,600)
 s.rect(440,416,250,54,'#e5f1ef',BLUE,5);s.text(565,449,'8 request bytes',18,BLUE,600,anchor='middle')
 s.rect(825,416,445,54,'#eef6f2',GREEN,5);s.text(1047,449,'Response: ID / 03 / count / data / CRC',16,GREEN,anchor='middle')
-for x,top,bottom in [(440,'Wait t3.5','then HIGH + 30 µs'),(690,'UART.flush()','then GPIO16 LOW')]:
+for x,top,bottom in [(440,'GPIO16 HIGH','wait 100 µs before TX'),(690,'UART.flush()','LOW, then wait 100 µs')]:
  s.wire([(x,490),(x,515)],GRAY,1);s.text(x,542,top,16,anchor='middle');s.text(x,568,bottom,14,MUTED,anchor='middle')
-s.rect(45,614,1300,88);s.text(70,645,'RX deadline: 800 ms after TX flush. Software polls the RX buffer and yields one tick while waiting.',18)
+s.rect(45,614,1300,88);s.text(70,645,'ModbusMaster reads the expected response length within 2000 ms. Complete replies do not wait for a software gap.',18)
 s.text(70,678,'UART and I2C use hardware peripherals. GPIO direction switching and software CRC are not serial bit banging.',17,MUTED)
 s.save('rtu-timing.svg')
 
 s=SVG(1400,650,'Firmware startup sequence','After the ESP32-S3 ROM and bootloader transfer control to Arduino setup().')
 s.heading('Startup sequence','After ROM / bootloader → setup() → core-0 UI loop + core-1 acquisition task')
-steps=[('01','GPIO + RTOS objects',['DE LOW; button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','OLED: 180° before first frame','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['192.168.4.1 / 24','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
+steps=[('01','GPIO + RTOS objects',['DE LOW. Button pull-ups','I2C / FS mutexes','Command + snapshot queues']),('02','I2C + boot animation',['GPIO8 SDA / GPIO9 SCL','OLED: 180° before first frame','Animation + buzzer ~1.5 s']),('03','LittleFS mount',['begin(false): no auto-format','Hold OK 5 s if mount failed','Manual format erases CSV']),('04','AP + HTTP + watchdog',['192.168.4.1 / 24','Per-boot POST token','Start 8 s watchdog']),('05','Core 1 acquisition',['Load checked NVS records','Start UART1','RTC / ratio / energy / scan']),('06','Core 0 UI loop',['HTTP + queued commands','Buttons / OLED / buzzer / RGB','Publish/read copied state'])]
 for i,(num,title,lines) in enumerate(steps):
  x=45+(i%3)*450;y=145+(i//3)*235;s.rect(x,y,410,205);s.text(x+22,y+34,num,15,BLUE,700);s.text(x+64,y+34,title,19,weight=600)
  for j,line in enumerate(lines):s.text(x+22,y+83+j*33,line,17,MUTED)
-s.text(45,633,'No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported; startup does not wait indefinitely.',18,MUTED)
+s.text(45,633,'No wait for a USB Serial host. Missing meter/RTC/OLED/storage is reported. Startup does not wait indefinitely.',18,MUTED)
 s.save('boot-flow.svg')
 
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

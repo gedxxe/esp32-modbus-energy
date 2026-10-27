@@ -3,7 +3,10 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Same request/settings, different response budgets. Does not bypass CRC.
 x
-probe 0034 1
+direction manual
+settle 100
+gap 200
+probe 0058 2
 stats clear
 timeout 300
 intermediate

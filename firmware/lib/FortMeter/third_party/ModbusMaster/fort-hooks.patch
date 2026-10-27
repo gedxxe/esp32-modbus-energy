@@ -1,0 +1,68 @@
+--- upstream/src/ModbusMaster.h
++++ fort/src/ModbusMaster.h
+@@ -193,6 +193,9 @@
+     uint8_t  setTransmitBuffer(uint8_t, uint16_t);
+     void     clearTransmitBuffer();
+     
++    // Fort integration: bounded service hooks; default timeout remains upstream 2000 ms.
++    void setResponseTimeout(uint16_t ms) { _responseTimeout=ms?ms:2000; }
++    void abortCheck(bool (*callback)()) { _abortCheck=callback; }
+     void beginTransmission(uint16_t);
+     uint8_t requestFrom(uint16_t, uint16_t);
+     void sendBit(bool);
+@@ -218,6 +221,8 @@
+     uint8_t  readWriteMultipleRegisters(uint16_t, uint16_t);
+     
+   private:
++    uint16_t _responseTimeout=2000;
++    bool (*_abortCheck)()=nullptr;
+     Stream* _serial;                                             ///< reference to serial port object
+     uint8_t  _u8MBSlave;                                         ///< Modbus slave (1..255) initialized in begin()
+     static const uint8_t ku8MaxBufferSize                = 64;   ///< size of response/transmit buffers    
+--- upstream/src/ModbusMaster.cpp
++++ fort/src/ModbusMaster.cpp
+@@ -64,6 +64,7 @@
+   _u8MBSlave = slave;
+   _serial = &serial;
+   _u8TransmitBufferIndex = 0;
++  _u8ResponseBufferIndex = _u8ResponseBufferLength = 0;
+   u16TransmitBufferLength = 0;
+   
+ #if __MODBUSMASTER_DEBUG__
+@@ -83,7 +84,8 @@
+ // eliminate this function in favor of using existing MB request functions
+ uint8_t ModbusMaster::requestFrom(uint16_t address, uint16_t quantity)
+ {
+-  uint8_t read;
++  (void)address;
++  uint8_t read=0;
+   // clamp to buffer length
+   if (quantity > ku8MaxBufferSize)
+   {
+@@ -704,6 +706,9 @@
+   // flush receive buffer before transmitting request
+   while (_serial->read() != -1);
+ 
++  // Fort hook: cancellation during pre-drain must not transmit a new request.
++  if (_abortCheck && _abortCheck()) return 0xE4;
++
+   // transmit request
+   if (_preTransmission)
+   {
+@@ -725,6 +730,7 @@
+   u32StartTime = millis();
+   while (u8BytesLeft && !u8MBStatus)
+   {
++    if (_abortCheck && _abortCheck()) { u8MBStatus=0xE4; break; }
+     if (_serial->available())
+     {
+ #if __MODBUSMASTER_DEBUG__
+@@ -797,7 +803,7 @@
+           break;
+       }
+     }
+-    if ((millis() - u32StartTime) > ku16MBResponseTimeout)
++    if ((millis() - u32StartTime) > _responseTimeout)
+     {
+       u8MBStatus = ku8MBResponseTimedOut;
+     }

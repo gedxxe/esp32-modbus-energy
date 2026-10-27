@@ -1,44 +1,23 @@
-# Implementation review notes
+# Implementation review for version 2.0.0
 
 **English** · [Bahasa Indonesia](id/AUDIT.md)
 
-This is a record of specific changes and remaining limits, not an assertion that the installation is production-qualified. Current checks and build sizes are in [VALIDATION](VALIDATION.md).
+The user reported a successful ModbusMaster sketch using a manual transceiver with DIR16. The previous installation default selected automatic direction, and its custom receiver depended on task-observed gaps to finish a frame. V2 changes both the circuit default and transaction engine to follow the working reference. This is a design revision based on that evidence, not an isolated measurement proving that only one difference caused every earlier failure.
 
+## Transport and shared source
 
+Normal acquisition, scanner probes and the standalone INO now include the same FortMeter library. ModbusMaster constructs the request and collects its expected response length, with manual pre/post callbacks matching the reference. The adapter records actual I/O, enforces capture/drain limits and independently checks the complete FC03 shape plus CRC, including exceptions. Echo and extra bytes are not silently removed to fit a desired result.
 
-## 1.3.0 — bounded UART diagnostics
+The upstream source is pinned at v2.0.1 and the small service-hook patch is retained alongside source hashes and licenses. Native tests compile that real source with the actual standalone INO or shared diagnostic class, so they do not substitute a mock implementation of ModbusMaster. Legacy include/generator paths remain as checked compatibility entry points without another active parser.
 
-Raw capture observes existing traffic, copies fixed buffers through the existing snapshot queue and never relaxes frame/CRC checks. Exact echo is diagnostic evidence of a repeated request, not proof of the physical source. Full trace polling is limited to an open panel. The separate Arduino sketch uses only read function 03, bounded buffering/deadlines and no persistent storage. Its deliberately separate echo-wait behavior does not change the main reader. Real bus timing/stack headroom/module behavior still require hardware acceptance.
+## Acquisition, migration and interface
 
-## 1.2.1 — display orientation and onboard RGB
+The first contact query is the manual's 0x0058/two-word current request. A valid exception preserves protocol contact while leaving that value missing, allowing other profile reads to continue. The secondary counter is available without valid ratios, whereas production intervals still require validated CT/PT applied once and accepted time/continuity. Primary float ordering stays an explicit comparison rather than an automatic fallback.
 
-OLED rotation is set once before boot/recovery drawing. Core 0 owns asynchronous, single-producer RMT output; core 1 owns CRC-protected LED NVS records. Separate LED persistence status avoids misreporting an RGB-only fault as an energy archive failure. The web form sends only on explicit Apply and preserves drafts across unchanged polls. GPIO revision and three-channel limits are documented; no physical LED/rotation result is inferred from mocks.
+CRC-valid v1 connection records migrate to manual direction while preserving serial settings. Day and LED records keep their formats, completed intervals remain protected, and filesystem formatting still requires physical confirmation. The web exposes direction and direct register readings, keeps stop/resume independent of ordinary command waits and validates rows before rendering them. Wiring and technical prose have been rewritten around the confirmed manual installation.
 
-## 1.2.0 — browser and documentation
+## Limits that remain
 
-- Replaced the inline dashboard with maintainable React sources and genuine pinned React Bits FadeContent/SpotlightCard dependencies.
-- Added English-first UI, persisted Indonesian selection, translated action/error codes, and language-neutral quality codes. Kept the legacy status quality field for compatibility.
-- Embedded local gzip HTML/JS/CSS/notices in flash, enforced a 160 KiB payload budget, and added source-hash checks before firmware builds.
-- Sent assets through bounded nonblocking lwIP chunks with scheduler yields/watchdog feeds, avoiding a whole-bundle heap String.
-- Rewrote the main README and English technical guides, linked Indonesian editions, and documented boot order, task ownership, queues, lock bounds and RS485 timing.
-- Retained GPIO assignments, meter registers/scales, NVS record layouts, schedules and the physical-only format procedure.
+UART timestamps represent software observations rather than measured t1.5/t3.5 or A/B propagation. A Modbus response has no transaction ID or register address, so every delayed reply cannot be attributed conclusively from bytes alone. The interface exposes no module-presence/power-good input, and silence, CRC failures or repeated local RX cannot certify a physical component's health.
 
-## 1.1.0 — meter scan
-
-Added manual range-limited scanning, progress/cancel/apply commands and separate diagnostics. Scan reads energy and CT/PT only, pauses acquisition with interrupted interval quality, restores the previous settings and requires explicit application of a result. Enumeration/state changes are tested without a UART; physical detection/turnaround still needs commissioning.
-
-## 1.0.1 — recovery and documentation
-
-The initial review added the confirmed Fort terminal map, pin-level wiring/netlist, AGENTS.md, locked library versions, local SVGs, link checks and CI. It also fixed backup restoration so a failed restore cannot delete the recoverable backup, limited failed CT/PT retry rate to five seconds, and fed the watchdog per Modbus attempt. Fault-injection/native tests cover those logic paths.
-
-The scanned manual's request CRC is correct; the printed response CRC is not. Firmware still rejects invalid CRC. No register address, scaling or protocol exception was changed to accept the typo.
-
-## Remaining implementation limits
-
-- UART byte timestamps come from draining a driver buffer; exact t1.5 validation is not claimed.
-- Boundary interpolation across at most 15 seconds is an estimate. Counter resolution depends on CT/PT, not displayed decimal places.
-- Counter reset and rollover are not distinguished; both break continuity.
-- NVS CRC/checkpoints and CSV backups cover defined recovery paths, not every physical flash/power-loss failure. There is no second app-level checkpoint journal or CSV-to-tracker reconstruction.
-- AP/HTTP access has no separate login/TLS, cloud, captive DNS, NTP or OTA path. Phone time sync is explicit.
-- Synchronous HTTP can delay UI drawing, including during a bounded asset transfer. Meter acquisition remains in its own core-1 task; target periods are not hard deadlines.
-- No software test establishes isolation, cable/noise tolerance, actual Fort scaling or full hardware endurance. Use [COMMISSIONING](COMMISSIONING.md).
+Interval interpolation is an estimate limited to accepted 15-second gaps, and counter resolution depends on CT/PT. Backup/checkpoint tests cover defined failure paths rather than every flash or power-cut outcome. AP/HTTP has no separate login/TLS, cloud service, NTP or OTA path, and its upstream request parser still needs on-device load evaluation. [VALIDATION](VALIDATION.md) records actual software results, while [COMMISSIONING](COMMISSIONING.md) identifies the separate integrated hardware checks.

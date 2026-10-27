@@ -223,6 +223,7 @@ p {
   color: var(--muted);
 }
 .main-nav {
+  position: sticky;top: 0;z-index: 5;background: #edf2f2;padding-top: 12px;
   display: flex;
   gap: 26px;
   border-bottom: 1px solid #cfdddd;
@@ -1461,3 +1462,5 @@ footer a {
     margin: -10px 0 17px;
   }
 }
+
+.register-summary{margin:24px 0}.register-values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:28px 0}.register-values dt{font-size:13px;color:var(--muted)}.register-values code{display:block;margin-top:7px;font-size:11px}.register-values dd{margin:12px 0 0;font-variant-numeric:tabular-nums;font-size:23px;overflow-wrap:anywhere}.register-values small{font-size:12px;font-weight:400}@media(max-width:768px){.register-values{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px}.register-values dd{font-size:20px}}

@@ -1,0 +1,5 @@
+FortMeter 2.0.0
+Original FortTransport.h and FortDiagnostics.h: GPL-3.0-only; see LICENSE.
+ModbusMaster.h/.cpp: Doc Walker, Apache-2.0; see third_party/ModbusMaster/LICENSE.
+Upstream util/crc16.h: BSD-3-Clause; util/word.h: GPL-3.0-or-later.
+See third_party/ModbusMaster/provenance.json and fort-hooks.patch for changes.

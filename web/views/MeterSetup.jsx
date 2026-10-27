@@ -11,13 +11,13 @@ export default function MeterSetup({ device }) {
   const running = scan.phase === "running";
   const blocked =
     device.pending || !device.fresh || Boolean(s?.diagnosticActive);
-  const [config, setConfig] = useState({ slave: 1, baud: 9600, parity: "N" });
-  const [probe, setProbe] = useState({ address: "0034", words: 1 });
+  const [config, setConfig] = useState({ slave: 1, baud: 9600, parity: "N", direction: "manual" });
+  const [probe, setProbe] = useState({ address: "0058", words: 2 });
   const [scanMode, setScanMode] = useState("current");
   const [range, setRange] = useState({ first: 1, last: 16 });
   useEffect(() => {
-    if (s) setConfig({ slave: s.slave, baud: s.baud, parity: s.parity });
-  }, [s?.slave, s?.baud, s?.parity]);
+    if (s) setConfig({ slave: s.slave, baud: s.baud, parity: s.parity, direction: s.direction });
+  }, [s?.slave, s?.baud, s?.parity, s?.direction]);
   useEffect(() => {
     if (running) {
       setRange({ first: scan.first, last: scan.last });
@@ -39,7 +39,7 @@ export default function MeterSetup({ device }) {
     scan.result &&
     s?.slave === scan.result.slave &&
     s?.baud === scan.result.baud &&
-    s?.parity === scan.result.parity;
+    s?.parity === scan.result.parity && s?.direction === scan.result.direction;
   const candidate =
     scan.phase === "found" ? scan.result : running ? scan : null;
   const elapsed = `${Math.floor((scan.elapsed || 0) / 60)}:${String((scan.elapsed || 0) % 60).padStart(2, "0")}`;
@@ -158,7 +158,15 @@ export default function MeterSetup({ device }) {
                   ))}
                 </select>
               </div>
+              <div className="wide">
+                <label htmlFor="direction">{t("direction_label")}</label>
+                <select id="direction" value={config.direction} disabled={blocked || running} onChange={(event) => setConfig({ ...config, direction: event.target.value })}>
+                  <option value="manual">{t("direction_manual")}</option>
+                  <option value="auto">{t("direction_auto")}</option>
+                </select>
+              </div>
             </div>
+            <p className="small muted">{t(config.direction === "manual" ? "direction_manual_note" : "direction_auto_note")}</p>
             <div className="actions">
               <button
                 className="button primary"
@@ -355,11 +363,9 @@ export default function MeterSetup({ device }) {
       <RawTrace device={device} />
       <details className="wiring-help">
         <summary>{t("wiring_title")}</summary>
-        <p className="small muted">{t("wiring_auto")}</p>
+        <p className="small muted">{t(s?.direction === "auto" ? "direction_auto_note" : "direction_manual_note")}</p>
         <div className="pins">
-          <code>TXD → GPIO18 / RX</code>
-          <code>RXD ← GPIO17 / TX</code>
-          <code>GPIO16: unconnected</code>
+          {s?.direction === "auto" ? <><code>GPIO17 / TX → TTL input</code><code>GPIO18 / RX ← TTL output</code><code>GPIO16: unconnected</code></> : <><code>GPIO17 / TX → DI</code><code>GPIO18 / RX ← RO</code><code>GPIO16 → DE + /RE</code></>}
           <code>A → Fort 58 / B → Fort 59</code>
         </div>
         <p className="small muted" style={{ marginTop: 12 }}>

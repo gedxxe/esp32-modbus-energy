@@ -3,6 +3,9 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Manual-based UInt32 secondary counter; compare with correct meter page.
 x
+direction manual
+settle 100
+gap 200
 energy 0082
 ratios 002C
 scale 0.001

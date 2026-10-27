@@ -21,7 +21,7 @@ inline TraceResult inspectTrace(const uint8_t *tx, const uint8_t *rx, size_t siz
   if (size < 5) return TRACE_SHORT;
   if (crc16(rx, size - 2) != (uint16_t(rx[size - 2]) | (uint16_t(rx[size - 1]) << 8))) return TRACE_CRC;
   if (validFrame(rx, size, slave, words)) return TRACE_OK;
-  if (size == 5 && rx[0] == slave && rx[1] == 0x83) return TRACE_EXCEPTION;
+  if (size == 5 && rx[0] == slave && rx[1] == 0x83 && rx[2] > 0 && rx[2] <= 0x7f) return TRACE_EXCEPTION;
   return TRACE_INVALID;
 }
 struct TraceFrame {

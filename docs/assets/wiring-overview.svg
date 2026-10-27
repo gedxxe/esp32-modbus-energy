@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1320" viewBox="0 0 1800 1320" role="img" aria-labelledby="title desc"><title id="title">ESP32-S3, OLED, RTC, RS485, Fort, buttons and optional buzzer wiring</title><desc id="desc">Midea Fort schematic. Labels and colors identify connections. Screen values are simulated.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
-<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Full wiring · manual-direction alternative</text>
-<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">RO/DI/DE-/RE module only · Supplied automatic module uses rs485-auto.svg · Shared I2C/buttons/buzzer unchanged</text>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Installed wiring · manual RS485 direction</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">GPIO17 to DI, GPIO18 from RO, GPIO16 to tied DE and /RE. All low-voltage grounds share one net.</text>
 <rect x="650" y="180" width="350" height="780" rx="16" fill="#e5f1ef" stroke="#087e82"/>
 <text x="825" y="225" fill="#183438" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">ESP32-S3</text>
 <text x="825" y="258" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="middle">N16R8 · DevKitC style</text>
@@ -184,5 +184,5 @@
 <text x="855" y="1251" fill="#6d5897" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">GPIO / DIR</text>
 <polyline points="1040,1245 1075,1245" fill="none" stroke="#906121" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="1085" y="1251" fill="#906121" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">RS485 A / buzzer</text>
-<text x="70" y="1276" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">Repeated GND/3V3 labels identify one net. Dots mark joins; crossings without dots do not connect. Port positions are not physical headers.</text>
+<text x="70" y="1276" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">Repeated GND/3V3 labels identify one net. Dots mark joins. Crossings without dots do not connect. Port positions are not physical headers.</text>
 </svg>

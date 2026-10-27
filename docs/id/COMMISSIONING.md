@@ -1,76 +1,27 @@
+# Commissioning dan uji penerimaan
+
 [English](../COMMISSIONING.md) · **Bahasa Indonesia**
 
-# Commissioning dan uji penerimaan
+Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.0.0, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
 
 ## Uji meja sebelum ke panel
 
-1. Periksa model board, pin GPIO dan suplai modul. Tes OLED+RTC melalui 3,3 V, lalu tombol dan buzzer melalui driver.
-2. Flash firmware. OLED menampilkan animasi, bunyi boot berlangsung sekitar 1,5 detik, lalu IP 192.168.4.1 muncul di halaman utama.
-3. Buat filesystem lewat prosedur tahan OK saat boot bila diperlukan. Pastikan status storage berubah OK setelah waktu RTC valid.
-4. Sambungkan HP ke hotspot dengan kredensial pada README. Pastikan dashboard berfungsi tanpa internet dan tanpa CDN.
-5. Sinkronkan waktu. OLED dan web harus menunjukkan WIB. Matikan daya ESP32 selama beberapa menit, nyalakan, lalu pastikan DS3231 tetap berjalan dengan baterai.
-6. Tekan tombol cepat: satu siklus tekan/lepas hanya berpindah satu halaman/interval. Tahan OK: mute hanya berubah sekali, bukan berulang. Periksa pola alarm ketika RTC atau meter offline.
+Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.0.0. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
+
+Saat A/B dilepas, jalankan diagnosis terbatas dan simpan output. RX pada kondisi itu berasal dari jalur lokal. Loopback UART sementara dapat dibuat setelah kabel TTL modul dilepas, dengan menghubungkan GPIO17 ke GPIO18. Hasilnya harus dikenali sebagai echo request dan ditolak sebagai energi. Lepas jumper serta pulihkan modul manual sebelum tes Fort.
 
 ## Meter Fort
 
-1. Hubungkan ESP32 sebagai satu-satunya master pada port Modbus Fort yang masih kosong. Ambil foto/nota setting komunikasi meter.
-2. Cek slave ID, baud, parity pada menu meter. Firmware mulai ID 1, 9600, 8N1. Setting yang sebenarnya bisa berbeda walaupun manual dari box yang sama.
-3. Pertahankan wiring otomatis terkonfirmasi TXD→GPIO18/RXD←GPIO17, GPIO16 tidak disambungkan. Tanpa respons belum menunjukkan lokasi masalah: nilai bukti UART, setting serial dan dukungan register secara terpisah. RO/DI/DE-/RE hanya alternatif manual.
-4. Lihat CRC/timeout. Keduanya tidak harus nol seumur hidup, tetapi pertambahan terus menerus saat uji steady-state harus diselidiki.
-5. Bandingkan **energi impor positif primer** dashboard dengan halaman energi impor yang sesuai di Fort. Jangan membandingkan terhadap net energy, energi ekspor, kvarh, atau penjumlahan energi dua arah.
-6. Catat rasio CT/PT dari meter dan bandingkan dengan rasio web. Jika angka berbeda tepat faktor CT/PT, hentikan penerimaan data dan verifikasi tipe register serta setting meter.
-7. Bandingkan kW terhadap display meter. Saat beban stabil, catat perubahan kWh selama 10–30 menit. Contoh 12 kW rata-rata selama 0,5 jam menghasilkan kira-kira 6 kWh, dengan toleransi kelas meter dan resolusi counter.
+Gunakan TX17→DI, RX18←RO, DIR16→DE+/RE, A→58 dan B→59, lalu samakan menu CONi. Pada Command input web, masukkan `status` dan `intermediate` terpisah dengan Run command untuk setiap baris. Simpan TX/RX serta hasil 0x00 pada request manual 0x0058. Bandingkan `reg 0042 2`, `reg 006A 2` dan `reg 0080 1` dengan halaman tegangan, daya dan frekuensi yang sesuai.
 
-## Penerimaan interval
+Periksa `reg 0082 2` terhadap counter impor sekunder dan validasi PT numerator/denominator serta CT sebelum menerima konversi primer. `primary` hanya menyediakan kandidat word order float untuk dibandingkan, bukan pilihan otomatis berdasarkan angka finite. Exception ber-CRC sah membuktikan kontak protokol dan belum meluluskan pembacaan data atau skala.
 
-1. Nyalakan paling lambat 05.55 WIB untuk pagi dan 16.25 WIB untuk sore; waktu dan komunikasi harus valid sebelum batas pertama.
-2. Catat foto counter sekitar 06.00, 06.30, dan 07.00. Setelah batas terlewati, cek selisih terhadap CSV dengan mempertimbangkan waktu foto, interval polling, dan resolusi counter.
-3. Verifikasi seluruh enam interval pagi dan tiga sore, termasuk dua interval bersebelahan yang berbagi batas waktu.
-4. Saat satu interval berjalan, lepas koneksi RS485 >15 detik. Data harus ditandai parsial; jangan tampil sebagai hasil interval lengkap.
-5. Ulangi dengan reboot di tengah interval. Hasil interval selesai yang tersimpan harus tetap ada; interval yang terputus harus parsial.
-6. Sinkronkan RTC di tengah interval. Pastikan interval aktif parsial; pengujian ini sengaja memutus kesinambungan.
-7. Uji perubahan tanggal hanya pada bench dengan data uji. Pastikan tanggal lokal WIB digunakan; hasil kemarin dapat diunduh melalui arsip.
-8. Uji mati daya beberapa kali di sekitar akhir interval dan saat penyimpanan. Unduh CSV sebelum/sesudah untuk memeriksa pemulihan. Jangan melakukan format sebagai langkah awal jika arsip tampak hilang.
+## Scan, interval dan pemulihan
 
-## Belum dianggap lulus hardware sampai
+Uji ID yang diketahui pada format tersimpan sebelum memperluas rentang. Hasil memerlukan dua transaksi sah, tidak diterapkan otomatis dan mempertahankan direction saat disimpan. Pembatalan perlu memutus penantian dan memulihkan koneksi. Counter error tidak dipakai sebagai sensor hadirnya komponen.
 
-- Skala, arah energi, urutan word, dan setting komunikasi cocok dengan unit Fort fisik.
-- OLED, semua tombol, buzzer, AP, RTC battery backup, dan filesystem bekerja.
-- Dashboard tetap responsif ketika meter offline/retry dan beberapa HP membuka halaman.
-- Uji interval pagi/sore serta gangguan daya/komunikasi memenuhi perilaku di atas.
-- Panel, kabel, isolasi, suplai dan pemasangan disetujui teknisi fasilitas.
+Benarkan waktu HP sebelum sinkronisasi, lalu periksa WIB terhadap RTC serta setelah restart. Catat batas interval pagi/petang yang lengkap, interval yang sengaja terputus dan pelestarian baris lengkap. RTC invalid, perubahan rasio, gap atau reset counter tidak boleh menghasilkan konsumsi lengkap. Ekspor CSV serta pemulihan backup saat uji putus daya perlu diverifikasi secara terencana.
 
-## Uji Scan Fort (firmware 1.4.0)
+## Catatan penerimaan
 
-1. Di luar interval produksi, catat setting Fort dan setting pembaca yang lama. Buka Koneksi meter → Scan Fort.
-2. Untuk uji cepat, batasi ID awal/akhir pada ID meter yang diketahui. Jalankan Scan Fort. Periksa progres, web dan OLED tetap merespons; CRC/timeout scan terpisah dari penghitung pembacaan normal.
-3. Saat hasil ditemukan, pastikan ID/baud/parity sesuai menu meter. Pembaca tetap memakai setting lama sebelum Terapkan hasil; setelah diterapkan, reload dashboard dan reboot untuk memastikan setting NVS bertahan.
-4. Jalankan ulang lalu Batalkan scan. Pastikan pembacaan kembali dengan setting lama, tidak ada perubahan menu Fort. Reload halaman di tengah scan: progres harus kembali terlihat dari status perangkat.
-5. Uji meter dilepas/rentang ID salah: scan selesai tanpa hasil; jangan menganggapnya bukti kerusakan meter. Periksa A/B dan koneksi.
-6. Scan di tengah interval uji harus menghasilkan interval parsial, dengan interval selesai tetap tersimpan. Hasil scan tidak bertahan setelah reboot dan tidak dijalankan otomatis.
-
-Rentang penuh 1–247 memiliki 4.446 kandidat; kondisi tanpa respons dapat membutuhkan sekitar 70 menit. Tombol batal diproses antarkandidat; kandidat terdiri dari satu transaksi 800 ms, dengan watchdog/yield di jalur UART.
-
-## Pemeriksaan UI bilingual
-
-Pastikan English muncul pertama kali, pilihan Indonesia bertahan setelah reload, dan error/scan ikut diterjemahkan. Uji navigasi saat scan, unduh CSV dari Perangkat & arsip, lalu putuskan HP dari AP: status harus menunjukkan data lama dan tombol mutasi dinonaktifkan. React dan animasi dieksekusi browser; uji ini tidak membuktikan timing UART atau performa radio pada perangkat fisik.
-
-## Uji posisi OLED dan RGB
-
-1. OLED terpasang terbalik harus terbaca pada boot dan semua halaman. OLED_ROTATE_180=false hanya untuk posisi normal. Jangan format arsip hanya untuk mencoba prompt.
-2. Pastikan GPIO LED board sesuai: default 48 sudah dikonfirmasi pada pemasangan ini; revisi DevKitC v1.1 dapat memakai 38. Periksa hue awal, brightness 128, siklus 8 detik.
-3. Terapkan semua pola melalui Perangkat & arsip, warna primer, brightness 0/128/255 serta siklus 0,5/30 detik. Cocokkan cahaya fisik dengan status terapan.
-4. Reload browser lalu restart board; pilihan tersimpan harus kembali setelah boot. Cahaya boot masih memakai default compile. Pastikan tidak ada peringatan penyimpanan.
-5. Ulangi saat polling, scan dan transfer aset. Amati jitter, respons UART dan watchdog; tes software belum mengukur timing pada hardware.
-
-## Uji capture mentah dan sketch mandiri
-
-1. Firmware utama: Koneksi meter / Diagnostik TX/RX mentah, mulai capture lalu scan satu ID. Periksa metadata baud/parity/ID/register dan hasil berhenti pada 12 percobaan atau saat Hentikan. Unduh TXT.
-2. Ulangi dengan A/B dilepas pada sisi modul ESP32, TTL/power tetap tersambung. RX saat ini bukan balasan Fort. Bedakan echo persis, byte rusak dan timeout tanpa byte; counter error bukan bukti koneksi valid.
-3. Modul yang difoto memakai arah otomatis dan empat pin TTL; GPIO16 tidak disambungkan. Periksa arah input/output TTL sebelum mengubah kabel. Wiring terlapor: TXD modul ke GPIO18, RXD modul ke GPIO17.
-4. Untuk Arduino mandiri ikuti [panduan lapangan](../../examples/FortSerialDebug/README.id.md). Arduino IDE **Tools → Serial Monitor**, pilih **115200/Newline**. Ketik `x`, Enter; `status`, Enter; `diagnose`, Enter. Tunggu `[REPORT_END]`. Salin **OUTPUT** bergulir (setting/TX/RX/CRC/report) ke chat. Perintah masuk INPUT Serial Monitor; log dikirim ke chat. Uji dua keadaan opsional memerlukan perubahan fisik hanya A/B pada sisi modul di antara `check connected` dan `check isolated`; keadaan itu label operator. Sketch menggantikan aplikasi utama sementara.
-5. Upload firmware utama lagi, periksa arsip/waktu/setting sebelum melanjutkan penerimaan interval. Kompilasi atau mock tidak membuktikan meter pengguna ditemukan.
-
-## Penerimaan diagnostik firmware utama — 1.4.0
-
-Mulai dari [langkah HP](DIAGNOSTICS.md). Periksa lingkup format saat ini/matriks18format, probe/count yang dapat diedit dan exception CRC sah ditemukan tanpa menganggap energi valid. Uji tanpa RX, echo lalu balasan terpisah, frame rusak/terlalu panjang dan raw map gagal; simpan output. Stop saat wait, tutup/buka panel, lalu resume: pin/serial tersimpan, pembacaan produksi dan interval parsial harus benar. Setting/nilai uji tidak masuk NVS/rekaman energi. Periksa gap event, tidak ada gerak tanpa traffic, reduced motion, high-water/heap dan sampel core di bawah beban scan/jaringan. Tes software bukan bukti modul sehat, waveform A/B atau skala meter.
+Simpan versi/commit, modul dan mode wiring, setting meter, word mentah, perbandingan display, RTC, sampel interval/CSV serta headroom heap/stack. Persentase core merupakan bantuan sampling tick, bukan profiler instruksi, dan latensi beberapa klien AP tetap perlu diuji pada perangkat. [VALIDATION](VALIDATION.md) memisahkan penerimaan tersebut dari hasil compiler/native/browser lokal.

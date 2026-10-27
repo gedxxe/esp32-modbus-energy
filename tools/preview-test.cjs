@@ -115,6 +115,8 @@ const state = {
   slave: 1,
   baud: 9600,
   parity: "N",
+  direction: "manual",
+  currentA: 4.9943, voltageA: 230.12, frequency: 50.0, secondaryEnergy: 1605.4091,
   crcErrors: 0,
   timeouts: 2,
   rejected: 0,
@@ -198,6 +200,7 @@ const server = http.createServer((req, res) => {
     );
     res.end(
       JSON.stringify({
+        autoDirection: state.direction === "auto",
         boot: flowBoot,
         sequence: flowSequence,
         nowUs: Math.floor((Date.now() % 1000000) * 1000),
@@ -352,11 +355,11 @@ const server = http.createServer((req, res) => {
           diagnostic.log += "[RESUMED] Production settings restored.\n";
         } else if (command === "x") {
           diagnostic.busy = false;
-          diagnostic.log += "Stopped; queued commands cancelled.\n";
+          diagnostic.log += "Stopped. Queued commands cancelled.\n";
         } else {
           if (!diagnostic.active) ++diagnostic.generation;
           diagnostic.active = true;
-          diagnostic.log += `[SERIAL_INPUT] ${command}\n`;
+          diagnostic.log += `[COMMAND_INPUT] ${command}\n`;
           if (command === "diagnose")
             diagnostic.log +=
               "[REPORT_BEGIN]\n[EVIDENCE] requests=8 valid_data=0\n[NO_RX_UNRESOLVED] No accepted reply.\n[REPORT_END]\n";
@@ -401,6 +404,7 @@ const server = http.createServer((req, res) => {
           slave: Number(data.get("slave")),
           baud: Number(data.get("baud")),
           parity: data.get("parity"),
+          direction: data.get("direction"),
         });
       if (req.url === "/api/scan/start")
         state.scan = {
@@ -418,8 +422,8 @@ const server = http.createServer((req, res) => {
             (Number(data.get("last")) - Number(data.get("first")) + 1) *
             (data.get("mode") === "current" ? 1 : 18),
           mode: data.get("mode") || "matrix",
-          address: Number(data.get("address") || 52),
-          words: Number(data.get("words") || 1),
+          address: Number(data.get("address") || 88),
+          words: Number(data.get("words") || 2),
           first: Number(data.get("first")),
           last: Number(data.get("last")),
           elapsed: 3,
@@ -430,7 +434,7 @@ const server = http.createServer((req, res) => {
           crcErrors: 1,
           rejected: 0,
           ...(scanMode === "found"
-            ? { result: { slave: 7, baud: 19200, parity: "E" } }
+            ? { result: { slave: 7, baud: 19200, parity: "E", direction: state.direction } }
             : {}),
         };
       if (req.url === "/api/scan/cancel") state.scan.phase = "cancelled";
@@ -554,6 +558,8 @@ async function checkVectors(browser, out) {
     );
     assert.equal(await page.locator("html").getAttribute("lang"), "en");
     assert.equal(await page.locator("#energy").textContent(), "128,432.728");
+    assert.equal(await page.locator("#value-currentA").textContent(), "4.994 A");
+    assert((await page.locator("#register-title").innerText()).includes("register"));
     malformedStatus = true;
     await refresh();
     await page.waitForFunction(() => document.getElementById("health")?.textContent.includes("Connection lost"));
@@ -783,6 +789,13 @@ async function checkVectors(browser, out) {
           call.data.get("parity") === "O",
       ),
     );
+    await page.locator("#direction").selectOption("auto");
+    await page.locator("#config button").click();
+    await page.waitForFunction(() => !document.querySelector("#config button").disabled);
+    await page.reload();await page.waitForFunction(() => document.getElementById("direction")?.value === "auto");
+    assert.equal(await page.locator("#direction").inputValue(), "auto");
+    await page.locator("#direction").selectOption("manual");await page.locator("#config button").click();
+    await page.waitForFunction(() => !document.querySelector("#config button").disabled);
     const scanCalls = () =>
       calls.filter((call) => call.url.startsWith("/api/scan/"));
     await page.locator("#scanfirst").fill("20");
@@ -846,6 +859,7 @@ async function checkVectors(browser, out) {
     );
     assert.equal(await page.locator("#baud").inputValue(), "19200");
     assert.equal(await page.locator("#parity").inputValue(), "E");
+    assert.equal(await page.locator("#direction").inputValue(), "manual");
     assert(await page.locator("#scanapply").isDisabled());
     scanMode = "exhausted";
     await page.locator("#scanstart").click();
@@ -1065,7 +1079,7 @@ async function checkVectors(browser, out) {
         "Lanjutkan",
       ),
     );
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 390, height: 1600 });
     await page
       .locator("#diagnostic-console")
       .screenshot({ path: path.join(assets, "ui-diagnostic-mobile.png") });

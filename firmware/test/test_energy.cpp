@@ -49,6 +49,10 @@ void testBoundedHTTP(){
 }
 int main(){
   testBoundedHTTP();
+  {Settings legacy;legacy.magic=0x46525431;legacy.slave=7;legacy.baud=19200;legacy.parity='E';legacy.direction=255;
+   assert(migrateLegacySettings(legacy)&&validSettings(legacy)&&legacy.direction==DIRECTION_MANUAL&&legacy.slave==7&&legacy.baud==19200&&legacy.parity=='E');
+   Settings automatic=legacy;automatic.direction=DIRECTION_AUTO;ScanController scan;assert(scan.begin(7,7,automatic,0,true));assert(scan.progress.candidate.direction==DIRECTION_AUTO);}
+
   const uint8_t traceTx[]={1,3,0,0x82,0,2,0x64,0x23};
   uint8_t traceQuery[8];memcpy(traceQuery,traceTx,8);uint16_t qc=crc16(traceQuery,6);traceQuery[6]=qc;traceQuery[7]=qc>>8;
   uint8_t goodTrace[]={1,3,4,0,0,0xc3,0x17,0xea,0xcd};

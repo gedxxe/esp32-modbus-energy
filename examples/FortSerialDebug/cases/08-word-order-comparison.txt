@@ -3,6 +3,9 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Experimental interpretations of the same UInt32 register pair; neither is auto-selected.
 x
+direction manual
+settle 100
+gap 200
 decode on
 energy 0082
 ratios 002C

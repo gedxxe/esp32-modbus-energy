@@ -65,7 +65,7 @@ void testNetwork(){
   policy.update(46001,false);assert(policy.apWanted(46001));assert(!policy.fallback);
   policy.begin(NETWORK_DUAL,0);policy.update(1,true);assert(policy.apWanted(90000));
   policy.begin(NETWORK_AP,0);assert(!policy.update(60000,false)&&policy.apWanted(60000)&&!policy.fallback);
-  policy.begin(NETWORK_CLIENT,0xFFFFFF00UL);assert(policy.update(0xFFFFFF00UL+uint32_t(30000),false));
+  policy.begin(NETWORK_CLIENT,0xFFFFFF00UL);assert(policy.update(uint32_t(uint64_t(0xFFFFFF00UL)+30000),false));
   assert(chooseAPAddress(0,0)==0xC0A80401);assert(chooseAPAddress(0xC0A80428,0)==0);assert(chooseAPAddress(0xC0A80428,0xFFFFFFF0)==0xC0A80501);assert(chooseAPAddress(0xC0A80428,0xFFFFFF00)==0xC0A80501);
   assert(chooseAPAddress(0xC0A80428,0xFFFF0000)==0x0A2A0001);
   std::cout<<"PASS: Wi-Fi settings/CRC/key validation, AP/client/dual retry/grace/loss/rollover and LAN overlap policy\n";

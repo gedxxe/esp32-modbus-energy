@@ -1,4 +1,4 @@
-# Implementation review for version 2.3.0
+# Implementation review for version 2.3.1
 
 **English** · [Bahasa Indonesia](id/AUDIT.md)
 

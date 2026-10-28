@@ -1,6 +1,6 @@
 export const catalog = {
   en: {
-    flow_readable: "Readable replay · 2.5 s",
+    flow_readable: "Readable replay · 3.2 s",
     flow_observed: "Latest observed transaction timings",
     flow_tx_path: "Recorded request moving from ESP32 to Fort",
     flow_rx_path: "Recorded response moving from Fort to ESP32",
@@ -434,7 +434,7 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
-    flow_readable: "Replay terbaca · 2,5 dtk",
+    flow_readable: "Replay terbaca · 3,2 dtk",
     flow_observed: "Timing transaksi terbaru yang tercatat",
     flow_tx_path: "Request tercatat bergerak dari ESP32 ke Fort",
     flow_rx_path: "Respons tercatat bergerak dari Fort ke ESP32",

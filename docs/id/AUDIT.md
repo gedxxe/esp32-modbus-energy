@@ -1,4 +1,4 @@
-# Tinjauan implementasi versi 2.3.0
+# Tinjauan implementasi versi 2.3.1
 
 [English](../AUDIT.md) · **Bahasa Indonesia**
 

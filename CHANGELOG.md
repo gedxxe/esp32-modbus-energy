@@ -2,8 +2,11 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.3.1 / 28 October 2026
 
+TX and RX replay now accelerate and decelerate with quintic easing instead of moving at a constant speed. On arrival, the packet keeps its endpoint position while it and the WakeSlider wave fade together over 360 ms. A static resting track remains underneath, so clearing the active wave no longer flattens it in one frame. A complete request/response replay takes about 3.2 seconds, while the captured UART timestamps retain their original timing.
 
+Regression checks cover endpoint continuity, gradual packet and wave opacity, alternating TX/RX and timeout without an invented response. The representative video ends after the replay has returned to idle rather than cutting off an active packet.
 
 ## 2.3.0 / 28 October 2026
 

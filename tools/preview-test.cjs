@@ -579,6 +579,9 @@ async function checkVectors(browser, out) {
         const hide=await page.addStyleTag({content:".main-nav{visibility:hidden}"});
         await page.locator(".flow-playback").scrollIntoViewIfNeeded();
         const box=await page.locator(".flow-playback").boundingBox();
+        flowAuto=false;
+        await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
+        await page.waitForTimeout(600);
         const cdp=await context.newCDPSession(page),frames=[];
         const folder=path.join(out,"flow-recording");fs.mkdirSync(folder,{recursive:true});
         const receive=({data,sessionId,metadata})=>{
@@ -589,10 +592,13 @@ async function checkVectors(browser, out) {
         };
         cdp.on("Page.screencastFrame",receive);
         await cdp.send("Page.startScreencast",{format:"jpeg",quality:92,everyNthFrame:2});
-        await page.waitForTimeout(5200);
+        await page.waitForTimeout(400);appendFlow();
+        await page.waitForSelector(".flow-train.tx");
+        await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
+        await page.waitForTimeout(450);
         await cdp.send("Page.stopScreencast");cdp.off("Page.screencastFrame",receive);await cdp.detach();
         assert(frames.length>25,"The demo must contain actual changing browser frames");
-        const list=frames.map((frame,index)=>`file '${frame.name}'\nduration ${Math.max(.01,(frames[index+1]?.time??frame.time+.04)-frame.time).toFixed(6)}`).join("\n");
+        const list=frames.map((frame,index)=>`file '${frame.name}'\nduration ${Math.max(.01,(frames[index+1]?.time??frame.time+.45)-frame.time).toFixed(6)}`).join("\n");
         fs.writeFileSync(path.join(folder,"frames.txt"),list+`\nfile '${frames.at(-1).name}'\n`);
         const crop=[box.width,box.height,box.x,box.y].map(value=>Math.max(0,Math.floor(value/2)*2)).join(":");
         const result=require("node:child_process").spawnSync("ffmpeg",["-v","error","-y","-f","concat","-safe","1","-i",path.join(folder,"frames.txt"),"-vf",`crop=${crop}`,"-r","30","-c:v","libx264","-pix_fmt","yuv420p","-an","-movflags","+faststart",path.join(assets,"ui-flow-demo.mp4")],{encoding:"utf8"});
@@ -690,25 +696,30 @@ async function checkVectors(browser, out) {
     malformedNetwork=true;await refresh();await page.waitForFunction(() => document.getElementById("network-save")?.disabled);
     assert(await page.locator("#mute").isVisible());malformedNetwork=false;await refresh();await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
     assert.equal(await page.locator("#network-ap-ip").inputValue(),"192.168.9.1", "A malformed refresh must not erase the operator draft");
+    const rescanWiFi=async()=>{
+      // Wait for this queued POST, not the previous scan's retained result text.
+      const posted=page.waitForRequest(request=>request.method()==="POST"&&request.url()===origin+"/api/network/scan");
+      await page.locator("#wifi-rescan").click();
+      await posted;
+      await page.waitForFunction(()=>!document.getElementById("wifi-rescan")?.disabled);
+    };
     const scanRequestsBeforeRefresh=wifiScanRequests;
-    await page.locator("#wifi-rescan").click();
-    await page.waitForFunction((before)=>document.getElementById("wifi-rescan")?.disabled,null);
-    await page.waitForFunction(()=>!document.getElementById("wifi-rescan")?.disabled);
+    await rescanWiFi();
     assert(wifiScanRequests>scanRequestsBeforeRefresh,"Network scanning must be available without typing an SSID");
     wifiDropAck=true;const beforeLostAck=wifiScanGeneration;
-    await page.locator("#wifi-rescan").click();
+    await rescanWiFi();
     await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("networks found"));
     assert.equal(wifiScanGeneration,beforeLostAck+1,"A lost POST acknowledgement must recover the same scan instead of starting another");
     wifiRadioFailure="radio_start";
-    await page.locator("#wifi-rescan").click();
+    await rescanWiFi();
     await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("radio scan failed"));
     assert((await page.locator("#wifi-scan-detail").innerText()).includes("radio_start"));
     assert(await page.locator('#network-ssid option[value="Plant WiFi/false"]').count(),"A failed scan retains the previous SSIDs");
     wifiRadioFailure="";wifiReadFailures=1;
-    await page.locator("#wifi-rescan").click();
+    await rescanWiFi();
     await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("networks found"));
     wifiReadDelay=3100;
-    await page.locator("#wifi-rescan").click();
+    await rescanWiFi();
     await page.waitForFunction(()=>document.getElementById("wifi-scan-status")?.textContent.includes("networks found"));
     wifiReadDelay=0;
     await page.locator("#network-ssid").blur();
@@ -1141,6 +1152,26 @@ async function checkVectors(browser, out) {
       observed,
       "No idle/decorative packet animation without a new device event",
     );
+    await page.evaluate(() => {
+      window.flowFadeSamples={tx:[],rx:[]};
+      let frame=0;
+      const sample=()=>{
+        const phase=document.querySelector(".flow-playback")?.dataset.phase;
+        for(const direction of ["tx","rx"]){
+          if(phase!==`${direction}-settle`)continue;
+          const train=document.querySelector(`.flow-train.${direction}`);
+          const wake=document.querySelector(`.flow-rail.${direction} .flow-wake`);
+          if(train&&wake)window.flowFadeSamples[direction].push({
+            opacity:Number(getComputedStyle(train).opacity),
+            wake:Number(getComputedStyle(wake).opacity),
+            x:train.getBoundingClientRect().x
+          });
+        }
+        frame=requestAnimationFrame(sample);
+      };
+      frame=requestAnimationFrame(sample);
+      window.stopFlowFadeProbe=()=>cancelAnimationFrame(frame);
+    });
     appendFlow();
     await page.waitForSelector(".flow-train.tx");
     const trainStart=await page.locator(".flow-train.tx").boundingBox();
@@ -1152,6 +1183,16 @@ async function checkVectors(browser, out) {
     assert.equal(await page.locator(".flow-train.rx").count(),0,"TX and RX replay must alternate");
     await page.waitForSelector(".flow-train.rx");
     await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
+    const fadeSamples=await page.evaluate(()=>{window.stopFlowFadeProbe();return window.flowFadeSamples;});
+    for(const direction of ["tx","rx"]){
+      const samples=fadeSamples[direction];
+      assert(samples.length>=4,`${direction}: arrival must remain mounted over multiple rendering frames`);
+      assert(samples[0].opacity>.9&&samples.at(-1).opacity<.1,`${direction}: fade must span from opaque to nearly transparent`);
+      assert(samples.some(row=>row.opacity>.2&&row.opacity<.8),`${direction}: opacity must pass through intermediate values`);
+      for(let i=1;i<samples.length;++i)assert(samples[i].opacity<=samples[i-1].opacity,`${direction}: fade cannot brighten again`);
+      assert(Math.max(...samples.map(row=>row.x))-Math.min(...samples.map(row=>row.x))<1,"Fade must stay at the arrived endpoint rather than resetting to the start");
+      assert(samples.every(row=>Math.abs(row.wake-row.opacity)<.001),"The wake must decay with the packet rather than flatten immediately");
+    }
     assert(await page.locator(".flow-equipment-grid svg").count()===3);
     assert.equal(await page.locator(".flow-tap,.flow-lane").count(),0,"No intersecting SVG transport lines remain");
     assert(await page.locator("#clock .counter").count()===3,"Clock units use the supplied Counter component");

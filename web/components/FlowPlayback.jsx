@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import WakeSlider from "../vendor/react-bits/WakeSlider.jsx";
-import { FLOW_MOVE_MS, FLOW_GAP_MS, FLOW_HOLD_MS } from "../flow-playback.js";
+import { flowLeg, flowPhaseDuration, nextFlowPhase } from "../flow-playback.js";
 import { useText } from "../ui.js";
 
 export default function FlowPlayback({ item, enabled, resetKey }) {
@@ -17,19 +17,17 @@ export default function FlowPlayback({ item, enabled, resetKey }) {
     if (!run || !allowed.current) return;
     // A delayed browser frame cannot teleport the train to the opposite end.
     run.elapsed += Math.min(48,Math.max(0,now-run.last)); run.last = now;
-    const duration = ["tx","rx"].includes(run.phase) ? FLOW_MOVE_MS : run.phase === "gap" ? FLOW_GAP_MS : FLOW_HOLD_MS;
-    if (run.elapsed >= duration) {
+    if (run.elapsed >= flowPhaseDuration(run.phase)) {
+      const next=nextFlowPhase(run.phase,Boolean(run.job.rx));
       run.elapsed = 0;
-      if (run.phase === "tx") run.phase = "gap";
-      else if (run.phase === "gap") run.phase = run.job.rx ? "rx" : "hold";
-      else if (run.phase === "rx") run.phase = "hold";
+      if(next)run.phase=next;
       else {
         actor.current = null;
-        if (pending.current) { const next=pending.current;pending.current=null;start(next,now);return; }
+        if (pending.current) { const pendingJob=pending.current;pending.current=null;start(pendingJob,now);return; }
         setView({ job:run.job,phase:"idle",progress:1 });return;
       }
     }
-    setView({ job:run.job,phase:run.phase,progress:run.elapsed/FLOW_MOVE_MS });
+    setView({ job:run.job,phase:run.phase,progress:run.elapsed/flowPhaseDuration(run.phase) });
     raf.current=requestAnimationFrame(tick);
   }
   function start(job,now=performance.now()) {
@@ -55,22 +53,23 @@ export default function FlowPlayback({ item, enabled, resetKey }) {
     else start(item);
   },[item]);
   const job=view.job;
-  const busy=view.phase!=="idle";
   return <div className="flow-playback" data-phase={view.phase} data-transaction={job?.key ?? ""}>
     <div className="flow-playback-heading"><span className="flow-replay-badge">{t("flow_readable")}</span><span className="mono">{job ? `#${job.request.seq}–${job.outcome.seq} · FC03 0x${job.request.address.toString(16).padStart(4,"0")}` : t("flow_waiting")}</span></div>
     {["tx","rx"].map(direction => {
       const transmitting=direction==="tx",event=transmitting?job?.tx:job?.rx;
-      const moving=busy&&view.phase===direction;
-      const percent=moving?Math.min(100,view.progress*100):0;
+      const leg=flowLeg(view.phase,view.progress,direction);
+      const visible=Boolean(event)&&leg.visible;
+      const percent=leg.position*100;
       const coordinate=transmitting?percent:100-percent;
       const fault=!transmitting&&event&&event.result!=="valid";
-      return <div key={direction} className={`flow-rail ${direction}${fault?" fault":""}`} data-active={moving}>
+      return <div key={direction} className={`flow-rail ${direction}${fault?" fault":""}`} data-active={visible}>
         <div className="flow-rail-heading"><strong>{transmitting?"TX →":"← RX"}</strong><span>{t(transmitting?"flow_request":"flow_response")}</span><code>{event ? `${event.bytes.split(" ").length}${event.overflow?"+":""} B` : "—"}</code></div>
         <div className="flow-track" role="img" aria-label={t(transmitting?"flow_tx_path":"flow_rx_path")}>
-          <div className="flow-wake" data-running={moving} aria-hidden="true" inert>
+          <div className="flow-rest-bars" aria-hidden="true">{Array.from({length:44},(_,index)=><span key={index}/>)}</div>
+          <div className="flow-wake" data-running={visible} style={{opacity:visible?leg.opacity:0}} aria-hidden="true" inert>
             <WakeSlider key={`${job?.key}/${direction}`} value={percent} min={0} max={100} bars={44} height={40} restHeight={4} gap={4} glide={0.08} smoothing={60} sensitivity={2.3} reach={9} skew={0.5} fillColor={fault?"#ffd19c":transmitting?"#88caff":"#7ce5d2"} trackColor="#a1c8ff26" crestColor={fault?"#ffe6c4":transmitting?"#d4edff":"#c0fff0"} disabled />
           </div>
-          {moving && <span key={`${job.key}/${direction}`} className={`flow-train ${direction}`} data-event={event.seq} style={{left:`${coordinate}%`,transform:`translateX(-${coordinate}%)`}}>{transmitting?"TX →":"← RX"}<small>{event.bytes.split(" ").length} B</small></span>}
+          {visible && <span key={`${job.key}/${direction}`} className={`flow-train ${direction}`} data-event={event.seq} data-settling={view.phase===`${direction}-settle`} style={{opacity:leg.opacity,left:`${coordinate}%`,transform:`translateX(-${coordinate}%)`}}>{transmitting?"TX →":"← RX"}<small>{event.bytes.split(" ").length} B</small></span>}
         </div>
         <div className="flow-rail-endpoints"><span>{transmitting?"ESP32 · UART TX":"ESP32 · UART RX"}</span><span>{transmitting?"FORT · A/B":"FORT · A/B"}</span></div>
       </div>;

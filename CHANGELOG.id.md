@@ -2,9 +2,11 @@
 
 # Changelog
 
+## 2.3.1 / 28 Oktober 2026
 
+Replay TX dan RX sekarang memakai easing quintic agar kecepatan naik dan turun bertahap. Saat tiba, paket tetap di ujung sementara paket serta gelombang WakeSlider memudar bersama selama 360 ms. Jalur dasar tetap terlihat di belakangnya, sehingga gelombang aktif tidak lagi mendadak rata dalam satu frame. Satu pasangan request/respons diputar sekitar 3,2 detik, sedangkan timestamp UART yang tertangkap tetap memakai timing asli.
 
-
+Tes regresi memeriksa kontinuitas posisi saat tiba, perubahan opacity paket dan gelombang, TX/RX bergantian serta timeout tanpa respons buatan. Video representatif berakhir setelah replay kembali idle agar rekamannya tidak terpotong saat paket masih bergerak.
 
 ## 2.3.0 / 28 Oktober 2026
 

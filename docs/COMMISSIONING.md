@@ -2,11 +2,17 @@
 
 **English** · [Bahasa Indonesia](id/COMMISSIONING.md)
 
-The user reported a successful standalone ModbusMaster read with a manual transceiver and DIR16. Use that known connection as the baseline for firmware 2.3.3, then record integrated readings rather than treating a software test or screenshot as hardware acceptance.
+The user reported a successful standalone ModbusMaster read with a manual transceiver and DIR16. Use that known connection as the baseline for firmware 2.4.0, then record integrated readings rather than treating a software test or screenshot as hardware acceptance.
+
+## Checkpoint acceptance
+
+Before field acceptance, verify the RTC date and WIB time against the meter/operator reference. Keep the logger powered through a real scheduled checkpoint with the phone disconnected and router unavailable, then reconnect later and compare the saved cumulative reading, actual timestamp and CSV with the meter observation. Verify all ten configured schedule entries through the native clock-injection tests rather than changing an installed production clock to fabricate earlier records.
+
+After exporting a test day's records, perform a planned power-cycle test and verify that the saved row remains unchanged. An unavailable meter through the complete five-second admission window must yield Missed, not a value taken later. Confirm that a new-day archive and an older-day download remain readable, that both OLED capture pages show the record date, and that storage failure is visible without overwriting an unarchived earlier day. These physical checks complement the native CRC/fault tests and browser mock checks.
 
 ## Bench checks
 
-Before going to the meter, verify that the board boots without a Serial Monitor, exposes Midea Engineering AP at 192.168.4.1 and shows Firmware 2.3.3. Check the OLED's installed 180° orientation, all three debounced buttons, the optional buzzer and RGB settings across a restart. OLED absence must not prevent the AP from starting, and a failed filesystem must require the physical five-second OK confirmation before formatting.
+Before going to the meter, verify that the board boots without a Serial Monitor, exposes Midea Engineering AP at 192.168.4.1 and shows Firmware 2.4.0. Check the OLED's installed 180° orientation, all three debounced buttons, the optional buzzer and RGB settings across a restart. OLED absence must not prevent the AP from starting, and a failed filesystem must require the physical five-second OK confirmation before formatting.
 
 With A/B disconnected, run a bounded diagnostic and retain its output. Any RX in this condition is local circuitry activity, not a Fort response. A temporary UART-only loopback, with module TTL leads removed and GPIO17 joined to GPIO18, should produce an exact TX echo that the validator rejects as energy. Remove the jumper and restore the manual module before the meter test.
 

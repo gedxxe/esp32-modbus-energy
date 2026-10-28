@@ -174,8 +174,8 @@ export default function Application() {
         </div>
         <NavTabs view={view} onNavigate={navigate} />
         <Health device={device} />
-        <UartFlow />
         <div className="page-content" key={view}>{content}</div>
+        <UartFlow />
         {device.notice && (
           <div id="message" className="notice" role="status" aria-live="polite">
             {device.notice.key ? t(device.notice.key) : device.notice.text}

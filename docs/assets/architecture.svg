@@ -11,8 +11,8 @@
 <text x="860" y="204" fill="#087e82" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">CORE 1 / ACQUISITION · PRIORITY 2</text>
 <text x="860" y="260" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">ModbusMaster / direction / scan</text>
 <text x="860" y="303" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">RTC + CT/PT + kWh counter</text>
-<text x="860" y="346" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">9 scheduled intervals + quality</text>
-<text x="860" y="389" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">NVS checkpoint + CSV / LittleFS</text>
+<text x="860" y="346" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">10 raw kWh checkpoints / WIB</text>
+<text x="860" y="389" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">CRC records / NVS + LittleFS</text>
 <polyline points="565,250 835,250" fill="none" stroke="#6d5897" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="700" y="228" fill="#6d5897" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="middle">Command →</text>
 <text x="700" y="277" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="middle">queue: 6 values</text>

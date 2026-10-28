@@ -2,7 +2,11 @@
 
 **English** · [Bahasa Indonesia](id/WEB.md)
 
-Firmware 2.3.3 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Firmware 2.4.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+
+## Retrieve scheduled meter readings
+
+Overview begins with live energy and **Scheduled kWh checkpoints**. The five morning checkpoints are 06:00, 06:30, 07:00, 07:30 and 08:00 WIB, while the five evening checkpoints are 17:00, 17:30, 18:00, 18:30 and 19:00 WIB. A recorded cumulative value stays available when the technician arrives later, independently of router coverage or an open browser. Check the displayed date, choose the shift, then download the checkpoint CSV. Previous checkpoint days selects an older available record. Show differences is optional and does not replace the original readings. [CHECKPOINTS](CHECKPOINTS.md) covers timing, storage recovery, retention and exact field meanings.
 
 ## Reach the application
 
@@ -62,13 +66,14 @@ For any other supported command, type one line into **Command input** and choose
 | Nearby SSID scan and picker | `/api/network/scan` GET/POST | Core 0 asynchronous radio scan and bounded visible-network cache |
 | OLED idle animation settings | `/api/display` | Core 1 CRC-protected display preferences, core 0 playback/wake policy |
 | LED, alarm mute and RTC synchronization | `/api/led`, `/api/mute`, `/api/time` | Queued controls with execution results |
+| Scheduled cumulative readings and checkpoint CSV | `/api/checkpoints` | Copied current/recovery day or CRC-checked bounded archive |
 | Completed records and CSV | `/api/history`, `/api/export` | Bounded filesystem access with existing recovery rules |
 
 All these routes are registered by the production firmware. Ordinary controls use an execution ID rather than treating HTTP 202 as completion, and incompatible operations are checked again at the UART owner's transaction boundary. Wi-Fi changes are rejected during a scanner or maintenance session, while Stop/Resume has its own priority mailbox. The browser stops polling detailed logs, trace and process panels when they close, and malformed data cannot become accepted measurements.
 
 ## Verify the integrated installation
 
-After uploading 2.3.3, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
+After uploading 2.4.0, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
 
 The communication endpoint now sends at most eight events per page, with a backlog marker for catch-up. Browser polling targets 500 ms and retries failed requests after 1.2 seconds, retaining timestamped history and distinguishing timeout, invalid payload and endpoint failures. A failed HTTP event request does not establish whether a Modbus slave is present.
 

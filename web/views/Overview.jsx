@@ -1,3 +1,4 @@
+import CheckpointRecords from "../components/CheckpointRecords.jsx";
 import EnergyCounter from "../components/EnergyCounter.jsx";
 import DeviceClock from "../components/DeviceClock.jsx";
 import { useState } from "react";
@@ -178,6 +179,7 @@ export default function Overview({ device }) {
           </div>
         </div>
       </div>
+      <CheckpointRecords device={device} />
       <section className="panel register-summary" aria-labelledby="register-title">
         <div><h2 id="register-title">{t("register_title")}</h2><p>{t("register_intro")}</p></div>
         <dl className="register-values">
@@ -186,6 +188,7 @@ export default function Overview({ device }) {
           ))}
         </dl><p className="small muted">{t("register_note")}</p>
       </section>
+      <details id="legacy-intervals" className="legacy-intervals"><summary>{t("cp_legacy")}</summary>
       <section aria-labelledby="interval-title">
         <div className="section-heading">
           <div>
@@ -242,6 +245,7 @@ export default function Overview({ device }) {
           </div>
         </div>
       </section>
+      </details>
       <div className="status-strip">
         <span>
           {t("rtc")}

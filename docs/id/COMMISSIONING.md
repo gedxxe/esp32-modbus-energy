@@ -2,11 +2,17 @@
 
 [English](../COMMISSIONING.md) · **Bahasa Indonesia**
 
-Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.3.3, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
+Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.4.0, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
+
+## Penerimaan checkpoint
+
+Sebelum penerimaan di lapangan, cocokkan tanggal RTC serta WIB dengan acuan operator/meter. Biarkan logger menyala melewati checkpoint nyata dengan HP terputus dan router tidak tersedia, kemudian hubungkan belakangan untuk membandingkan angka kumulatif tersimpan, timestamp aktual serta CSV dengan observasi meter. Sepuluh jadwal diuji lewat injeksi jam pada tes native, tanpa memundurkan jam produksi untuk membuat rekaman lampau.
+
+Setelah mengekspor rekaman hari uji, lakukan power-cycle terencana dan periksa bahwa baris tersimpan tidak berubah. Meter yang tidak tersedia sepanjang jendela lima detik harus menghasilkan Terlewat, bukan angka yang diambil belakangan. Periksa arsip saat hari berganti, unduhan hari sebelumnya, tanggal pada kedua halaman capture OLED serta peringatan storage tanpa menimpa hari yang belum diarsipkan. Pemeriksaan fisik ini melengkapi tes CRC/fault native dan mock browser.
 
 ## Uji meja sebelum ke panel
 
-Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.3.3. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
+Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.4.0. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
 
 Saat A/B dilepas, jalankan diagnosis terbatas dan simpan output. RX pada kondisi itu berasal dari jalur lokal. Loopback UART sementara dapat dibuat setelah kabel TTL modul dilepas, dengan menghubungkan GPIO17 ke GPIO18. Hasilnya harus dikenali sebagai echo request dan ditolak sebagai energi. Lepas jumper serta pulihkan modul manual sebelum tes Fort.
 

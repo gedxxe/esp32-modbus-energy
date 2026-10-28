@@ -2,6 +2,12 @@
 
 # Changelog
 
+## 2.4.0 / 28 Oktober 2026
+
+Checkpoint kWh kumulatif menjadi rekaman utama, dengan jadwal setengah jam pada 06.00–08.00 serta 17.00–19.00 WIB. Logger menyimpan pembacaan sah pertama yang dimulai pada/setelah jadwal dan selesai dalam lima detik, beserta timestamp serta metadata sumbernya. Checkpoint terlewat tidak diisi belakangan atau diinterpolasi. Selisih antar-titik merupakan pilihan tambahan yang mempertahankan angka asli dan menolak konfigurasi berubah maupun kontinuitas terputus.
+
+Core 1 segera menyimpan record CRC eksplisit ke NVS serta LittleFS, memulihkan backup/file sementara yang valid dan melindungi hari sebelumnya sebelum berganti hari. Dashboard, halaman capture OLED, riwayat 31 hari serta CSV menampilkan nilai kumulatif tersimpan tanpa memerlukan jaringan saat capture. Sembilan interval lama, key NVS serta format CSV tetap tersedia sebagai analisis kompatibilitas terpisah. Transport Modbus dan validasi register tetap dipertahankan.
+
 ## 2.3.3 / 28 Oktober 2026
 
 Gelombang TX/RX saat bergerak sekarang naik sampai 36 px dengan puncak yang lebih lebar, sehingga jalur rapat 2 px membentuk pola seperti sound wave. Titik saat diam, kerapatan responsif, arah bergantian serta fade saat tiba tetap dipertahankan. Gelombang yang lebih besar tetap berada di dalam jalur tanpa menyentuh label paket maupun teks ujung, dan timeout tetap membiarkan jalur RX tidak aktif.

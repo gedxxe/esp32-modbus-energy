@@ -1,7 +1,7 @@
 {
-  "version": "2.3.3",
+  "version": "2.4.0",
   "transport": "gzip",
-  "compressed_total": 134707,
+  "compressed_total": 138037,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,16 +20,16 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 386200,
-      "gzip": 123791,
-      "sha256": "8c4bd673deea55dc454ed39e16ceb9c41c55bc123437dd9374b7d7a43429ba22"
+      "raw": 396335,
+      "gzip": 126773,
+      "sha256": "f8b823e3f4d9347f4747dba0d79665d36efe9966ee4bddf7d54dfd629116c36e"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 36296,
-      "gzip": 8850,
-      "sha256": "7ab66aa0df0698abf820787caf78b57c4101d57a1b86104a43a36b1d5535679a"
+      "raw": 37944,
+      "gzip": 9198,
+      "sha256": "d41b3937c346d21f271c9c37e98b8d2acac78dbcb97df9e9861dc0dc087f3350"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
@@ -40,11 +40,12 @@
     }
   },
   "inputs": {
-    "package-lock.json": "e5429044a9a4e34f2249db17f98ffbd72c4af00c31e45f586dbadf204556247d",
-    "package.json": "98c5c4d91013ef8928475a8bd2e54513b1cf860df7097f86b36086b6ca249455",
+    "package-lock.json": "42430f51b6ebfea29a6919f3815a854303ce0235006aed619830a36fbceac6bd",
+    "package.json": "60f4e713c9009661a3b966582ff1e34ee794b867e48dc9005abb7952a429ec94",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
-    "web/Application.jsx": "5cc47b36cb39916f24b2e3aa3c4cde8613d4a7da3693655c2718733fe6f4effd",
+    "web/Application.jsx": "da56c4d77134718a2d92f95576b75b15d7f234670846972bf5c90d71a53e53ff",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
+    "web/components/CheckpointRecords.jsx": "182e6ba04723c109122c5f782bfc74e8d321e053375ae8a9c48b99a06270596b",
     "web/components/DeviceClock.jsx": "0db4a1efc73b0fb017f804491c95d4031dbe76122f7e229b4eec7ca976b20cdf",
     "web/components/DiagnosticConsole.jsx": "1a2061757b4c94296a15390de8c852052158d7a309028c758cdcbeedae57e4da",
     "web/components/DisplayControls.jsx": "b05ed78136bf41b23b00dbe3060fed334fc1c9c03811e63db9baa6eb9752db0f",
@@ -60,12 +61,12 @@
     "web/components/WifiPicker.jsx": "6225e4c036bf7960fbbd15aaa8052c7cc2704710968f657892beed3e117d01db",
     "web/device.js": "224957e35d20809841fac1e6436def2a98224f9fc0f7edec906e61350fc28908",
     "web/flow-playback.js": "0596465b6653e8ef3cd19b4d8d9f2a76c010bc4f0268a3679d13320e8f3006c0",
-    "web/i18n.js": "63ef9aefab8410c8b4087eb990a7b714c8e1b47b7093918b8df5d7e157cd3342",
+    "web/i18n.js": "35395b7d7b4bc193cfce65fa2edcd1e6e6fba23a0a779212ec60c8622ad6b4a1",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
-    "web/styles.css": "094848eb5a1f12a9a0aa6e95a43d5f9d19358c0abd82debeda295486adb06406",
+    "web/styles.css": "5aaa0eef8d8738d58642458374b542dff55cd4d70fb365f72d1edb74c6b0b8e6",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
-    "web/validation.js": "2e6916f1741f3f5b335210370801ec9156476951687319b63ff63c701395a875",
+    "web/validation.js": "12aad0a076dcfba8ecddfe9906cb518b7c44972f6674e6ff0758b4c1bd7b9d31",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/Counter.css": "9f224c728e16bb2b4137cd0e5a3ff370043bc9c838450fa8aaed89e190a8a6f8",
     "web/vendor/react-bits/Counter.jsx": "25e98c26331ef7b6b4326c48b7540feb1a2208b09160c7f2b96e4fbf146522f8",
@@ -81,7 +82,7 @@
     "web/vendor/react-bits/upstream.json": "365e1a35fb29bbd42aa7fa5d39461bac789d67c533c274e3d52d5eb1596d517c",
     "web/views/DeviceRecords.jsx": "8d31da1835548c9b8e249d1cf6216922dc30ea0416539beb5c18484a23ad4bf2",
     "web/views/MeterSetup.jsx": "44cfd49084f7ab73bed6331592630595175388aa5944b25025dff0104dc31060",
-    "web/views/Overview.jsx": "7c3096e4182f2d13ff43decfe00c2cd2764c2e15f77fa6bfb004c37d263be6bc"
+    "web/views/Overview.jsx": "9e278e2847c63adf61ee0c2cb5cf04889ac6c110ca335eec5384c59a1b07b175"
   },
-  "header_sha256": "23f1ebece755f54b1c5949f2df33a578b5aacf57c8b3cbdc08ff910475b5de49"
+  "header_sha256": "a09f963edf882be694e83d7b57a7e6d8c46a5b60768a871560ebafde31afc806"
 }

@@ -164,7 +164,7 @@ s.save('button-contacts.svg')
 
 s=SVG(1400,650,'Tasks, queues and peripheral ownership')
 s.heading('Task ownership and data flow','Commands and snapshots are copied through queues. I2C and filesystem operations use mutexes.')
-for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi modes / connection recovery']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['ModbusMaster / direction / scan','RTC + CT/PT + kWh counter','9 scheduled intervals + quality','NVS checkpoint + CSV / LittleFS'])]:
+for x,title,lines in [(55,'CORE 0 / UI · PRIORITY 1',['HTTP + browser API','Buttons / 35 ms debounce','OLED ≥300 ms / RGB RMT ≥20 ms','Wi-Fi modes / connection recovery']),(835,'CORE 1 / ACQUISITION · PRIORITY 2',['ModbusMaster / direction / scan','RTC + CT/PT + kWh counter','10 raw kWh checkpoints / WIB','CRC records / NVS + LittleFS'])]:
     s.rect(x,160,510,300);s.text(x+25,204,title,22,BLUE,700)
     for i,line in enumerate(lines):s.text(x+25,260+i*43,line,20)
 s.wire([(565,250),(835,250)],PURPLE,4);s.text(700,228,'Command →',18,PURPLE,anchor='middle');s.text(700,277,'queue: 6 values',15,MUTED,anchor='middle')
@@ -175,7 +175,7 @@ s.save('architecture.svg')
 
 s=SVG(1400,650,'OLED screen and button reference')
 s.heading('OLED 128 × 64 · five pages + boot','Representative firmware screens, not hardware photographs. All sample values are simulated.')
-screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING INTERVAL','06:00 - 06:30','21.320','complete_estimated']),('EVENING',['EVENING INTERVAL','16:30 - 17:00','--.---','waiting']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering AP','192.168.4.1','OK: network options']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
+screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING CAPTURES','2026-10-28 07:00','128400.000','07:00:01 saved']),('EVENING',['EVENING CAPTURES','2026-10-28 18:00','128480.000','18:00:01 saved']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering AP','192.168.4.1','OK: network options']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
 for i,(title,lines) in enumerate(screens):
     x=45+i%3*450;y=145+i//3*230;s.rect(x,y,410,205);s.text(x+20,y+30,title,14,BLUE,700);s.rect(x+20,y+45,370,140,'#030b13',LINE,7)
     for j,line in enumerate(lines):s.text(x+35,y+70+j*23,line,16,color='#e2f4f0',mono=True)
@@ -294,5 +294,16 @@ for y in range(64):
    s.parts.append(f'<rect x="{x*6}" y="{58+y*6}" width="6" height="6" fill="#e9f4ff"/>')
 s.text(32,464,'Representative logical pixels · followed by the existing loading screen',14,MUTED)
 s.save('oled-boot.svg')
+
+# Primary cumulative-reading schedule. Values are representative, not a hardware test.
+s=SVG(1400,650,'Daily cumulative kWh checkpoints','Configured WIB checkpoint schedule. Cumulative values are saved locally by the ESP32. Representative layout, not hardware evidence.')
+s.heading('Daily kWh checkpoints · WIB','Store the cumulative meter reading at each point, then collect it later through local Wi-Fi.')
+for y,title,times in [(170,'MORNING',['06:00','06:30','07:00','07:30','08:00']),(365,'EVENING',['17:00','17:30','18:00','18:30','19:00'])]:
+    s.text(60,y,title,19,BLUE,700)
+    s.wire([(95,y+66),(1305,y+66)],LINE,3)
+    for i,label in enumerate(times):
+        x=95+i*302.5;s.dot(x,y+66,BLUE,7);s.text(x,y+35,label,24,TEXT,600,anchor='middle');s.text(x,y+111,'saved kWh',17,MUTED,anchor='middle')
+s.rect(45,555,1310,62);s.text(70,594,'DS3231 clock  →  validated FC03 read  →  NVS + LittleFS  →  phone / OLED / checkpoint CSV',19,BLUE,600)
+s.save('checkpoint-schedule.svg')
 
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

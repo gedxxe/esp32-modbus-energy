@@ -3,6 +3,7 @@
 #include "oled_menu.h"
 #include "network.h"
 #include "energy.h"
+#include "checkpoint_log.h"
 #include "debounce.h"
 #include "recovery.h"
 #include "scan.h"
@@ -97,7 +98,40 @@ void testNetwork(){
   std::cout<<"PASS: Wi-Fi settings/CRC/key validation, AP/client/dual retry/grace/loss/rollover and LAN overlap policy\n";
   assert(commandModeAllowed(SET_NETWORK,false,false,false));assert(!commandModeAllowed(SET_NETWORK,true,false,false));assert(!commandModeAllowed(SET_NETWORK,false,true,false));
 }
+
+void testMeterCheckpoints(){
+  CaptureDay older,newer;older.number=DAY;newer.number=DAY+1;assert(newerCaptureDay(newer,older));
+  newer.number=DAY;newer.revision=1;assert(newerCaptureDay(newer,older));
+  assert(canRetainCaptureBeforeRollover(DAY,0,false,true));
+  assert(!canRetainCaptureBeforeRollover(DAY,DAY-1,false,true));
+  assert(!canRetainCaptureBeforeRollover(DAY,0,false,false));
+  assert(canRetainCaptureBeforeRollover(DAY,DAY-1,true,false));
+  CaptureTracker log;log.newDay(DAY);CaptureSource source;source.slave=1;source.baud=9600;source.parity='N';source.direction=0;source.ptNum=1;source.ptDen=1;source.ct=80;
+  CaptureTracker quantized;quantized.newDay(DAY);uint32_t boundary=captureTarget(DAY,0);
+  assert(!quantized.sample(boundary-1,boundary,1000000,source));uint32_t generation=quantized.day.generation;
+  assert(quantized.sample(boundary,boundary,1000000,source));assert(quantized.day.generation==generation);
+  uint32_t target=captureTarget(DAY,0);assert(CAPTURE_MINUTES[0]==360&&CAPTURE_MINUTES[4]==480&&CAPTURE_MINUTES[5]==1020&&CAPTURE_MINUTES[9]==1140);
+  assert(!log.due(target-1)&&log.urgent(target-2)&&log.due(target));
+  assert(!log.sample(target-1,target,1000000,source)); // Never label a pre-target read as a checkpoint.
+  assert(log.sample(target,target+1,1000000,source));near(log.day.points[0].energy,80000);assert(!log.sample(target+1,target+2,1000001,source));near(log.day.points[0].energy,80000);
+  for(uint32_t at=target+3;at<captureTarget(DAY,1);at+=2)log.sample(at,at,1000001,source);
+  target=captureTarget(DAY,1);assert(log.sample(target+3,target+5,1000100,source));double difference=0;assert(captureDifference(log.day,0,difference));near(difference,8);
+  target=captureTarget(DAY,2);assert(!log.sample(target+5,target+6,1000200,source));assert(log.tick(target+6)&&log.day.points[2].status==CAPTURE_MISSED);assert(!log.sample(target,target+1,1000200,source));
+  log.interrupt();target=captureTarget(DAY,3);assert(log.sample(target,target,1000300,source));assert(!captureDifference(log.day,2,difference));
+  uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(log.day,bytes);CaptureDay restored;assert(decodeCaptureDay(bytes,sizeof(bytes),restored));near(restored.points[0].energy,80000);
+  for(size_t i=0;i<sizeof(bytes);++i){bytes[i]^=1;assert(!decodeCaptureDay(bytes,sizeof(bytes),restored));bytes[i]^=1;}
+  assert(!decodeCaptureDay(bytes,sizeof(bytes)-1,restored));
+  CaptureTracker reboot;reboot.restore(log.day);assert(reboot.day.points[0].status==CAPTURE_RECORDED&&reboot.day.points[2].status==CAPTURE_MISSED);
+  target=captureTarget(DAY,4);assert(reboot.sample(target,target+1,1000400,source));assert(!captureDifference(reboot.day,3,difference));assert(!captureDifference(reboot.day,4,difference));
+  CaptureTracker clean;clean.newDay(DAY);for(uint32_t at=captureTarget(DAY,0);at<=captureTarget(DAY,9)+1;++at)clean.sample(at,at,1000000+(at-captureTarget(DAY,0))/18,source);
+  for(unsigned i=0;i<CAPTURE_COUNT-1;++i){bool valid=captureDifference(clean.day,i,difference);assert(valid==(i!=4));if(valid)near(difference,8);}
+  source.ct=0;assert(!log.sample(captureTarget(DAY,5),captureTarget(DAY,5),1000000,source));
+  clean.newDay(DAY+1);assert(clean.tick(captureTarget(DAY+1,9)+6));for(auto &point:clean.day.points)assert(point.status==CAPTURE_MISSED);
+  std::cout<<"PASS: ten raw kWh checkpoints, exact schedule, request-time guard, capture deadline, immutable rows, source/continuity deltas, reboot and CRC codec\n";
+}
+
 int main(){
+  testMeterCheckpoints();
   testScreenSaver();
   testNetwork();
   testBoundedHTTP();

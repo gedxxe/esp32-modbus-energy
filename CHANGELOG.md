@@ -2,6 +2,12 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.4.0 / 28 October 2026
+
+Scheduled cumulative kWh checkpoints become the primary record: 06:00–08:00 and 17:00–19:00 WIB at half-hour boundaries. The logger saves the first accepted read requested at or after each target and completed within five seconds, retaining its actual timestamps and source metadata. Missed points are never backfilled or interpolated. Optional adjacent-point differences preserve the original readings and reject changed settings or interrupted continuity.
+
+Core 1 persists an explicit CRC record immediately to NVS and LittleFS, recovers valid backups/temporary records and protects an unarchived previous day before rollover. The dashboard, OLED capture pages, 31-day history and CSV expose the stored cumulative values independently of network availability at capture time. The earlier nine interval windows, NVS key and CSV format remain available as a separate compatibility analysis. Existing Modbus transport and register acceptance are retained.
+
 ## 2.3.3 / 28 October 2026
 
 The moving TX/RX wake now rises up to 36 px with a broader crest, giving the dense 2 px tracks a sound-wave shape during travel. Resting dots, responsive point density, alternating directions and the existing arrival fade remain intact. The larger envelope fits inside the track without touching packet labels or endpoint text, and a timeout still leaves the RX lane inactive.

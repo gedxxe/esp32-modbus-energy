@@ -38,7 +38,7 @@ Saving uses the same eight-second transition as other network settings. Rejoin t
 
 ## Other controls
 
-Outside network options, PREV/NEXT still changes the five main pages. Short OK changes the interval row on the morning/evening page. Holding OK outside the Network page toggles alarm mute, while Network OK opens its options. The special five-second filesystem-format confirmation is still available only after a mount failure at boot and continues to erase archives only through that physical procedure.
+Outside network options, PREV/NEXT still changes the five main pages. Short OK browses the five saved cumulative checkpoints on the morning/evening page, showing the record date and actual read time. Holding OK outside the Network page toggles alarm mute, while Network OK opens its options. The special five-second filesystem-format confirmation is still available only after a mount failure at boot and continues to erase archives only through that physical procedure.
 
 The password editor does not print a client key into diagnostic output, export files or HTTP status. [WEB](WEB.md) covers the equivalent browser controls and [VALIDATION](VALIDATION.md) separates host menu tests from physical button, OLED, radio and DHCP acceptance.
 

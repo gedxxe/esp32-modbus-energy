@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.3.3**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.4.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
 ## Compilation
 
@@ -10,7 +10,7 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 83,088 | 1,398,057 |
+| Main `esp32s3` environment | 85,144 | 1,420,553 |
 | Standalone FortSerialDebug | 30,284 | 336,577 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
@@ -39,7 +39,7 @@ The added browser cases cover AP/client/combined mode submission and reload, pas
 
 Malformed status, archive, process, trace and UART-event payloads retain the last usable data with a stale/unavailable state. Diagnostics, process metrics and raw trace polling stop when their panel closes. UART animation requires new events, honors reduced motion and does not turn idle time or pre-reboot history into live packets. Its readable replay uses presentation timing, while the unscaled device timestamps remain available.
 
-Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **24 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
+Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **25 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
 
 ## Asset and source provenance
 
@@ -48,13 +48,13 @@ The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **1
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,030 | 527 |
-| `/assets/app.js` | 386,200 | 123,791 |
-| `/assets/app.css` | 36,296 | 8,850 |
+| `/assets/app.js` | 396,335 | 126,773 |
+| `/assets/app.css` | 37,944 | 9,198 |
 | `/assets/third-party.txt` | 10,218 | 1,539 |
 
-The combined payload is **134,707 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **138,037 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-The documentation checker validates 29 Markdown guides and 215 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
+The documentation checker validates 31 Markdown guides and 234 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
 ## Packaging and remaining hardware work
 
@@ -115,3 +115,11 @@ The supplied Counter JavaScript and CSS match the unchanged vendored source. Mai
 Both firmware builds, all three native suites and the generated-byte browser suite passed. Main static RAM remains 83,088 bytes and program space remains 1,398,057 bytes. The standalone image remains at 30,284 bytes of static RAM and 336,577 bytes of program space. The generated web payload is still 134,707 bytes gzip.
 
 The waveform keeps its fixed 2 px width and 64–256 responsive points, with a 36 px moving envelope and broader crest. Browser frame sampling requires a peak of at least 24 px, bounded by 36 px, in both TX and RX replay. The existing eased arrival, gradual fade, timeout without RX, reduced-motion and 320–2560 px layout checks passed. Desktop and phone previews were visually inspected for clearance from the packet badge and endpoint text. The refreshed simulated replay records 90 changing browser frames over 3.6 seconds. UART capture, communication settings, meter acceptance and energy calculations are unchanged, and these browser checks do not establish physical communication timing.
+
+## Primary cumulative checkpoints in 2.4.0
+
+The main and standalone builds passed at 85,144 / 1,420,553 bytes and 30,284 / 336,577 bytes of static RAM/program space respectively. All three native suites passed with the new capture engine linked into the actual firmware logic tests. Coverage includes all ten revised schedule times, pre-target rejection, the five-second deadline, immutable recorded/missed rows, whole-second RTC quantization, uninterrupted adjacent differences, reboot generations, CRC byte corruption/truncation and refusal to overwrite an unarchived prior day. Existing legacy interval, transport and diagnostic tests remain passing.
+
+The complete generated-byte browser suite passed in Microsoft Edge, including cumulative rows, actual read times, missing checkpoints, morning/evening selection, optional differences, historical-day fetch/download, malformed live payload retention and rejection of an invalid archive without showing today's data under its date. Existing diagnostics, network, counters, process/flow, languages and reduced-motion cases passed at 320–2560 px. The 138,037-byte gzip payload is below the 163,840-byte limit, and all 25 SVGs passed rendering/text bounds.
+
+Persistence and scheduling compile through the real Preferences/LittleFS, RTC and Modbus adapters. Native tests execute the pure codec/admission/retention policy and the existing archive fault helper, while browser APIs are simulated. Physical capture latency, flash power-cut recovery, storage exhaustion, NVS failure, radio loss during a checkpoint and agreement with the installed Fort still require the documented commissioning checks. No physical acceptance result is claimed.

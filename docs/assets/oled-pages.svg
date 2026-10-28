@@ -18,17 +18,17 @@
 <rect x="945" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="965" y="175" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">MORNING</text>
 <rect x="965" y="190" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>
-<text x="980" y="215" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">MORNING INTERVAL</text>
-<text x="980" y="238" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">06:00 - 06:30</text>
-<text x="980" y="261" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">21.320</text>
-<text x="980" y="284" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">complete_estimated</text>
+<text x="980" y="215" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">MORNING CAPTURES</text>
+<text x="980" y="238" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">2026-10-28 07:00</text>
+<text x="980" y="261" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">128400.000</text>
+<text x="980" y="284" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">07:00:01 saved</text>
 <rect x="45" y="375" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="65" y="405" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">EVENING</text>
 <rect x="65" y="420" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>
-<text x="80" y="445" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">EVENING INTERVAL</text>
-<text x="80" y="468" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">16:30 - 17:00</text>
-<text x="80" y="491" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">--.---</text>
-<text x="80" y="514" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">waiting</text>
+<text x="80" y="445" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">EVENING CAPTURES</text>
+<text x="80" y="468" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">2026-10-28 18:00</text>
+<text x="80" y="491" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">128480.000</text>
+<text x="80" y="514" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">18:00:01 saved</text>
 <rect x="495" y="375" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="515" y="405" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">NETWORK</text>
 <rect x="515" y="420" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>

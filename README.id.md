@@ -2,11 +2,13 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 2.3.3](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 2.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
-Proyek ini membaca power meter Fort melalui ESP32-S3 N16R8 dan menyediakan dashboard pada access point lokal. HP dapat menampilkan counter energi, memeriksa konsumsi setengah jam, mengunduh arsip dan menjalankan diagnostik tanpa internet, sementara OLED menyediakan pembacaan serta alamat IP langsung pada perangkat.
+Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
 
-Firmware 2.3.3 mengganti parser berbasis jeda respons dengan transport ModbusMaster bersama. Acuannya adalah sketch yang dilaporkan berhasil oleh pengguna: UART1 pada TX17/RX18, kontrol DE-/RE manual pada GPIO16, settling 100 µs di sekitar transmisi, serta request contoh manual pada `0x0058`. Keberhasilan sketch acuan tidak dianggap otomatis membuktikan rilis terintegrasi. Hasil software dan penerimaan hardware dipisahkan pada [VALIDATION](docs/id/VALIDATION.md).
+Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.30, 18.00, 18.30, 19.00 WIB**. Angka yang tercatat di sekitar 07.00 tetap menjadi rekaman 07.00 saat petugas terhubung pukul 09.20. Waktu request serta respons aktual ikut disimpan, sedangkan checkpoint yang gagal tetap ditandai terlewat dan tidak diisi dengan angka belakangan. [Panduan checkpoint dan penyimpanan](docs/id/CHECKPOINTS.md) menjelaskan timing, pengambilan data, kolom CSV serta pemulihan.
+
+![Jadwal checkpoint harian](docs/assets/checkpoint-schedule.svg)
 
 ## Dashboard
 
@@ -56,7 +58,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.16 |
 | Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 2.3.3 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 2.4.0 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -65,7 +67,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.3.3, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.4.0, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 
@@ -93,7 +95,7 @@ Mulai dari format tersimpan dan ID yang diketahui atau rentang kecil. Probe awal
 | --- | --- |
 | PREV / GPIO4 | Halaman OLED sebelumnya |
 | NEXT / GPIO5 | Halaman berikutnya |
-| OK / GPIO6, singkat | Ganti baris interval atau buka opsi Network |
+| OK / GPIO6, singkat | Lihat checkpoint tersimpan berikutnya atau buka opsi Network |
 | OK ditahan 900 ms | Toggle mute alarm |
 | OK ditahan saat boot ketika filesystem gagal | Konfirmasi format arsip lima detik |
 
@@ -105,16 +107,15 @@ Counter sekunder `0x0082–0x0083` dibaca sebagai integer unsigned high-word-fir
 
 Float primer `0x008A–0x008B` merupakan tampilan diagnostik terpisah. Perintah `primary` mencetak dua kandidat urutan word untuk dibandingkan dengan halaman Fort yang sesuai, tanpa memilih angka yang terlihat masuk akal secara otomatis. Ketidakselarasan kolom panjang energi pada scan manual tetap dicatat di [DESIGN](docs/id/DESIGN.md).
 
-| Interval pagi, WIB | Interval petang, WIB |
+| Checkpoint pagi, WIB | Checkpoint sore, WIB |
 | --- | --- |
-| 06:00–06:30 | 16:30–17:00 |
-| 06:30–07:00 | 17:00–17:30 |
-| 07:00–07:30 | 17:30–18:00 |
-| 07:30–08:00 | |
-| 08:00–08:30 | |
-| 08:30–09:00 | |
+| 06.00 | 17.00 |
+| 06.30 | 17.30 |
+| 07.00 | 18.00 |
+| 07.30 | 18.30 |
+| 08.00 | 19.00 |
 
-DS3231 menyimpan UTC, sedangkan tampilan, batas hari dan pembagian interval menggunakan WIB. Interpolasi batas hanya memakai sampel sah dengan gap maksimal 15 detik. Reboot, RTC hilang, counter turun, perubahan CT/PT, diagnostik dan gap lebih panjang memutus kontinuitas, sehingga interval tidak lengkap tidak dilaporkan sebagai setengah jam penuh. Interval yang sudah lengkap tetap dipertahankan.
+Tabel menyimpan angka kumulatif meter. Selisih opsional dihitung dari dua checkpoint berurutan dalam shift yang sama dengan pemeriksaan konfigurasi serta kontinuitas. Nilai checkpoint mentah tidak diinterpolasi. Enam interval pagi dan tiga interval sore versi sebelumnya tetap tersedia melalui **Jadwal interval sebelumnya dan analisis**, dengan API ekspor serta arsip lama dipertahankan. [CHECKPOINTS](docs/id/CHECKPOINTS.md) menjelaskan perbedaan serta aturan capture/persistensinya.
 
 ## 5. RTOS dan scheduling
 

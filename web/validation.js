@@ -88,3 +88,20 @@ export function validAPIP(text) {
 export function validWifiScan(value) {
   return object(value)&&["idle","scanning","ready","failed"].includes(value.phase)&&uint(value.generation)&&uint(value.ageMs)&&(!value.error||["radio_start","radio_enable","radio_failed","radio_timeout"].includes(value.error))&&(value.attempts===undefined||uint(value.attempts,3))&&(value.driverCode===undefined||Number.isInteger(value.driverCode))&&Array.isArray(value.networks)&&value.networks.length<=16&&value.networks.every((row)=>object(row)&&typeof row.ssid==="string"&&row.ssid.length>0&&row.ssid.length<=32&&Number.isInteger(row.rssi)&&typeof row.open==="boolean"&&typeof row.supported==="boolean"&&uint(row.channel,14));
 }
+
+export const CHECKPOINT_MINUTES=[360,390,420,450,480,1020,1050,1080,1110,1140];
+export function validCheckpoints(value){
+  if(!object(value)||!uint(value.day)||typeof value.date!=="string"||!uint(value.revision)||value.windowSeconds!==5||
+     typeof value.durable!=="boolean"||typeof value.archived!=="boolean"||typeof value.backlog!=="boolean"||
+     !Array.isArray(value.rows)||value.rows.length!==CHECKPOINT_MINUTES.length)return false;
+  if(value.day===0?value.date!=="":(value.day<Math.floor(1704067200/86400)||value.day>Math.floor(4102444799/86400)||value.date!==new Date(value.day*86400000).toISOString().slice(0,10)))return false;
+  return value.rows.every((row,i)=>{
+    if(!object(row)||row.minute!==CHECKPOINT_MINUTES[i]||!["waiting","recorded","missed"].includes(row.status))return false;
+    if(row.status!=="recorded")return row.kwh===null&&row.startedUTC===null&&row.capturedUTC===null&&row.delaySeconds===null&&row.difference===null;
+    const target=value.day*86400+row.minute*60-25200;
+    return Number.isFinite(row.kwh)&&row.kwh>=0&&uint(row.startedUTC)&&uint(row.capturedUTC)&&row.startedUTC>=target&&
+      row.capturedUTC>=row.startedUTC&&row.capturedUTC-row.startedUTC<=2&&row.capturedUTC-target===row.delaySeconds&&uint(row.delaySeconds,5)&&
+      uint(row.raw)&&uint(row.slave,247)&&row.slave>0&&[row.ptNum,row.ptDen,row.ct].every(v=>uint(v,9999)&&v>0)&&
+      (row.difference===null||(i!==0&&i!==5&&Number.isFinite(row.difference)&&row.difference>=0));
+  });
+}

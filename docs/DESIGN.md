@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/DESIGN.md)
 
-Version 2.3.3 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
+Version 2.4.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
 
 ## Fort register reference
 
@@ -121,3 +121,8 @@ The browser scheduler serializes all API fetches through full response-body rece
 FrameAssembler consumes validated event metadata rather than parsing Modbus bytes. It rejects discontinuous sequences, mismatched link/pin context and outcomes without an observed TX-complete event. FlowPlayback owns a constant-size visual queue with one active transaction and the newest pending transaction. Its RAF accumulator caps a single browser frame step at 48 ms, preventing a delayed render from teleporting across the track. Rendering uses the supplied WakeSlider as an inert visual and keeps its smooth presentation timing separate from the device microsecond timestamps. No animation state is sent to acquisition or persistence.
 
 DeviceClock retains its existing UTC/sample-age anchor and memoizes the supplied Counter per clock unit, so unchanged units do not rebuild their numeral strips on each status sample. Native timer accessibility exposes the complete HH:mm:ss value. NavTabs measures button offsets through ResizeObserver and moves one shared selection surface, while the supplied StarBorder provides its border effect. Reduced motion disables replay and decorative canvas, and hidden/failed/restarted event streams discard visual state.
+
+
+## Primary checkpoint pipeline
+
+The ten-point raw recorder is separate from the retained legacy Tracker. Its pure admission, continuity and explicit serialization live in [checkpoint_log.h](../firmware/include/checkpoint_log.h), while main.cpp owns the RTC bracket, urgent UART scheduling, NVS/LittleFS commits and queue projections. The web never creates a capture. [CHECKPOINTS](CHECKPOINTS.md) documents the 426-byte format, first-success window, rollover protection and derived differences.

@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.3.3**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.4.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
 ## Kompilasi
 
@@ -10,7 +10,7 @@ Kedua build lulus dengan espressif32 **6.10.0** dan Arduino ESP32 **2.0.17** unt
 
 | Build | RAM statis | Program |
 | --- | ---: | ---: |
-| Firmware utama `esp32s3` | 83.088 byte | 1.398.057 byte |
+| Firmware utama `esp32s3` | 85.144 byte | 1.420.553 byte |
 | FortSerialDebug dengan library FortMeter | 30.284 byte | 336.577 byte |
 
 RAM statis bukan total alokasi runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi sebesar 12 KiB, sedangkan sisa stack, heap dan alokasi driver perlu diperiksa pada perangkat melalui process monitor. INO mandiri kini memakai library FortMeter yang disertakan bersama source ModbusMaster. Build diuji melalui PlatformIO, sementara GUI Arduino IDE serta versi core lain belum dijalankan.
@@ -37,13 +37,13 @@ Tes browser tambahan mencakup simpan/reload mode AP/client/gabungan, pemakaian u
 
 Payload status, arsip, proses, trace dan event UART yang rusak tidak menjatuhkan UI. Data terakhir ditandai stale/unavailable, polling panel detail berhenti ketika ditutup, dan animasi UART hanya bergerak untuk event baru dengan dukungan reduced motion. Replay timestamp memiliki keterlambatan jaringan dan bukan hasil pengukuran propagasi A/B.
 
-Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **24 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
+Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **25 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
 
 ## Provenance dan paket
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard, WakeSlider, Counter dan StarBorder serta Motion **14.7.1** menghasilkan total **134.707 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard, WakeSlider, Counter dan StarBorder serta Motion **14.7.1** menghasilkan total **138.037 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
 
-Checker dokumentasi memeriksa 29 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
+Checker dokumentasi memeriksa 31 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
 
 Packager membandingkan app dengan build terbaru, memeriksa komponen/offset factory, CRC ZIP dan SHA256 setiap file pada manifest. Source, panduan, tools, notice, manual Fort serta ZIP library Arduino ikut disertakan, tanpa cache build atau dependency terpasang. Offset mengikuti [FLASHING](FLASHING.md). CI remote harus diperiksa terhadap commit yang benar karena hasil lokal tidak otomatis menjadi bukti CI lulus.
 
@@ -106,3 +106,11 @@ JavaScript dan CSS Counter yang diberikan cocok dengan source vendored yang teta
 Kedua build firmware, ketiga suite native serta suite browser pada byte generated lulus. RAM statis utama tetap 83.088 byte dan program tetap 1.398.057 byte. Image mandiri tetap memakai RAM statis 30.284 byte serta program 336.577 byte. Payload web generated tetap berukuran 134.707 byte gzip.
 
 Gelombang mempertahankan lebar tetap 2 px serta 64–256 titik responsif, dengan tinggi gerak sampai 36 px dan puncak yang lebih lebar. Sampel frame browser mensyaratkan puncak setidaknya 24 px dengan batas 36 px pada replay TX maupun RX. Pemeriksaan easing saat tiba, fade bertahap, timeout tanpa RX, reduced motion serta layout 320–2560 px tetap lulus. Pratinjau desktop dan HP diperiksa secara visual untuk memastikan gelombang tidak mengenai label paket maupun teks ujung. Rekaman simulasi terbaru memuat 90 frame browser yang berubah selama 3,6 detik. Capture UART, pengaturan komunikasi, validasi meter serta perhitungan energi tetap sama, dan pemeriksaan browser ini tidak membuktikan timing komunikasi fisik.
+
+## Checkpoint kumulatif utama pada 2.4.0
+
+Build utama serta mandiri lulus dengan RAM statis/program masing-masing 85.144 / 1.420.553 byte dan 30.284 / 336.577 byte. Ketiga suite native lulus dengan mesin capture baru ditautkan pada tes logika firmware aktual. Cakupannya meliputi sepuluh jadwal baru, penolakan pembacaan sebelum target, deadline lima detik, baris tercatat/terlewat yang tidak ditimpa, kuantisasi detik RTC, selisih berurutan, generasi setelah reboot, kerusakan/truncation CRC serta penolakan menimpa hari lama yang belum diarsipkan. Tes interval lama, transport dan diagnostik tetap lulus.
+
+Suite browser lengkap pada byte generated lulus di Microsoft Edge untuk angka kumulatif, waktu aktual, checkpoint terlewat, pilihan pagi/sore, selisih opsional, pemuatan/unduhan hari lama, pelestarian data saat payload live rusak serta penolakan arsip invalid tanpa menampilkan data hari ini di bawah tanggal lain. Regresi diagnostik, jaringan, counter, process/flow, bahasa serta reduced motion lulus pada 320–2560 px. Payload gzip 138.037 byte berada di bawah batas 163.840 byte, dan 25 SVG lolos render serta batas teks.
+
+Persistensi serta scheduling dikompilasi melalui adapter Preferences/LittleFS, RTC dan Modbus aktual. Tes native menjalankan codec, penerimaan, kebijakan retensi serta helper fault arsip, sedangkan API browser merupakan simulasi. Latensi capture fisik, pemulihan flash saat putus daya, storage penuh, kegagalan NVS, kehilangan radio ketika checkpoint serta kesesuaian dengan Fort terpasang tetap memerlukan commissioning yang didokumentasikan. Tidak ada klaim penerimaan fisik dari hasil software ini.

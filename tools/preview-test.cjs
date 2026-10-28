@@ -73,7 +73,7 @@ let online = true,
   malformedTrace = false,
   malformedHistory = false,
   malformedSystem = false,
-  malformedNetwork = false, malformedDiagnostic = false, malformedDisplay=false,
+  malformedNetwork = false, malformedDiagnostic = false, malformedDisplay=false, malformedCheckpoints=false, malformedCaptureArchive=false,
   diagnosticHold = false,
   delayedControls = 0,
   rejectNextControl = false;
@@ -139,6 +139,19 @@ const state = {
   })),
   scan: { phase: "idle", tested: 0, total: 0 },
 };
+const captureMinutes=[360,390,420,450,480,1020,1050,1080,1110,1140];
+function checkpointFixture(day,complete=false){
+  return {day,date:new Date(day*86400000).toISOString().slice(0,10),revision:7,windowSeconds:5,durable:true,archived:true,backlog:false,
+    rows:captureMinutes.map((minute,i)=>{
+      const recorded=complete||i<5&&i!==2,target=day*86400+minute*60-25200;
+      return {minute,status:recorded?"recorded":i===2?"missed":"waiting",kwh:recorded?128400+i*8:null,startedUTC:recorded?target+(i===1?2:0):null,capturedUTC:recorded?target+(i===1?3:1):null,
+        delaySeconds:recorded?(i===1?3:1):null,raw:recorded?(128400+i*8)*1000:null,slave:recorded?1:null,ptNum:recorded?1:null,ptDen:recorded?1:null,ct:recorded?1:null,
+        difference:recorded&&i!==0&&i!==5&&(complete||i===1||i===4)?8:null};
+    })};
+}
+state.checkpoints=checkpointFixture(Math.floor((state.clockEpoch+25200)/86400));
+const historicalCheckpoints=checkpointFixture(state.checkpoints.day-1,true);
+
 // Simulated instrumentation only; exported screenshots are representative.
 let wifiScanGeneration=0,wifiScanRequests=0,wifiScanFinish=0,wifiDropAck=false,wifiReadFailures=0,wifiRadioFailure="",wifiReadDelay=0;
 const nearbyNetworks=[{ssid:"Plant WiFi",rssi:-80,channel:1,open:false,supported:true},{ssid:"Plant WiFi",rssi:-48,channel:6,open:false,supported:true},{ssid:"Open test network",rssi:-62,channel:11,open:true,supported:true},{ssid:"Guest WiFi",rssi:-70,channel:1,open:false,supported:true}];
@@ -306,6 +319,7 @@ const server = http.createServer((req, res) => {
         network: malformedNetwork ? {...state.network,address:{bad:true}} : state.network,
         slots: malformedStatus ? Array(9).fill(null) : state.slots,
         online: online && state.scan.phase !== "running" && !diagnostic.active,
+        checkpoints:malformedCheckpoints?{...state.checkpoints,rows:[]} : state.checkpoints,
         diagnosticActive: diagnostic.active,
       }),
     );
@@ -320,6 +334,18 @@ const server = http.createServer((req, res) => {
     }
     res.end(JSON.stringify(malformedTrace ? { ...trace, frames: [null] } : trace));
     return;
+  }
+  if(req.url.startsWith("/api/history?kind=checkpoints")){
+    res.end(JSON.stringify([{day:state.checkpoints.day,date:state.checkpoints.date},{day:historicalCheckpoints.day,date:historicalCheckpoints.date}]));return;
+  }
+  if(req.url.startsWith("/api/checkpoints")){
+    const url=new URL(req.url,"http://localhost");
+    const day=Number(url.searchParams.get("day")||state.checkpoints.day),record=day===state.checkpoints.day?state.checkpoints:historicalCheckpoints;
+    if(url.searchParams.get("format")==="csv"){
+      res.setHeader("Content-Type","text/csv");res.setHeader("Content-Disposition",`attachment; filename=fort-checkpoints-${record.date}.csv`);
+      res.end("date,scheduled_wib,cumulative_kwh,status\n"+record.rows.map(row=>`${record.date},${String(Math.floor(row.minute/60)).padStart(2,"0")}:${String(row.minute%60).padStart(2,"0")},${row.kwh??""},${row.status}`).join("\n"));return;
+    }
+    res.end(JSON.stringify(malformedCaptureArchive?{...record,rows:record.rows.slice(0,2)}:record));return;
   }
   if (req.url === "/api/history") {
     if (malformedHistory) { res.end("[null]"); return; }
@@ -568,13 +594,15 @@ async function checkVectors(browser, out) {
     });
     if(process.argv.includes("--design-only")){
       const context=await browser.newContext({viewport:{width:1440,height:1100}});
-      const page=await context.newPage();await page.goto(origin);await page.waitForSelector(".flow-train.tx");await page.waitForTimeout(350);
+      const page=await context.newPage();await page.goto(origin);await page.waitForFunction(()=>document.querySelectorAll("#checkpoint-rows tr").length===5);await page.waitForSelector(".flow-train.tx");await page.waitForTimeout(350);
       await page.locator("#uart-flow").screenshot({path:path.join(assets,"ui-flow-desktop.png"),style:".main-nav{visibility:hidden}"});
       await page.locator(".main-nav").screenshot({path:path.join(assets,"ui-navigation.png")});
       await page.locator("#clock").screenshot({path:path.join(assets,"ui-clock.png")});
       await page.locator(".energy-surface").screenshot({path:path.join(assets,"ui-energy.png")});
+      await page.locator("#checkpoints").screenshot({path:path.join(assets,"ui-checkpoints-desktop.png")});
       await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);
       await page.locator("#uart-flow").screenshot({path:path.join(assets,"ui-flow-mobile.png"),style:".main-nav{visibility:hidden}"});
+      await page.locator("#checkpoints").screenshot({path:path.join(assets,"ui-checkpoints-mobile.png")});
       if(process.argv.includes("--record-flow")||process.argv.includes("--record-energy")){
         const energyRecording=process.argv.includes("--record-energy");
         const selector=energyRecording?".energy-surface":".flow-playback";
@@ -647,6 +675,37 @@ async function checkVectors(browser, out) {
       () => document.querySelectorAll("#intervals tr").length === 6,
     );
     assert.equal(await page.locator("html").getAttribute("lang"), "en");
+    await page.waitForFunction(()=>document.querySelectorAll("#checkpoint-rows tr").length===5);
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("06:00"));
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("128,400.000"));
+    assert((await page.locator('[data-minute="420"]').innerText()).includes("Missed"));
+    await page.locator("#checkpoint-differences").check();
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("8.000"));
+    await page.locator('[data-capture-shift="1"]').click();
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("19:00"));
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("Waiting"));
+    await page.locator('[data-capture-shift="0"]').click();
+    malformedCheckpoints=true;await refresh();
+    await page.waitForFunction(()=>document.getElementById("checkpoints")?.textContent.includes("Connection or checkpoint data is unavailable"));
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("128,400.000"),"Malformed checkpoint data retains the last accepted record");
+    malformedCheckpoints=false;await refresh();
+    await page.locator("#checkpoint-history > summary").click();
+    await page.waitForFunction(()=>document.querySelectorAll("#checkpoint-day option").length===2);
+    await page.locator("#checkpoint-day").selectOption(String(historicalCheckpoints.day));
+    await page.waitForFunction(date=>document.getElementById("checkpoint-date")?.textContent.includes(date),historicalCheckpoints.date);
+    await page.locator('[data-capture-shift="1"]').click();
+    assert((await page.locator("#checkpoint-rows").innerText()).includes("18:30"));
+    const cpDownload=page.waitForEvent("download");await page.locator("#checkpoint-export").click();
+    assert((await cpDownload).suggestedFilename().includes("checkpoints"));
+    await page.locator("#checkpoint-day").selectOption("");
+    await page.waitForFunction(date=>document.getElementById("checkpoint-date")?.textContent.includes(date),state.checkpoints.date);
+    malformedCaptureArchive=true;await page.locator("#checkpoint-day").selectOption(String(historicalCheckpoints.day));
+    await page.waitForFunction(()=>document.getElementById("checkpoints")?.textContent.includes("could not be loaded"));
+    assert.equal(await page.locator("#checkpoint-rows").count(),0,"Do not show today's values under a failed historical date");
+    malformedCaptureArchive=false;await page.locator("#checkpoint-day").selectOption("");
+    await page.locator('[data-capture-shift="0"]').click();await page.locator("#checkpoint-differences").uncheck();
+    await page.locator("#checkpoint-history > summary").click();
+
     assert.equal(await page.locator("#energy").getAttribute("data-value"), "128,432.728");
     assert.equal(await page.locator("#energy .counter").count(),1,"The primary energy value uses the supplied Counter");
     for(const [value,label] of [[999.999,"999.999"],[1000.001,"1,000.001"],[42.125,"42.125"],[0,"0.000"]]){
@@ -680,6 +739,7 @@ async function checkVectors(browser, out) {
     await page.waitForTimeout(13200);
     assert.notEqual(await page.locator("#clock .device-clock").getAttribute("data-time"),"—","Fresh identical status samples must keep the running clock alive");
     assert.equal(calls.filter(row=>row.url==="/api/time").length,beforeClockWrites,"Clock animation must never synchronize the RTC automatically");
+    await page.locator("#legacy-intervals").evaluate(node=>node.open=true);
     await page.locator('[data-shift="1"]').click();
     assert.equal(await page.locator("#intervals tr").count(), 3);
     assert((await page.locator("#intervals").innerText()).includes("16:30"));
@@ -1134,6 +1194,7 @@ async function checkVectors(browser, out) {
     });
     await page.locator("#language").selectOption("id");
     assert.equal(await page.locator("#energy").getAttribute("data-value"), "128.432,728");
+    await page.locator("#legacy-intervals").evaluate(node=>node.open=true);
     assert((await page.locator("#intervals").innerText()).includes("Lengkap"));
     await page.screenshot({
       path: path.join(assets, "ui-mobile-id.png"),

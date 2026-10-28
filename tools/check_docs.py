@@ -68,6 +68,11 @@ for language_guide in ['docs/WEB.md','docs/id/WEB.md']:
     documented=set(re.findall(r'/api/[a-z/]+',(ROOT/language_guide).read_text(encoding='utf-8')))
     need(documented==device_routes,f'{language_guide}: incomplete API integration map')
 
+capture_header=(ROOT/'firmware/include/checkpoint_log.h').read_text(encoding='utf-8')
+capture_minutes=[int(value) for value in re.search(r'CAPTURE_MINUTES\[CAPTURE_COUNT\]=\{([^}]+)\}',capture_header).group(1).split(',')]
+web_minutes=[int(value) for value in re.search(r'CHECKPOINT_MINUTES=\[([^]]+)\]',(ROOT/'web/validation.js').read_text(encoding='utf-8')).group(1).split(',')]
+need(capture_minutes==web_minutes==[360,390,420,450,480,1020,1050,1080,1110,1140],'Primary checkpoint schedule differs between firmware and browser')
+
 version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(ROOT/'firmware/include/version.h').read_text(encoding='utf-8')).group(1)
 package=json.loads((ROOT/'package.json').read_text(encoding='utf-8'))
 need(package['version']==version,'package.json and firmware versions differ')

@@ -15,6 +15,7 @@
 #include <driver/rmt.h>
 #include "board.h"
 #include "energy.h"
+#include "checkpoint_log.h"
 #include "debounce.h"
 #include "web_ui.h"
 #include "version.h"
@@ -187,6 +188,7 @@ struct Snapshot {
   uint32_t modeRevision=0,completedCommand=0,rejectedCommand=0;
   char commandError[80]={};
   CommandResult commandResults[COMMAND_RESULTS]={};uint8_t commandResultNext=0;
+  CaptureDay captures{},capturePending{};bool captureDurable=false,captureArchiveOK=false,captureBacklog=false;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
   uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
@@ -253,6 +255,14 @@ void serviceDiagnostic();
 void uartEvent(uint8_t,const DiagnosticEngine::Link &,uint16_t,uint8_t,const uint8_t *,const uint8_t *,size_t,bool);
 Snapshot state{}; // UI reads queue copies. Only acquisition task mutates state.
 Tracker tracker;
+CaptureTracker captureLog;
+CaptureDay capturePending{};
+bool captureNVSOK=false,captureFSOK=false,captureBacklog=false;
+uint32_t lastCaptureSave=0,lastCaptureAdvanceTry=0,blockedCaptureDay=0;
+uint32_t captureNVSDate=0,captureNVSRevision=0,captureNVSGeneration=0;
+uint32_t captureFSDate=0,captureFSRevision=0,captureFSGeneration=0;
+void interruptRecording(){tracker.interrupt();captureLog.interrupt();}
+uint32_t retainedDay(){return fmax(tracker.day.number,fmax(captureLog.day.number,capturePending.number));}
 ScanController scanner;
 Preferences prefs;
 bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=true;
@@ -393,16 +403,137 @@ void saveArchive() {
   if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("d")){uint32_t day=name.substring(1).toInt();if(day>0&&day+31<=tracker.day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
   xSemaphoreGive(fsMutex);archiveOK=ok;
 }
+
+String capturePath(uint32_t day){return "/c"+String(day)+".bin";}
+bool readCaptureFile(uint32_t day,CaptureDay &out){
+  if(!fsOK||!day||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))!=pdTRUE)return false;
+  uint8_t bytes[CAPTURE_RECORD_SIZE];bool ok=false;
+  for(unsigned attempt=0;attempt<2&&!ok;++attempt){
+    String path=capturePath(day)+(attempt?".bak":"");File f=LittleFS.open(path,"r");
+    if(f&&f.size()==sizeof(bytes)&&f.read(bytes,sizeof(bytes))==sizeof(bytes))ok=decodeCaptureDay(bytes,sizeof(bytes),out)&&out.number==day;
+    if(f)f.close();
+  }
+  xSemaphoreGive(fsMutex);return ok;
+}
+bool writeCaptureFile(const CaptureDay &day){
+  if(!fsOK||!day.number||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(200))!=pdTRUE)return false;
+  uint8_t bytes[CAPTURE_RECORD_SIZE],verify[CAPTURE_RECORD_SIZE];encodeCaptureDay(day,bytes);
+  String path=capturePath(day.number),temp="/capture.pending",backup=path+".bak";File f=LittleFS.open(temp,"w");bool ok=bool(f);
+  if(ok){ok=f.write(bytes,sizeof(bytes))==sizeof(bytes);f.flush();f.close();}
+  if(ok){f=LittleFS.open(temp,"r");ok=f&&f.size()==sizeof(bytes)&&f.read(verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));if(f)f.close();}
+  if(ok)ok=installArchive(LittleFS,temp,path,backup);
+  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("c")){uint32_t n=name.substring(1).toInt();if(n>0&&n+31<=day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
+  xSemaphoreGive(fsMutex);return ok;
+}
+bool writeCaptureNVS(const char *key,const CaptureDay &day){
+  if(!nvsOK||!day.number)return false;
+  uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(day,bytes);
+  return prefs.putBytes(key,bytes,sizeof(bytes))==sizeof(bytes);
+}
+bool readCaptureNVS(const char *key,CaptureDay &day){
+  if(!nvsOK||!prefs.isKey(key)||prefs.getBytesLength(key)!=CAPTURE_RECORD_SIZE)return false;
+  uint8_t bytes[CAPTURE_RECORD_SIZE];return prefs.getBytes(key,bytes,sizeof(bytes))==sizeof(bytes)&&decodeCaptureDay(bytes,sizeof(bytes),day);
+}
+void retryCaptureBacklog(){
+  if(capturePending.number&&writeCaptureFile(capturePending)){
+    if(!nvsOK||prefs.remove("capture_prev")){capturePending=CaptureDay{};capturePending.number=0;}
+  }
+  captureBacklog=capturePending.number!=0;
+}
+void saveCaptures(){
+  if(!captureLog.day.number)return;
+  bool alreadySaved=captureNVSDate==captureLog.day.number&&captureNVSRevision==captureLog.day.revision&&captureNVSGeneration==captureLog.day.generation;
+  captureNVSOK=nvsOK&&(alreadySaved||writeCaptureNVS("captures",captureLog.day));
+  if(captureNVSOK){captureNVSDate=captureLog.day.number;captureNVSRevision=captureLog.day.revision;captureNVSGeneration=captureLog.day.generation;}
+  bool alreadyArchived=captureFSDate==captureLog.day.number&&captureFSRevision==captureLog.day.revision&&captureFSGeneration==captureLog.day.generation;
+  captureFSOK=fsOK&&(alreadyArchived||writeCaptureFile(captureLog.day));
+  if(captureFSOK){captureFSDate=captureLog.day.number;captureFSRevision=captureLog.day.revision;captureFSGeneration=captureLog.day.generation;}
+  lastCaptureSave=millis();
+}
+void loadCaptures(){
+  CaptureDay saved;bool found=readCaptureNVS("captures",saved);captureNVSOK=found;
+  // Also recover the latest complete on-flash record if NVS lagged or was damaged.
+  if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
+    uint32_t candidates[32]={};unsigned count=0,inspected=0;
+    File root=LittleFS.open("/");File item=root.openNextFile();
+    while(item&&inspected++<256){
+      String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);
+      if(name.startsWith("c")&&(name.endsWith(".bin")||name.endsWith(".bin.bak"))){
+        uint32_t n=name.substring(1).toInt();bool duplicate=false;for(unsigned i=0;i<count;++i)if(candidates[i]==n)duplicate=true;
+        if(validCaptureDayNumber(n)&&!duplicate){
+          unsigned position=0;while(position<count&&candidates[position]>n)++position;
+          if(position<32){if(count<32)++count;for(unsigned i=count-1;i>position;--i)candidates[i]=candidates[i-1];candidates[position]=n;}
+        }
+      }
+      item=root.openNextFile();
+    }
+    if(item)item.close();xSemaphoreGive(fsMutex);
+    for(unsigned i=0;i<count;++i){CaptureDay archived;if(readCaptureFile(candidates[i],archived)){
+      if(!found||newerCaptureDay(archived,saved)){saved=archived;found=true;}break;
+    }}
+  }
+  // A flushed temporary record can survive power loss before its final rename.
+  if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
+    uint8_t bytes[CAPTURE_RECORD_SIZE];CaptureDay pendingFile;File f=LittleFS.open("/capture.pending","r");
+    bool recovered=f&&f.size()==sizeof(bytes)&&f.read(bytes,sizeof(bytes))==sizeof(bytes)&&decodeCaptureDay(bytes,sizeof(bytes),pendingFile);if(f)f.close();
+    xSemaphoreGive(fsMutex);
+    if(recovered&&(!found||newerCaptureDay(pendingFile,saved))){saved=pendingFile;found=true;}
+  }
+  bool hasPending=readCaptureNVS("capture_prev",capturePending);
+  if(hasPending&&(!found||newerCaptureDay(capturePending,saved))){saved=capturePending;found=true;}
+  if(found)captureLog.restore(saved);
+  if(hasPending)retryCaptureBacklog();
+}
+bool advanceCaptureDay(uint32_t number){
+  if(captureLog.day.number==number)return true;
+  if(captureLog.day.number>number||!validCaptureDayNumber(number))return false;
+  if(blockedCaptureDay==number&&uint32_t(millis()-lastCaptureAdvanceTry)<5000)return false;
+  blockedCaptureDay=number;lastCaptureAdvanceTry=millis();
+  retryCaptureBacklog();
+  if(captureLog.day.number){
+    captureLog.tick(captureTarget(captureLog.day.number,CAPTURE_COUNT-1)+CAPTURE_WINDOW+1);saveCaptures();
+    if(!captureFSOK){
+      // One previous day can remain in NVS during a filesystem failure. Never overwrite it.
+      if(!canRetainCaptureBeforeRollover(captureLog.day.number,capturePending.number,false,nvsOK))return false;
+      if(!writeCaptureNVS("capture_prev",captureLog.day))return false;
+      capturePending=captureLog.day;captureBacklog=true;
+    }
+  }
+  CaptureDay saved;
+  if(readCaptureFile(number,saved))captureLog.restore(saved);else captureLog.newDay(number);
+  saveCaptures();blockedCaptureDay=0;return true;
+}
+void addCaptureJSON(JsonDocument &d,const CaptureDay &day,bool durable,bool archived,bool backlog){
+  d["day"]=day.number;d["date"]=day.number?dateForDay(day.number):"";d["windowSeconds"]=CAPTURE_WINDOW;
+  d["revision"]=day.revision;d["durable"]=durable;d["archived"]=archived;d["backlog"]=backlog;
+  JsonArray rows=d["rows"].to<JsonArray>();
+  for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &p=day.points[i];JsonObject row=rows.add<JsonObject>();
+    row["minute"]=CAPTURE_MINUTES[i];row["status"]=captureStatusCode(p.status);row["kwh"]=nullptr;row["startedUTC"]=nullptr;row["capturedUTC"]=nullptr;row["delaySeconds"]=nullptr;row["difference"]=nullptr;
+    if(p.status==CAPTURE_RECORDED){row["kwh"]=p.energy;row["startedUTC"]=p.startedUTC;row["capturedUTC"]=p.capturedUTC;row["delaySeconds"]=p.capturedUTC-captureTarget(day.number,i);row["raw"]=p.raw;row["slave"]=p.source.slave;row["ptNum"]=p.source.ptNum;row["ptDen"]=p.source.ptDen;row["ct"]=p.source.ct;double delta=0;if(i&&captureDifference(day,i-1,delta))row["difference"]=delta;}
+  }
+}
+String captureClock(uint32_t utc){DateTime d(utc+LOCAL_OFFSET);char out[12];snprintf(out,sizeof(out),"%02u:%02u:%02u",d.hour(),d.minute(),d.second());return String(out);}
+String csvCaptures(const CaptureDay &day){
+  String csv="date,shift,scheduled_wib,read_started_wib,captured_wib,delay_seconds,cumulative_kwh,secondary_raw,pt_num,pt_den,ct,slave_id,baud,parity,status,consumption_since_previous_kwh\r\n";
+  for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &p=day.points[i];char clock[8];snprintf(clock,sizeof(clock),"%02u:%02u",CAPTURE_MINUTES[i]/60,CAPTURE_MINUTES[i]%60);
+    csv+=dateForDay(day.number)+","+(i<5?"morning":"evening")+","+clock+",";
+    if(p.status==CAPTURE_RECORDED){csv+=captureClock(p.startedUTC)+","+captureClock(p.capturedUTC)+","+String(p.capturedUTC-captureTarget(day.number,i))+","+String(p.energy,6)+","+String(p.raw)+","+String(p.source.ptNum)+","+String(p.source.ptDen)+","+String(p.source.ct)+","+String(p.source.slave)+","+String(p.source.baud)+","+String(p.source.parity)+",";}else csv+=",,,,,,,,,,,";
+    csv+=captureStatusCode(p.status);csv+=",";double delta=0;if(i&&captureDifference(day,i-1,delta))csv+=String(delta,6);csv+="\r\n";
+  }
+  return csv;
+}
+
 void saveCheckpoint(bool archive) {
   if(tracker.day.number&&nvsOK) {
     Checkpoint c{};c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
     checkpointOK=prefs.putBytes("day",&c,sizeof(c))==sizeof(c);
   }else checkpointOK=false;
-  if(archive)saveArchive();lastSave=millis();
+  if(archive)saveArchive();saveCaptures();lastSave=millis();
 }
 void publish() {
   scanner.refresh(millis());state.scan=scanner.progress;
-  state.diagnosticManual=diagnostic.options.manualDirection;state.day=tracker.day;state.muted=muted;state.storage=fsOK&&nvsOK&&archiveOK&&checkpointOK&&configOK;
+  state.captures=captureLog.day;state.capturePending=capturePending;state.captureDurable=captureNVSOK||captureFSOK;state.captureArchiveOK=captureFSOK;state.captureBacklog=captureBacklog;
+  state.diagnosticManual=diagnostic.options.manualDirection;state.day=tracker.day;state.muted=muted;state.storage=fsOK&&nvsOK&&archiveOK&&checkpointOK&&configOK&&(!captureLog.day.number||(state.captureDurable&&!captureBacklog));
   state.lastGoodMs=lastGood;state.haveEnergy=haveSample;
   state.online=state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<=15000;
   xQueueOverwrite(snapshotQueue,&state);
@@ -434,7 +565,7 @@ void serviceDiagnostic(){
 void enterDiagnostic(){
   if(diagnosticActive||scanner.running()||uxQueueMessagesWaiting(commandQueue))return;
   ++state.modeRevision;diagnosticActive=true;state.diagnosticActive=true;publish();
-  tracker.interrupt();saveCheckpoint(true);haveSample=false;rawKnown=false;state.lastContactMs=0;state.ratios=false;state.power=NAN;
+  interruptRecording();saveCheckpoint(true);haveSample=false;rawKnown=false;state.lastContactMs=0;state.ratios=false;state.power=NAN;
   currentAttempt=1;entryRequested=false;resumeRequested=false;diagnostic.activeBaud=0;
   // Normal reader retains shared library defaults and register plans.
   diagnostic.options=normalReader.options;diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;diagnostic.options.manualDirection=state.config.direction==DIRECTION_MANUAL;
@@ -509,16 +640,16 @@ void processCommands(){
       }
       case SET_TIME:{
         uint32_t effectiveUTC=0;
-        auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,tracker.day.number,effectiveUTC);
+        auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,retainedDay(),effectiveUTC);
         if(result!=CLOCK_ACCEPTED){error="RTC request expired or precedes retained records. Sync again";break;}
-        tracker.interrupt();clockKnown=false;rawKnown=false;++state.clockRevision;
+        interruptRecording();clockKnown=false;rawKnown=false;++state.clockRevision;
         if(!rtcWrite(effectiveUTC)){error="RTC write or verification failed";setError(error,"rtc_write_failed");}
         saveCheckpoint(true);break;
       }
       case START_SCAN:
         if(!scanner.begin(cmd.first,cmd.last,state.config,millis(),cmd.currentOnly)){error="Invalid scan request";break;}
         ++state.modeRevision;state.scanAddress=cmd.address;state.scanWords=cmd.words;state.scanException=false;
-        tracker.interrupt();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
+        interruptRecording();saveCheckpoint(true);rawKnown=false;haveSample=false;state.ratios=false;state.power=NAN;
         setError("Scan running. Recording paused","scanning");break;
       case CANCEL_SCAN:
         if(scanner.cancel(millis()))restoreAfterScan();else error="Scan already finished";break;
@@ -526,7 +657,7 @@ void processCommands(){
       case SET_CONFIG:{
         Settings settings=cmd.type==APPLY_SCAN?scanner.progress.result:cmd.config;
         if(!validSettings(settings)){error="Invalid serial configuration";break;}
-        ++state.modeRevision;tracker.interrupt();state.config=settings;state.ratios=false;rawKnown=false;haveSample=false;state.lastContactMs=0;
+        ++state.modeRevision;interruptRecording();state.config=settings;state.ratios=false;rawKnown=false;haveSample=false;state.lastContactMs=0;
         ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
         configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
         if(!configOK)error="Connection changed in RAM. Saving settings failed";
@@ -572,9 +703,10 @@ void acquisition(void *) {
   }
   if(nvsOK&&prefs.isKey("day")&&prefs.getBytesLength("day")==sizeof(Checkpoint)) {
     Checkpoint c{};prefs.getBytes("day",&c,sizeof(c));
-    if(c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))) {tracker.day=c.day;tracker.interrupt();}
+    if(c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))) {tracker.day=c.day;interruptRecording();}
     else checkpointOK=false;
   }
+  loadCaptures();
   normalReader.service=serviceDiagnostic;normalReader.event=uartEvent;diagnostic.service=serviceDiagnostic;diagnostic.event=uartEvent;diagnostic.directionPinReserved=!RS485_AUTO_DIRECTION;diagnostic.onResume=[](){resumeRequested=true;diagnostic.emergencyStop();};
   startBus();publishDiagnostic();uint32_t previousCycle=millis(),lastRatioTry=0,lastContactTry=millis()-3000;bool previousRTC=false;
   while(true) {
@@ -601,15 +733,14 @@ void acquisition(void *) {
       else if(diagnosticActive){if(!diagnostic.submit(next.line))diagnostic.logf("[CONSOLE_FULL] Command refused. Retry after current work.\n");}
       else{diagnostic.logf("[COMMAND_REJECTED] Production scan or pending controls own UART. Retry after they finish.\n");publishDiagnostic();}
     }
-    if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
     uint32_t utc=0;bool rtcOK=rtcRead(utc);
-    if(rtcOK&&!protectsRecordedDay(utc,LOCAL_OFFSET,tracker.day.number)){rtcOK=false;tracker.interrupt();rawKnown=false;setError("RTC date precedes retained records. Correct RTC via web","rtc_before_records");}
-    if(!rtcOK&&previousRTC)tracker.interrupt();previousRTC=rtcOK;state.rtc=rtcOK;
+    if(rtcOK&&!protectsRecordedDay(utc,LOCAL_OFFSET,retainedDay())){rtcOK=false;interruptRecording();rawKnown=false;setError("RTC date precedes retained records. Correct RTC via web","rtc_before_records");}
+    if(!rtcOK&&previousRTC)interruptRecording();previousRTC=rtcOK;state.rtc=rtcOK;
     if(rtcOK) {
       if(clockKnown) {
         int64_t delta=int64_t(utc)-lastClockUTC;
         uint32_t elapsed=(millis()-lastClockMono)/1000;
-        if(delta<0||llabs(delta-int64_t(elapsed))>2){tracker.interrupt();rawKnown=false;++state.clockRevision;}
+        if(delta<0||llabs(delta-int64_t(elapsed))>2){interruptRecording();rawKnown=false;++state.clockRevision;}
       }
       lastClockMono=millis();lastClockUTC=utc;clockKnown=true;state.utc=utc;state.utcSampleMs=millis();
       uint32_t local=utc+LOCAL_OFFSET,n=local/86400;
@@ -621,28 +752,36 @@ void acquisition(void *) {
       tracker.tick(local);
       for(int i=0;i<SLOT_COUNT;++i)if(before[i]!=tracker.day.slots[i].quality){saveCheckpoint(true);break;}
     }else state.utc=0;
+    if(rtcOK){
+      uint32_t number=(utc+LOCAL_OFFSET)/86400;
+      if(!advanceCaptureDay(number)){captureBacklog=true;setError("Checkpoint storage is full. Earlier records protected","capture_storage_blocked");}
+      if(captureLog.tick(utc))saveCaptures();
+    }
+    if(captureLog.day.number&&uint32_t(millis()-lastCaptureSave)>=5000&&(!captureNVSOK||!captureFSOK||capturePending.number)){retryCaptureBacklog();saveCaptures();}
+    if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
+    const bool captureUrgent=rtcOK&&captureLog.urgent(utc),captureDue=rtcOK&&captureLog.due(utc);
     if(scanner.running()) {
       scanStep();publish();vTaskDelay(pdMS_TO_TICKS(10));continue;
     }
-    if(!state.lastContactMs||uint32_t(millis()-state.lastContactMs)>15000){
+    if(!captureUrgent&&(!state.lastContactMs||uint32_t(millis()-state.lastContactMs)>15000)){
       if(uint32_t(millis()-lastContactTry)<3000){publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       lastContactTry=millis();uint8_t handshake[4];
       bool contactData=readWordsFor(state.config,meter::CURRENT_A,2,handshake,1,true);
       if(!contactData&&normalReader.lastReply!=DiagnosticEngine::REPLY_EXCEPTION){state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       state.lastContactMs=millis();state.currentA=contactData?double(be32(handshake))/10000.0:NAN;
     }
-    if(ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
+    if((!captureUrgent||!state.ratios)&&ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
         lastRatioTry=millis();uint8_t p[6];
         if(readWords(0x002c,3,p)) {
           uint32_t a=(p[0]<<8)|p[1],b=(p[2]<<8)|p[3],c=(p[4]<<8)|p[5];
           if(a&&b&&c&&a<=9999&&b<=9999&&c<=9999) {
             double ratio=double(a)/b*c;
-            if(ct&&(a!=ptNum||b!=ptDen||c!=ct)){tracker.interrupt();rawKnown=false;haveSample=false;}
+            if(ct&&(a!=ptNum||b!=ptDen||c!=ct)){interruptRecording();rawKnown=false;haveSample=false;}
             ptNum=a;ptDen=b;ct=c;state.ratio=ratio;state.ratios=true;lastRatio=millis();
-          }else {state.ratios=false;tracker.interrupt();setError("CT/PT ratio outside the manual range","ratio_out_of_range");}
-        }else if(state.ratios&&millis()-lastRatio>120000){state.ratios=false;tracker.interrupt();}
+          }else {state.ratios=false;interruptRecording();setError("CT/PT ratio outside the manual range","ratio_out_of_range");}
+        }else if(state.ratios&&millis()-lastRatio>120000){state.ratios=false;interruptRecording();}
     }
-    if(millis()-lastPoll>=2000) {
+    if((captureDue&&uint32_t(millis()-lastPoll)>=250)||(!captureUrgent&&uint32_t(millis()-lastPoll)>=2000)) {
       lastPoll=millis();uint8_t e[4],p[4];
       // Time stamp brackets the energy read. Discard slow/inconsistent windows.
       uint32_t beginUTC=0,endUTC=0,beginMono=millis();bool beginOK=rtcRead(beginUTC);
@@ -654,7 +793,7 @@ void acquisition(void *) {
         uint32_t raw=be32(e);bool accepted=true;
         if(rawKnown&&raw<previousRaw) {
           // A wrap cannot be distinguished reliably from a reset: invalidate continuity.
-          tracker.interrupt();++state.rejected;setError("Counter decreased. Continuity interrupted","counter_reset");
+          interruptRecording();++state.rejected;setError("Counter decreased. Continuity interrupted","counter_reset");
         }
         double energy=raw*0.001*state.ratio;
         // Physical sanity limit: editable compile-time plant limit (100 MW).
@@ -666,18 +805,20 @@ void acquisition(void *) {
           state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
           uint32_t local=endUTC+LOCAL_OFFSET;
           if(beginOK&&endOK&&endUTC>=beginUTC&&endUTC-beginUTC<=2&&millis()-beginMono<=2500&&local/86400==tracker.day.number) {
+            CaptureSource source;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
+            if(captureLog.sample(beginUTC,endUTC,raw,source))saveCaptures();
             uint8_t before[SLOT_COUNT];for(int i=0;i<SLOT_COUNT;++i)before[i]=tracker.day.slots[i].quality;
             if(tracker.sample(local,energy)) {
               for(int i=0;i<SLOT_COUNT;++i)if(before[i]!=tracker.day.slots[i].quality){saveCheckpoint(true);break;}
             }
-          }else tracker.interrupt();
+          }else interruptRecording();
         }
       }
-      if(readWordsFor(state.config,meter::POWER_TOTAL,2,p,1,true))state.power=meter::signed32(be32(p))/10000.0;else state.power=NAN;
+      if(!captureUrgent&&readWordsFor(state.config,meter::POWER_TOTAL,2,p,1,true))state.power=meter::signed32(be32(p))/10000.0;else state.power=NAN;
     }
-    if(haveSample&&millis()-lastGood>15000)tracker.interrupt();
+    if(haveSample&&millis()-lastGood>15000)interruptRecording();
     static uint32_t lastElectrical=0;
-    if(uint32_t(millis()-lastElectrical)>=10000&&state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<15000){
+    if(!captureUrgent&&uint32_t(millis()-lastElectrical)>=10000&&state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<15000){
       lastElectrical=millis();uint8_t raw[4];
       state.currentA=readWordsFor(state.config,meter::CURRENT_A,2,raw,1,true)?double(be32(raw))/10000.0:NAN;
       state.voltageA=readWordsFor(state.config,meter::VOLTAGE_A,2,raw,1,true)?double(be32(raw))/10000.0:NAN;
@@ -783,6 +924,7 @@ void webSetup() {
     d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){d["clockEpoch"]=s.utc;d["clockSampleAgeMs"]=uint32_t(millis()-s.utcSampleMs);d["clockRevision"]=s.clockRevision;DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
+    JsonDocument captures;addCaptureJSON(captures,s.captures,s.captureDurable,s.captureArchiveOK,s.captureBacklog);d["checkpoints"]=captures.as<JsonObject>();
     JsonArray rows=d["slots"].to<JsonArray>();
     for(int i=0;i<SLOT_COUNT;++i){const Slot &x=s.day.slots[i];JsonObject r=rows.add<JsonObject>();r["start"]=START_MIN[i];r["quality"]=qualityName(x.quality);r["quality_code"]=qualityCode(x.quality);r["kwh"]=nullptr;if(x.quality==COMPLETE&&x.end>=x.start)r["kwh"]=x.end-x.start;else if(x.quality==ACTIVE&&x.hasStart&&x.last>=x.start)r["kwh"]=x.last-x.start;}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
@@ -946,17 +1088,32 @@ void webSetup() {
     if(!authorizePost())return;Snapshot active{};readSnapshot(active);if(active.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
     if(!parseNumber(server.arg("epoch"),epoch)||!validClockEpoch(epoch,LOCAL_OFFSET)){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
     Snapshot s{};readSnapshot(s);
-    if(!protectsRecordedDay(epoch,LOCAL_OFFSET,s.day.number)){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
+    if(!protectsRecordedDay(epoch,LOCAL_OFFSET,fmax(s.day.number,fmax(s.captures.number,s.capturePending.number)))){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);
   });
   server.on("/api/mute",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=TOGGLE_MUTE;enqueueCommand(c);});
   server.on("/api/history",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);JsonDocument d;JsonArray a=d.to<JsonArray>();
-    if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
-      for(uint32_t n=s.day.number,k=0;n&&k<31;--n,++k)if(LittleFS.exists(dayPath(n))||LittleFS.exists(dayPath(n)+".bak")){JsonObject o=a.add<JsonObject>();o["day"]=n;o["date"]=dateForDay(n);}
-      xSemaphoreGive(fsMutex);
+    bool captures=server.arg("kind")=="checkpoints";
+    bool locked=fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE;
+    for(uint32_t n=captures?s.captures.number:s.day.number,k=0;n&&k<31;--n,++k){
+      bool exists=captures?(n==s.captures.number||n==s.capturePending.number||(locked&&(LittleFS.exists(capturePath(n))||LittleFS.exists(capturePath(n)+".bak")))):(locked&&(LittleFS.exists(dayPath(n))||LittleFS.exists(dayPath(n)+".bak")));
+      if(exists){JsonObject row=a.add<JsonObject>();row["day"]=n;row["date"]=dateForDay(n);}
     }
+    if(locked)xSemaphoreGive(fsMutex);
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/checkpoints",HTTP_GET,[]{
+    Snapshot s{};readSnapshot(s);uint32_t day=s.captures.number;
+    if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid checkpoint date","invalid_archive_date");return;}
+    if(!day||day>s.captures.number||s.captures.number-day>=31){jsonReply(404,"Checkpoint record is not available","archive_missing");return;}
+    CaptureDay record;bool durable=true,archived=true;
+    if(day==s.captures.number){record=s.captures;durable=s.captureDurable;archived=s.captureArchiveOK;}
+    else if(day==s.capturePending.number){record=s.capturePending;archived=false;}
+    else if(!readCaptureFile(day,record)){jsonReply(404,"Checkpoint record is not available","archive_missing");return;}
+    server.sendHeader("Cache-Control","no-store");
+    if(server.arg("format")=="csv"){server.sendHeader("Content-Disposition","attachment; filename=fort-checkpoints-"+dateForDay(day)+".csv");server.send(200,"text/csv; charset=utf-8",csvCaptures(record));return;}
+    JsonDocument d;addCaptureJSON(d,record,durable,archived,s.captureBacklog);String out;serializeJson(d,out);server.send(200,"application/json",out);
   });
   server.on("/api/export",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);uint32_t day=s.day.number;
@@ -1028,7 +1185,7 @@ void drawOLED(const Snapshot &s) {
   if(!oledOK||xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(30))!=pdTRUE)return;
   oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(0,0);
   if(networkMenu.screen!=OledNetworkMenu::CLOSED){drawNetworkMenu();oled.display();xSemaphoreGive(i2cMutex);return;}
-  const char *titles[]={"MIDEA | ENERGY","MORNING INTERVAL","EVENING INTERVAL","NETWORK / WIFI","DIAGNOSTICS"};
+  const char *titles[]={"MIDEA | ENERGY","MORNING CAPTURES","EVENING CAPTURES","NETWORK / WIFI","DIAGNOSTICS"};
   oled.println(titles[page]);oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
   if(page==0){
     if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.println("kWh import");}else oled.println("Waiting for meter");
@@ -1036,8 +1193,9 @@ void drawOLED(const Snapshot &s) {
     oled.setCursor(98,45);oled.print(s.online?"OK":"OFF");
     oled.setCursor(0,56);oled.print(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");
   }else if(page==1||page==2){
-    int i=page==1?slotPage%6:6+slotPage%3;const Slot &x=s.day.slots[i];int a=START_MIN[i],b=a+30;char t[24];snprintf(t,sizeof(t),"%02d:%02d - %02d:%02d",a/60,a%60,b/60,b%60);oled.println(t);
-    oled.setTextSize(2);oled.setCursor(0,29);if(x.quality==COMPLETE)oled.print(String(x.end-x.start,3));else oled.print("--.---");oled.setTextSize(1);oled.setCursor(0,49);oled.println(qualityCode(x.quality));
+    unsigned i=(page==1?0:5)+slotPage%5;const auto &point=s.captures.points[i];unsigned minute=CAPTURE_MINUTES[i];char label[24];snprintf(label,sizeof(label),"%s %02u:%02u",s.captures.number?dateForDay(s.captures.number).c_str():"---- -- --",minute/60,minute%60);oled.println(label);
+    oled.setTextSize(2);oled.setCursor(0,29);if(point.status==CAPTURE_RECORDED){String value=String(point.energy,3);if(value.length()>10)oled.setTextSize(1);oled.print(value);}else oled.print("--.---");
+    oled.setTextSize(1);oled.setCursor(0,49);if(point.status==CAPTURE_RECORDED){oled.print(captureClock(point.capturedUTC));oled.print(s.captureDurable?" saved":" UNSAVED");}else oled.print(captureStatusCode(point.status));
   }else if(page==3){
     oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":"Midea Engineering AP");
     oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: network options");

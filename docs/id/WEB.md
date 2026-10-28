@@ -2,7 +2,11 @@
 
 [English](../WEB.md) · **Bahasa Indonesia**
 
-Firmware 2.3.3 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 2.4.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+
+## Mengambil angka meter terjadwal
+
+Ringkasan dimulai dari energi langsung serta **Checkpoint kWh terjadwal**. Lima jadwal pagi adalah 06.00, 06.30, 07.00, 07.30 dan 08.00 WIB, sedangkan jadwal sore adalah 17.00, 17.30, 18.00, 18.30 dan 19.00 WIB. Angka kumulatif yang sudah tercatat tetap tersedia ketika petugas datang belakangan, tanpa bergantung pada router atau dashboard terbuka. Periksa tanggal, pilih shift lalu unduh CSV checkpoint. Rekaman checkpoint sebelumnya memilih hari lain yang tersedia. Tampilkan selisih merupakan pilihan tambahan dan tidak mengganti angka asli. [CHECKPOINTS](CHECKPOINTS.md) menjelaskan timing, pemulihan penyimpanan, retensi serta arti setiap kolom.
 
 ## Membuka aplikasi dan memilih Wi-Fi
 
@@ -62,13 +66,14 @@ Perintah lain tetap dapat diketik satu baris pada **Input perintah**, lalu klik 
 | Scan SSID terdekat | `/api/network/scan` GET/POST | Scan radio asinkron core 0 dan cache jaringan terlihat terbatas |
 | Setting animasi idle OLED | `/api/display` | Preferensi layar ber-CRC di core 1 dan playback/bangun di core 0 |
 | LED, mute dan jam RTC | `/api/led`, `/api/mute`, `/api/time` | Kontrol antrean dengan hasil eksekusi |
+| Angka kumulatif terjadwal dan CSV checkpoint | `/api/checkpoints` | Salinan hari berjalan/pemulihan atau arsip CRC terbatas |
 | Arsip dan CSV | `/api/history`, `/api/export` | Akses filesystem terbatas dengan aturan pemulihan |
 
 Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diterima antrean, dan kontrol biasa tetap menunggu hasil ID eksekusinya. Mode yang tidak kompatibel diperiksa kembali oleh pemilik UART. Perubahan jaringan ditolak ketika scanner atau maintenance aktif, sedangkan Hentikan/Lanjutkan memakai mailbox prioritas. Polling panel detail berhenti saat ditutup dan payload rusak tidak diubah menjadi pengukuran valid.
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 2.3.3, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 2.4.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 

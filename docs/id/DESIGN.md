@@ -2,7 +2,7 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-Versi 2.3.3 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.4.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -99,3 +99,8 @@ Scheduler browser menserialisasi fetch API sampai seluruh body respons diterima.
 FrameAssembler mengonsumsi metadata event tervalidasi tanpa mengurai byte Modbus. Sequence yang terputus, konteks koneksi/pin berbeda dan hasil tanpa event TX-complete ditolak untuk replay. FlowPlayback memiliki antrean visual tetap berupa satu transaksi aktif dan transaksi terbaru yang menunggu. Akumulator RAF membatasi satu langkah frame browser sampai 48 ms agar render yang terlambat tidak membuat paket berpindah mendadak ke ujung. WakeSlider yang diberikan dipakai sebagai visual inert dengan timing presentasi yang terpisah dari timestamp mikrodetik perangkat. State animasi tidak dikirim ke akuisisi atau persistensi.
 
 DeviceClock mempertahankan anchor UTC/sample-age dan memo Counter yang diberikan untuk setiap unit jam, sehingga unit yang tidak berubah tidak membangun ulang strip angka pada setiap sampel status. Aksesibilitas timer native menyampaikan HH:mm:ss lengkap. NavTabs mengukur offset tombol melalui ResizeObserver dan menggeser satu permukaan seleksi bersama, sementara StarBorder menyediakan efek border. Reduced-motion menonaktifkan replay serta canvas dekoratif, dan stream yang tersembunyi, gagal atau restart membuang state visual.
+
+
+## Pipeline checkpoint utama
+
+Pencatat sepuluh titik mentah terpisah dari Tracker interval lama. Aturan penerimaan, kontinuitas serta serialisasi eksplisit berada pada [checkpoint_log.h](../../firmware/include/checkpoint_log.h), sementara main.cpp memiliki bracket RTC, prioritas UART, commit NVS/LittleFS serta proyeksi antrean. Web tidak membuat capture. [CHECKPOINTS](CHECKPOINTS.md) menjelaskan format 426 byte, jendela penerimaan, perlindungan pergantian hari serta selisih turunan.

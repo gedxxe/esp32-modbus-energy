@@ -38,7 +38,7 @@ Simpan memakai perpindahan delapan detik. Sambungkan ulang HP ke hotspot agar me
 
 ## Kontrol lain
 
-Di luar pilihan jaringan, PREV/NEXT tetap berpindah di lima halaman utama. OK singkat mengganti baris interval pada halaman pagi/petang. Tahan OK di luar halaman Network mengubah mute alarm, sedangkan OK pada Network membuka opsinya. Konfirmasi format filesystem lima detik tetap hanya tersedia setelah mount gagal saat boot dan tidak digantikan menu jaringan.
+Di luar pilihan jaringan, PREV/NEXT tetap berpindah di lima halaman utama. OK singkat berpindah di antara lima checkpoint kumulatif tersimpan, beserta tanggal serta waktu pembacaannya pada halaman pagi/petang. Tahan OK di luar halaman Network mengubah mute alarm, sedangkan OK pada Network membuka opsinya. Konfirmasi format filesystem lima detik tetap hanya tersedia setelah mount gagal saat boot dan tidak digantikan menu jaringan.
 
 Editor tidak mencetak key client ke output diagnostik, ekspor atau status HTTP. [WEB](WEB.md) menjelaskan kontrol browser yang setara, sedangkan [VALIDATION](VALIDATION.md) memisahkan tes host menu dari penerimaan tombol, OLED, radio dan DHCP fisik.
 

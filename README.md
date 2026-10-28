@@ -2,11 +2,13 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 2.3.3](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
+![Firmware 2.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
-This project reads a Fort power meter from an ESP32-S3 N16R8 and makes its energy counter available through a local Wi-Fi dashboard in AP or client mode. A phone can view live measurements, inspect half-hour consumption, export records and run diagnostics without an internet connection. The OLED provides a local reading and the access-point address when a phone is not connected.
+This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
 
-Version 2.3.3 uses a shared ModbusMaster transport and adds a corrected Wi-Fi discovery path with driver diagnostics. The communication panel shows device symbols, timestamped transaction stages and raw TX/RX frames, and the [web guide](docs/WEB.md#scan-progress-and-recovery) explains scan failures and recovery. Its reference is the user's successful sketch: UART1 on TX17/RX18, manual DE-/RE control on GPIO16, 100 µs settling around transmission, and the manual's phase-A current request at `0x0058`. The user reported that reference working on the meter. Acceptance of this integrated release is recorded separately in [VALIDATION](docs/VALIDATION.md).
+The primary schedule is **06:00, 06:30, 07:00, 07:30, 08:00** and **17:00, 17:30, 18:00, 18:30, 19:00 WIB**. For example, a reading recorded near 07:00 remains the 07:00 record when someone connects at 09:20. The table retains its actual request and response time, and a failed checkpoint stays marked missed instead of being filled with a later value. [Checkpoint operation and storage](docs/CHECKPOINTS.md) explains timing, retrieval, CSV fields and recovery.
+
+![Daily checkpoint schedule](docs/assets/checkpoint-schedule.svg)
 
 ## Dashboard
 
@@ -56,7 +58,7 @@ A normal firmware build uses the committed web header and does not require Node.
 | PlatformIO Core | 6.1.16 |
 | Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
 | Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 2.3.3 / 2.0.1+fort.1, local source |
+| FortMeter / ModbusMaster | 2.4.0 / 2.0.1+fort.1, local source |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -65,7 +67,7 @@ A normal firmware build uses the committed web header and does not require Node.
 
 ## 3. First startup and meter scan
 
-Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 2.3.3, match the meter's CONi slave ID/baud/parity in Meter setup, and confirm Manual direction. The firmware begins contact testing with FC03 at `0x0058`, two registers, before requesting the wider measurement profile. When contact fails it returns to a bounded retry rather than immediately querying every register.
+Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 2.4.0, match the meter's CONi slave ID/baud/parity in Meter setup, and confirm Manual direction. The firmware begins contact testing with FC03 at `0x0058`, two registers, before requesting the wider measurement profile. When contact fails it returns to a bounded retry rather than immediately querying every register.
 
 On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 
@@ -93,7 +95,7 @@ The OLED is rotated 180° through `OLED_ROTATE_180` in [board.h](firmware/includ
 | --- | --- |
 | PREV / GPIO4 | Previous OLED page |
 | NEXT / GPIO5 | Next OLED page |
-| OK / GPIO6, short press | Change interval row or open Network options on its page |
+| OK / GPIO6, short press | Browse the five saved checkpoints or open Network options on its page |
 | OK, held 900 ms | Toggle alarm mute outside Network options |
 | OK held at boot after filesystem failure | Five-second archive-format confirmation |
 
@@ -109,16 +111,15 @@ The live secondary counter is read from `0x0082–0x0083` as a high-word-first u
 
 The primary float pair at `0x008A–0x008B` is a separate diagnostic view. The console's `primary` command prints both word-order candidates so they can be compared with the corresponding Fort display. It does not silently choose the plausible-looking number or change the production counter. The scanned energy table's length inconsistency is documented in [DESIGN](docs/DESIGN.md#fort-register-reference).
 
-| Morning windows, WIB | Evening windows, WIB |
+| Morning checkpoints, WIB | Evening checkpoints, WIB |
 | --- | --- |
-| 06:00–06:30 | 16:30–17:00 |
-| 06:30–07:00 | 17:00–17:30 |
-| 07:00–07:30 | 17:30–18:00 |
-| 07:30–08:00 | |
-| 08:00–08:30 | |
-| 08:30–09:00 | |
+| 06:00 | 17:00 |
+| 06:30 | 17:30 |
+| 07:00 | 18:00 |
+| 07:30 | 18:30 |
+| 08:00 | 19:00 |
 
-The DS3231 stores UTC and the application uses WIB for display, day boundaries and interval allocation. Boundaries may be interpolated only across accepted sample gaps of at most 15 seconds. Reboots, missing RTC, counter decreases, CT/PT changes, diagnostics and longer gaps interrupt continuity, so an incomplete interval cannot be presented as a complete half hour. Completed intervals remain preserved.
+The table stores cumulative readings rather than half-hour usage. Optional differences are computed from adjacent recorded points within the same shift, with configuration and continuity checks. Raw checkpoints are never interpolated. The earlier six morning and three evening interval windows remain available under **Previous interval schedule and analysis**, with their existing export API and archives preserved. See [CHECKPOINTS](docs/CHECKPOINTS.md) for the distinction and the exact capture/persistence rules.
 
 ## 5. Tasks, ownership and scheduling
 

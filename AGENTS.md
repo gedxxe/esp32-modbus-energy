@@ -19,7 +19,8 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `web/flow-playback.js` and `web/components/FlowPlayback.jsx`: continuous observed-frame grouping, readable TX/RX replay and a one-active/one-newest-pending queue. Keep presentation duration separate from actual UART timestamps and never animate RX without captured bytes. Preserve the eased arrival and explicit TX/RX fade phases, retaining the arrived position until opacity reaches zero.
 - `web/request.js`: single API socket scheduling through complete body reception, active deadlines and priority Stop/Resume. Do not abort accepted POSTs to refresh telemetry.
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
-- `firmware/include/energy.h`: interval schedule, continuity and quality logic, CRC/frame validation.
+- `firmware/include/checkpoint_log.h`: primary ten-point daily cumulative kWh log, actual read timestamps, immutable captures, five-second admission window and explicit CRC serialization.
+- `firmware/include/energy.h`: retained legacy interval schedule, continuity/quality logic and CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
 - `firmware/lib/FortMeter/src/FortTransport.h` and `FortDiagnostics.h`: source-shared ModbusMaster transport and diagnostic console for main firmware and the standalone INO. The old diagnostic_engine.h and build-diagnostic.py paths are compatibility/provenance entry points. Do not create a second parser there.
 - `firmware/lib/FortMeter/third_party/ModbusMaster/`: pinned v2.0.1 source provenance, service-hook patch and upstream license. Keep actual-library native tests and the source hashes in sync.
@@ -44,13 +45,14 @@ Keep the README, wiring SVG, netlist, diagrams, tests and release package consis
 1. Read the meter with Modbus function 03 only. Do not add register writes, automatic meter reconfiguration or resets without an explicit product requirement.
 2. Reject bad CRC, wrong ID/function/length and exception frames. CRC integrity is never bypassed to match a typo in the manual.
 3. Use the secondary integer energy counter and apply CT/PT once. Keep cumulative calculations in `double`. Never treat missing data as zero.
-4. Morning windows are 06:00–09:00 in six half hours. Evening windows are 16:30–18:00 in three half hours. All labels and day boundaries are WIB (UTC+7). DS3231 stores UTC.
+4. Primary checkpoints are 06:00, 06:30, 07:00, 07:30, 08:00 and 17:00, 17:30, 18:00, 18:30, 19:00 WIB. Store actual cumulative readings with their request/response RTC timestamps, never interpolation or late backfill. The earlier nine consumption windows remain a separate legacy analysis/API and must not overwrite checkpoint or historical data. All day boundaries are WIB (UTC+7). DS3231 stores UTC.
 5. Missing/invalid RTC, reboots, counter resets, changed CT/PT and excessive sample gaps must not yield a complete interval. Preserve completed intervals.
 6. Core 1 exclusively owns UART, Preferences and tracker mutation. Core 0 handles HTTP/UI. Exchange copies through RTOS queues. Lock I2C and filesystem access. Keep waits bounded and leave time for idle/Wi-Fi tasks.
 7. Do not automatically format a failed filesystem. Retain the documented physical confirmation procedure and preserve recoverable backup files on failed operations.
 8. Core 0 exclusively owns RGB RMT channel 0. Keep transmission asynchronous, skip busy frames and write LED Preferences only on core 1. GPIO48 is the confirmed onboard LED pin for this installation.
 9. Active diagnostics must interrupt interval continuity, keep trial settings/values out of production persistence and restore board pins/saved serial configuration on resume. Stop/resume stays bounded. Never drop an accepted queued command silently. Read-only report/status inspection must not pause recording.
-10. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
+10. Checkpoint captures persist immediately through core 1 to explicit CRC records in NVS and LittleFS. Protect an unarchived previous day before rollover, block further rollover when both recovery slots are occupied, and preserve valid backups/temporary records. Never infer a captured checkpoint merely from a live browser value.
+11. Boot without waiting for USB Serial. An absent OLED must not prevent AP/measurement startup.
 
 ## Diagnostic evidence and operator instructions
 

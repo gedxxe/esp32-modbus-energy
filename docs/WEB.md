@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/WEB.md)
 
-Firmware 2.3.1 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Firmware 2.3.2 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
 
 ## Reach the application
 
@@ -68,7 +68,7 @@ All these routes are registered by the production firmware. Ordinary controls us
 
 ## Verify the integrated installation
 
-After uploading 2.3.1, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
+After uploading 2.3.2, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
 
 The communication endpoint now sends at most eight events per page, with a backlog marker for catch-up. Browser polling targets 500 ms and retries failed requests after 1.2 seconds, retaining timestamped history and distinguishing timeout, invalid payload and endpoint failures. A failed HTTP event request does not establish whether a Modbus slave is present.
 
@@ -92,6 +92,8 @@ The animated lanes use the supplied React Bits WakeSlider as a non-interactive v
 
 Only one replay and the newest pending transaction are retained. A burst replaces the pending visual rather than building a long queue, while recent raw events remain in the 32-entry log. Frame grouping requires a continuous sequence with matching ID, baud, parity, register, word count, pins and diagnostic context. Old initial history, reboot history, sequence gaps and orphan responses cannot create a new replay. A hidden page, unavailable endpoint or reduced-motion preference clears playback.
 
+The track uses fixed-width 2 px points that reach at most 3 px high during the wake. A ResizeObserver adjusts each lane between 64 and 256 points, so dots stay small on wide screens and remain separated on phones. The primary kWh readout uses the supplied Counter with three decimal places, locale-aware separators and a 650 ms roll on accepted changes. The initial reading appears directly, missing energy remains unavailable, and reduced motion presents the current value without rolling. These are browser presentation effects and do not add samples or change the cumulative energy calculation.
+
 ![Representative communication replay using simulated UART events](assets/ui-flow-desktop.png)
 
 The clock uses the supplied Counter component for its hour/minute/second pairs, with a 300 ms roll, no intro spin, no bounce and no blur. Its source remains the device UTC/RTC reference and five-minute presentation re-anchor. The browser does not add NTP or repeatedly write the RTC. An accessible timer label exposes the complete time while the repeated visual numerals remain hidden from assistive reading.
@@ -103,3 +105,5 @@ Navigation uses the supplied StarBorder component around native buttons and an i
 ![Representative menu buttons](assets/ui-navigation.png)
 
 API fetches still share one socket slot through complete body reception with an eight-second active deadline. Queued waiting does not consume that deadline, and priority Stop/Resume can cancel an in-flight telemetry GET. Animation executes in the browser. The ESP32 serves the compiled offline bundle and does not execute React, Motion or canvas rendering.
+
+[Watch the primary kWh transition with simulated readings](assets/ui-energy-demo.mp4).

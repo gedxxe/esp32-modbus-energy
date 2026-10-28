@@ -2,7 +2,7 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-Versi 2.3.1 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.3.2 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 

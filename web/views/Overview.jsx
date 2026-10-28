@@ -1,3 +1,4 @@
+import EnergyCounter from "../components/EnergyCounter.jsx";
 import DeviceClock from "../components/DeviceClock.jsx";
 import { useState } from "react";
 import SpotlightCard from "../vendor/react-bits/SpotlightCard.jsx";
@@ -139,7 +140,7 @@ export default function Overview({ device }) {
             </span>
           </div>
           <div className="reading">
-            <span id="energy">{number(s?.energy)}</span>
+            <EnergyCounter value={s?.energy} />
             <span className="unit">kWh</span>
           </div>
           <div className="summary-bottom">

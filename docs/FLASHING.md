@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/FLASHING.md)
 
-Firmware **2.3.1** targets the physical ESP32-S3 N16R8 with 16 MB flash and OPI PSRAM. Open `firmware/` in PlatformIO and select `esp32s3`. The local FortMeter library is part of the source checkout, so main polling and standalone diagnostics cannot silently select different registry versions.
+Firmware **2.3.2** targets the physical ESP32-S3 N16R8 with 16 MB flash and OPI PSRAM. Open `firmware/` in PlatformIO and select `esp32s3`. The local FortMeter library is part of the source checkout, so main polling and standalone diagnostics cannot silently select different registry versions.
 
 ## Physical board
 
@@ -24,7 +24,7 @@ An app-only image does not contain a bootloader and must not be flashed at 0x0. 
 
 ## Arduino diagnostic library
 
-Install `FortMeter-library-v2.3.1.zip` through Arduino IDE's Add .ZIP Library menu, then open the standalone INO. The same ZIP can be generated without a firmware build using `python tools/package-library.py` from the repository-root computer terminal, or the source FortMeter folder can be copied into the configured Sketchbook libraries directory. Follow the [standalone guide](../examples/FortSerialDebug/README.md) for board options and explicit Serial Monitor INPUT/OUTPUT instructions.
+Install `FortMeter-library-v2.3.2.zip` through Arduino IDE's Add .ZIP Library menu, then open the standalone INO. The same ZIP can be generated without a firmware build using `python tools/package-library.py` from the repository-root computer terminal, or the source FortMeter folder can be copied into the configured Sketchbook libraries directory. Follow the [standalone guide](../examples/FortSerialDebug/README.md) for board options and explicit Serial Monitor INPUT/OUTPUT instructions.
 
 ## Rebuild browser assets
 

@@ -2,6 +2,12 @@
 
 # Changelog
 
+## 2.3.2 / 28 Oktober 2026
+
+Jalur TX/RX sekarang memakai titik 2 px dengan puncak halus 3 px, menggantikan batang yang melebar. Kerapatannya mengikuti lebar tampilan, dari 64 sampai 256 titik per jalur. Gerakan, easing saat tiba serta fade 360 ms tetap dipertahankan.
+
+Angka kWh utama kini memakai React Bits Counter yang diberikan, dengan transisi bergulir 650 ms, stagger ringan serta tiga angka desimal. Pemisah angka mengikuti bahasa Inggris/Indonesia, data hilang tetap ditandai tidak tersedia dan reduced motion tetap dihormati. Source cocok dengan komponen yang diberikan, sedangkan animasi mengikuti pembacaan yang diterima tanpa menghasilkan sampel energi tambahan. Regresi gerak browser merekam frame langsung agar tidak bergantung pada keterlambatan pemanggilan dari driver tes.
+
 ## 2.3.1 / 28 Oktober 2026
 
 Replay TX dan RX sekarang memakai easing quintic agar kecepatan naik dan turun bertahap. Saat tiba, paket tetap di ujung sementara paket serta gelombang WakeSlider memudar bersama selama 360 ms. Jalur dasar tetap terlihat di belakangnya, sehingga gelombang aktif tidak lagi mendadak rata dalam satu frame. Satu pasangan request/respons diputar sekitar 3,2 detik, sedangkan timestamp UART yang tertangkap tetap memakai timing asli.

@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.3.1**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.3.2**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
 ## Compilation
 
@@ -10,7 +10,7 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 83,088 | 1,397,769 |
+| Main `esp32s3` environment | 83,088 | 1,398,057 |
 | Standalone FortSerialDebug | 30,284 | 336,577 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
@@ -48,13 +48,13 @@ The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **1
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,030 | 527 |
-| `/assets/app.js` | 385,603 | 123,557 |
-| `/assets/app.css` | 36,013 | 8,798 |
+| `/assets/app.js` | 386,198 | 123,791 |
+| `/assets/app.css` | 36,296 | 8,850 |
 | `/assets/third-party.txt` | 10,218 | 1,539 |
 
-The combined payload is **134,421 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **134,707 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-The documentation checker validates 29 Markdown guides and 213 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
+The documentation checker validates 29 Markdown guides and 215 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
 ## Packaging and remaining hardware work
 
@@ -101,3 +101,11 @@ Both builds and all three native suites passed. The main image uses 83,088 bytes
 The complete generated-byte browser suite passed with Microsoft Edge at 320–2560 px, including scanner recovery, diagnostics, Stop/Resume, clock, records, languages and reduced motion. New animation checks sample rendering frames inside the browser for both TX and RX. They require a fade from opacity above 0.9 to below 0.1, intermediate opacity values, no increase during the fade, less than one pixel of position movement after arrival and matching packet/wave opacity. The pure easing checks also verify bounded monotonic travel, zero endpoint velocity and continuity between movement and fade.
 
 The refreshed representative MP4 contains 90 changing browser frames over 3.6 seconds, encoded at 30 fps, and ends after playback reaches idle. It uses simulated API data and is documentation rather than physical timing evidence. The playback change does not alter the acquisition path, UART timestamp capture, RTC writes or Modbus acceptance rules.
+
+## Dense points and the primary energy counter in 2.3.2
+
+Both ESP32-S3 builds and all three native suites passed. Main static RAM remains 83,088 bytes, with 1,398,057 bytes of program space. The standalone image remains at 30,284 and 336,577 bytes respectively. The generated web payload is 134,707 bytes gzip and the checked input hashes match the firmware header.
+
+The full generated-byte browser suite passed in Microsoft Edge at 320–2560 px. It verifies point counts between 64 and 256, fixed 2 px point width and at most 3 px height, along with the existing movement/fade and no-RX-on-timeout checks. Travel timing now comes from samples taken inside requestAnimationFrame, avoiding the delayed Playwright calls that made the previous CI position assertion fail. The measured replay must cross the track, paint intermediate positions and remain visible in motion for at least 900 ms.
+
+The supplied Counter JavaScript and CSS match the unchanged vendored source. Main-energy cases exercise the carry from 999.999 to 1,000.001, decreasing readings, a legitimate zero, missing energy, localized English/Indonesian labels and reduced motion. Initial/missing readings do not spin from zero. The representative counter recording was visually checked at intermediate digit positions and after settling. It contains 74 changing browser frames over 2.93 seconds, while the updated point replay contains 89 changing frames over 3.57 seconds. Both videos use simulated API data and are excluded from the embedded payload. Integrated physical-board acceptance remains separate from these software checks.

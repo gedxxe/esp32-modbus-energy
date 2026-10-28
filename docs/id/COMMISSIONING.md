@@ -2,11 +2,11 @@
 
 [English](../COMMISSIONING.md) · **Bahasa Indonesia**
 
-Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.3.1, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
+Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.3.2, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
 
 ## Uji meja sebelum ke panel
 
-Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.3.1. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
+Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.3.2. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
 
 Saat A/B dilepas, jalankan diagnosis terbatas dan simpan output. RX pada kondisi itu berasal dari jalur lokal. Loopback UART sementara dapat dibuat setelah kabel TTL modul dilepas, dengan menghubungkan GPIO17 ke GPIO18. Hasilnya harus dikenali sebagai echo request dan ditolak sebagai energi. Lepas jumper serta pulihkan modul manual sebelum tes Fort.
 

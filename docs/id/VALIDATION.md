@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.3.1**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.3.2**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
 ## Kompilasi
 
@@ -10,7 +10,7 @@ Kedua build lulus dengan espressif32 **6.10.0** dan Arduino ESP32 **2.0.17** unt
 
 | Build | RAM statis | Program |
 | --- | ---: | ---: |
-| Firmware utama `esp32s3` | 83.088 byte | 1.397.769 byte |
+| Firmware utama `esp32s3` | 83.088 byte | 1.398.057 byte |
 | FortSerialDebug dengan library FortMeter | 30.284 byte | 336.577 byte |
 
 RAM statis bukan total alokasi runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi sebesar 12 KiB, sedangkan sisa stack, heap dan alokasi driver perlu diperiksa pada perangkat melalui process monitor. INO mandiri kini memakai library FortMeter yang disertakan bersama source ModbusMaster. Build diuji melalui PlatformIO, sementara GUI Arduino IDE serta versi core lain belum dijalankan.
@@ -41,7 +41,7 @@ Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request 
 
 ## Provenance dan paket
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard, WakeSlider, Counter dan StarBorder serta Motion **14.7.1** menghasilkan total **134.421 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard, WakeSlider, Counter dan StarBorder serta Motion **14.7.1** menghasilkan total **134.707 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
 
 Checker dokumentasi memeriksa 29 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
 
@@ -92,3 +92,11 @@ Kedua build dan ketiga suite native lulus. Image utama memakai RAM statis 83.088
 Suite browser lengkap pada byte generated lulus dengan Microsoft Edge pada 320–2560 px, termasuk pemulihan scanner, diagnostik, Stop/Resume, jam, arsip, bahasa dan reduced motion. Tes animasi baru mengambil sampel frame render langsung di browser untuk TX maupun RX. Tes mensyaratkan fade dari opacity di atas 0,9 sampai di bawah 0,1, nilai peralihan di antaranya, tidak ada kenaikan opacity saat fade, perpindahan posisi kurang dari satu piksel setelah tiba serta opacity paket dan gelombang yang sama. Tes easing murni juga memeriksa gerak monotonic yang terbatas, kecepatan nol di ujung dan kontinuitas antara gerak dengan fade.
 
 MP4 representatif terbaru memuat 90 frame browser yang berubah selama 3,6 detik, dienkode pada 30 fps dan berakhir setelah playback kembali idle. Data API merupakan simulasi, sehingga video tetap menjadi dokumentasi dan bukan bukti timing perangkat fisik. Perubahan playback ini tidak mengubah jalur akuisisi, timestamp UART, penulisan RTC maupun aturan penerimaan Modbus.
+
+## Titik rapat dan counter energi utama pada 2.3.2
+
+Kedua build ESP32-S3 dan ketiga suite native lulus. RAM statis utama tetap 83.088 byte, dengan program 1.398.057 byte. Image mandiri tetap memakai 30.284 serta 336.577 byte. Payload web generated berukuran 134.707 byte gzip, dan hash input cocok dengan header firmware.
+
+Suite browser lengkap pada byte generated lulus di Microsoft Edge pada 320–2560 px. Tes memeriksa jumlah 64–256 titik, lebar tetap 2 px serta tinggi maksimal 3 px, bersama pemeriksaan gerak/fade dan timeout tanpa RX buatan. Timing gerak sekarang diambil dari sampel di dalam requestAnimationFrame agar tidak bergantung pada pemanggilan Playwright yang terlambat, yang menyebabkan assertion posisi CI sebelumnya gagal. Replay harus melintasi jalur, merender posisi peralihan dan terlihat bergerak setidaknya 900 ms.
+
+JavaScript dan CSS Counter yang diberikan cocok dengan source vendored yang tetap utuh. Kasus energi utama mencakup perpindahan 999,999 ke 1.000,001, pembacaan turun, nol yang sah, energi hilang, format Inggris/Indonesia serta reduced motion. Nilai awal maupun data hilang tidak diputar dari nol. Rekaman counter representatif diperiksa secara visual saat digit bergerak dan setelah berhenti, dengan 74 frame browser yang berubah selama 2,93 detik. Rekaman titik terbaru memuat 89 frame yang berubah selama 3,57 detik. Keduanya memakai API simulasi dan tidak dimasukkan ke payload tertanam. Penerimaan perangkat fisik terpadu tetap terpisah dari pemeriksaan software ini.

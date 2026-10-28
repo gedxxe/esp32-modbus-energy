@@ -2,6 +2,12 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.3.2 / 28 October 2026
+
+The TX/RX tracks now use 2 px points, with a gentle 3 px peak, instead of stretched bars. Their density follows the available width from 64 to 256 points per lane. The existing movement, arrival easing and 360 ms fade remain intact.
+
+The primary kWh display now uses the supplied React Bits Counter with a 650 ms rolling transition, light stagger and three fixed decimals. It preserves English/Indonesian separators, displays missing readings as unavailable and respects reduced motion. Its source matches the supplied component, and the animation follows accepted readings rather than inventing intermediate energy samples. The browser motion regression records frames directly to avoid depending on delayed test-driver calls.
+
 ## 2.3.1 / 28 October 2026
 
 TX and RX replay now accelerate and decelerate with quintic easing instead of moving at a constant speed. On arrival, the packet keeps its endpoint position while it and the WakeSlider wave fade together over 360 ms. A static resting track remains underneath, so clearing the active wave no longer flattens it in one frame. A complete request/response replay takes about 3.2 seconds, while the captured UART timestamps retain their original timing.

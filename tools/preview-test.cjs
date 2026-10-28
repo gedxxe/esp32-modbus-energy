@@ -572,18 +572,22 @@ async function checkVectors(browser, out) {
       await page.locator("#uart-flow").screenshot({path:path.join(assets,"ui-flow-desktop.png"),style:".main-nav{visibility:hidden}"});
       await page.locator(".main-nav").screenshot({path:path.join(assets,"ui-navigation.png")});
       await page.locator("#clock").screenshot({path:path.join(assets,"ui-clock.png")});
+      await page.locator(".energy-surface").screenshot({path:path.join(assets,"ui-energy.png")});
       await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);
       await page.locator("#uart-flow").screenshot({path:path.join(assets,"ui-flow-mobile.png"),style:".main-nav{visibility:hidden}"});
-      if(process.argv.includes("--record-flow")){
+      if(process.argv.includes("--record-flow")||process.argv.includes("--record-energy")){
+        const energyRecording=process.argv.includes("--record-energy");
+        const selector=energyRecording?".energy-surface":".flow-playback";
+        const mediaName=energyRecording?"ui-energy-demo":"ui-flow-demo";
         await page.setViewportSize({width:1160,height:760});
         const hide=await page.addStyleTag({content:".main-nav{visibility:hidden}"});
-        await page.locator(".flow-playback").scrollIntoViewIfNeeded();
-        const box=await page.locator(".flow-playback").boundingBox();
+        await page.locator(selector).scrollIntoViewIfNeeded();
+        const box=await page.locator(selector).boundingBox();
         flowAuto=false;
         await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
         await page.waitForTimeout(600);
         const cdp=await context.newCDPSession(page),frames=[];
-        const folder=path.join(out,"flow-recording");fs.mkdirSync(folder,{recursive:true});
+        const folder=path.join(out,energyRecording?"energy-recording":"flow-recording");fs.mkdirSync(folder,{recursive:true});
         const receive=({data,sessionId,metadata})=>{
           const name=`frame-${String(frames.length).padStart(5,"0")}.jpg`;
           fs.writeFileSync(path.join(folder,name),Buffer.from(data,"base64"));
@@ -592,19 +596,28 @@ async function checkVectors(browser, out) {
         };
         cdp.on("Page.screencastFrame",receive);
         await cdp.send("Page.startScreencast",{format:"jpeg",quality:92,everyNthFrame:2});
-        await page.waitForTimeout(400);appendFlow();
-        await page.waitForSelector(".flow-train.tx");
-        await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
-        await page.waitForTimeout(450);
+        await page.waitForTimeout(400);
+        if(energyRecording){
+          for(const value of [128432.735,128432.756]){
+            state.energy=value;await page.locator("#refresh").evaluate(button=>button.click());
+            await page.waitForFunction(value=>document.getElementById("energy")?.dataset.value===value.toLocaleString("en-GB",{minimumFractionDigits:3,maximumFractionDigits:3}),value);
+            await page.waitForTimeout(1400);
+          }
+        }else{
+          appendFlow();
+          await page.waitForSelector(".flow-train.tx");
+          await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
+          await page.waitForTimeout(450);
+        }
         await cdp.send("Page.stopScreencast");cdp.off("Page.screencastFrame",receive);await cdp.detach();
         assert(frames.length>25,"The demo must contain actual changing browser frames");
         const list=frames.map((frame,index)=>`file '${frame.name}'\nduration ${Math.max(.01,(frames[index+1]?.time??frame.time+.45)-frame.time).toFixed(6)}`).join("\n");
         fs.writeFileSync(path.join(folder,"frames.txt"),list+`\nfile '${frames.at(-1).name}'\n`);
         const crop=[box.width,box.height,box.x,box.y].map(value=>Math.max(0,Math.floor(value/2)*2)).join(":");
-        const result=require("node:child_process").spawnSync("ffmpeg",["-v","error","-y","-f","concat","-safe","1","-i",path.join(folder,"frames.txt"),"-vf",`crop=${crop}`,"-r","30","-c:v","libx264","-pix_fmt","yuv420p","-an","-movflags","+faststart",path.join(assets,"ui-flow-demo.mp4")],{encoding:"utf8"});
+        const result=require("node:child_process").spawnSync("ffmpeg",["-v","error","-y","-f","concat","-safe","1","-i",path.join(folder,"frames.txt"),"-vf",`crop=${crop}`,"-r","30","-c:v","libx264","-pix_fmt","yuv420p","-an","-movflags","+faststart",path.join(assets,mediaName+".mp4")],{encoding:"utf8"});
         assert.equal(result.status,0,result.stderr);await hide.evaluate(node=>node.remove());
-        fs.copyFileSync(path.join(assets,"ui-flow-demo.mp4"),path.join(root,`output/flow-replay-v${version}.mp4`));
-        console.log(`PASS: ${frames.length} real browser frames recorded as docs/assets/ui-flow-demo.mp4`);
+        fs.copyFileSync(path.join(assets,mediaName+".mp4"),path.join(root,`output/${energyRecording?"energy-counter":"flow-replay"}-v${version}.mp4`));
+        console.log(`PASS: ${frames.length} real browser frames recorded as docs/assets/${mediaName}.mp4`);
       }
       console.log("PASS: shipped UI design previews captured");return;
     }
@@ -634,13 +647,25 @@ async function checkVectors(browser, out) {
       () => document.querySelectorAll("#intervals tr").length === 6,
     );
     assert.equal(await page.locator("html").getAttribute("lang"), "en");
-    assert.equal(await page.locator("#energy").textContent(), "128,432.728");
+    assert.equal(await page.locator("#energy").getAttribute("data-value"), "128,432.728");
+    assert.equal(await page.locator("#energy .counter").count(),1,"The primary energy value uses the supplied Counter");
+    for(const [value,label] of [[999.999,"999.999"],[1000.001,"1,000.001"],[42.125,"42.125"],[0,"0.000"]]){
+      state.energy=value;await refresh();
+      await page.waitForFunction(label=>document.getElementById("energy")?.dataset.value===label,label);
+      assert.equal(await page.locator("#energy .counter__sr").textContent(),label,"The accessible value must expose the accepted reading, including carry and decreases");
+    }
+    state.energy=null;await refresh();
+    await page.waitForFunction(()=>document.getElementById("energy")?.dataset.value==="—");
+    assert.equal(await page.locator("#energy .counter").count(),0,"Missing energy must not animate as zero");
+    state.energy=128432.728;await refresh();
+    await page.waitForFunction(()=>document.getElementById("energy")?.dataset.value==="128,432.728");
+
     assert.equal(await page.locator("#value-currentA").textContent(), "4.994 A");
     assert((await page.locator("#register-title").innerText()).includes("register"));
     malformedStatus = true;
     await refresh();
     await page.waitForFunction(() => document.getElementById("health")?.textContent.includes("Connection lost"));
-    assert.equal(await page.locator("#energy").textContent(), "128,432.728", "Malformed status retains the accepted snapshot");
+    assert.equal(await page.locator("#energy").getAttribute("data-value"), "128,432.728", "Malformed status retains the accepted snapshot");
     malformedStatus = false;
     await refresh();
     await page.waitForFunction(() => !document.getElementById("health")?.textContent.includes("Connection lost"));
@@ -1108,7 +1133,7 @@ async function checkVectors(browser, out) {
       fullPage: true,
     });
     await page.locator("#language").selectOption("id");
-    assert.equal(await page.locator("#energy").textContent(), "128.432,728");
+    assert.equal(await page.locator("#energy").getAttribute("data-value"), "128.432,728");
     assert((await page.locator("#intervals").innerText()).includes("Lengkap"));
     await page.screenshot({
       path: path.join(assets, "ui-mobile-id.png"),
@@ -1153,10 +1178,17 @@ async function checkVectors(browser, out) {
       "No idle/decorative packet animation without a new device event",
     );
     await page.evaluate(() => {
-      window.flowFadeSamples={tx:[],rx:[]};
+      window.flowFadeSamples={tx:[],rx:[]};window.flowTravelSamples=[];
       let frame=0;
       const sample=()=>{
         const phase=document.querySelector(".flow-playback")?.dataset.phase;
+        if(phase==="tx"){
+          const train=document.querySelector(".flow-train.tx"),track=document.querySelector(".flow-rail.tx .flow-track");
+          if(train&&track){
+            const a=train.getBoundingClientRect(),b=track.getBoundingClientRect();
+            window.flowTravelSamples.push({at:performance.now(),position:(a.x-b.x)/(b.width-a.width)});
+          }
+        }
         for(const direction of ["tx","rx"]){
           if(phase!==`${direction}-settle`)continue;
           const train=document.querySelector(`.flow-train.${direction}`);
@@ -1174,16 +1206,17 @@ async function checkVectors(browser, out) {
     });
     appendFlow();
     await page.waitForSelector(".flow-train.tx");
-    const trainStart=await page.locator(".flow-train.tx").boundingBox();
-    await page.waitForTimeout(320);const trainMiddle=await page.locator(".flow-train.tx").boundingBox();
-    const track=await page.locator(".flow-rail.tx .flow-track").boundingBox();
-    assert(trainMiddle.x>trainStart.x+track.width*.08,"The request must visibly travel rather than flash at the endpoint");
-    assert(trainMiddle.x<track.x+track.width*.8,"The train must still be travelling after 320 ms");
-    assert(await page.locator(".flow-rail.tx .wake-slider__bar").count()===44,"The actual React Bits WakeSlider paints the flow");
+    const pointCount=await page.locator(".flow-rail.tx .wake-slider__bar").count();
+    assert(pointCount>=64&&pointCount<=256,"The actual WakeSlider uses more, smaller points");
+    const dotBounds=await page.locator(".flow-rail.tx .wake-slider__bar").evaluateAll(nodes=>nodes.map(node=>{const box=node.getBoundingClientRect();return{width:box.width,height:box.height};}));
+    assert(dotBounds.every(point=>Math.abs(point.width-2)<.1&&point.height<=3.1),"Points must remain small rather than stretching into dashes");
     assert.equal(await page.locator(".flow-train.rx").count(),0,"TX and RX replay must alternate");
     await page.waitForSelector(".flow-train.rx");
     await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
-    const fadeSamples=await page.evaluate(()=>{window.stopFlowFadeProbe();return window.flowFadeSamples;});
+    const {fadeSamples,travelSamples}=await page.evaluate(()=>{window.stopFlowFadeProbe();return{fadeSamples:window.flowFadeSamples,travelSamples:window.flowTravelSamples};});
+    assert(travelSamples.length>=8&&travelSamples[0].position<.1&&travelSamples.at(-1).position>.9,"The request must visibly travel across the track");
+    assert(travelSamples.at(-1).at-travelSamples[0].at>=900,"Rendered travel must remain readable rather than flashing at the endpoint");
+    assert(travelSamples.some(row=>row.position>.3&&row.position<.7),"The replay must paint intermediate positions");
     for(const direction of ["tx","rx"]){
       const samples=fadeSamples[direction];
       assert(samples.length>=4,`${direction}: arrival must remain mounted over multiple rendering frames`);

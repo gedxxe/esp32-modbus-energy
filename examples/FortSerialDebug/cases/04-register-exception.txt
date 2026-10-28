@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Use a known responsive reader ID/format; adjust via runtime commands first.
 x
+profile fort
 direction manual
 settle 100
 gap 200

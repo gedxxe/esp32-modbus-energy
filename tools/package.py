@@ -44,7 +44,7 @@ files=[*(root/name for name in root_names),*sources,
        *(p for p in sorted((root/'.github').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'tools').glob('*')) if p.suffix in ['.py','.cjs','.ps1']),
        *(root/'output/firmware'/name for name in ['bootloader.bin','partitions.bin','boot_app0.bin','midea-fort-app.bin','midea-fort-factory.bin']),
-       root/'output/firmware/FLASHING.md',root/'Fort Power Meter_User Manual_compressed.pdf']
+       root/'output/firmware/FLASHING.md',root/'Fort Power Meter_User Manual_compressed.pdf',root/'Acrel ADL400 Manual.pdf']
 manifest = {
     "version": version, "build_date_local": datetime.now(timezone(timedelta(hours=7))).date().isoformat(), "timezone": "Asia/Jakarta",
     "target": "ESP32-S3 N16R8", "build": "PlatformIO SUCCESS, espressif32 6.10.0",

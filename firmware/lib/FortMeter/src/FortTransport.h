@@ -2,6 +2,7 @@
 #pragma once
 #include <Arduino.h>
 #include "ModbusMaster.h"
+#include "MeterProfiles.h"
 #include <string.h>
 #include <math.h>
 

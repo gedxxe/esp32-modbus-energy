@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Manual-based UInt32 secondary counter; compare with correct meter page.
 x
+profile fort
 direction manual
 settle 100
 gap 200

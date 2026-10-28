@@ -87,7 +87,7 @@ for y,label,c in [(300,'VCC',RED),(340,'GND',GRAY),(390,'RO → RX',BLUE),(430,'
 for y,label,c in [(340,'A',AMBER),(390,'B',GREEN)]:s.port(1450,y,label,c)
 for y,c in [(300,RED),(340,GRAY),(390,BLUE),(430,GREEN)]:s.wire([(1000,y),(1190,y)],c)
 s.wire([(1000,490),(1100,490),(1100,480),(1190,480)],PURPLE);s.wire([(1100,490),(1100,520),(1190,520)],PURPLE);s.dot(1100,490,PURPLE)
-s.text(1025,555,'Tie DE and /RE together',15,PURPLE)
+s.text(1025,555,'DE + /RE joined',15,PURPLE)
 s.rect(1540,240,210,330);s.text(1560,278,'FORT',26,weight=700);s.text(1560,310,'Power meter',16,MUTED)
 for y,label,c in [(340,'58 / A',AMBER),(390,'59 / B',GREEN)]:s.port(1540,y,label,c,'left');s.wire([(1450,y),(1540,y)],c)
 s.text(1560,455,'Dedicated meter port',16,MUTED);s.text(1560,482,'ESP32 is the',16,MUTED);s.text(1560,509,'only master',16,MUTED)
@@ -117,6 +117,12 @@ s.rect(45,1185,1710,102);s.text(70,1215,'NET LABELS',13,BLUE,700)
 for x,label,c in [(70,'3V3',RED),(215,'GND',GRAY),(360,'SDA / RX',BLUE),(560,'SCL / TX / B',GREEN),(810,'GPIO / DIR',PURPLE),(1040,'RS485 A / buzzer',AMBER)]:s.wire([(x,1245),(x+35,1245)],c,4);s.text(x+45,1251,label,16,c)
 s.text(70,1276,'Repeated GND/3V3 labels identify one net. Dots mark joins. Crossings without dots do not connect. Port positions are not physical headers.',15,MUTED)
 s.save('wiring-overview.svg')
+# Same local electronics, alternate meter port from ADL400 V1.3 PDF page 9.
+fort_parts=s.parts
+s.parts=[part.replace('RS485, Fort,','RS485, Acrel ADL400,').replace('>FORT<','>ACREL<').replace('>Power meter<','>ADL400 V1.3<').replace('58 / A','21 / A1').replace('59 / B','22 / B1').replace('Manual: terminal 58 = A, terminal 59 = B.','ADL400: terminal 21 = A1, terminal 22 = B1.').replace('70 / COM is a switch input common, not RS485 ground.','17 / 18 are pulse outputs. Do not connect them as RS485.') for part in fort_parts]
+s.save('wiring-acrel-adl400.svg')
+s.parts=fort_parts
+
 
 # Confirmed four-pin installation, kept separate from manual DE-/RE alternative.
 s=SVG(1400,620,'Automatic-direction module alternative','Logical nets, not physical header positions. User-confirmed module TXD to ESP32 GPIO18, RXD from GPIO17. GPIO16 unconnected.')
@@ -175,7 +181,7 @@ s.save('architecture.svg')
 
 s=SVG(1400,650,'OLED screen and button reference')
 s.heading('OLED 128 × 64 · five pages + boot','Representative firmware screens, not hardware photographs. All sample values are simulated.')
-screens=[('BOOT',['MIDEA ENGINEERING','FORT','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh import','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING CAPTURES','2026-10-28 07:00','128400.000','07:00:01 saved']),('EVENING',['EVENING CAPTURES','2026-10-28 18:00','128480.000','18:00:01 saved']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering AP','192.168.4.1','OK: network options']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
+screens=[('BOOT',['MIDEA ENGINEERING','ENERGY','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh | Fort','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING CAPTURES','2026-10-28 07:00','128400.000','07:00:01 saved']),('EVENING',['EVENING CAPTURES','2026-10-28 18:00','128480.000','18:00:01 saved']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering AP','192.168.4.1','OK: network options']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
 for i,(title,lines) in enumerate(screens):
     x=45+i%3*450;y=145+i//3*230;s.rect(x,y,410,205);s.text(x+20,y+30,title,14,BLUE,700);s.rect(x+20,y+45,370,140,'#030b13',LINE,7)
     for j,line in enumerate(lines):s.text(x+35,y+70+j*23,line,16,color='#e2f4f0',mono=True)
@@ -199,6 +205,7 @@ for key in ['PREV','NEXT','OK']:
 rows.extend([('BZ01','BUZZER_CONTROL','ESP32.GPIO'+str(pins['PIN_BUZZER']),'R1.1k.input'),('BZ02','BUZZER_BASE','R1.1k.output','Q1.B'),('BZ03','BUZZER_BASE','Q1.B','R2.10k.input'),('BZ04','GND','R2.10k.output','rail.GND'),('BZ05','GND','Q1.E','rail.GND'),('BZ06','BUZZER_LOW','Q1.C','BUZZER.minus'),('BZ07','3V3','rail.3V3','BUZZER.plus')])
 stream=io.StringIO(newline='');writer=csv.writer(stream,lineterminator='\n');writer.writerow(['wire','net','from','to']);writer.writerows(rows)
 write_generated(ROOT/'docs/wiring-netlist.csv',stream.getvalue())
+write_generated(ROOT/'docs/wiring-acrel-adl400.csv',stream.getvalue().replace('FORT.58/A','ACREL.21/A1').replace('FORT.59/B','ACREL.22/B1'))
 
 
 

@@ -97,7 +97,7 @@
 <polyline points="1000,490 1100,490 1100,480 1190,480" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="1100,490 1100,520 1190,520" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="1100" cy="490" r="4" fill="#6d5897"/>
-<text x="1025" y="555" fill="#6d5897" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">Tie DE and /RE together</text>
+<text x="1025" y="555" fill="#6d5897" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">DE + /RE joined</text>
 <rect x="1540" y="240" width="210" height="330" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="1560" y="278" fill="#183438" font-family="Arial, sans-serif" font-size="26" font-weight="700" text-anchor="start">FORT</text>
 <text x="1560" y="310" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Power meter</text>

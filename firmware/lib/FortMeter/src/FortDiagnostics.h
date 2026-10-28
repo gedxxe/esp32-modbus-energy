@@ -17,13 +17,26 @@ struct DebugOptions {
   bool manualDirection=true;uint16_t settleUs=100,gapMs=200;
   uint32_t responseMs=2000,pollMs=2000;
   uint16_t probeAddress=meter::CURRENT_A,energyAddress=0x0082,ratioAddress=0x002C;
-  uint8_t probeWords=meter::HANDSHAKE_WORDS;
+  uint8_t probeWords=meter::HANDSHAKE_WORDS,profile=profiles::FORT;
   double energyScale=0.001;
   bool swappedWords=false,decodeEnergy=true,scanCurrent=false;
 } options;
 struct Query { uint16_t address; uint8_t words; };
 Query auditPlan[8]={{meter::CURRENT_A,2},{meter::VOLTAGE_A,2},{meter::POWER_TOTAL,2},{meter::FREQUENCY,1},{meter::SECONDARY_ENERGY,2},{meter::PRIMARY_ENERGY,2}};
 uint8_t auditCount=6;
+void selectProfile(uint8_t id){
+  if(!profiles::valid(id))return;
+  const auto &p=profiles::get(id);options.profile=id;options.probeAddress=p.current.address;options.probeWords=p.current.words;
+  options.energyAddress=p.energy.address;options.energyScale=p.energy.scale;options.ratioAddress=p.ratios;
+  options.swappedWords=false;options.decodeEnergy=true;
+  auditCount=0;
+  for(const auto &r:{p.current,p.voltage,p.power,p.frequency,p.energy})auditPlan[auditCount++]={r.address,r.words};
+  if(p.primaryFloat)auditPlan[auditCount++]={p.primaryFloat,2};
+  else auditPlan[auditCount++]={p.ratios,p.ratioWords};
+  const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};baudCount=0;
+  for(auto b:defaults)if(b<=p.maxBaud)BAUDS[baudCount++]=b;
+}
+
 // Automatic-direction module: GPIO16 is deliberately unused.
 HardwareSerial &meter;
 FortTransport transport;
@@ -166,7 +179,7 @@ bool readRegisters(const Link &link,uint16_t address,uint8_t words,uint8_t *out)
   else if(lastStatus==0xE7)++evidence.overflows;
   else if(!result.echo)++evidence.wrongFrames;
   if(result.rxSize&&result.rxSize<5)++evidence.shortFrames;
-  LOG("[NO_VALID_RESPONSE] no accepted Fort data. Status is evidence, not a component-health verdict\n");return false;
+  LOG("[NO_VALID_RESPONSE] no accepted meter data. Status is evidence, not a component-health verdict\n");return false;
 }
 uint32_t bigEndian32(const uint8_t *p) {
   return (uint32_t(p[0])<<24)|(uint32_t(p[1])<<16)|(uint32_t(p[2])<<8)|p[3];
@@ -174,11 +187,9 @@ uint32_t bigEndian32(const uint8_t *p) {
 bool readEnergy(const Link &link) {
   if(!options.decodeEnergy){LOG("[DECODE_DISABLED] use reg/deeper for raw values. No kWh computed\n");return false;}
   uint8_t energy[4], ratios[6];
-  if (!readRegisters(link,options.energyAddress,2,energy) || !readRegisters(link,options.ratioAddress,3,ratios)){++evidence.energyBad;return false;}
-  uint16_t ptNum=(uint16_t(ratios[0])<<8)|ratios[1];
-  uint16_t ptDen=(uint16_t(ratios[2])<<8)|ratios[3];
-  uint16_t ct=(uint16_t(ratios[4])<<8)|ratios[5];
-  if (!ptNum || !ptDen || !ct || ptNum>9999 || ptDen>9999 || ct>9999) { ++evidence.energyBad;LOG("[RATIO_REJECTED] PT=%u/%u CT=%u\n",ptNum,ptDen,ct); return false; }
+  if (!readRegisters(link,options.energyAddress,2,energy) || !readRegisters(link,options.ratioAddress,profiles::get(options.profile).ratioWords,ratios)){++evidence.energyBad;return false;}
+  uint16_t ptNum=0,ptDen=0,ct=0;
+  if(!profiles::ratios(profiles::get(options.profile),ratios,ptNum,ptDen,ct)){++evidence.energyBad;LOG("[RATIO_REJECTED] PT=%u/%u CT=%u\n",ptNum,ptDen,ct);return false;}
   uint8_t ordered[4];memcpy(ordered,energy,4);
   if(options.swappedWords){ordered[0]=energy[2];ordered[1]=energy[3];ordered[2]=energy[0];ordered[3]=energy[1];}
   uint32_t raw=bigEndian32(ordered); double secondary=double(raw)*options.energyScale;
@@ -217,13 +228,11 @@ bool probeLink(const Link &link) {
 void dumpRegisters(const Link &link,uint16_t address,uint8_t words){
   uint8_t data[6];if(!readRegisters(link,address,words,data))return;
   uint16_t values[3]={};for(uint8_t i=0;i<words;++i){values[i]=(uint16_t(data[2*i])<<8)|data[2*i+1];LOG("[REGISTER] 0x%04X = %04X (%u)\n",address+i,values[i],values[i]);}
-  if(words==2){uint32_t raw=meter::u32(values[0],values[1]);LOG("[UINT32] %lu [INT32] %.0f\n",(unsigned long)raw,meter::signed32(raw));
-    if(address==meter::CURRENT_A)LOG("[CURRENT_A] %.4f A. Secondary register value\n",double(raw)/10000.0);
-    if(address==meter::VOLTAGE_A)LOG("[VOLTAGE_A] %.4f V. Secondary register value\n",double(raw)/10000.0);
-    if(address==meter::POWER_TOTAL)LOG("[POWER_TOTAL] %.4f kW. Secondary register value\n",meter::signed32(raw)/10000.0);
-    if(address==meter::SECONDARY_ENERGY)LOG("[SECONDARY_KWH] %.3f kWh. CT/PT not applied\n",double(raw)/1000.0);
-    if(address==meter::PRIMARY_ENERGY)LOG("[PRIMARY_FLOAT_CANDIDATES] ABCD=%.6g CDAB=%.6g. Compare with Fort display, neither selected automatically\n",double(meter::float32(values[0],values[1])),double(meter::float32(values[1],values[0])));
-  }else if(words==1&&address==meter::FREQUENCY)LOG("[FREQUENCY] %.2f Hz\n",double(values[0])/100.0);
+  const auto &p=profiles::get(options.profile);
+  for(const auto &r:{p.current,p.voltage,p.power,p.frequency,p.energy})if(address==r.address&&words==r.words)
+    LOG("[PROFILE_VALUE] %s address=0x%04X value=%.6f scale=%.8g. CT/PT not applied\n",p.name,address,profiles::decode(r,data),r.scale);
+  if(words==2){uint32_t raw=meter::u32(values[0],values[1]);LOG("[UINT32] %lu [INT32] %.0f\n",(unsigned long)raw,meter::signed32(raw));}
+  if(p.primaryFloat&&address==p.primaryFloat&&words==2)LOG("[PRIMARY_FLOAT_CANDIDATES] ABCD=%.6g CDAB=%.6g. Compare with meter LCD, neither selected automatically\n",double(meter::float32(values[0],values[1])),double(meter::float32(values[1],values[0])));
 }
 // Level 3: documented read-only map, independent reads, then kWh conversion.
 void deepCheck(const Link &link) {
@@ -252,7 +261,7 @@ void reportEvidence() {
   else if(evidence.rxBytes||evidence.passiveBytes||evidence.staleBytes)LOG("[RX_UNVALIDATED] activity exists but no accepted reply. Inspect hex, UART events and serial settings\n");
   else if(evidence.requests)LOG("[NO_RX_UNRESOLVED] no reply. Module absent/unpowered/failed, open RX, silent meter, wrong serial/ID and unsupported silent registers remain indistinguishable\n");
   else LOG("[NO_REQUEST_EVIDENCE] no active request recorded. Passive silence is normal for an unpolled slave\n");
-  if(evidence.energyOK)LOG("[PROFILE_DECODED_UNVERIFIED] configured integer/scale/CTPT decoded. Confirm against Fort import-energy display before acceptance\n");
+  if(evidence.energyOK)LOG("[PROFILE_DECODED_UNVERIFIED] configured integer/scale/CTPT decoded. Confirm against the meter import-energy display before acceptance\n");
   else LOG("[ENERGY_NOT_VERIFIED] do not interpret missing or rejected energy as zero\n");
   if(!evidence.data&&!evidence.exceptions)LOG("[NEXT_INPUT] In web Command input + Run command or Serial Monitor INPUT + Enter: status, then intermediate. Use rxcheck for a TTL observation. Paired captures require a real physical A/B change.\n");
   uartStatus();LOG("[REPORT_END] Copy OUTPUT from REPORT_BEGIN plus preceding TX/RX/settings when requesting support. Do not type log labels as commands.\n");
@@ -286,7 +295,7 @@ void rxCheck() {
 bool sameCaptureSettings(const Capture &a,const Capture &b){
   const DebugOptions &x=a.settings,&y=b.settings;
   if(a.link.id!=b.link.id||a.link.baud!=b.link.baud||a.link.parity!=b.link.parity||a.count!=b.count)return false;
-  if(x.rx!=y.rx||x.tx!=y.tx||x.dir!=y.dir||x.manualDirection!=y.manualDirection||x.gapMs!=y.gapMs||x.settleUs!=y.settleUs||x.responseMs!=y.responseMs||x.probeAddress!=y.probeAddress||x.probeWords!=y.probeWords||x.energyAddress!=y.energyAddress||x.ratioAddress!=y.ratioAddress||x.energyScale!=y.energyScale||x.swappedWords!=y.swappedWords||x.decodeEnergy!=y.decodeEnergy)return false;
+  if(x.profile!=y.profile||x.rx!=y.rx||x.tx!=y.tx||x.dir!=y.dir||x.manualDirection!=y.manualDirection||x.gapMs!=y.gapMs||x.settleUs!=y.settleUs||x.responseMs!=y.responseMs||x.probeAddress!=y.probeAddress||x.probeWords!=y.probeWords||x.energyAddress!=y.energyAddress||x.ratioAddress!=y.ratioAddress||x.energyScale!=y.energyScale||x.swappedWords!=y.swappedWords||x.decodeEnergy!=y.decodeEnergy)return false;
   for(uint8_t i=0;i<a.count;++i)if(a.plan[i].address!=b.plan[i].address||a.plan[i].words!=b.plan[i].words)return false;
   return true;
 }
@@ -297,9 +306,9 @@ void compareCaptures(){
   if(a.txErrors||b.txErrors){LOG("[COMPARE_LOCAL_UART_ERROR] local UART failed in a capture. Resolve before assessing the physical path\n");return;}
   if(a.aborted||b.aborted){LOG("[COMPARE_INCOMPLETE] an aborted capture cannot support comparison. Repeat it\n");return;}
   LOG("[COMPARE] user-labeled A/B connected: rx=%lu echo=%lu data=%lu exception=%lu. A/B isolated: rx=%lu echo=%lu data=%lu exception=%lu\n",(unsigned long)a.rxBytes,(unsigned long)a.echoes,(unsigned long)a.data,(unsigned long)a.exceptions,(unsigned long)b.rxBytes,(unsigned long)b.echoes,(unsigned long)b.data,(unsigned long)b.exceptions);
-  if(b.data||b.exceptions)LOG("[ISOLATION_CONTRADICTED] matching responses recorded in user-labeled isolated state. Verify test state or other signal path before attributing replies to Fort\n");
+  if(b.data||b.exceptions)LOG("[ISOLATION_CONTRADICTED] matching responses recorded in user-labeled isolated state. Verify test state or other signal path before attributing replies to the meter\n");
   else if(a.data||a.exceptions)LOG("[REPLY_REQUIRES_CONNECTED_PATH] validated reply seen only with A/B connected in these tests. Energy/map acceptance remains separate\n");
-  else if(b.rxBytes||b.passiveBytes||b.staleBytes)LOG("[LOCAL_ACTIVITY_REPRODUCED] RX also exists with user-labeled A/B isolation. Those isolated bytes are not evidence of Fort replies. Module/TTL/ESP path or local noise still need localization\n");
+  else if(b.rxBytes||b.passiveBytes||b.staleBytes)LOG("[LOCAL_ACTIVITY_REPRODUCED] RX also exists with user-labeled A/B isolation. Those isolated bytes are not evidence of meter replies. Module/TTL/ESP path or local noise still need localization\n");
   else if(a.rxBytes||a.passiveBytes||a.staleBytes)LOG("[CONNECTED_ACTIVITY_ONLY] bytes seen only connected, but none valid. Compare serial settings and waveform. Meter data not established\n");
   else LOG("[BOTH_SILENT_UNRESOLVED] no RX in either test. Cannot distinguish missing/dead module from other silent paths using software alone. Measure module supply/TTL TX/RX or substitute one known-good link\n");
 }
@@ -315,6 +324,7 @@ bool validQuery(unsigned address,unsigned words){return address<=65535&&words>=1
 bool allowedPin(unsigned pin){if(options.manualDirection&&pin==unsigned(options.dir))return false;return (pin>=10&&pin<=18)||pin==21||(pin>=39&&pin<=42)||pin==47;}
 void showPlan(){for(uint8_t i=0;i<auditCount;++i)LOG("[PLAN] %u address=0x%04X words=%u\n",i+1,auditPlan[i].address,auditPlan[i].words);}
 void showStatus(){
+  LOG("[METER_PROFILE] %s (%s)\n",profiles::get(options.profile).name,profiles::get(options.profile).key);
   LOG("[SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d timeout=%lu poll=%lu probe=0x%04X/%u range=%u..%u mode=%s candidates=%u\n",current.id,(unsigned long)current.baud,current.parity,options.rx,options.tx,(unsigned long)options.responseMs,(unsigned long)options.pollMs,options.probeAddress,options.probeWords,firstID,lastID,options.scanCurrent?"current":"matrix",scanTotal());
   LOG("[TRANSPORT] direction=%s DIR%d settle=%uus gap=%ums last_status=0x%02X %s\n",options.manualDirection?"manual":"auto",options.dir,options.settleUs,options.gapMs,lastStatus,statusName(lastStatus));
   LOG("[PROFILE] energy=0x%04X ratios=0x%04X scale=%.12g order=%s decode=%s. RAM only\n",options.energyAddress,options.ratioAddress,options.energyScale,options.swappedWords?"swap":"normal",options.decodeEnergy?"on":"off");
@@ -323,13 +333,14 @@ void showStatus(){
   showPlan();uartStatus();
 }
 void help(){
-  LOG("\nFort diagnostics 2.4.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("PROFILE: profile fort | profile acrel-adl400. Apply documented map, ratio layout and scan bauds in RAM\n");
+  LOG("\nFort diagnostics 2.5.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
-  LOG("START: status, then intermediate for the manual example at 0058/2. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
+  LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");
   LOG("LAYERS: basic | listen 1..30 | intermediate | deeper | diagnose | read | poll | status | help\n");
   LOG("RUNTIME: id 1 | baud 9600 | parity N | pins 18 17 (RX TX) | timeout 2000 | interval 2000\n");
-  LOG("PROBES: probe 0058 2 | reg 0082 2 (HEX PDU address, 1..3 words. No offset added)\n");
+  LOG("PROBES: probe HEX WORDS | reg HEX WORDS. HEX PDU address, 1..3 words, no offset added. Status shows the selected probe\n");
   LOG("SCAN: range 1 16 | scanmode current or matrix | bauds 9600 19200 | parities NEO | scan\n");
   LOG("AUDIT: stats clear | plan clear | plan add 0080 1 | plan show (8-query limit)\n");
   LOG("DECODE: energy 0082 | ratios 002C | scale 0.001 | order normal or swap | decode on or off\n");
@@ -350,7 +361,8 @@ void command(const char *line) {
   }
   if(sscanf(line,"settle %u %c",&a,&extra)==1&&a>=20&&a<=1000){options.settleUs=uint16_t(a);showStatus();return;}
   if(sscanf(line,"gap %u %c",&a,&extra)==1&&a>=4&&a<=2000){options.gapMs=uint16_t(a);showStatus();return;}
-  if(!strcmp(line,"primary")){abortRequested=false;polling=false;dumpRegisters(current,meter::PRIMARY_ENERGY,2);return;}
+  if(!strcmp(line,"primary")){abortRequested=false;polling=false;const auto &p=profiles::get(options.profile);if(p.primaryFloat)dumpRegisters(current,p.primaryFloat,2);else LOG("[UNSUPPORTED] This profile has no documented primary float energy register. Use read for integer energy with CT/PT\n");return;}
+  if(sscanf(line,"profile %15s %c",token,&extra)==1){uint8_t id=0;if(profiles::parse(token,id)){polling=false;selectProfile(id);showStatus();return;}}
   if(!strcmp(line,"rxcheck")){rxCheck();return;}
   if(!strcmp(line,"check connected")){captureCheck(true);return;}
   if(!strcmp(line,"check isolated")){captureCheck(false);return;}
@@ -462,7 +474,7 @@ void serialInput(){
       LOG("\nSCAN %u/%u\n",probe+1,scanTotal());
       bool found=probeLink(candidate); ++probe;
       if (abortRequested) { scanning=false; LOG("Scan aborted. Previous reader settings retained.\n"); }
-      else if (found) { current=candidate; scanning=false; LOG("[COMM_FOUND] ID=%u %lu 8%c1. Reader settings selected in RAM. Use deeper to check Fort registers before poll.\n",current.id,(unsigned long)current.baud,current.parity); }
+      else if (found) { current=candidate; scanning=false; LOG("[COMM_FOUND] ID=%u %lu 8%c1. Reader settings selected in RAM. Use deeper to check the selected profile registers before poll.\n",current.id,(unsigned long)current.baud,current.parity); }
       else if (probe>=scanTotal()) { scanning=false; LOG("[SCAN_FINISHED] no matching Modbus reply found. Settings retained. UART RX/errors/echo and register support are separate observations.\n"); }
     }
   } else if (polling && uint32_t(millis()-lastPoll)>=options.pollMs) {

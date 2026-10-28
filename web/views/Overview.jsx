@@ -1,3 +1,4 @@
+import { meterProfile, addressHex } from "../meter-profile.js";
 import CheckpointRecords from "../components/CheckpointRecords.jsx";
 import EnergyCounter from "../components/EnergyCounter.jsx";
 import DeviceClock from "../components/DeviceClock.jsx";
@@ -113,6 +114,7 @@ export default function Overview({ device }) {
   const { t, number } = useText();
   const [shift, setShift] = useState(0);
   const s = device.data;
+  const profile=meterProfile(s);
   const rows = s?.slots.filter((_, i) => (shift === 0 ? i < 6 : i >= 6)) || [];
   const live = device.fresh && s?.online;
   const energyFresh = live && s?.ratios && s?.energy != null && s?.age <= 15;
@@ -151,7 +153,7 @@ export default function Overview({ device }) {
                 : t("sample", { seconds: s.age })}
             </span>
             <span className="path-label">
-              FORT / {String(s?.slave || 1).padStart(2, "0")}
+              {profile.name} / {String(s?.slave || 1).padStart(2, "0")}
             </span>
           </div>
         </SpotlightCard>
@@ -183,8 +185,8 @@ export default function Overview({ device }) {
       <section className="panel register-summary" aria-labelledby="register-title">
         <div><h2 id="register-title">{t("register_title")}</h2><p>{t("register_intro")}</p></div>
         <dl className="register-values">
-          {[["current_a", "currentA", "A", "0058"], ["voltage_a", "voltageA", "V", "0042"], ["frequency", "frequency", "Hz", "0080"], ["secondary_energy", "secondaryEnergy", "kWh", "0082"]].map(([label, key, unit, address]) => (
-            <div key={key}><dt>{t(label)} <code>0x{address}</code></dt><dd id={`value-${key}`}>{live ? number(s?.[key], key === "frequency" ? 2 : 3) : "—"} <small>{unit}</small>{key === "secondaryEnergy" && s?.secondaryAge != null && <div className="small muted">{t("sample", { seconds: s.secondaryAge })}</div>}</dd></div>
+          {[["current_a", "currentA", "A"], ["voltage_a", "voltageA", "V"], ["frequency", "frequency", "Hz"], ["secondary_energy", "secondaryEnergy", "kWh"]].map(([label, key, unit, address]) => (
+            <div key={key}><dt>{t(label)} <code>0x{addressHex(profile[key].address)}</code></dt><dd id={`value-${key}`}>{live ? number(s?.[key], key === "frequency" ? 2 : 3) : "—"} <small>{unit}</small>{key === "secondaryEnergy" && s?.secondaryAge != null && <div className="small muted">{t("sample", { seconds: s.secondaryAge })}</div>}</dd></div>
           ))}
         </dl><p className="small muted">{t("register_note")}</p>
       </section>

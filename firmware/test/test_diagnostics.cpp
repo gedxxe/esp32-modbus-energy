@@ -63,6 +63,25 @@ int main(){
   port.onWrite=[](){for(char byte:std::string("status\nreport\n"))Serial.input.push_back(byte);};
   port.replies.push_back(response({1,3,4,0,0,0,7}));assert(engine.readRegisters(engine.current,0x58,2,out));assert(engine.consoleCount==2);
   engine.tick();engine.tick();assert(!engine.consoleCount);}
+ // Acrel profile must use its own query width, ratio layout and kWh resolution.
+ {HardwareSerial port(1);char log[4096];FortDiagnostics engine(port,log,sizeof(log));
+  engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400);
+  assert(engine.options.probeAddress==0x64&&engine.options.probeWords==1&&engine.baudCount==5);
+  assert(engine.auditPlan[2].address==0x16A&&engine.auditPlan[3].address==0x77);
+  port.replies.push_back(response({1,3,2,0,123}));assert(engine.probeLink(engine.current));
+  assert(port.transmitted.back()[3]==0x64&&port.transmitted.back()[5]==1);
+  port.replies.push_back(response({1,3,4,0,1,0xE2,0x40})); // 123456 -> 1234.56 secondary kWh
+  port.replies.push_back(response({1,3,4,0,2,0,40})); // PT=2, CT=40
+  assert(engine.readEnergy(engine.current));char copy[4097];engine.copyLog(copy,sizeof(copy));
+  assert(std::string(copy).find("98764.800000 kWh")!=std::string::npos);
+  assert(port.transmitted.back()[3]==0x8D&&port.transmitted.back()[5]==2);
+  const size_t before=port.transmitted.size();engine.command("primary");assert(port.transmitted.size()==before);
+  engine.command("profile fort");assert(engine.options.probeAddress==0x58&&engine.options.probeWords==2&&engine.baudCount==6);
+  engine.command("profile unknown");assert(engine.options.profile==profiles::FORT);
+ }
+ const uint8_t signedPower[]={0xFF,0xFF,0xD8,0xF0},voltage[]={0x08,0xFC};
+ assert(fabs(profiles::decode(profiles::get(1).power,signedPower)+1.0)<1e-10);
+ assert(fabs(profiles::decode(profiles::get(1).voltage,voltage)-230.0)<1e-10);
  assert(meter::signed32(0xFFFFFF9CUL)==-100);assert(meter::float32(0x3F80,0)==1.0f);assert(meter::float32(0,0x3F80)!=1.0f);
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";
 }

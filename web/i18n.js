@@ -1,5 +1,8 @@
 export const catalog = {
   en: {
+    save_profile_first:"Save the selected meter model before scanning.",
+    meter_profile:"Meter model",
+    meter_profile_help:"Save the model before scanning. It selects the register map, decoding, transformer ratios and supported scan rates. Existing checkpoint readings keep their original meter identity.",
     "cp_eyebrow": "RECORDED METER VALUES",
     "cp_title": "Scheduled kWh checkpoints",
     "cp_intro": "The ESP32 records the cumulative meter reading at each scheduled time, even without a router or an open browser. Collect these saved readings whenever you visit.",
@@ -31,8 +34,8 @@ export const catalog = {
     "capture_storage_blocked": "Checkpoint storage could not advance to a new day. Earlier records are protected. Download available records and inspect storage.",
     flow_readable: "Readable replay · 3.2 s",
     flow_observed: "Latest observed transaction timings",
-    flow_tx_path: "Recorded request moving from ESP32 to Fort",
-    flow_rx_path: "Recorded response moving from Fort to ESP32",
+    flow_tx_path: "Recorded request moving from ESP32 to the meter",
+    flow_rx_path: "Recorded response moving from the meter to ESP32",
     wifi_error_radio: "The radio scan failed after retrying. The last network list is retained. Check the scan reason and driver code below before trying again.",
     wifi_reconnecting: "The scan status connection was interrupted. Reconnecting to the current scan without restarting it.",
     wifi_error_http: "The ESP32 scan status could not be reached. Reconnect to its current IP, then choose Scan again. The last network list is retained.",
@@ -142,7 +145,7 @@ export const catalog = {
     voltage_a: "Phase-A voltage",
     current_a: "Phase-A current",
     register_note: "The main imported-energy counter applies CT/PT once to the secondary kWh counter. Values here show the direct register conversion. A missing or rejected reading is left blank rather than replaced with zero.",
-    register_intro: "These values use the same ModbusMaster read path as the diagnostic sketch, beginning with phase-A current at 0x0058. The secondary energy counter remains visible even while CT/PT validation is pending.",
+    register_intro: "These readings use the same validated FC03 transport as diagnostics. Register addresses follow the saved meter model, and the secondary energy counter remains visible while CT/PT validation is pending.",
     register_title: "Live register readings",
     direction_auto_note: "Choose this only for an automatic-direction module. Its TTL input connects to GPIO17, its TTL output connects to GPIO18, and GPIO16 stays disconnected. This selection is saved with the reader connection.",
     direction_manual_note: "This installation uses manual direction. GPIO17 connects to DI, GPIO18 receives from RO, and GPIO16 drives DE and /RE together. The driver settles for 100 µs before transmission and the receiver settles for 100 µs after UART flush.",
@@ -153,7 +156,7 @@ export const catalog = {
     scan_formats: "Serial formats",
     scan_current: "Current saved baud/parity",
     scan_matrix: "All 18 baud/parity formats",
-    scan_current_limits: "The saved baud rate, parity and direction are tested at each ID, using the manual example at 0x0058 by default. A silent ID takes about two seconds. Successful candidates are checked again before a result is offered.",
+    scan_current_limits: "Each ID is tested using the saved serial settings and the selected probe. A silent ID takes about two seconds. A matching response is checked again before a result is offered.",
     scan_exception:
       "The peer returned a CRC-valid exception. Communication replied. This register and the energy profile remain unverified.",
     trace_diagnostic: "Diagnostic",
@@ -172,7 +175,7 @@ export const catalog = {
       "Some events fell outside the 32-event buffer. The view does not reconstruct missing traffic.",
     flow_events: "Inspect timestamped frames",
     diag_title: "Diagnostic console",
-    diag_intro: "The console runs the same ModbusMaster transport used for measurement. Begin with One probe to read 0x0058, inspect the returned words and status code, then use Staged test when you need the wider register plan.",
+    diag_intro: "The console uses the production ModbusMaster transport. One probe reads the selected profile register, while Staged test runs its wider register plan. Changing a diagnostic profile affects RAM only.",
     diag_pause: "An active UART test pauses scheduled recording and interrupts the current interval. Its settings and readings stay in RAM, while completed intervals remain available. Choose Resume measurement when you are ready to return to the saved connection.",
     diag_input: "Command input · one line",
     diag_output: "Device diagnostic output",
@@ -294,7 +297,7 @@ export const catalog = {
       "Lower cycle duration means faster animation. Hue chooses its own colors. The indicator shows the configured color, not a physical LED reading.",
 
     title: "Energy monitor",
-    subtitle: "Fort power meter · RS485 / Modbus RTU",
+    subtitle: "Local energy recorder · RS485 / Modbus RTU",
     engineering: "Engineering",
     language: "Language",
     overview: "Overview",
@@ -341,7 +344,7 @@ export const catalog = {
     attention: "Needs attention",
     unknown: "Unavailable",
     manual_title: "Serial connection",
-    manual_intro: "Match the Fort CONi menu and select the direction circuit that is actually wired. This changes the ESP32 reader. It does not write to the meter.",
+    manual_intro: "Choose the installed model, match its communication menu and select the wired direction circuit. Saving changes the ESP32 reader without writing meter settings.",
     slave: "Slave ID",
     baud: "Baud rate",
     parity: "Parity / stop bit",
@@ -350,14 +353,14 @@ export const catalog = {
     odd: "Odd · 8O1",
     save: "Save connection",
     manual_note:
-      "Changes apply to this reader. The Fort meter registers are never written.",
-    scan_title: "Find your Fort meter",
+      "The selected profile controls register addresses, widths, scale and transformer decoding. Verify the resulting import kWh against the meter LCD before relying on scheduled records.",
+    scan_title: "Find your meter",
     scan_intro: "Discovery starts with the manual phase-A current request and uses the same transaction engine as normal measurement. Keep the ID range small until the saved communication format has been checked.",
     first_id: "First slave ID",
     last_id: "Last slave ID",
     quick_range: "Range",
     all_ids: "All IDs",
-    scan_start: "Scan Fort",
+    scan_start: "Scan meter",
     scan_cancel: "Cancel scan",
     scan_apply: "Apply result",
     candidate: "Candidate",
@@ -374,7 +377,7 @@ export const catalog = {
       "Scan cancelled. The previous connection has been restored.",
     scan_exhausted:
       "No validated reply in IDs {first}–{last} for this probe. Check reader settings or run the diagnostic console. This does not prove a cable fault.",
-    scan_limits: "The full search tries six baud rates and three parity modes for each selected ID. At the default two-second timeout a silent 1–247 search takes about three hours, so begin with the known meter settings and a small range.",
+    scan_limits: "The full search uses the saved model’s supported baud rates and three parity modes. Fort uses six rates and ADL400 V1.3 uses five. Begin with known serial settings and a small ID range because a silent full-range search can take hours.",
     scan_pause_note:
       "Scanning interrupts the current interval. Old settings are restored until you apply a result.",
     scan_counts: "Timeout {timeouts} · CRC {crc} · Rejected {rejected}",
@@ -416,7 +419,7 @@ export const catalog = {
     health_storage:
       "Storage needs attention. Live readings continue. Check the Device & records tab.",
     health_offline:
-      "Waiting for a valid meter response. Check the serial settings or run Scan Fort.",
+      "Waiting for a valid meter response. Check the serial settings or run Scan meter.",
     health_stale:
       "Connection lost. Values shown are the last received sample, not live readings.",
     mute: "Mute alarm",
@@ -463,6 +466,9 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
+    save_profile_first:"Simpan model meter yang dipilih sebelum menjalankan scan.",
+    meter_profile:"Model meter",
+    meter_profile_help:"Simpan model sebelum memulai scan. Pilihan ini menentukan register, dekode, rasio trafo, dan baud rate scan. Checkpoint yang sudah tercatat tetap menyimpan identitas meter asalnya.",
     "cp_eyebrow": "REKAMAN ANGKA METER",
     "cp_title": "Checkpoint kWh terjadwal",
     "cp_intro": "ESP32 mencatat angka kWh kumulatif pada setiap jadwal, meskipun tanpa router atau halaman web terbuka. Ambil rekaman tersimpan ini kapan pun Anda berkunjung.",
@@ -494,8 +500,8 @@ export const catalog = {
     "capture_storage_blocked": "Penyimpanan checkpoint tidak dapat berganti hari. Rekaman sebelumnya dilindungi. Unduh rekaman yang tersedia dan periksa penyimpanan.",
     flow_readable: "Replay terbaca · 3,2 dtk",
     flow_observed: "Timing transaksi terbaru yang tercatat",
-    flow_tx_path: "Request tercatat bergerak dari ESP32 ke Fort",
-    flow_rx_path: "Respons tercatat bergerak dari Fort ke ESP32",
+    flow_tx_path: "Request tercatat bergerak dari ESP32 ke meter",
+    flow_rx_path: "Respons tercatat bergerak dari meter ke ESP32",
     wifi_error_radio: "Scan radio gagal setelah dicoba ulang. Daftar jaringan terakhir tetap tersedia. Periksa alasan scan dan kode driver di bawah sebelum mencoba lagi.",
     wifi_reconnecting: "Koneksi status scan terputus. Menghubungkan kembali ke scan yang sama tanpa mengulang pemindaian.",
     wifi_error_http: "Status scan ESP32 belum terjangkau. Hubungkan kembali ke IP yang aktif lalu pilih Pindai lagi. Daftar jaringan terakhir tetap tersedia.",
@@ -610,7 +616,7 @@ export const catalog = {
 
     register_note: "Counter energi utama menerapkan CT/PT satu kali pada kWh sekunder. Nilai di bagian ini merupakan konversi register langsung. Pembacaan hilang atau tertolak tidak diganti dengan nol.",
 
-    register_intro: "Nilai berikut memakai jalur ModbusMaster yang sama dengan sketch diagnostik, dimulai dari arus fasa A pada 0x0058. Counter energi sekunder tetap ditampilkan ketika validasi CT/PT belum berhasil.",
+    register_intro: "Pembacaan ini memakai transport FC03 tervalidasi yang sama dengan diagnostik. Alamat register mengikuti model tersimpan, dan counter energi sekunder tetap terlihat ketika validasi CT/PT belum berhasil.",
 
     register_title: "Pembacaan register langsung",
 
@@ -628,7 +634,7 @@ export const catalog = {
     scan_formats: "Format serial",
     scan_current: "Baud/parity tersimpan saat ini",
     scan_matrix: "Seluruh 18 format baud/parity",
-    scan_current_limits: "Baud, parity dan arah tersimpan diuji pada setiap ID dengan contoh manual 0x0058 sebagai probe awal. Satu ID yang diam membutuhkan sekitar dua detik. Kandidat yang membalas diperiksa lagi sebelum ditawarkan sebagai hasil.",
+    scan_current_limits: "Setiap ID diuji dengan format serial tersimpan dan probe yang dipilih. Satu ID tanpa respons membutuhkan sekitar dua detik. Respons yang cocok diperiksa kembali sebelum ditawarkan sebagai hasil.",
     scan_exception:
       "Peer mengirim exception ber-CRC sah. Komunikasi membalas. Register ini dan profil energi belum terverifikasi.",
     trace_diagnostic: "Diagnostik",
@@ -647,7 +653,7 @@ export const catalog = {
       "Sebagian event terlewat dari buffer 32 event. Tampilan tidak merekonstruksi traffic yang hilang.",
     flow_events: "Periksa frame bertimestamp",
     diag_title: "Konsol diagnostik",
-    diag_intro: "Konsol memakai transport ModbusMaster yang juga menjalankan pengukuran. Mulai dari Satu probe untuk membaca 0x0058, periksa word dan status hasilnya, lalu jalankan Tes bertahap jika memerlukan plan register yang lebih luas.",
+    diag_intro: "Konsol memakai transport ModbusMaster produksi. Satu probe membaca register profil terpilih, sedangkan Tes bertahap menjalankan plan yang lebih luas. Pergantian profil diagnostik hanya berlaku di RAM.",
     diag_pause: "Tes UART aktif menghentikan sementara pencatatan dan memutus kontinuitas interval berjalan. Setting serta nilai uji hanya berada di RAM, sedangkan interval lengkap tetap tersimpan. Pilih Lanjutkan pengukuran untuk kembali ke koneksi produksi.",
     diag_input: "Input perintah · satu baris",
     diag_output: "Output diagnostik perangkat",
@@ -773,7 +779,7 @@ export const catalog = {
       "Durasi siklus lebih kecil membuat animasi lebih cepat. Hue memilih warnanya sendiri. Indikator menampilkan warna pengaturan, bukan pembacaan LED fisik.",
 
     title: "Pemantauan energi",
-    subtitle: "Power meter Fort · RS485 / Modbus RTU",
+    subtitle: "Pencatat energi lokal · RS485 / Modbus RTU",
     engineering: "Engineering",
     language: "Bahasa",
     overview: "Ringkasan",
@@ -820,7 +826,7 @@ export const catalog = {
     attention: "Perlu diperiksa",
     unknown: "Belum tersedia",
     manual_title: "Koneksi serial",
-    manual_intro: "Samakan dengan menu CONi Fort dan pilih kontrol arah yang sesuai rangkaian terpasang. Perubahan berlaku pada ESP32 dan tidak menulis setting meter.",
+    manual_intro: "Pilih model yang terpasang, samakan menu komunikasinya dan pilih rangkaian kontrol arah yang digunakan. Penyimpanan mengubah pembaca ESP32 tanpa menulis setting meter.",
     slave: "Slave ID",
     baud: "Baud rate",
     parity: "Parity / stop bit",
@@ -829,14 +835,14 @@ export const catalog = {
     odd: "Odd · 8O1",
     save: "Simpan koneksi",
     manual_note:
-      "Perubahan berlaku pada pembaca ini. Register meter Fort tidak ditulis.",
-    scan_title: "Cari meter Fort",
+      "Profil menentukan alamat, jumlah word, skala dan dekode rasio trafo. Cocokkan kWh impor hasil pembacaan dengan LCD meter sebelum mengandalkan checkpoint terjadwal.",
+    scan_title: "Cari meter",
     scan_intro: "Discovery dimulai dari request arus fasa A pada manual dan memakai engine transaksi yang sama dengan pengukuran normal. Gunakan rentang ID kecil sampai format komunikasi tersimpan diperiksa.",
     first_id: "Slave ID awal",
     last_id: "Slave ID akhir",
     quick_range: "Rentang",
     all_ids: "Semua ID",
-    scan_start: "Scan Fort",
+    scan_start: "Scan meter",
     scan_cancel: "Batalkan scan",
     scan_apply: "Terapkan hasil",
     candidate: "Kandidat",
@@ -852,7 +858,7 @@ export const catalog = {
     scan_cancelled: "Scan dibatalkan. Koneksi sebelumnya dipulihkan.",
     scan_exhausted:
       "Tidak ada balasan sah pada ID {first}–{last} untuk probe ini. Periksa setting pembaca atau konsol diagnostik. Belum membuktikan kabel bermasalah.",
-    scan_limits: "Pencarian penuh menguji enam baud dan tiga parity per ID. Dengan timeout dua detik, rentang 1–247 yang diam membutuhkan sekitar tiga jam, sehingga mulai dari setting meter yang diketahui dan rentang kecil.",
+    scan_limits: "Pencarian penuh memakai baud rate model tersimpan dan tiga parity. Fort memakai enam baud rate, sedangkan ADL400 V1.3 memakai lima. Mulai dengan setting yang diketahui dan rentang ID kecil karena pencarian semua ID tanpa respons bisa memerlukan beberapa jam.",
     scan_pause_note:
       "Scan memutus interval aktif. Setting lama dipulihkan sampai hasil diterapkan.",
     scan_counts: "Timeout {timeouts} · CRC {crc} · Ditolak {rejected}",
@@ -894,7 +900,7 @@ export const catalog = {
     health_storage:
       "Penyimpanan perlu diperiksa. Pembacaan langsung berlanjut. Buka tab Perangkat & arsip.",
     health_offline:
-      "Menunggu respons meter valid. Periksa setting serial atau jalankan Scan Fort.",
+      "Menunggu respons meter valid. Periksa setting serial atau jalankan Scan meter.",
     health_stale:
       "Koneksi terputus. Angka yang terlihat adalah sampel terakhir, bukan pembacaan langsung.",
     mute: "Senyapkan alarm",

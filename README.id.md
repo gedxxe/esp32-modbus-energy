@@ -1,14 +1,20 @@
-# Fort Modbus Energy Monitor
+# Modbus Energy Station
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 2.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 2.5.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
 Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
 
 Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.30, 18.00, 18.30, 19.00 WIB**. Angka yang tercatat di sekitar 07.00 tetap menjadi rekaman 07.00 saat petugas terhubung pukul 09.20. Waktu request serta respons aktual ikut disimpan, sedangkan checkpoint yang gagal tetap ditandai terlewat dan tidak diisi dengan angka belakangan. [Panduan checkpoint dan penyimpanan](docs/id/CHECKPOINTS.md) menjelaskan timing, pengambilan data, kolom CSV serta pemulihan.
 
 ![Jadwal checkpoint harian](docs/assets/checkpoint-schedule.svg)
+
+## Profil meter
+
+Pilih **Fort** atau **Acrel ADL400** melalui **Meter setup → Model meter**, lalu simpan sebelum menjalankan scan. Pilihan ini mengatur register, dekode rasio trafo, diagnostik dan probe awal. Fort tetap menjadi default setelah upgrade instalasi lama, sedangkan checkpoint yang sudah tercatat tetap menyimpan identitas model asalnya.
+
+Implementasi ADL400 mengikuti **manual V1.3 yang disediakan**. Counter impor berada pada `0x000A` dengan skala 0,01 kWh per count, sedangkan Fort memakai `0x0082` dengan skala 0,001 kWh per count. Port Acrel adalah **21/A1 dan 22/B1**, berbeda dari **58/A dan 59/B** milik Fort. Baca [profil meter dan commissioning](docs/id/METER_PROFILES.md) untuk peta register, konversi, migrasi dan pemeriksaan lapangan, atau lihat [wiring Acrel lengkap](docs/assets/wiring-acrel-adl400.svg).
 
 ## Dashboard
 
@@ -58,7 +64,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.16 |
 | Espressif32 / Arduino ESP32 | 6.10.0 / 2.0.17 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 2.4.0 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 2.5.0 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -67,7 +73,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.4.0, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 2.5.0, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 

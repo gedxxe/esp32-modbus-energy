@@ -2,6 +2,8 @@
 
 **English** · [Bahasa Indonesia](id/WIRING.md)
 
+Meter-specific Fort examples below remain valid for Fort. For Acrel, select the saved model first and use [Meter profiles](METER_PROFILES.md) for its register map, terminals, conversion and diagnostic workflow.
+
 The installed circuit uses a manual-direction RS485 transceiver, as confirmed with the successful ModbusMaster sketch. Follow the GPIO labels on the physical ESP32-S3 N16R8 and the signal names on the module because the drawing represents electrical nets rather than physical header positions.
 
 ![Complete manual-direction wiring](assets/wiring-overview.svg)

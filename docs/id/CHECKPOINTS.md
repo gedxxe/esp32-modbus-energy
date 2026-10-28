@@ -66,3 +66,6 @@ Upgrade mempertahankan key NVS `day` serta `/d<day>.csv` milik interval lama. Ko
 `/api/status` membawa proyeksi `checkpoints` hari tersimpan terbaru. Endpoint baca `/api/checkpoints?day=<day>` mengembalikan satu hari, dan tambahan `&format=csv` mengunduhnya. `/api/history?kind=checkpoints` mencantumkan hari tersedia, termasuk record NVS saat filesystem gagal. Endpoint history/export lama mempertahankan format intervalnya.
 
 Kolom CSV meliputi tanggal, shift, jadwal WIB, waktu bracket aktual, keterlambatan respons, kWh kumulatif, counter raw sekunder, PT numerator/denominator, CT, slave ID, baud/parity, status serta selisih opsional dari checkpoint sebelumnya. Kolom kosong berarti data tidak tersedia, bukan nol. Nama file diawali `fort-checkpoints-` agar mudah dibedakan dari CSV interval lama.
+
+
+Schema 2 tetap berukuran 426 byte dan menyimpan profil meter asal pada byte 38 setiap baris. Schema 1 tetap dibaca sebagai Fort. Validasi energi memakai skala profil dan rasio yang tersimpan, sedangkan selisih tidak melintasi pergantian model. Tabel dan CSV mempertahankan identitas model asal tiap baris. Baca [Profil meter](METER_PROFILES.md) untuk migrasi serta konversi.

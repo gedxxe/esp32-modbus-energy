@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 #include "energy.h"
+#include "../lib/FortMeter/src/MeterProfiles.h"
 #include "clock_guard.h"
 #include <float.h>
 
@@ -17,16 +18,17 @@ inline const char *captureStatusCode(uint8_t status) {
 struct CaptureSource {
   uint32_t baud=0;
   uint16_t ptNum=0,ptDen=0,ct=0;
+  uint8_t profile=profiles::FORT;
   uint8_t slave=0;char parity=0;uint8_t direction=0;
 };
 inline bool validCaptureSource(const CaptureSource &s) {
-  return s.slave>=1&&s.slave<=247&&s.baud>0&&s.baud<=1000000&&
+  return profiles::valid(s.profile)&&s.slave>=1&&s.slave<=247&&s.baud>0&&s.baud<=1000000&&
     (s.parity=='N'||s.parity=='E'||s.parity=='O')&&s.direction<=1&&
-    s.ptNum>=1&&s.ptNum<=9999&&s.ptDen>=1&&s.ptDen<=9999&&s.ct>=1&&s.ct<=9999;
+    (profiles::get(s.profile).ratioWords==3||s.ptDen==1)&&s.ptNum>=1&&s.ptNum<=9999&&s.ptDen>=1&&s.ptDen<=9999&&s.ct>=1&&s.ct<=9999;
 }
 inline bool sameCaptureSource(const CaptureSource &a,const CaptureSource &b) {
   return a.slave==b.slave&&a.baud==b.baud&&a.parity==b.parity&&a.direction==b.direction&&
-    a.ptNum==b.ptNum&&a.ptDen==b.ptDen&&a.ct==b.ct;
+    a.profile==b.profile&&a.ptNum==b.ptNum&&a.ptDen==b.ptDen&&a.ct==b.ct;
 }
 struct MeterCapture {
   double energy=0;
@@ -88,7 +90,7 @@ class CaptureTracker {
   bool sample(uint32_t beginUTC,uint32_t endUTC,uint32_t raw,const CaptureSource &source) {
     if(!validCaptureSource(source)||!validClockEpoch(beginUTC,CAPTURE_OFFSET)||!validClockEpoch(endUTC,CAPTURE_OFFSET)||
        endUTC<beginUTC||endUTC-beginUTC>2||(endUTC+CAPTURE_OFFSET)/86400!=day.number)return false;
-    double energy=double(raw)*0.001*double(source.ptNum)/source.ptDen*source.ct;
+    double energy=profiles::primaryEnergy(source.profile,raw,source.ptNum,source.ptDen,source.ct);
     if(!isfinite(energy)||energy<0)return false;
     if(continuous&&(endUTC<previousUTC||endUTC-previousUTC>MAX_GAP||raw<previousRaw||!sameCaptureSource(source,previousSource)))interrupt();
     previousUTC=endUTC;previousRaw=raw;previousSource=source;continuous=true;
@@ -116,7 +118,7 @@ inline void capturePut32(uint8_t *p,uint32_t value){for(unsigned i=0;i<4;++i)p[i
 inline uint16_t captureGet16(const uint8_t *p){return uint16_t(p[0])|uint16_t(p[1])<<8;}
 inline uint32_t captureGet32(const uint8_t *p){uint32_t value=0;for(unsigned i=0;i<4;++i)value|=uint32_t(p[i])<<(8*i);return value;}
 inline void encodeCaptureDay(const CaptureDay &day,uint8_t *bytes) {
-  memset(bytes,0,CAPTURE_RECORD_SIZE);capturePut32(bytes,0x31545043);capturePut16(bytes+4,1);capturePut16(bytes+6,CAPTURE_COUNT);
+  memset(bytes,0,CAPTURE_RECORD_SIZE);capturePut32(bytes,0x31545043);capturePut16(bytes+4,2);capturePut16(bytes+6,CAPTURE_COUNT);
   capturePut32(bytes+8,day.number);capturePut32(bytes+12,day.revision);capturePut32(bytes+16,day.generation);capturePut32(bytes+20,0x06001900);
   for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &x=day.points[i];uint8_t *p=bytes+24+i*40;
     p[0]=x.status;p[1]=x.source.slave;p[2]=uint8_t(x.source.parity);p[3]=x.source.direction;
@@ -124,24 +126,25 @@ inline void encodeCaptureDay(const CaptureDay &day,uint8_t *bytes) {
     capturePut16(p+20,x.source.ptNum);capturePut16(p+22,x.source.ptDen);capturePut16(p+24,x.source.ct);
     uint64_t bits=0;static_assert(sizeof(double)==8,"Checkpoint records require IEEE754 double");memcpy(&bits,&x.energy,8);
     for(unsigned j=0;j<8;++j)p[26+j]=uint8_t(bits>>(8*j));
-    capturePut32(p+34,x.generation);
+    capturePut32(p+34,x.generation);p[38]=x.source.profile;
   }
   capturePut16(bytes+CAPTURE_RECORD_SIZE-2,crc16(bytes,CAPTURE_RECORD_SIZE-2));
 }
 inline bool decodeCaptureDay(const uint8_t *bytes,size_t size,CaptureDay &out) {
-  if(!bytes||size!=CAPTURE_RECORD_SIZE||captureGet32(bytes)!=0x31545043||captureGet16(bytes+4)!=1||captureGet16(bytes+6)!=CAPTURE_COUNT||
+  if(!bytes||size!=CAPTURE_RECORD_SIZE||captureGet32(bytes)!=0x31545043||(captureGet16(bytes+4)!=1&&captureGet16(bytes+4)!=2)||captureGet16(bytes+6)!=CAPTURE_COUNT||
      captureGet32(bytes+20)!=0x06001900||captureGet16(bytes+size-2)!=crc16(bytes,size-2))return false;
   CaptureDay day{};day.number=captureGet32(bytes+8);day.revision=captureGet32(bytes+12);day.generation=captureGet32(bytes+16);
   if(!validCaptureDayNumber(day.number)||!day.generation)return false;
   for(unsigned i=0;i<CAPTURE_COUNT;++i){const uint8_t *p=bytes+24+i*40;auto &x=day.points[i];
+    x.source.profile=captureGet16(bytes+4)==1?uint8_t(profiles::FORT):p[38];
     x.status=p[0];x.source.slave=p[1];x.source.parity=char(p[2]);x.source.direction=p[3];
     x.startedUTC=captureGet32(p+4);x.capturedUTC=captureGet32(p+8);x.raw=captureGet32(p+12);x.source.baud=captureGet32(p+16);
     x.source.ptNum=captureGet16(p+20);x.source.ptDen=captureGet16(p+22);x.source.ct=captureGet16(p+24);x.generation=captureGet32(p+34);
     uint64_t bits=0;for(unsigned j=0;j<8;++j)bits|=uint64_t(p[26+j])<<(8*j);memcpy(&x.energy,&bits,8);
-    if(x.status>CAPTURE_MISSED||p[38]||p[39])return false;
+    if(x.status>CAPTURE_MISSED||(captureGet16(bytes+4)==1&&p[38])||p[39])return false;
     if(x.status==CAPTURE_RECORDED){
       if(!validCaptureSource(x.source))return false;
-      uint32_t target=captureTarget(day.number,i);double expected=double(x.raw)*.001*double(x.source.ptNum)/x.source.ptDen*x.source.ct;
+      uint32_t target=captureTarget(day.number,i);double expected=profiles::primaryEnergy(x.source.profile,x.raw,x.source.ptNum,x.source.ptDen,x.source.ct);
       if(!validClockEpoch(x.startedUTC,CAPTURE_OFFSET)||!validClockEpoch(x.capturedUTC,CAPTURE_OFFSET)||!x.generation||!isfinite(x.energy)||x.energy<0||
          x.startedUTC<target||x.capturedUTC<x.startedUTC||x.capturedUTC>target+CAPTURE_WINDOW||x.capturedUTC-x.startedUTC>2||
          fabs(x.energy-expected)>16*DBL_EPSILON*fmax(1.0,expected))return false;

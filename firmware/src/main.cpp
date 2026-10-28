@@ -284,7 +284,7 @@ void syncNetworkCommandResult(){
 
 DiagnosticEngine::Link diagnosticLink(const Settings &settings){DiagnosticEngine::Link link;link.id=settings.slave;link.baud=settings.baud;link.parity=settings.parity;return link;}
 void startBusFor(const Settings &config){normalReader.options.rx=PIN_RX;normalReader.options.tx=PIN_TX;normalReader.options.dir=PIN_RS485_DE;normalReader.options.manualDirection=config.direction==DIRECTION_MANUAL;normalReader.openLink(diagnosticLink(config));}
-void startBus(){startBusFor(state.config);}
+void startBus(){normalReader.selectProfile(state.config.profile);startBusFor(state.config);}
 uint8_t currentAttempt=1;bool readingNormally=true;
 void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,uint8_t words,const uint8_t *tx,const uint8_t *rx,size_t size,bool overflow){
   TraceResult result=kind==6?TRACE_TIMEOUT:TRACE_INVALID;
@@ -292,7 +292,7 @@ void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,
   if(kind==4||kind==5||kind==6){
     if(tx)state.trace.append(tx,rx,size,overflow,millis(),link.baud,link.parity,link.id,address,words,currentAttempt,scanner.running(),diagnosticActive,kind==5);
   }
-  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx,diagnosticActive?(diagnostic.options.manualDirection?diagnostic.options.dir:-1):(normalReader.options.manualDirection?normalReader.options.dir:-1));
+  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx,diagnosticActive?(diagnostic.options.manualDirection?diagnostic.options.dir:-1):(normalReader.options.manualDirection?normalReader.options.dir:-1),diagnosticActive?diagnostic.options.profile:state.config.profile);
 }
 // Production polling and diagnostics use the identical strict FC03 transport.
 // Echoes and extra bytes remain visible and are rejected within a transaction.
@@ -509,15 +509,15 @@ void addCaptureJSON(JsonDocument &d,const CaptureDay &day,bool durable,bool arch
   JsonArray rows=d["rows"].to<JsonArray>();
   for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &p=day.points[i];JsonObject row=rows.add<JsonObject>();
     row["minute"]=CAPTURE_MINUTES[i];row["status"]=captureStatusCode(p.status);row["kwh"]=nullptr;row["startedUTC"]=nullptr;row["capturedUTC"]=nullptr;row["delaySeconds"]=nullptr;row["difference"]=nullptr;
-    if(p.status==CAPTURE_RECORDED){row["kwh"]=p.energy;row["startedUTC"]=p.startedUTC;row["capturedUTC"]=p.capturedUTC;row["delaySeconds"]=p.capturedUTC-captureTarget(day.number,i);row["raw"]=p.raw;row["slave"]=p.source.slave;row["ptNum"]=p.source.ptNum;row["ptDen"]=p.source.ptDen;row["ct"]=p.source.ct;double delta=0;if(i&&captureDifference(day,i-1,delta))row["difference"]=delta;}
+    if(p.status==CAPTURE_RECORDED){row["profile"]=profiles::get(p.source.profile).key;row["kwh"]=p.energy;row["startedUTC"]=p.startedUTC;row["capturedUTC"]=p.capturedUTC;row["delaySeconds"]=p.capturedUTC-captureTarget(day.number,i);row["raw"]=p.raw;row["slave"]=p.source.slave;row["ptNum"]=p.source.ptNum;row["ptDen"]=p.source.ptDen;row["ct"]=p.source.ct;double delta=0;if(i&&captureDifference(day,i-1,delta))row["difference"]=delta;}
   }
 }
 String captureClock(uint32_t utc){DateTime d(utc+LOCAL_OFFSET);char out[12];snprintf(out,sizeof(out),"%02u:%02u:%02u",d.hour(),d.minute(),d.second());return String(out);}
 String csvCaptures(const CaptureDay &day){
-  String csv="date,shift,scheduled_wib,read_started_wib,captured_wib,delay_seconds,cumulative_kwh,secondary_raw,pt_num,pt_den,ct,slave_id,baud,parity,status,consumption_since_previous_kwh\r\n";
+  String csv="date,shift,scheduled_wib,read_started_wib,captured_wib,delay_seconds,cumulative_kwh,register_raw,pt_num,pt_den,ct,slave_id,baud,parity,meter_profile,status,consumption_since_previous_kwh\r\n";
   for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &p=day.points[i];char clock[8];snprintf(clock,sizeof(clock),"%02u:%02u",CAPTURE_MINUTES[i]/60,CAPTURE_MINUTES[i]%60);
     csv+=dateForDay(day.number)+","+(i<5?"morning":"evening")+","+clock+",";
-    if(p.status==CAPTURE_RECORDED){csv+=captureClock(p.startedUTC)+","+captureClock(p.capturedUTC)+","+String(p.capturedUTC-captureTarget(day.number,i))+","+String(p.energy,6)+","+String(p.raw)+","+String(p.source.ptNum)+","+String(p.source.ptDen)+","+String(p.source.ct)+","+String(p.source.slave)+","+String(p.source.baud)+","+String(p.source.parity)+",";}else csv+=",,,,,,,,,,,";
+    if(p.status==CAPTURE_RECORDED){csv+=captureClock(p.startedUTC)+","+captureClock(p.capturedUTC)+","+String(p.capturedUTC-captureTarget(day.number,i))+","+String(p.energy,6)+","+String(p.raw)+","+String(p.source.ptNum)+","+String(p.source.ptDen)+","+String(p.source.ct)+","+String(p.source.slave)+","+String(p.source.baud)+","+String(p.source.parity)+","+profiles::get(p.source.profile).key+",";}else csv+=",,,,,,,,,,,,";
     csv+=captureStatusCode(p.status);csv+=",";double delta=0;if(i&&captureDifference(day,i-1,delta))csv+=String(delta,6);csv+="\r\n";
   }
   return csv;
@@ -657,7 +657,7 @@ void processCommands(){
       case SET_CONFIG:{
         Settings settings=cmd.type==APPLY_SCAN?scanner.progress.result:cmd.config;
         if(!validSettings(settings)){error="Invalid serial configuration";break;}
-        ++state.modeRevision;interruptRecording();state.config=settings;state.ratios=false;rawKnown=false;haveSample=false;state.lastContactMs=0;
+        ++state.modeRevision;interruptRecording();state.config=settings;state.ratios=false;rawKnown=false;haveSample=false;state.lastContactMs=0;state.energy=0;state.secondaryEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.ratio=0;ct=ptNum=ptDen=0;state.scanAddress=profiles::get(settings.profile).current.address;state.scanWords=profiles::get(settings.profile).current.words;
         ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
         configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
         if(!configOK)error="Connection changed in RAM. Saving settings failed";
@@ -695,7 +695,7 @@ void acquisition(void *) {
     state.displayStored=prefs.getBytesLength("display")==sizeof(bytes)&&prefs.getBytes("display",bytes,sizeof(bytes))==sizeof(bytes)&&decodeDisplay(bytes,sizeof(bytes),state.display);
     state.displayStorageOK=state.displayStored;
   }
-  state.config=config;state.led=defaultLed();state.ledStorageOK=nvsOK;
+  state.config=config;state.scanAddress=profiles::get(config.profile).current.address;state.scanWords=profiles::get(config.profile).current.words;state.led=defaultLed();state.ledStorageOK=nvsOK;
   if(nvsOK&&prefs.isKey("led")) {
     uint8_t bytes[LED_RECORD_SIZE]={};
     state.ledStored=prefs.getBytesLength("led")==sizeof(bytes)&&prefs.getBytes("led",bytes,sizeof(bytes))==sizeof(bytes)&&decodeLed(bytes,sizeof(bytes),state.led);
@@ -759,6 +759,7 @@ void acquisition(void *) {
     }
     if(captureLog.day.number&&uint32_t(millis()-lastCaptureSave)>=5000&&(!captureNVSOK||!captureFSOK||capturePending.number)){retryCaptureBacklog();saveCaptures();}
     if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
+    const auto &profile=profiles::get(state.config.profile);
     const bool captureUrgent=rtcOK&&captureLog.urgent(utc),captureDue=rtcOK&&captureLog.due(utc);
     if(scanner.running()) {
       scanStep();publish();vTaskDelay(pdMS_TO_TICKS(10));continue;
@@ -766,15 +767,15 @@ void acquisition(void *) {
     if(!captureUrgent&&(!state.lastContactMs||uint32_t(millis()-state.lastContactMs)>15000)){
       if(uint32_t(millis()-lastContactTry)<3000){publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       lastContactTry=millis();uint8_t handshake[4];
-      bool contactData=readWordsFor(state.config,meter::CURRENT_A,2,handshake,1,true);
+      bool contactData=readWordsFor(state.config,profile.current.address,profile.current.words,handshake,1,true);
       if(!contactData&&normalReader.lastReply!=DiagnosticEngine::REPLY_EXCEPTION){state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
-      state.lastContactMs=millis();state.currentA=contactData?double(be32(handshake))/10000.0:NAN;
+      state.lastContactMs=millis();state.currentA=contactData?profiles::decode(profile.current,handshake):NAN;
     }
     if((!captureUrgent||!state.ratios)&&ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
         lastRatioTry=millis();uint8_t p[6];
-        if(readWords(0x002c,3,p)) {
-          uint32_t a=(p[0]<<8)|p[1],b=(p[2]<<8)|p[3],c=(p[4]<<8)|p[5];
-          if(a&&b&&c&&a<=9999&&b<=9999&&c<=9999) {
+        if(readWords(profile.ratios,profile.ratioWords,p)) {
+          uint16_t a=0,b=0,c=0;
+          if(profiles::ratios(profile,p,a,b,c)) {
             double ratio=double(a)/b*c;
             if(ct&&(a!=ptNum||b!=ptDen||c!=ct)){interruptRecording();rawKnown=false;haveSample=false;}
             ptNum=a;ptDen=b;ct=c;state.ratio=ratio;state.ratios=true;lastRatio=millis();
@@ -785,8 +786,8 @@ void acquisition(void *) {
       lastPoll=millis();uint8_t e[4],p[4];
       // Time stamp brackets the energy read. Discard slow/inconsistent windows.
       uint32_t beginUTC=0,endUTC=0,beginMono=millis();bool beginOK=rtcRead(beginUTC);
-      bool energyRead=readWords(meter::SECONDARY_ENERGY,2,e);
-      if(energyRead){state.secondaryEnergy=double(be32(e))/1000.0;state.lastSecondaryMs=millis();state.lastContactMs=millis();}
+      bool energyRead=readWords(profile.energy.address,profile.energy.words,e);
+      if(energyRead){state.secondaryEnergy=profiles::decode(profile.energy,e);state.lastSecondaryMs=millis();state.lastContactMs=millis();}
       bool energyOK=state.ratios&&energyRead;
       bool endOK=rtcRead(endUTC);
       if(energyOK) {
@@ -795,17 +796,17 @@ void acquisition(void *) {
           // A wrap cannot be distinguished reliably from a reset: invalidate continuity.
           interruptRecording();++state.rejected;setError("Counter decreased. Continuity interrupted","counter_reset");
         }
-        double energy=raw*0.001*state.ratio;
+        double energy=raw*profile.energy.scale*state.ratio;
         // Physical sanity limit: editable compile-time plant limit (100 MW).
         if(rawKnown&&raw>=previousRaw&&millis()!=previousMono) {
-          double maxDelta=100000.0*(millis()-previousMono)/3600000.0+0.002*state.ratio;
-          if((raw-previousRaw)*0.001*state.ratio>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
+          double maxDelta=100000.0*(millis()-previousMono)/3600000.0+2*profile.energy.scale*state.ratio;
+          if((raw-previousRaw)*profile.energy.scale*state.ratio>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
         }
         if(accepted) {
           state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
           uint32_t local=endUTC+LOCAL_OFFSET;
           if(beginOK&&endOK&&endUTC>=beginUTC&&endUTC-beginUTC<=2&&millis()-beginMono<=2500&&local/86400==tracker.day.number) {
-            CaptureSource source;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
+            CaptureSource source;source.profile=state.config.profile;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
             if(captureLog.sample(beginUTC,endUTC,raw,source))saveCaptures();
             uint8_t before[SLOT_COUNT];for(int i=0;i<SLOT_COUNT;++i)before[i]=tracker.day.slots[i].quality;
             if(tracker.sample(local,energy)) {
@@ -814,15 +815,15 @@ void acquisition(void *) {
           }else interruptRecording();
         }
       }
-      if(!captureUrgent&&readWordsFor(state.config,meter::POWER_TOTAL,2,p,1,true))state.power=meter::signed32(be32(p))/10000.0;else state.power=NAN;
+      if(!captureUrgent&&readWordsFor(state.config,profile.power.address,profile.power.words,p,1,true))state.power=profiles::decode(profile.power,p);else state.power=NAN;
     }
     if(haveSample&&millis()-lastGood>15000)interruptRecording();
     static uint32_t lastElectrical=0;
     if(!captureUrgent&&uint32_t(millis()-lastElectrical)>=10000&&state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<15000){
       lastElectrical=millis();uint8_t raw[4];
-      state.currentA=readWordsFor(state.config,meter::CURRENT_A,2,raw,1,true)?double(be32(raw))/10000.0:NAN;
-      state.voltageA=readWordsFor(state.config,meter::VOLTAGE_A,2,raw,1,true)?double(be32(raw))/10000.0:NAN;
-      state.frequency=readWordsFor(state.config,meter::FREQUENCY,1,raw,1,true)?double((uint16_t(raw[0])<<8)|raw[1])/100.0:NAN;
+      state.currentA=readWordsFor(state.config,profile.current.address,profile.current.words,raw,1,true)?profiles::decode(profile.current,raw):NAN;
+      state.voltageA=readWordsFor(state.config,profile.voltage.address,profile.voltage.words,raw,1,true)?profiles::decode(profile.voltage,raw):NAN;
+      state.frequency=readWordsFor(state.config,profile.frequency.address,profile.frequency.words,raw,1,true)?profiles::decode(profile.frequency,raw):NAN;
     }
     if(millis()-lastSave>=300000)saveCheckpoint(true);
     publish();vTaskDelay(pdMS_TO_TICKS(100));
@@ -903,6 +904,16 @@ void webSetup() {
     network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
     network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":networkPolicy.fallback?"fallback":"connecting";
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
+    d["profile"]=profiles::get(s.config.profile).key;
+    auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
+      info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
+      info["energyScale"]=profile.energy.scale;info["ratios"]=profile.ratios;info["ratioWords"]=profile.ratioWords;info["wordOrder"]="high-first";
+      const char *names[]={"currentA","voltageA","power","frequency","secondaryEnergy"};
+      const profiles::Register registers[]={profile.current,profile.voltage,profile.power,profile.frequency,profile.energy};
+      for(unsigned i=0;i<5;++i){JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;}
+    };
+    describeProfile(d["meter"].to<JsonObject>(),profiles::get(s.config.profile));
+    JsonArray supported=d["meterProfiles"].to<JsonArray>();for(uint8_t id=0;id<profiles::COUNT;++id)describeProfile(supported.add<JsonObject>(),profiles::get(id));
     d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
     if(isfinite(s.secondaryEnergy)){d["secondaryEnergy"]=s.secondaryEnergy;d["secondaryAge"]=(millis()-s.lastSecondaryMs)/1000;}else d["secondaryEnergy"]=nullptr;
     d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;
@@ -920,7 +931,7 @@ void webSetup() {
     scan["first"]=s.scan.first;scan["last"]=s.scan.last;scan["elapsed"]=s.scan.elapsedMs/1000;
     scan["slave"]=s.scan.candidate.slave;scan["baud"]=s.scan.candidate.baud;scan["parity"]=String(s.scan.candidate.parity);
     scan["busBusy"]=s.scan.busBusy;scan["exceptions"]=s.scan.exceptions;scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
-    if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);result["direction"]=s.scan.result.direction==DIRECTION_MANUAL?"manual":"auto";}
+    if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["profile"]=profiles::get(s.scan.result.profile).key;result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);result["direction"]=s.scan.result.direction==DIRECTION_MANUAL?"manual":"auto";}
     d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){d["clockEpoch"]=s.utc;d["clockSampleAgeMs"]=uint32_t(millis()-s.utcSampleMs);d["clockRevision"]=s.clockRevision;DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
@@ -951,7 +962,7 @@ void webSetup() {
     uint8_t emitted=0;bool more=false;JsonArray rows=d["events"].to<JsonArray>();
     for(uint8_t i=0;i<s.flow.count;++i){const FlowEvent &e=s.flow.at(i);if(after&&int32_t(e.seq-after)<=0)continue;
       if(emitted++>=8){more=true;break;}
-      JsonObject row=rows.add<JsonObject>();row["dirPin"]=e.dirPin;row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
+      JsonObject row=rows.add<JsonObject>();row["profile"]=profiles::get(e.profile).key;row["dirPin"]=e.dirPin;row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
     }
     d["more"]=more;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
@@ -963,9 +974,9 @@ void webSetup() {
     Snapshot production{};readSnapshot(production);
     DiagnosticEngine::DebugOptions o=view.active?view.options:DiagnosticEngine::DebugOptions{};
     auto link=view.active?view.link:diagnosticLink(production.config);
-    if(!view.active){o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
+    if(!view.active){const auto &p=profiles::get(production.config.profile);o.profile=p.id;o.probeAddress=p.current.address;o.probeWords=p.current.words;o.energyAddress=p.energy.address;o.ratioAddress=p.ratios;o.energyScale=p.energy.scale;o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
     JsonObject settings=d["settings"].to<JsonObject>();
-    settings["slave"]=link.id;settings["baud"]=link.baud;settings["parity"]=String(link.parity);settings["rx"]=o.rx;settings["tx"]=o.tx;
+    settings["profile"]=profiles::get(o.profile).key;settings["slave"]=link.id;settings["baud"]=link.baud;settings["parity"]=String(link.parity);settings["rx"]=o.rx;settings["tx"]=o.tx;
     settings["dir"]=o.dir;settings["direction"]=o.manualDirection?"manual":"auto";settings["timeout"]=o.responseMs;settings["gap"]=o.gapMs;settings["settle"]=o.settleUs;
     settings["probe"]=o.probeAddress;settings["words"]=o.probeWords;settings["status"]=view.active?view.status:production.modbusStatus;
     const auto &e=view.evidence;JsonObject counts=d["evidence"].to<JsonObject>();
@@ -1059,7 +1070,9 @@ void webSetup() {
     if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel the scan before changing the connection","scan_busy");return;}
     uint32_t slave=0,baud=0;String parity=server.arg("parity");
     if(!parseNumber(server.arg("slave"),slave)||!parseNumber(server.arg("baud"),baud)||slave<1||slave>247||parity.length()!=1){jsonReply(400,"Invalid serial settings","invalid_config");return;}
-    Command c{};c.type=SET_CONFIG;c.config.slave=slave;c.config.baud=baud;c.config.parity=parity[0];
+    Command c{};c.type=SET_CONFIG;c.config.profile=s.config.profile;
+    if(server.hasArg("profile")&&!profiles::parse(server.arg("profile").c_str(),c.config.profile)){jsonReply(400,"Unknown meter profile","invalid_config");return;}
+    c.config.slave=slave;c.config.baud=baud;c.config.parity=parity[0];
     String direction=server.arg("direction");if(direction!="manual"&&direction!="auto"){jsonReply(400,"Choose manual or automatic direction","invalid_config");return;}c.config.direction=direction=="manual"?DIRECTION_MANUAL:DIRECTION_AUTO;
     if(!validSettings(c.config)){jsonReply(400,"Unsupported baud rate or parity","unsupported_serial");return;}enqueueCommand(c);
   });
@@ -1070,7 +1083,7 @@ void webSetup() {
     uint32_t first=0,last=0;
     if(!parseNumber(server.arg("first"),first)||!parseNumber(server.arg("last"),last)||first<1||last>247||first>last){jsonReply(400,"Use IDs 1-247, with first ID <= last ID","invalid_scan_range");return;}
     Command c{};c.type=START_SCAN;c.first=first;c.last=last;
-    uint32_t address=meter::CURRENT_A,words=2;
+    uint32_t address=profiles::get(s.config.profile).current.address,words=profiles::get(s.config.profile).current.words;
     if(server.hasArg("address")&&!parseNumber(server.arg("address"),address)){jsonReply(400,"Invalid probe address","invalid_diagnostic_command");return;}
     if(server.hasArg("words")&&!parseNumber(server.arg("words"),words)){jsonReply(400,"Invalid word count","invalid_diagnostic_command");return;}
     if(address>65535||words<1||words>3||address+words>65536){jsonReply(400,"Probe outside supported register bounds","invalid_diagnostic_command");return;}
@@ -1188,14 +1201,14 @@ void drawOLED(const Snapshot &s) {
   const char *titles[]={"MIDEA | ENERGY","MORNING CAPTURES","EVENING CAPTURES","NETWORK / WIFI","DIAGNOSTICS"};
   oled.println(titles[page]);oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
   if(page==0){
-    if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.println("kWh import");}else oled.println("Waiting for meter");
+    if(s.haveEnergy){String v=String(s.energy,2);oled.setTextSize(v.length()>10?1:2);oled.println(v);oled.setTextSize(1);oled.print("kWh | ");oled.println(profiles::get(s.config.profile).name);}else oled.println("Waiting for meter");
     oled.setCursor(0,45);if(s.rtc){DateTime t(s.utc+uint32_t(millis()-s.utcSampleMs)/1000+LOCAL_OFFSET);char b[25];snprintf(b,sizeof(b),"%02u:%02u:%02u WIB",t.hour(),t.minute(),t.second());oled.println(b);}else oled.println("RTC: SET VIA WEB");
     oled.setCursor(98,45);oled.print(s.online?"OK":"OFF");
     oled.setCursor(0,56);oled.print(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");
   }else if(page==1||page==2){
     unsigned i=(page==1?0:5)+slotPage%5;const auto &point=s.captures.points[i];unsigned minute=CAPTURE_MINUTES[i];char label[24];snprintf(label,sizeof(label),"%s %02u:%02u",s.captures.number?dateForDay(s.captures.number).c_str():"---- -- --",minute/60,minute%60);oled.println(label);
     oled.setTextSize(2);oled.setCursor(0,29);if(point.status==CAPTURE_RECORDED){String value=String(point.energy,3);if(value.length()>10)oled.setTextSize(1);oled.print(value);}else oled.print("--.---");
-    oled.setTextSize(1);oled.setCursor(0,49);if(point.status==CAPTURE_RECORDED){oled.print(captureClock(point.capturedUTC));oled.print(s.captureDurable?" saved":" UNSAVED");}else oled.print(captureStatusCode(point.status));
+    oled.setTextSize(1);oled.setCursor(0,49);if(point.status==CAPTURE_RECORDED){oled.print(captureClock(point.capturedUTC));oled.print(s.captureDurable?" saved":" UNSAVED");oled.setCursor(0,57);oled.print(profiles::get(point.source.profile).name);}else oled.print(captureStatusCode(point.status));
   }else if(page==3){
     oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":"Midea Engineering AP");
     oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: network options");
@@ -1204,7 +1217,7 @@ void drawOLED(const Snapshot &s) {
     oled.print("CRC:");oled.print(s.crcErrors);oled.print(" T/O:");oled.println(s.timeouts);
     oled.print("RTC:");oled.print(s.rtc?"OK":"ERR");oled.print(" FS:");oled.println(s.storage?"OK":"ERR");
     oled.print("ID:");oled.print(s.config.slave);oled.print(" ");oled.print(s.config.baud);oled.println(s.config.parity);
-    oled.println(s.muted?"ALARM MUTED":"ALARM ENABLED");
+    oled.println(s.muted?"ALARM MUTED":"ALARM ENABLED");oled.println(profiles::get(s.config.profile).name);
   }
   oled.display();xSemaphoreGive(i2cMutex);
 }
@@ -1233,7 +1246,7 @@ void bootAnimation() {
   uint32_t start=millis();
   while(millis()-start<1500){
     tickLED();uint32_t t=millis()-start;digitalWrite(PIN_BUZZER,(t<140||(t>=250&&t<390)||(t>=500&&t<700)||(t>=850&&t<1120))?HIGH:LOW);
-    if(oledOK){oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(15,7);oled.print("MIDEA ENGINEERING");oled.setTextSize(2);oled.setCursor(18,24);oled.print("FORT");
+    if(oledOK){oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(15,7);oled.print("MIDEA ENGINEERING");oled.setTextSize(2);oled.setCursor(18,24);oled.print("ENERGY");
       int x=105;oled.drawLine(x,19,x-10,33,SSD1306_WHITE);oled.drawLine(x-10,33,x+1,33,SSD1306_WHITE);oled.drawLine(x+1,33,x-9,46,SSD1306_WHITE);oled.drawRect(10,53,108,6,SSD1306_WHITE);oled.fillRect(12,55,(t*104)/1500,2,SSD1306_WHITE);oled.display();}
     delay(35);
   }digitalWrite(PIN_BUZZER,LOW);
@@ -1269,7 +1282,7 @@ void setup() {
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
   initProcessMonitor();webSetup();esp_task_wdt_init(8,true);esp_task_wdt_add(nullptr);
   if(xTaskCreatePinnedToCore(acquisition,"fort-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
-  Serial.printf("Midea Fort ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
+  Serial.printf("Midea Energy Station ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }
 void loop() {
   static uint32_t previousCycle=millis();uiCycleMs=millis()-previousCycle;previousCycle=millis();

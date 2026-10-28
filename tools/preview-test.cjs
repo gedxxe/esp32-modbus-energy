@@ -91,8 +91,12 @@ const trace = {
 };
 const calls = [],
   assetRequests = new Set();
+const meterCatalog=[
+ {key:"fort",name:"Fort",terminals:"58 / A · 59 / B",maxBaud:38400,energyScale:.001,ratios:44,ratioWords:3,currentA:{address:88,words:2},voltageA:{address:66,words:2},power:{address:106,words:2},frequency:{address:128,words:1},secondaryEnergy:{address:130,words:2}},
+ {key:"acrel-adl400",name:"Acrel ADL400",terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:362,words:2},frequency:{address:119,words:1},secondaryEnergy:{address:10,words:2}}
+];
 const state = {
-  version,
+  version,profile:"fort",meter:meterCatalog[0],meterProfiles:meterCatalog,
   token: "test-session",
   display:{available:true,idleSeconds:60,stored:false,storageOK:true,sleeping:false},
   network: {configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
@@ -459,13 +463,16 @@ const server = http.createServer((req, res) => {
         state.network={...previous,configuredAPIP:data.get("apIP")||previous.configuredAPIP,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
         if(mode!=="ap"){state.network.ssid=data.get("ssid");state.network.hasPassword=data.get("open")!=="1";}
       }
-      if (req.url === "/api/config")
+      if (req.url === "/api/config"){
         Object.assign(state, {
+          profile:data.get("profile")||state.profile,
           slave: Number(data.get("slave")),
           baud: Number(data.get("baud")),
           parity: data.get("parity"),
           direction: data.get("direction"),
         });
+        state.meter=meterCatalog.find(p=>p.key===state.profile);state.scan.address=state.meter.currentA.address;state.scan.words=state.meter.currentA.words;
+      }
       if (req.url === "/api/scan/start")
         state.scan = {
           phase: scanMode,
@@ -646,6 +653,12 @@ async function checkVectors(browser, out) {
         assert.equal(result.status,0,result.stderr);await hide.evaluate(node=>node.remove());
         fs.copyFileSync(path.join(assets,mediaName+".mp4"),path.join(root,`output/${energyRecording?"energy-counter":"flow-replay"}-v${version}.mp4`));
         console.log(`PASS: ${frames.length} real browser frames recorded as docs/assets/${mediaName}.mp4`);
+      }
+      if(!process.argv.includes("--record-flow")&&!process.argv.includes("--record-energy")){
+        await page.setViewportSize({width:1440,height:1100});await page.goto(`${origin}/#setup`);
+        await page.waitForSelector("#meter-profile");await page.locator("#meter-profile").selectOption("acrel-adl400");
+        await page.locator("#config button").click();await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0064");
+        await page.locator("#config").screenshot({path:path.join(assets,"ui-meter-profile.png"),style:".main-nav{visibility:hidden}"});
       }
       console.log("PASS: shipped UI design previews captured");return;
     }
@@ -1021,6 +1034,18 @@ async function checkVectors(browser, out) {
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator("#raw-trace summary").click();
+    // Exercise the profile control against the shipped gzip, including reload.
+    await page.locator("#meter-profile").selectOption("acrel-adl400");
+    assert.equal(await page.locator("#baud option[value='38400']").count(),0);
+    await page.locator("#config button").click();
+    await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0064");
+    assert.equal(await page.locator("#scan-words").inputValue(),"1");
+    await page.reload();await page.waitForFunction(()=>document.querySelector("#meter-profile")?.value==="acrel-adl400");
+    assert((await page.locator(".wiring-help").textContent()).includes("21 / A1"));
+    assert(calls.some(call=>call.url==="/api/config"&&call.data.get("profile")==="acrel-adl400"));
+    await page.locator("#config").screenshot({path:path.join(root,"docs/assets/ui-meter-profile.png"),style:".main-nav{visibility:hidden}"});
+    await page.locator("#meter-profile").selectOption("fort");await page.locator("#config button").click();
+    await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0058");
     await page.locator("#slave").fill("3");
     await page.locator("#baud").selectOption("4800");
     await page.locator("#parity").selectOption("O");

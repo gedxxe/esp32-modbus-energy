@@ -2,7 +2,18 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.4.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+
+
+## Meter profiles in 2.5.0
+
+Both physical-target builds and all three native suites passed after the profile changes. The main image uses 85,144 bytes of static RAM and 1,427,045 program bytes, while the standalone image uses 30,284 and 337,785 bytes. The generated browser payload is 139,155 bytes gzip, below 163,840 bytes.
+
+New actual-library cases verify the Acrel one-register `0x0064` probe, the two-register `0x000A` counter, `0x008D` PT/CT decoding, 0.01 kWh resolution, signed power and switching back to the Fort map. Native policies verify the 240-candidate Acrel IDs 1–16 matrix, exclusion of 38400 baud for V1.3, preservation of the profile in candidates, v2 settings migration, schema-1 Fort capture decoding and schema-2 Acrel capture round trips. Unknown stored profile IDs are rejected, and optional differences compare profile identity. The actual standalone INO executes both profile commands and all eight recipes, whose commands explicitly select Fort.
+
+The full Microsoft Edge suite passed on the shipped gzip arrays, including model save/reload, Acrel register width and terminal labels, Fort restoration and the existing 320–2560 px regressions. Frame grouping now rejects a profile change within a transaction. All 26 SVGs passed rendering and text bounds, including the new complete Acrel wiring. The representative model-selector and checkpoint previews were visually inspected.
+
+The local Acrel V1.3 PDF pages 9, 15–19 were inspected as rendered images. The active-energy unit/CTPT interpretation is cross-checked against a later manufacturer document and its revision difference is explicitly retained in [Meter profiles](METER_PROFILES.md). The original V1.3 does not explicitly state two-word order, and later MID power scales differ. This release is not a physical ADL400 acceptance result. LCD agreement, model revision, installed ratios, checkpoint persistence under power loss and real bus timing remain field checks.
 
 ## Compilation
 
@@ -10,8 +21,8 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 85,144 | 1,420,553 |
-| Standalone FortSerialDebug | 30,284 | 336,577 |
+| Main `esp32s3` environment | 85,144 | 1,427,045 |
+| Standalone FortSerialDebug | 30,284 | 337,785 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
 

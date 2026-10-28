@@ -1,3 +1,4 @@
+import { meterProfile, meterProfiles } from "../meter-profile.js";
 import { useEffect, useState } from "react";
 import DiagnosticConsole from "../components/DiagnosticConsole.jsx";
 import RawTrace from "../components/RawTrace.jsx";
@@ -7,17 +8,18 @@ import { useText } from "../ui.js";
 export default function MeterSetup({ device }) {
   const { t } = useText();
   const s = device.data;
+  const profile=meterProfile(s), profiles=meterProfiles(s);
   const scan = s?.scan || { phase: "idle", tested: 0, total: 0 };
   const running = scan.phase === "running";
   const blocked =
     device.pending || !device.fresh || Boolean(s?.diagnosticActive);
-  const [config, setConfig] = useState({ slave: 1, baud: 9600, parity: "N", direction: "manual" });
+  const [config, setConfig] = useState({ slave: 1, baud: 9600, parity: "N", direction: "manual", profile:"fort" });
   const [probe, setProbe] = useState({ address: "0058", words: 2 });
   const [scanMode, setScanMode] = useState("current");
   const [range, setRange] = useState({ first: 1, last: 16 });
   useEffect(() => {
-    if (s) setConfig({ slave: s.slave, baud: s.baud, parity: s.parity, direction: s.direction });
-  }, [s?.slave, s?.baud, s?.parity, s?.direction]);
+    if (s) setConfig({ slave: s.slave, baud: s.baud, parity: s.parity, direction: s.direction, profile:s.profile||"fort" });
+  }, [s?.slave, s?.baud, s?.parity, s?.direction, s?.profile]);
   useEffect(() => {
     if (running) {
       setRange({ first: scan.first, last: scan.last });
@@ -35,8 +37,11 @@ export default function MeterSetup({ device }) {
         words: scan.words,
       });
   }, [scan.phase, scan.address, scan.words]);
+  useEffect(()=>{setProbe({address:profile.currentA.address.toString(16).padStart(4,"0"),words:profile.currentA.words});},[s?.profile]);
+  const profilePending=config.profile!==profile.key;
   const applied =
     scan.result &&
+    (s?.profile||"fort") === (scan.result.profile||"fort") &&
     s?.slave === scan.result.slave &&
     s?.baud === scan.result.baud &&
     s?.parity === scan.result.parity && s?.direction === scan.result.direction;
@@ -57,6 +62,7 @@ export default function MeterSetup({ device }) {
             : t("scan_idle");
   const submitScan = (event) => {
     event.preventDefault();
+    if(profilePending){device.setNotice({key:"save_profile_first"});return;}
     const first = Number(range.first),
       last = Number(range.last);
     if (
@@ -105,6 +111,11 @@ export default function MeterSetup({ device }) {
             }}
           >
             <div className="form-grid">
+              <div className="wide"><label htmlFor="meter-profile">{t("meter_profile")}</label>
+                <select id="meter-profile" value={config.profile} disabled={blocked||running} onChange={event=>{const selected=profiles.find(p=>p.key===event.target.value);setConfig({...config,profile:selected.key,baud:Number(config.baud)>selected.maxBaud?9600:config.baud});}}>
+                  {profiles.map(p=><option key={p.key} value={p.key}>{p.name}{p.manual?` · ${p.manual}`:""}</option>)}
+                </select><p className="small muted">{t("meter_profile_help")}</p>
+              </div>
               <div>
                 <label htmlFor="slave">{t("slave")}</label>
                 <input
@@ -130,7 +141,7 @@ export default function MeterSetup({ device }) {
                     setConfig({ ...config, baud: event.target.value })
                   }
                 >
-                  {[1200, 2400, 4800, 9600, 19200, 38400].map((value) => (
+                  {[1200, 2400, 4800, 9600, 19200, 38400].filter(b=>b<=(profiles.find(p=>p.key===config.profile)||profile).maxBaud).map((value) => (
                     <option key={value} value={value}>
                       {value}
                     </option>
@@ -182,7 +193,8 @@ export default function MeterSetup({ device }) {
         </section>
         <section className="panel" id="scan-panel" aria-labelledby="scan-title">
           <h2 id="scan-title">{t("scan_title")}</h2>
-          <p>{t("scan_intro")}</p>
+          <p>{t("scan_intro")} <strong>{profile.name}</strong></p>
+          {profilePending&&<p className="hint" role="status">{t("save_profile_first")}</p>}
           <form id="scanform" onSubmit={submitScan}>
             <div className="form-grid">
               <div>
@@ -283,7 +295,7 @@ export default function MeterSetup({ device }) {
               <button
                 id="scanstart"
                 className="button primary"
-                disabled={blocked || running}
+                disabled={blocked || running || profilePending}
                 type="submit"
               >
                 <Icon name="scan" />
@@ -366,7 +378,7 @@ export default function MeterSetup({ device }) {
         <p className="small muted">{t(s?.direction === "auto" ? "direction_auto_note" : "direction_manual_note")}</p>
         <div className="pins">
           {s?.direction === "auto" ? <><code>GPIO17 / TX → TTL input</code><code>GPIO18 / RX ← TTL output</code><code>GPIO16: unconnected</code></> : <><code>GPIO17 / TX → DI</code><code>GPIO18 / RX ← RO</code><code>GPIO16 → DE + /RE</code></>}
-          <code>A → Fort 58 / B → Fort 59</code>
+          <code>{profile.name}: {profile.terminals}</code>
         </div>
         <p className="small muted" style={{ marginTop: 12 }}>
           {t("wiring_note")}

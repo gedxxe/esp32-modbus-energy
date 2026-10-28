@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Same request/settings, different response budgets. Does not bypass CRC.
 x
+profile fort
 direction manual
 settle 100
 gap 200

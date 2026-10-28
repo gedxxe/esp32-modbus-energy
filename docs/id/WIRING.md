@@ -2,6 +2,8 @@
 
 [English](../WIRING.md) · **Bahasa Indonesia**
 
+Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
+
 Rangkaian terpasang memakai transceiver RS485 manual yang telah dikonfirmasi melalui sketch ModbusMaster berhasil. Ikuti label GPIO pada ESP32-S3 N16R8 dan nama sinyal pada modul karena diagram menunjukkan net listrik, bukan urutan header fisik.
 
 ![Wiring lengkap arah manual](../assets/wiring-overview.svg)

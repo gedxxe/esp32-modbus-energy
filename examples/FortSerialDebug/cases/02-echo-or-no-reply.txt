@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # One controlled FC03 request at CURRENT reader settings.
 x
+profile fort
 direction manual
 settle 100
 gap 200

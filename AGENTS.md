@@ -2,7 +2,7 @@
 
 ## Purpose and confirmed hardware
 
-Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a Fort power meter over Modbus RTU and serves a local dashboard. The user's Fort RS485 port is unused: the ESP32 is the only master. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL. Treat these as established facts. Do not repeatedly question them or invent a PLC/BMS connection.
+Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a selected Fort or Acrel ADL400 power meter over Modbus RTU and serves a local dashboard. The user's Fort RS485 port is unused: the ESP32 is the only master. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL. Treat these as established facts. Do not repeatedly question them or invent a PLC/BMS connection.
 
 The root Fort PDF is the primary meter reference. It is a scanned document. Verify the relevant page image before changing terminal assignments, registers, scaling, or protocol details. The documented meter communication terminals are 58/A and 59/B. Terminal 70/COM belongs to the switch inputs and is not an RS485 ground connection.
 
@@ -20,6 +20,7 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `web/request.js`: single API socket scheduling through complete body reception, active deadlines and priority Stop/Resume. Do not abort accepted POSTs to refresh telemetry.
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
 - `firmware/include/checkpoint_log.h`: primary ten-point daily cumulative kWh log, actual read timestamps, immutable captures, five-second admission window and explicit CRC serialization.
+- `firmware/lib/FortMeter/src/MeterProfiles.h`: immutable meter profile IDs and typed register/ratio descriptors. Fort remains ID 0 for old settings and schema-1 captures. Acrel ADL400 follows the supplied V1.3 map. Never repurpose an archived profile ID for different scaling. Review docs/METER_PROFILES.md and the local PDF page images before changing it.
 - `firmware/include/energy.h`: retained legacy interval schedule, continuity/quality logic and CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
 - `firmware/lib/FortMeter/src/FortTransport.h` and `FortDiagnostics.h`: source-shared ModbusMaster transport and diagnostic console for main firmware and the standalone INO. The old diagnostic_engine.h and build-diagnostic.py paths are compatibility/provenance entry points. Do not create a second parser there.

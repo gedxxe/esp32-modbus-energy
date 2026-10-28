@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Raw words only. No kWh interpretation. Add/edit queries as needed.
 x
+profile fort
 direction manual
 settle 100
 gap 200

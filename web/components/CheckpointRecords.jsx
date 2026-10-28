@@ -1,3 +1,4 @@
+import { profileName, meterProfiles } from "../meter-profile.js";
 import { useEffect, useRef, useState } from "react";
 import { deviceFetch } from "../request.js";
 import { validCheckpoints, validHistory } from "../validation.js";
@@ -59,7 +60,7 @@ export default function CheckpointRecords({ device }){
     {loading||failed||!ready?<p className="checkpoint-empty" role="status">{t(loading?"cp_loading":failed?"cp_archive_error":"cp_waiting_clock")}</p>:<div className="checkpoint-scroll"><table className="data-table checkpoint-table">
       <thead><tr><th>{t("cp_scheduled")}</th><th className="amount">{t("cp_kwh")}</th><th>{t("cp_observed")}</th><th>{t("quality")}</th>{differences&&<th className="amount">{t("cp_difference")}</th>}</tr></thead>
       <tbody id="checkpoint-rows">{rows.map(row=><tr key={row.minute} data-minute={row.minute}>
-        <td className="mono">{timeOf(row.minute)}</td><td className="amount checkpoint-value">{number(row.kwh)}</td>
+        <td className="mono">{timeOf(row.minute)}</td><td className="amount checkpoint-value">{number(row.kwh)}{row.status==="recorded"&&<small className="checkpoint-delay">{profileName(row.profile,meterProfiles(device.data))}</small>}</td>
         <td className="mono">{observedTime(row.capturedUTC)}{row.capturedUTC!=null&&<small className="checkpoint-delay">+{row.delaySeconds}s</small>}</td>
         <td><span className={`quality checkpoint-${row.status}`}>{t(`cp_${row.status}`)}</span></td>{differences&&<td className="amount">{number(row.difference)}</td>}
       </tr>)}</tbody>

@@ -2,7 +2,9 @@
 
 [English](../COMMISSIONING.md) · **Bahasa Indonesia**
 
-Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.4.0, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
+Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
+
+Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Jadikan koneksi tersebut baseline firmware 2.5.0, lalu catat pembacaan rilis terintegrasi secara terpisah dari tes software atau screenshot simulasi.
 
 ## Penerimaan checkpoint
 
@@ -12,7 +14,7 @@ Setelah mengekspor rekaman hari uji, lakukan power-cycle terencana dan periksa b
 
 ## Uji meja sebelum ke panel
 
-Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.4.0. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
+Pastikan board boot tanpa Serial Monitor, menyediakan Midea Engineering AP pada 192.168.4.1 dan menampilkan Firmware 2.5.0. Periksa orientasi OLED 180°, tiga tombol dengan debounce, buzzer opsional serta RGB setelah restart. OLED yang tidak ada tidak boleh menahan AP, sedangkan filesystem gagal hanya boleh diformat setelah konfirmasi fisik OK lima detik.
 
 Saat A/B dilepas, jalankan diagnosis terbatas dan simpan output. RX pada kondisi itu berasal dari jalur lokal. Loopback UART sementara dapat dibuat setelah kabel TTL modul dilepas, dengan menghubungkan GPIO17 ke GPIO18. Hasilnya harus dikenali sebagai echo request dan ditolak sebagai energi. Lepas jumper serta pulihkan modul manual sebelum tes Fort.
 

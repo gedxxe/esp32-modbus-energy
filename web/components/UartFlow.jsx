@@ -1,3 +1,4 @@
+import { meterProfile, meterProfiles } from "../meter-profile.js";
 import { useEffect, useRef, useState } from "react";
 import { useText } from "../ui.js";
 import { deviceFetch } from "../request.js";
@@ -6,8 +7,9 @@ import FlowPlayback from "./FlowPlayback.jsx";
 import { FrameAssembler } from "../flow-playback.js";
 
 // Fetch only new device events. Animation never starts without a new UART event.
-export default function UartFlow() {
+export default function UartFlow({ device }) {
   const { t } = useText();
+  const savedProfile=meterProfile(device?.data);
   const [events, setEvents] = useState([]),
     [failed, setFailed] = useState(false),
     [gap, setGap] = useState(false);
@@ -15,6 +17,7 @@ export default function UartFlow() {
   const [automatic, setAutomatic] = useState(false);
   const [active, setActive] = useState(false),
     [latest, setLatest] = useState(null);
+  const profile=meterProfiles(device?.data).find(p=>p.key===latest?.profile)||savedProfile;
   const [replay,setReplay] = useState(null);
   const assembler = useRef(new FrameAssembler());
   const cursor = useRef(0),
@@ -135,7 +138,7 @@ export default function UartFlow() {
         {[
           {title:"ESP32-S3",detail:`TX${latest?.txPin ?? 17} / RX${latest?.rxPin ?? 18}`,box:"60 42 80 80",paths:["M75 57H125V107H75ZM86 70H114V94H86ZM83 47V57M100 47V57M117 47V57M83 107V117M100 107V117M117 107V117M65 65H75M65 83H75M65 100H75M125 65H135M125 83H135M125 100H135"]},
           {title:"RS485",detail:dirPin<0?"AUTO":`GPIO${dirPin} · DE + /RE`,box:"505 43 90 90",paths:["M520 60L551 78L520 96ZM580 78L549 96L580 114ZM510 78H520M551 78H590M510 96H549M580 96H590M550 53V65M550 108V120"]},
-          {title:"FORT",detail:"58 / A · 59 / B",box:"955 45 90 90",paths:["M970 55H1030V115H970ZM979 64H1021V84H979ZM979 98H1021M989 94V102M1000 94V102M1011 94V102","M984 75H989L993 68L999 80L1004 73H1016"]},
+          {title:profile.name,detail:profile.terminals,box:"955 45 90 90",paths:["M970 55H1030V115H970ZM979 64H1021V84H979ZM979 98H1021M989 94V102M1000 94V102M1011 94V102","M984 75H989L993 68L999 80L1004 73H1016"]},
         ].map(node=><div className="flow-device" key={node.title}><svg className="flow-symbol" viewBox={node.box} aria-hidden="true">{node.paths.map(path=><path key={path} d={path}/>)}</svg><strong>{node.title}</strong><code>{node.detail}</code></div>)}
       </div>
       <FlowPlayback item={replay} enabled={!failed} resetKey={boot.current} />

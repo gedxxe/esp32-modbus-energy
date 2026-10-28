@@ -125,7 +125,7 @@ export default function Application() {
               <div className="brand-name">
                 midea <span style={{ fontWeight: 400 }}>engineering</span>
               </div>
-              <div className="brand-sub">FORT ENERGY MONITOR</div>
+              <div className="brand-sub">MODBUS ENERGY STATION</div>
             </div>
           </div>
           <div className="top-actions">
@@ -162,7 +162,7 @@ export default function Application() {
       <main className="shell">
         <div className="page-heading">
           <div>
-            <div className="eyebrow">MIDEA / FORT</div>
+            <div className="eyebrow">MIDEA / ENERGY</div>
             <h1>{t("title")}</h1>
             <p>{t("subtitle")}</p>
           </div>
@@ -175,7 +175,7 @@ export default function Application() {
         <NavTabs view={view} onNavigate={navigate} />
         <Health device={device} />
         <div className="page-content" key={view}>{content}</div>
-        <UartFlow />
+        <UartFlow device={device} />
         {device.notice && (
           <div id="message" className="notice" role="status" aria-live="polite">
             {device.notice.key ? t(device.notice.key) : device.notice.text}
@@ -192,7 +192,7 @@ export default function Application() {
         <footer>
           <div>
             <span id="version">Firmware {s?.version || "—"}</span> · ESP32-S3 ·
-            Fort RTU
+            Modbus RTU
             <br />
             {t("footer_note")}
           </div>

@@ -131,6 +131,22 @@ void testMeterCheckpoints(){
 }
 
 int main(){
+  {Settings a;a.profile=profiles::ACREL_ADL400;assert(validSettings(a));a.baud=38400;assert(!validSettings(a));a.baud=9600;
+   ScanController scan;assert(scan.begin(1,16,a,0));assert(scan.progress.total==240);
+   while(scan.running()){assert(scan.progress.candidate.profile==profiles::ACREL_ADL400);assert(scan.progress.candidate.baud<=19200);scan.completeProbe(false,1);}
+   Settings legacy;legacy.magic=0x46525432;legacy.slave=7;legacy.direction=DIRECTION_AUTO;assert(migrateLegacySettings(legacy));assert(legacy.profile==profiles::FORT&&legacy.slave==7&&legacy.direction==DIRECTION_AUTO);
+   CaptureTracker captures;const uint32_t day=20754;captures.newDay(day);
+   CaptureSource source;source.slave=1;source.baud=9600;source.parity='N';source.ptNum=2;source.ptDen=1;source.ct=40;source.profile=profiles::ACREL_ADL400;
+   const uint32_t at=captureTarget(day,0);assert(captures.sample(at,at+1,123456,source));near(captures.day.points[0].energy,98764.8);
+   uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(captures.day,bytes);CaptureDay restored;assert(decodeCaptureDay(bytes,sizeof(bytes),restored));assert(restored.points[0].source.profile==profiles::ACREL_ADL400);
+   auto saved=restored;bytes[24+38]=255;capturePut16(bytes+sizeof(bytes)-2,crc16(bytes,sizeof(bytes)-2));assert(!decodeCaptureDay(bytes,sizeof(bytes),restored));
+   assert(restored.points[0].source.profile==saved.points[0].source.profile);
+   // Schema 1 contains Fort captures only. Keep the old byte layout readable.
+   source.profile=profiles::FORT;captures.newDay(day);assert(captures.sample(at,at,123456,source));encodeCaptureDay(captures.day,bytes);
+   capturePut16(bytes+4,1);capturePut16(bytes+sizeof(bytes)-2,crc16(bytes,sizeof(bytes)-2));assert(decodeCaptureDay(bytes,sizeof(bytes),restored));near(restored.points[0].energy,9876.48);
+   auto changed=source;changed.profile=profiles::ACREL_ADL400;assert(!sameCaptureSource(source,changed));
+  }
+
   testMeterCheckpoints();
   testScreenSaver();
   testNetwork();

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.0
+
+Added explicit Fort and Acrel ADL400 V1.3 profiles shared by acquisition, scanner, diagnostics and the web catalog. Transformer layouts, register widths/scales and terminal labels now follow the selected model. Settings migrate without changing installed Fort configurations, and checkpoint schema 2 retains each row’s model while reading schema 1 as Fort. Added bilingual commissioning, alternate full wiring and native/browser coverage.
+
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
 ## 2.4.0 / 28 October 2026

@@ -5,14 +5,14 @@
 <text x="65" y="175" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">BOOT</text>
 <rect x="65" y="190" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>
 <text x="80" y="215" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">MIDEA ENGINEERING</text>
-<text x="80" y="238" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">FORT</text>
+<text x="80" y="238" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">ENERGY</text>
 <text x="80" y="261" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">[============      ]</text>
 <rect x="495" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="515" y="175" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">MAIN</text>
 <rect x="515" y="190" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>
 <text x="530" y="215" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">MIDEA | ENERGY</text>
 <text x="530" y="238" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">128432.73</text>
-<text x="530" y="261" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">kWh import</text>
+<text x="530" y="261" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">kWh | Fort</text>
 <text x="530" y="284" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">08:42:16 WIB       OK</text>
 <text x="530" y="307" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">IP 192.168.4.1</text>
 <rect x="945" y="145" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>

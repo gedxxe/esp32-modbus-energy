@@ -1,3 +1,4 @@
+import { meterProfile, meterProfiles, addressHex } from "../meter-profile.js";
 import { deviceFetch } from "../request.js";
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
@@ -17,11 +18,14 @@ const recipes = [
 ];
 function ConsoleData({ device }) {
   const { t } = useText();
+
   const [view, setView] = useState(null),
     [command, setCommand] = useState("diagnose"),
     [failed, setFailed] = useState(false);
   const [address, setAddress] = useState("0058"), [words, setWords] = useState(2);
   const [setting, setSetting] = useState("timeout"), [value, setValue] = useState("2000");
+  const profile=meterProfiles(device.data).find(p=>p.key===view?.settings?.profile)||meterProfile(device.data);
+  useEffect(()=>{setAddress(addressHex(profile.currentA.address));setWords(profile.currentA.words);},[profile.key]);
   useEffect(() => {
     let alive = true,
       timer,
@@ -126,8 +130,8 @@ function ConsoleData({ device }) {
           <button id="diagnostic-read" type="submit" className="button" disabled={blocked}>{t("diag_read_action")}</button>
         </form>
         <form id="diagnostic-setting-form" onSubmit={(event) => { event.preventDefault();const line=`${setting} ${value.trim()}`;setCommand(line);send(line); }}>
-          <div className="form-grid"><div><label htmlFor="diagnostic-setting">{t("diag_setting")}</label><select id="diagnostic-setting" value={setting} disabled={blocked} onChange={(event) => {setSetting(event.target.value);setValue(({id:"1",baud:"9600",parity:"N",direction:"manual",timeout:"2000",gap:"200",settle:"100",interval:"2000",probe:"0058 2",energy:"0082",ratios:"002C",scale:"0.001",order:"normal",decode:"on",pins:"18 17",range:"1 16",scanmode:"current",bauds:"9600 19200",parities:"NE"})[event.target.value]);}}>
-            {["id","baud","parity","direction","timeout","gap","settle","interval","probe","energy","ratios","scale","order","decode","pins","range","scanmode","bauds","parities"].map((key) => <option key={key}>{key}</option>)}
+          <div className="form-grid"><div><label htmlFor="diagnostic-setting">{t("diag_setting")}</label><select id="diagnostic-setting" value={setting} disabled={blocked} onChange={(event) => {setSetting(event.target.value);setValue(({profile:profile.key,id:"1",baud:"9600",parity:"N",direction:"manual",timeout:"2000",gap:"200",settle:"100",interval:"2000",probe:`${addressHex(profile.currentA.address)} ${profile.currentA.words}`,energy:addressHex(profile.secondaryEnergy.address),ratios:addressHex(profile.ratios),scale:String(profile.energyScale),order:"normal",decode:"on",pins:"18 17",range:"1 16",scanmode:"current",bauds:"9600 19200",parities:"NE"})[event.target.value]);}}>
+            {["profile","id","baud","parity","direction","timeout","gap","settle","interval","probe","energy","ratios","scale","order","decode","pins","range","scanmode","bauds","parities"].map((key) => <option key={key}>{key}</option>)}
           </select></div><div><label htmlFor="diagnostic-setting-value">{t("diag_setting_value")}</label><input id="diagnostic-setting-value" value={value} required maxLength={60} pattern="[ -~]+" disabled={blocked} autoCapitalize="none" spellCheck={false} onChange={(event) => setValue(event.target.value)} /></div></div>
           <p className="small muted">{t("diag_setting_note")}</p><button id="diagnostic-setting-apply" type="submit" className="button" disabled={blocked}>{t("diag_setting_action")}</button>
         </form>
@@ -228,14 +232,14 @@ function ConsoleData({ device }) {
           3000
           <br />
           direction manual · settle 100 · gap 200
-          <br />probe 0058 2 · reg 0082 2 · range 1 16 · scanmode current
+          <br />probe {addressHex(profile.currentA.address)} {profile.currentA.words} · reg {addressHex(profile.secondaryEnergy.address)} 2 · range 1 16 · scanmode current
           <br />
           bauds 9600 19200 · parities NE · scan · x<br />
           plan clear · plan add 0080 1 · plan show
           <br />
-          energy 0082 · ratios 002C · scale 0.001 · order swap · decode off
+          energy {addressHex(profile.secondaryEnergy.address)} · ratios {addressHex(profile.ratios)} · scale {profile.energyScale} · order swap · decode off
           <br />
-          primary · listen 5 · read · poll · stats clear · status · help · resume
+          profile fort · profile acrel-adl400 · primary · listen 5 · read · poll · stats clear · status · help · resume
         </code>
       </details>
       <p className="small muted">{t("diag_limits")}</p>

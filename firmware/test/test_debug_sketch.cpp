@@ -12,6 +12,7 @@ std::vector<uint8_t> response(std::initializer_list<uint8_t> bytes){std::vector<
 void submit(const std::string &line){for(char c:line)Serial.input.push_back(c);Serial.input.push_back('\n');for(unsigned i=0;i<10000&&(Serial.available()||debug.busy());++i)loop();assert(!Serial.available()&&!debug.busy());for(unsigned i=0;i<80;++i)debug.drainSerial();}
 int main(){
  setup();assert(debug.options.manualDirection&&debug.options.probeAddress==0x58&&debug.options.probeWords==2);
+ submit("profile acrel-adl400");assert(debug.options.probeAddress==0x64&&debug.options.probeWords==1);submit("profile fort");
  fortUART.replies.push_back(response({1,3,4,0,0,0xC3,0x17}));submit("intermediate");assert(debug.evidence.data==1&&fortUART.transmitted.back()[3]==0x58);
  assert(Serial.output.find("VALID_RESPONSE")!=std::string::npos);
  submit("timeout 60");submit("direction auto");assert(!debug.options.manualDirection);submit("direction manual");assert(debug.options.manualDirection);

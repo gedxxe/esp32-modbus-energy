@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # Experimental interpretations of the same UInt32 register pair; neither is auto-selected.
 x
+profile fort
 direction manual
 settle 100
 gap 200

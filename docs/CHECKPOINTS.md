@@ -66,3 +66,6 @@ An upgrade preserves the legacy `day` NVS record and `/d<day>.csv` files. The ph
 `/api/status` carries the current `checkpoints` projection. Read-only `/api/checkpoints?day=<day>` returns a selected day, and adding `&format=csv` downloads it. `/api/history?kind=checkpoints` lists available checkpoint days, including current/previous NVS records during a filesystem failure. The earlier history/export endpoints retain their interval format.
 
 CSV columns include the record date, shift, scheduled WIB time, actual bracket times, response delay, cumulative kWh, secondary raw count, PT numerator/denominator, CT, slave ID, baud/parity, status and optional difference from the preceding checkpoint. A blank value represents unavailable data rather than zero. File names begin with `fort-checkpoints-` to distinguish this export from the older interval CSV.
+
+
+Schema 2 retains the 426-byte layout and records the immutable meter profile in row byte 38. Schema 1 remains readable as Fort. Energy validation uses the stored profile scale and ratios, and differences never cross a model change. The table and CSV retain each row’s original model. See [Meter profiles](METER_PROFILES.md) for migration and conversion details.

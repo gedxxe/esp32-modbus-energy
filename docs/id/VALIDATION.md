@@ -2,7 +2,18 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.4.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.5.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+
+
+## Profil meter pada 2.5.0
+
+Kedua build target fisik serta ketiga suite native lulus setelah perubahan profil. Firmware utama memakai RAM statis 85.144 byte dan program 1.427.045 byte, sedangkan sketch mandiri memakai 30.284 dan 337.785 byte. Payload browser generated berukuran 139.155 byte gzip, di bawah batas 163.840 byte.
+
+Kasus dengan library aktual memeriksa probe satu register Acrel `0x0064`, counter dua register `0x000A`, dekode PT/CT `0x008D`, resolusi 0,01 kWh, daya bertanda dan pemulihan peta Fort. Tes kebijakan memeriksa 240 kandidat matrix Acrel ID 1–16, pengecualian 38400 baud untuk V1.3, profil kandidat, migrasi setting v2, pembacaan capture Fort schema 1 serta round trip Acrel schema 2. Profil tersimpan yang tidak dikenal ditolak dan selisih membandingkan identitas profil. INO aktual menjalankan kedua perintah profil serta delapan resep yang secara eksplisit memilih Fort.
+
+Suite Microsoft Edge lengkap lulus pada array gzip yang dikirim firmware untuk save/reload model, lebar register dan terminal Acrel, pemulihan Fort serta regresi 320–2560 px. Pengelompokan frame menolak pergantian profil di tengah transaksi. Seluruh 26 SVG lolos render serta batas teks, termasuk wiring Acrel lengkap. Pratinjau pemilih model dan checkpoint diperiksa secara visual dengan data simulasi.
+
+Halaman PDF Acrel lokal 9 serta 15–19 diperiksa sebagai gambar render. Satuan energi aktif dan CT/PT diperiksa silang dengan dokumen produsen yang lebih baru, dan perbedaan revisinya dijelaskan pada [Profil meter](METER_PROFILES.md). V1.3 tidak secara eksplisit menjelaskan urutan dua word, sedangkan skala daya MID yang lebih baru berbeda. Hasil ini bukan penerimaan ADL400 fisik. Kesesuaian LCD, revisi meter, rasio terpasang, persistensi saat putus daya serta timing bus aktual tetap memerlukan pemeriksaan lapangan.
 
 ## Kompilasi
 
@@ -10,8 +21,8 @@ Kedua build lulus dengan espressif32 **6.10.0** dan Arduino ESP32 **2.0.17** unt
 
 | Build | RAM statis | Program |
 | --- | ---: | ---: |
-| Firmware utama `esp32s3` | 85.144 byte | 1.420.553 byte |
-| FortSerialDebug dengan library FortMeter | 30.284 byte | 336.577 byte |
+| Firmware utama `esp32s3` | 85.144 byte | 1.427.045 byte |
+| FortSerialDebug dengan library FortMeter | 30.284 byte | 337.785 byte |
 
 RAM statis bukan total alokasi runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi sebesar 12 KiB, sedangkan sisa stack, heap dan alokasi driver perlu diperiksa pada perangkat melalui process monitor. INO mandiri kini memakai library FortMeter yang disertakan bersama source ModbusMaster. Build diuji melalui PlatformIO, sementara GUI Arduino IDE serta versi core lain belum dijalankan.
 

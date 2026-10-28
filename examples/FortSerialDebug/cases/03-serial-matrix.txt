@@ -3,6 +3,7 @@
 # Copy resulting OUTPUT to support chat; never type output labels.
 # One ID, six baud rates, three parity modes; no energy-profile requirement.
 x
+profile fort
 direction manual
 settle 100
 gap 200

@@ -27,6 +27,7 @@ module.exports=async function testFlow(){
   a.accept(event(8,1));a.accept(event(9,2));assert.equal(a.accept(event(11,4)),null,"Sequence gaps must not join frames");
   a.accept(event(12,1));assert.equal(a.accept(event(13,2,{dirPin:15})),null);assert.equal(a.accept(event(14,4)),null);
   assert.equal(a.accept(event(15,4)),null,"A response without an observed request cannot produce motion");
+  a.reset();a.accept(event(40,1,{profile:"fort"}));assert.equal(a.accept(event(41,2,{profile:"acrel-adl400"})),null,"A model change cannot join two observed transactions");
   a.reset();a.accept(event(0xfffffffd,1));a.accept(event(0xfffffffe,2));a.accept(event(0xffffffff,3));assert(a.accept(event(0,4)).rx);
   a.reset();a.accept(event(20,1));a.accept(event(21,2));const crc=a.accept(event(22,4,{result:"crc"}));assert.equal(crc.rx.result,"crc");
   a.reset();assert.equal(a.accept(event(23,6,{bytes:""})),null);

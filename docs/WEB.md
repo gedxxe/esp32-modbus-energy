@@ -2,7 +2,9 @@
 
 **English** · [Bahasa Indonesia](id/WEB.md)
 
-Firmware 2.4.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Meter-specific Fort examples below remain valid for Fort. For Acrel, select the saved model first and use [Meter profiles](METER_PROFILES.md) for its register map, terminals, conversion and diagnostic workflow.
+
+Firmware 2.5.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
 
 ## Retrieve scheduled meter readings
 
@@ -73,7 +75,7 @@ All these routes are registered by the production firmware. Ordinary controls us
 
 ## Verify the integrated installation
 
-After uploading 2.4.0, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
+After uploading 2.5.0, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
 
 The communication endpoint now sends at most eight events per page, with a backlog marker for catch-up. Browser polling targets 500 ms and retries failed requests after 1.2 seconds, retaining timestamped history and distinguishing timeout, invalid payload and endpoint failures. A failed HTTP event request does not establish whether a Modbus slave is present.
 

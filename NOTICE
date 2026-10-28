@@ -10,7 +10,7 @@ it is not relicensed under the project's GPL license.
 
 Browser application dependencies
 -------------------------------
-web/vendor/react-bits/ contains FadeContent and SpotlightCard from David Haz's
+web/vendor/react-bits/ contains FadeContent, SpotlightCard, WakeSlider, Counter and StarBorder from David Haz's
 React Bits, pinned at e12c22192ac7b4b452c5e2feb9b586d74765d696.
 Copyright 2026 David Haz. Their MIT + Commons Clause terms are reproduced in
 web/vendor/react-bits/LICENSE.md. These components are included as dependencies
@@ -52,3 +52,6 @@ as original project contributions under GPL-3.0-only.
 The boot-logo.xbm bitmap reproduces the Midea artwork supplied by the project
 author as a Lopaka export. Midea branding remains with its respective owner.
 The bitmap adaptation and boot-stage integration code are GPL-3.0-only.
+
+Motion 14.7.1 and its imported framer-motion, motion-dom and motion-utils
+dependencies retain their MIT licenses. Their notices are bundled offline.

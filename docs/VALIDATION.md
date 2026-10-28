@@ -1,8 +1,8 @@
-# Validation record / 27 October 2026
+# Validation record / 28 October 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.2.2**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.3.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
 ## Compilation
 
@@ -10,7 +10,7 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 83,088 | 1,380,281 |
+| Main `esp32s3` environment | 83,088 | 1,397,497 |
 | Standalone FortSerialDebug | 30,284 | 336,577 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
@@ -37,24 +37,24 @@ Coverage includes English/Indonesian switching and persistence, blocked storage,
 
 The added browser cases cover AP/client/combined mode submission and reload, password reuse without returning stored keys, explicit open networks, automatic SSID scanning/selection, custom AP IPv4 validation, recovery AP presentation, malformed network state and preservation of an operator draft after a failed refresh. Structured diagnostic reads and trial settings reach the console endpoint, session settings update from the owner response, and invalid diagnostic payloads disable ordinary actions while leaving Stop available.
 
-Malformed status, archive, process, trace and UART-event payloads retain the last usable data with a stale/unavailable state. Diagnostics, process metrics and raw trace polling stop when their panel closes. UART animation requires new events, honors reduced motion and does not turn idle time or pre-reboot history into live packets. Its timestamp replay includes network delay and is not a wire analyzer.
+Malformed status, archive, process, trace and UART-event payloads retain the last usable data with a stale/unavailable state. Diagnostics, process metrics and raw trace polling stop when their panel closes. UART animation requires new events, honors reduced motion and does not turn idle time or pre-reboot history into live packets. Its readable replay uses presentation timing, while the unscaled device timestamps remain available.
 
 Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **24 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
 
 ## Asset and source provenance
 
-The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** with React Bits SpotlightCard. GSAP **3.15.0** remains pinned for the preserved FadeContent reference but is not imported into the current runtime bundle. The generated header and manifest agree, and the Python hash guard passed inside the successful firmware build. A normal PlatformIO build needs no Node installation.
+The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** with React Bits SpotlightCard, WakeSlider, Counter and StarBorder, plus Motion **14.7.1**. GSAP **3.15.0** remains pinned for the preserved FadeContent reference but is not imported into the current runtime bundle. The generated header and manifest agree, and the Python hash guard passed inside the successful firmware build. A normal PlatformIO build needs no Node installation.
 
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,030 | 527 |
-| `/assets/app.js` | 343,813 | 107,676 |
-| `/assets/app.css` | 28,797 | 7,297 |
-| `/assets/third-party.txt` | 5,755 | 1,433 |
+| `/assets/app.js` | 384,920 | 123,283 |
+| `/assets/app.css` | 35,957 | 8,809 |
+| `/assets/third-party.txt` | 10,218 | 1,539 |
 
-The combined payload is **116,933 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **134,158 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-The documentation checker validates 29 Markdown guides and 203 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
+The documentation checker validates 29 Markdown guides and 213 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
 ## Packaging and remaining hardware work
 
@@ -83,3 +83,13 @@ The radio adapter initializes the pinned IDF scan structure and consumes Arduino
 The integrated main build passed with 83,088 bytes of static RAM and 1,380,281 bytes of program space, adding 1712 bytes of program space without changing static RAM. The three native suites passed with the actual generated OLED source linked into the host build. The generator verifies the supplied XBM's 1350 bytes against SHA256 `f4e713c873ba49341b8c764f93f0ef0016f6768e9e6637c46c3a0c1b7c2887cc`, and its LSB-first layout was checked against the installed Adafruit GFX `drawXBitmap()` implementation. The representative logical render was visually inspected, and all 24 SVGs passed the browser text-bound/render check.
 
 Every shipped browser asset has the same size and SHA256 as 2.2.1. Only release/input provenance changed, so the previous full dashboard regression remains applicable, while the new vector and request-module checks passed locally. Boot ordering was reviewed in the actual setup path: OLED rotation and first-frame transfer precede RTOS object allocation, the 3000 ms hold yields with RGB service, then the original 1500 ms loading/sound routine executes. Missing OLED skips the artwork hold. Physical OLED timing/orientation and startup-to-AP latency still need on-device acceptance.
+
+## Readable browser motion in 2.3.0
+
+The integrated build passed at 83,088 bytes of static RAM and 1,397,497 bytes of program space. The main firmware's acquisition, Modbus transport, GPIO configuration, RTC ownership and boot logo behavior are retained. Native tests passed all three suites, including the actual standalone INO and pinned ModbusMaster source. The offline browser bundle is 134,158 bytes gzip, below the 163,840-byte limit.
+
+The supplied WakeSlider, Counter and StarBorder JavaScript/CSS pairs were compared with upstream commit e12c22192ac7b4b452c5e2feb9b586d74765d696 before being copied unchanged. The upstream Git blob hashes pass the generated-byte preview guard, Motion is pinned at 14.7.1 and four Motion-package MIT notices are served offline. Source hashes and generated output agree.
+
+The actual frame assembler passed valid/CRC/timeout grouping, incomplete sequences, changed direction pins, orphan outcomes, explicit reset, local UART failure and uint32 sequence rollover. The browser suite passed real-payload rendering at 320–2560 px, rolling clock units without RTC POSTs, actual WakeSlider/StarBorder mounts, missing underline/taps, alternating TX/RX and no returning frame for a timeout. A packet position sampled after 320 ms was farther along its track while still short of the far endpoint, replacing the former sub-100 ms flash. Navigation's shared highlight is clipped during viewport changes so its transition cannot widen the document.
+
+The existing scan, Wi-Fi, diagnostics, stop/resume, records, LED, process, stale-data, English/Indonesian and reduced-motion regressions passed. A 5.23-second representative MP4 records 127 changing frames from the shipped UI with simulated API data, encoded at 30 fps. The video is documentation and is not served by the ESP32. These checks validate browser behavior and compiled firmware rather than physical timing or field acceptance on the installed phone, OLED and meter.

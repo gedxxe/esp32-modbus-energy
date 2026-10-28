@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/WEB.md)
 
-Firmware 2.2.2 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Firmware 2.3.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
 
 ## Reach the application
 
@@ -68,7 +68,7 @@ All these routes are registered by the production firmware. Ordinary controls us
 
 ## Verify the integrated installation
 
-After uploading 2.2.2, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
+After uploading 2.3.0, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
 
 The communication endpoint now sends at most eight events per page, with a backlog marker for catch-up. Browser polling targets 500 ms and retries failed requests after 1.2 seconds, retaining timestamped history and distinguishing timeout, invalid payload and endpoint failures. A failed HTTP event request does not establish whether a Modbus slave is present.
 
@@ -88,4 +88,18 @@ The MCU symbol represents UART1, the opposing driver symbols represent the trans
 
 Four milestones retain the latest transaction's queued TX, drained UART, first observed RX byte and outcome. Times are measured from queued TX using device timestamps, with unsigned subtraction across the microsecond counter rollover. The DE and /RE values show the last recorded software direction state, and become unknown when the event endpoint is unavailable. They are not electrical feedback measurements. A timeout keeps RX empty and leaves the missing RX milestone unfilled.
 
-Frame travel replays recorded event spacing at 1× and holds its final label for 700 ms so a short UART transaction remains visible. The recorded durations and hex bytes remain available afterward. Browser delivery adds latency, and the direction diagram is schematic rather than a measurement of travel time on A/B. API fetches share one socket slot through complete body reception with an eight-second active deadline. Queued waiting does not consume that deadline, and priority Stop/Resume can cancel an in-flight telemetry GET.
+The animated lanes use the supplied React Bits WakeSlider as a non-interactive visual. Each observed complete transaction travels outward for 1100 ms, pauses for 140 ms and returns for 1100 ms when RX bytes were captured, followed by a 160 ms rest. A timeout therefore plays an outbound request with no returning frame. These durations make the replay readable and are separate from the unscaled transaction timings below. No electrical travel time is inferred from the animation.
+
+Only one replay and the newest pending transaction are retained. A burst replaces the pending visual rather than building a long queue, while recent raw events remain in the 32-entry log. Frame grouping requires a continuous sequence with matching ID, baud, parity, register, word count, pins and diagnostic context. Old initial history, reboot history, sequence gaps and orphan responses cannot create a new replay. A hidden page, unavailable endpoint or reduced-motion preference clears playback.
+
+![Representative communication replay using simulated UART events](assets/ui-flow-desktop.png)
+
+The clock uses the supplied Counter component for its hour/minute/second pairs, with a 300 ms roll, no intro spin, no bounce and no blur. Its source remains the device UTC/RTC reference and five-minute presentation re-anchor. The browser does not add NTP or repeatedly write the RTC. An accessible timer label exposes the complete time while the repeated visual numerals remain hidden from assistive reading.
+
+Navigation uses the supplied StarBorder component around native buttons and an independent selection background that slides to the active page in about 320 ms. The old blue underline and the SVG transport taps are removed. Reduced motion disables packet replay and rolling digits, and renders static native navigation without the decorative canvas. The telemetry WakeSlider is inert and hidden from assistive control discovery, so it cannot be mistaken for a configurable meter value.
+
+![Representative rolling clock](assets/ui-clock.png)
+
+![Representative menu buttons](assets/ui-navigation.png)
+
+API fetches still share one socket slot through complete body reception with an eight-second active deadline. Queued waiting does not consume that deadline, and priority Stop/Resume can cancel an in-flight telemetry GET. Animation executes in the browser. The ESP32 serves the compiled offline bundle and does not execute React, Motion or canvas rendering.

@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/DESIGN.md)
 
-Version 2.2.2 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
+Version 2.3.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
 
 ## Fort register reference
 
@@ -115,3 +115,9 @@ Wi-Fi discovery and client association share the radio on core 0. The scanner th
 The managed adapter targets the pinned Arduino ESP32 2.0.17 scan internals. Its purpose is to avoid the wrapper's uninitialized configuration fields and dwell × 20 completion timeout while retaining a single owner of Arduino's result storage. It must be reviewed when upgrading that framework. Physical scan success, AP continuity and driver resource failures still require radio acceptance.
 
 The browser scheduler serializes all API fetches through full response-body reception. Each active request has an eight-second deadline, with queue wait excluded. POSTs take precedence over queued telemetry, and explicit diagnostic Stop/Resume may abort an active GET while leaving an accepted POST intact. On the firmware side, an empty connection waiting longer than 250 ms yields when another socket is available. The upstream parser and five-second bounded writer retain their existing limits. This is request scheduling for the single-client WebServer, not a change to core 1 acquisition.
+
+## Browser animation ownership
+
+FrameAssembler consumes validated event metadata rather than parsing Modbus bytes. It rejects discontinuous sequences, mismatched link/pin context and outcomes without an observed TX-complete event. FlowPlayback owns a constant-size visual queue with one active transaction and the newest pending transaction. Its RAF accumulator caps a single browser frame step at 48 ms, preventing a delayed render from teleporting across the track. Rendering uses the supplied WakeSlider as an inert visual and keeps its smooth presentation timing separate from the device microsecond timestamps. No animation state is sent to acquisition or persistence.
+
+DeviceClock retains its existing UTC/sample-age anchor and memoizes the supplied Counter per clock unit, so unchanged units do not rebuild their numeral strips on each status sample. Native timer accessibility exposes the complete HH:mm:ss value. NavTabs measures button offsets through ResizeObserver and moves one shared selection surface, while the supplied StarBorder provides its border effect. Reduced motion disables replay and decorative canvas, and hidden/failed/restarted event streams discard visual state.

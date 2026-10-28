@@ -6,6 +6,7 @@ const zlib = require("node:zlib");
 const crypto = require("node:crypto");
 const assert = require("node:assert/strict");
 const testRequest = require("./test-request.cjs");
+const testFlow = require("./test-flow.cjs");
 const { chromium } = require(process.argv[2] || "playwright");
 const root = path.resolve(__dirname, "..");
 const version = fs
@@ -560,11 +561,47 @@ async function checkVectors(browser, out) {
   fs.mkdirSync(out, { recursive: true });
   let browser;
   try {
-    await testRequest();
+    await testRequest();await testFlow();
     browser = await chromium.launch({
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--design-only")){
+      const context=await browser.newContext({viewport:{width:1440,height:1100}});
+      const page=await context.newPage();await page.goto(origin);await page.waitForSelector(".flow-train.tx");await page.waitForTimeout(350);
+      await page.locator("#uart-flow").screenshot({path:path.join(assets,"ui-flow-desktop.png"),style:".main-nav{visibility:hidden}"});
+      await page.locator(".main-nav").screenshot({path:path.join(assets,"ui-navigation.png")});
+      await page.locator("#clock").screenshot({path:path.join(assets,"ui-clock.png")});
+      await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);
+      await page.locator("#uart-flow").screenshot({path:path.join(assets,"ui-flow-mobile.png"),style:".main-nav{visibility:hidden}"});
+      if(process.argv.includes("--record-flow")){
+        await page.setViewportSize({width:1160,height:760});
+        const hide=await page.addStyleTag({content:".main-nav{visibility:hidden}"});
+        await page.locator(".flow-playback").scrollIntoViewIfNeeded();
+        const box=await page.locator(".flow-playback").boundingBox();
+        const cdp=await context.newCDPSession(page),frames=[];
+        const folder=path.join(out,"flow-recording");fs.mkdirSync(folder,{recursive:true});
+        const receive=({data,sessionId,metadata})=>{
+          const name=`frame-${String(frames.length).padStart(5,"0")}.jpg`;
+          fs.writeFileSync(path.join(folder,name),Buffer.from(data,"base64"));
+          frames.push({name,time:metadata.timestamp});
+          cdp.send("Page.screencastFrameAck",{sessionId}).catch(()=>{});
+        };
+        cdp.on("Page.screencastFrame",receive);
+        await cdp.send("Page.startScreencast",{format:"jpeg",quality:92,everyNthFrame:2});
+        await page.waitForTimeout(5200);
+        await cdp.send("Page.stopScreencast");cdp.off("Page.screencastFrame",receive);await cdp.detach();
+        assert(frames.length>25,"The demo must contain actual changing browser frames");
+        const list=frames.map((frame,index)=>`file '${frame.name}'\nduration ${Math.max(.01,(frames[index+1]?.time??frame.time+.04)-frame.time).toFixed(6)}`).join("\n");
+        fs.writeFileSync(path.join(folder,"frames.txt"),list+`\nfile '${frames.at(-1).name}'\n`);
+        const crop=[box.width,box.height,box.x,box.y].map(value=>Math.max(0,Math.floor(value/2)*2)).join(":");
+        const result=require("node:child_process").spawnSync("ffmpeg",["-v","error","-y","-f","concat","-safe","1","-i",path.join(folder,"frames.txt"),"-vf",`crop=${crop}`,"-r","30","-c:v","libx264","-pix_fmt","yuv420p","-an","-movflags","+faststart",path.join(assets,"ui-flow-demo.mp4")],{encoding:"utf8"});
+        assert.equal(result.status,0,result.stderr);await hide.evaluate(node=>node.remove());
+        fs.copyFileSync(path.join(assets,"ui-flow-demo.mp4"),path.join(root,`output/flow-replay-v${version}.mp4`));
+        console.log(`PASS: ${frames.length} real browser frames recorded as docs/assets/ui-flow-demo.mp4`);
+      }
+      console.log("PASS: shipped UI design previews captured");return;
+    }
     if (process.argv.includes("--vectors-only")) {
       console.log(
         "PASS: " + (await checkVectors(browser, out)) + " SVGs rendered",
@@ -605,12 +642,12 @@ async function checkVectors(browser, out) {
       await page.locator("#version").textContent(),
       "Firmware " + version,
     );
-    const clockStart=await page.locator("#clock").innerText();
+    const clockStart=await page.locator("#clock .device-clock").getAttribute("data-time");
     const beforeClockWrites=calls.filter(row=>row.url==="/api/time").length;
     await page.waitForTimeout(2200);
-    assert.notEqual(await page.locator("#clock").innerText(),clockStart,"The clock must advance between status samples");
+    assert.notEqual(await page.locator("#clock .device-clock").getAttribute("data-time"),clockStart,"The clock must advance between status samples");
     await page.waitForTimeout(13200);
-    assert.notEqual(await page.locator("#clock").innerText(),"—","Fresh identical status samples must keep the running clock alive");
+    assert.notEqual(await page.locator("#clock .device-clock").getAttribute("data-time"),"—","Fresh identical status samples must keep the running clock alive");
     assert.equal(calls.filter(row=>row.url==="/api/time").length,beforeClockWrites,"Clock animation must never synchronize the RTC automatically");
     await page.locator('[data-shift="1"]').click();
     assert.equal(await page.locator("#intervals tr").count(), 3);
@@ -1083,20 +1120,20 @@ async function checkVectors(browser, out) {
     await page.locator("#language").selectOption("en");
     await page.evaluate(() => {
       window.flowAdded = 0;window.flowRX = 0;
-      const svg = document.querySelector("#uart-flow svg");
+      const svg = document.querySelector(".flow-playback");
       window.flowObserver = new MutationObserver((records) => {
         for (const record of records)
           for (const node of record.addedNodes)
             if (node.nodeType === 1 && node.hasAttribute("data-event"))
               {++window.flowAdded;if(node.classList.contains("rx"))++window.flowRX;}
       });
-      window.flowObserver.observe(svg, { childList: true });
+      window.flowObserver.observe(svg, { childList: true,subtree:true });
     });
     flowAuto = true;
     lastFlowFrame = 0;
     await page.waitForFunction(() => window.flowAdded > 0);
     flowAuto = false;
-    await page.waitForTimeout(600);
+    await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
     const observed = await page.evaluate(() => window.flowAdded);
     await page.waitForTimeout(600);
     assert.equal(
@@ -1104,13 +1141,31 @@ async function checkVectors(browser, out) {
       observed,
       "No idle/decorative packet animation without a new device event",
     );
+    appendFlow();
+    await page.waitForSelector(".flow-train.tx");
+    const trainStart=await page.locator(".flow-train.tx").boundingBox();
+    await page.waitForTimeout(320);const trainMiddle=await page.locator(".flow-train.tx").boundingBox();
+    const track=await page.locator(".flow-rail.tx .flow-track").boundingBox();
+    assert(trainMiddle.x>trainStart.x+track.width*.08,"The request must visibly travel rather than flash at the endpoint");
+    assert(trainMiddle.x<track.x+track.width*.8,"The train must still be travelling after 320 ms");
+    assert(await page.locator(".flow-rail.tx .wake-slider__bar").count()===44,"The actual React Bits WakeSlider paints the flow");
+    assert.equal(await page.locator(".flow-train.rx").count(),0,"TX and RX replay must alternate");
+    await page.waitForSelector(".flow-train.rx");
+    await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
+    assert(await page.locator(".flow-equipment-grid svg").count()===3);
+    assert.equal(await page.locator(".flow-tap,.flow-lane").count(),0,"No intersecting SVG transport lines remain");
+    assert(await page.locator("#clock .counter").count()===3,"Clock units use the supplied Counter component");
+    assert.equal(await page.locator(".main-nav button").count(),3);
+    assert(await page.locator(".main-nav .star-border__light").count()===3,"Navigation uses supplied StarBorder components");
+    assert(await page.locator('.nav-tab[aria-current="page"]').evaluate(node=>getComputedStyle(node,"::after").content==="none"),"The old blue underline must be absent");
     assert(await page.locator(".flow-symbol path").count()>=4,"Device symbols must be drawn as vectors");
     assert((await page.locator("#flow-direction").innerText()).includes("/RE = 0"));
     const rxBeforeTimeout=await page.evaluate(()=>window.flowRX);
     appendFlow("timeout");
     await page.waitForFunction(()=>document.getElementById("flow-result")?.textContent.includes("Timeout"));
     assert((await page.locator(".flow-frames").innerText()).includes("No bytes received"));
-    await page.waitForTimeout(1000);
+    await page.waitForSelector(".flow-train.tx");
+    await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
     assert.equal(await page.evaluate(()=>window.flowRX),rxBeforeTimeout,"Timeout cannot fabricate an RX frame");
     appendFlow("crc");
     await page.waitForFunction(()=>document.getElementById("flow-result")?.textContent.includes("CRC mismatch"));
@@ -1265,7 +1320,7 @@ async function checkVectors(browser, out) {
       .screenshot({ path: path.join(assets, "ui-process-desktop.png") });
     await page
       .locator("#uart-flow")
-      .screenshot({ path: path.join(assets, "ui-flow-desktop.png") });
+      .screenshot({ path: path.join(assets, "ui-flow-desktop.png"),style:".main-nav{visibility:hidden}" });
     for (const width of [320, 390, 768, 1440, 2560]) {
       await page.setViewportSize({ width, height: 1000 });
       assert(

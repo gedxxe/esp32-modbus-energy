@@ -1,11 +1,12 @@
 {
-  "version": "2.2.2",
+  "version": "2.3.0",
   "transport": "gzip",
-  "compressed_total": 116933,
+  "compressed_total": 134158,
   "libraries": {
+    "gsap": "3.15.0",
+    "motion": "14.7.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "gsap": "3.15.0",
     "esbuild": "0.28.2"
   },
   "assets": {
@@ -19,58 +20,67 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 343813,
-      "gzip": 107676,
-      "sha256": "9e5884ac5667ed3864bf731c75648dc1a672f494cca39baa4b13ae62dffe4291"
+      "raw": 384920,
+      "gzip": 123283,
+      "sha256": "56641fccd702d936c0b41b1d5a49fa6b38a4b55cd1b04d3a0219e3b40efe9308"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 28797,
-      "gzip": 7297,
-      "sha256": "9f8ab037d16f7d0921ccfd8665178fd18e08c07b12f3804497f3698988f3e570"
+      "raw": 35957,
+      "gzip": 8809,
+      "sha256": "60a76cad69888473710c074473aa24f46dbe3e53a60dea9826487e33e3e0ef3a"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
       "mime": "text/plain; charset=utf-8",
-      "raw": 5755,
-      "gzip": 1433,
-      "sha256": "508952cca0c2e943adca8609f3d81210502d4d65467663de9b8a180d2ee4677d"
+      "raw": 10218,
+      "gzip": 1539,
+      "sha256": "28b54fd126a78290b50d0984422bad39c0efee46d1a8edd7c20ae76aa0a358ce"
     }
   },
   "inputs": {
-    "package-lock.json": "376ae7df8b5c86cde94c65b75d5adaaf56105189fd423064153729c5a867abef",
-    "package.json": "9dc9406630086068984e722bfa44970e82908ab8bdc7159e2b9952780959afe9",
-    "tools/build-web.cjs": "df7e6396cd301ef679246216276d2a05184fd035318b4ee2fe326ed6d948a241",
-    "web/Application.jsx": "7cdacd3690b702e4ca525af72c81cad3dca0984e3d4ff688276e79b73c9b8825",
+    "package-lock.json": "2a5af0567f52c2e2539912ad2d9ceda54f0929bfab848951e3a7266005f5764c",
+    "package.json": "093fc626d634f8f9c49969d24375835461f9a9538588399bd28fea4d4f7acbf0",
+    "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
+    "web/Application.jsx": "5cc47b36cb39916f24b2e3aa3c4cde8613d4a7da3693655c2718733fe6f4effd",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
-    "web/components/DeviceClock.jsx": "cdfc8af9aa6659abf50404aae0b13723e8ac15bb5101d5afeaf2923f02c7d1b7",
+    "web/components/DeviceClock.jsx": "0db4a1efc73b0fb017f804491c95d4031dbe76122f7e229b4eec7ca976b20cdf",
     "web/components/DiagnosticConsole.jsx": "1a2061757b4c94296a15390de8c852052158d7a309028c758cdcbeedae57e4da",
     "web/components/DisplayControls.jsx": "b05ed78136bf41b23b00dbe3060fed334fc1c9c03811e63db9baa6eb9752db0f",
+    "web/components/FlowPlayback.jsx": "d2646ddc32598b4462a66ad4640661b111b8afc95fa75805705d6e3e78ad60f7",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
+    "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
     "web/components/NetworkControls.jsx": "7ce28b2980e3590acbdf30a65d4a45e03f579ec05ae0562cb528ec2a5d338512",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "2e6b2fd7f026f1be34be6dffc39a531fd0fc796351688b89ee01936f9fa1c85f",
-    "web/components/UartFlow.jsx": "8ce09b84e2ae8bca573d82ef65964df70bb7e6cf215d8b593b2076c399dd983d",
+    "web/components/UartFlow.jsx": "744458f2ed22511c63fe68e8104ccfe32d5be7f06a38c66b154d290b7f8e6b56",
     "web/components/WifiPicker.jsx": "6225e4c036bf7960fbbd15aaa8052c7cc2704710968f657892beed3e117d01db",
     "web/device.js": "224957e35d20809841fac1e6436def2a98224f9fc0f7edec906e61350fc28908",
-    "web/i18n.js": "7eaff2ad418a1c12260bff45ea6e93d8d9deb0f68561e4b8680179a841755fd8",
+    "web/flow-playback.js": "96f7ca63a692684ec6f1a0530ec2c738bf2dd62d801fb94be35c53110c7fee8a",
+    "web/i18n.js": "666553b9fbc0084c61bb331d11692c756d4893b8a070e6ab9c671a47b623dd19",
     "web/index.html": "2c2a1d0b63e9991a00eaf223f7dfd2bab2ca94de8fde72b1c1f9c8d56e29e1a4",
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
-    "web/styles.css": "d7e801b2d5b6119a5e13a451b1795cde35746c4dd769f9ff3a73c97326e35e93",
+    "web/styles.css": "08794f3cd91d95f8cf72d06380e03e069a3a7a380858b4b7f7961e295092f899",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
     "web/validation.js": "2e6916f1741f3f5b335210370801ec9156476951687319b63ff63c701395a875",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
+    "web/vendor/react-bits/Counter.css": "9f224c728e16bb2b4137cd0e5a3ff370043bc9c838450fa8aaed89e190a8a6f8",
+    "web/vendor/react-bits/Counter.jsx": "25e98c26331ef7b6b4326c48b7540feb1a2208b09160c7f2b96e4fbf146522f8",
     "web/vendor/react-bits/FadeContent.jsx": "8311fcc4f3172ce66d7e0017ccdce19c8bf58c2a286425e974cd16820f8edb82",
     "web/vendor/react-bits/LICENSE.md": "4bdd1fa59a6b7d5954bc3b213dbc34e455c635a94bbcecf9293553797d0fad02",
-    "web/vendor/react-bits/README.md": "7e88ca2b119c60922044ded63267e045a2a82d017872096b5ddf11c4fc36fdc1",
+    "web/vendor/react-bits/README.md": "3c684ae4616006ece44c59fa6e649258c1f87016fef419c692cbd5cfa130c269",
     "web/vendor/react-bits/SpotlightCard.css": "b646b7da4bb46f0a4d819d0af275804c49a845a5c2dc848700aaf9282db13a92",
     "web/vendor/react-bits/SpotlightCard.jsx": "e0b91ba07c173c98b87b44ec451d0243fe0a3edc67864e2779ad8507d455af67",
-    "web/vendor/react-bits/upstream.json": "8f9a578ac5cc29fe9d73cca05a8e0b1d569a5dc7671950099fb27929c6d926bf",
+    "web/vendor/react-bits/StarBorder.css": "128fe0068b2d7964c28488d24465626ff34f3143a66082a6548a1a1f57c987d2",
+    "web/vendor/react-bits/StarBorder.jsx": "8a82730322a9db4e1f0ceddf312a0b4bdf8a27d10b84ed4f49e93d1977d004c6",
+    "web/vendor/react-bits/WakeSlider.css": "2b8153f1bc069ef6974e0ba6cd5bba6e88641097562f28f0e21317d1c31106e4",
+    "web/vendor/react-bits/WakeSlider.jsx": "f0184a8248b78ef359e088ae24a6565faf09e867bdacb96761d48f02b3badc32",
+    "web/vendor/react-bits/upstream.json": "365e1a35fb29bbd42aa7fa5d39461bac789d67c533c274e3d52d5eb1596d517c",
     "web/views/DeviceRecords.jsx": "8d31da1835548c9b8e249d1cf6216922dc30ea0416539beb5c18484a23ad4bf2",
     "web/views/MeterSetup.jsx": "44cfd49084f7ab73bed6331592630595175388aa5944b25025dff0104dc31060",
     "web/views/Overview.jsx": "13010101e804f82d3723d51af51dbeb2d51b6c2edaf79e0ddac57214cb05e647"
   },
-  "header_sha256": "2c86f86a0635e0e7c6bcea6f48c4e4909c04ef72bb78ae28fb2a778d8c842ce3"
+  "header_sha256": "73320830321618731bccdcb9ee36b2aceb4aee4bb57af58855c360d8a12d8599"
 }

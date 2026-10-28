@@ -1,5 +1,9 @@
 export const catalog = {
   en: {
+    flow_readable: "Readable replay · 2.5 s",
+    flow_observed: "Latest observed transaction timings",
+    flow_tx_path: "Recorded request moving from ESP32 to Fort",
+    flow_rx_path: "Recorded response moving from Fort to ESP32",
     wifi_error_radio: "The radio scan failed after retrying. The last network list is retained. Check the scan reason and driver code below before trying again.",
     wifi_reconnecting: "The scan status connection was interrupted. Reconnecting to the current scan without restarting it.",
     wifi_error_http: "The ESP32 scan status could not be reached. Reconnect to its current IP, then choose Scan again. The last network list is retained.",
@@ -134,7 +138,7 @@ export const catalog = {
     flow_idle: "No new transaction",
     flow_diagnostic: "Diagnostic traffic · recording paused",
     flow_production: "Production polling / scan",
-    flow_note: "Frame motion uses recorded UART timestamp spacing at 1×, followed by a 700 ms visibility hold. The timeline keeps the measured durations readable after motion ends. HTTP delivery adds latency, and the diagram does not measure A/B voltage or packet arrival at the meter.",
+    flow_note: "Newly recorded UART frames trigger the replay, with motion slowed for visibility. A replay finishes before moving to the newest pending transaction. The timings and bytes below remain the device observations, and the log retains the latest 32 events.",
     flow_gap:
       "Some events fell outside the 32-event buffer. The view does not reconstruct missing traffic.",
     flow_events: "Inspect timestamped frames",
@@ -430,6 +434,10 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
+    flow_readable: "Replay terbaca · 2,5 dtk",
+    flow_observed: "Timing transaksi terbaru yang tercatat",
+    flow_tx_path: "Request tercatat bergerak dari ESP32 ke Fort",
+    flow_rx_path: "Respons tercatat bergerak dari Fort ke ESP32",
     wifi_error_radio: "Scan radio gagal setelah dicoba ulang. Daftar jaringan terakhir tetap tersedia. Periksa alasan scan dan kode driver di bawah sebelum mencoba lagi.",
     wifi_reconnecting: "Koneksi status scan terputus. Menghubungkan kembali ke scan yang sama tanpa mengulang pemindaian.",
     wifi_error_http: "Status scan ESP32 belum terjangkau. Hubungkan kembali ke IP yang aktif lalu pilih Pindai lagi. Daftar jaringan terakhir tetap tersedia.",
@@ -576,7 +584,7 @@ export const catalog = {
     flow_idle: "Tidak ada transaksi baru",
     flow_diagnostic: "Traffic diagnostik · pencatatan dijeda",
     flow_production: "Polling / scan produksi",
-    flow_note: "Gerak frame memakai jarak timestamp UART tercatat pada 1×, lalu dipertahankan selama 700 ms agar terlihat. Timeline menyimpan durasi pengamatan setelah gerak berakhir. Pengiriman HTTP menambah jeda, dan diagram tidak mengukur tegangan A/B atau waktu paket tiba di meter.",
+    flow_note: "Frame UART yang baru tercatat memicu replay dengan gerakan yang diperlambat agar terlihat. Replay diselesaikan sebelum beralih ke transaksi terbaru yang menunggu. Timing dan byte di bawah tetap memakai pengamatan perangkat, dengan log berisi 32 event terakhir.",
     flow_gap:
       "Sebagian event terlewat dari buffer 32 event. Tampilan tidak merekonstruksi traffic yang hilang.",
     flow_events: "Periksa frame bertimestamp",

@@ -5,6 +5,12 @@
     "FadeContent.jsx": "300ecdaf99802bc78e9cecaca3842acb54e24902",
     "SpotlightCard.jsx": "ae052fce900c0f1062db866a2997a0429b744a21",
     "SpotlightCard.css": "a4c9b873b8d474aa671b74cde70384bc7ce93070",
-    "LICENSE.md": "4069ce9d0ef1a712c93d6ce48ade5d5667e0f5ee"
+    "LICENSE.md": "4069ce9d0ef1a712c93d6ce48ade5d5667e0f5ee",
+    "WakeSlider.jsx": "839e4ee7fa8ce42142268a3b0830b15f274b84fb",
+    "WakeSlider.css": "c0299f954fd375cefb5895c12f8de9e5d23cd267",
+    "Counter.jsx": "f4aed326133a976616bd1cade09f08f384c97368",
+    "Counter.css": "59fd100318180039753d17d6755046dffe325757",
+    "StarBorder.jsx": "99b5a9a2c8db46ca9e6c3bceae40a98a520fe698",
+    "StarBorder.css": "8a6a91dd6b9f429e9cf9784f9e0a7cc0850421ca"
   }
 }

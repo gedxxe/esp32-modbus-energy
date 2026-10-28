@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import UartFlow from "./components/UartFlow.jsx";
+import NavTabs from "./components/NavTabs.jsx";
 import Icon from "./components/Icon.jsx";
 import Overview from "./views/Overview.jsx";
 import MeterSetup from "./views/MeterSetup.jsx";
@@ -171,22 +172,7 @@ export default function Application() {
             {typeof s?.network?.address === "string" && s.network.address ? s.network.address : location.hostname}
           </div>
         </div>
-        <nav
-          className="main-nav"
-          aria-label={lang === "id" ? "Halaman" : "Pages"}
-        >
-          {["overview", "setup", "device"].map((page) => (
-            <button
-              key={page}
-              id={`nav-${page}`}
-              aria-current={view === page ? "page" : undefined}
-              onClick={() => navigate(page)}
-            >
-              <Icon name={page} />
-              {t(page)}
-            </button>
-          ))}
-        </nav>
+        <NavTabs view={view} onNavigate={navigate} />
         <Health device={device} />
         <UartFlow />
         <div className="page-content" key={view}>{content}</div>

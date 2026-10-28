@@ -323,7 +323,7 @@ void showStatus(){
   showPlan();uartStatus();
 }
 void help(){
-  LOG("\nFort diagnostics 2.2.2 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nFort diagnostics 2.3.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the manual example at 0058/2. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");

@@ -6,6 +6,12 @@
 
 
 
+## 2.3.0 / 28 Oktober 2026
+
+Panel komunikasi mengganti kedipan paket milidetik serta tap yang saling menabrak dengan dua jalur WakeSlider terpisah. Transaksi selesai yang tercatat memutar TX selama 1,1 detik, berhenti 140 ms lalu memutar RX 1,1 detik hanya jika byte benar-benar tertangkap. Playback mempertahankan satu transaksi aktif dan transaksi terbaru yang menunggu, sementara timestamp asli dan riwayat raw event tetap tersedia. Reboot, sequence hilang, setting serial berubah, halaman tersembunyi serta telemetry terputus membersihkan playback yang belum selesai.
+
+Counter yang diberikan merender jam berbasis RTC dengan digit bergulir, sedangkan StarBorder menghias tombol menu native di atas latar seleksi yang bergeser. Underline lama dihapus. Tiga pasangan JavaScript/CSS cocok dengan hash upstream React Bits terpin, Motion dipin pada 14.7.1, notice dependency tersedia offline dan mode reduced-motion mempertahankan pembacaan serta navigasi statis.
+
 ## 2.2.2 / 27 Oktober 2026
 
 XBM Midea yang diberikan pengguna kini menjadi frame OLED pertama selama tiga detik, kemudian dilanjutkan animasi loading 1,5 detik beserta bunyi startup yang sudah ada. Implementasi memakai Adafruit SSD1306/GFX terpasang, mempertahankan piksel dan posisi asli, mengikuti rotasi master 180° serta melewati penahanan logo jika OLED tidak terdeteksi. Durasi diatur melalui `OLED_BOOT_SPLASH_MS` pada board.h, dan generator aset memeriksa hash bitmap asli.

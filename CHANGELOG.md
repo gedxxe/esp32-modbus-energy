@@ -5,6 +5,12 @@
 
 
 
+## 2.3.0 / 28 October 2026
+
+The communication view replaces millisecond packet flashes and intersecting taps with two separate WakeSlider tracks. A completed observed transaction plays TX for 1.1 seconds, pauses 140 ms and plays RX for 1.1 seconds only when bytes were actually captured. Playback keeps one current transaction and the newest pending transaction, while the unscaled device timestamps and raw event history remain available. Reboot, missing sequences, changed serial settings, hidden pages and unavailable telemetry clear unfinished playback.
+
+The supplied Counter now renders the RTC-based clock with quiet rolling digits, and StarBorder decorates native menu buttons over a sliding selection background. The old underline is removed. All three supplied JavaScript/CSS pairs match the pinned React Bits upstream hashes, Motion is pinned at 14.7.1, dependency notices are included offline and reduced-motion behavior retains static readings and navigation.
+
 ## 2.2.2 / 27 October 2026
 
 The user-supplied Midea XBM is now the first OLED frame and remains visible for three seconds before the existing 1.5-second loading animation and startup sound. It uses the existing Adafruit SSD1306/GFX stack, preserves the original pixels and placement, follows the master 180° rotation and skips the artwork hold when the OLED is absent. `OLED_BOOT_SPLASH_MS` in board.h controls the duration, and the asset generator verifies the original bitmap hash.

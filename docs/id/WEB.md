@@ -2,7 +2,7 @@
 
 [English](../WEB.md) · **Bahasa Indonesia**
 
-Firmware 2.2.2 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 2.3.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Membuka aplikasi dan memilih Wi-Fi
 
@@ -68,7 +68,7 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 2.2.2, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 2.3.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 
@@ -88,4 +88,18 @@ Simbol MCU mewakili UART1, dua simbol driver berlawanan mewakili transceiver dan
 
 Empat milestone mempertahankan TX diantrekan, UART selesai, byte RX pertama dan hasil transaksi terbaru. Durasi dihitung dari TX queued memakai timestamp perangkat dengan pengurangan unsigned yang menangani rollover mikrodetik. Nilai DE serta /RE menunjukkan state software terakhir yang tercatat dan menjadi tidak diketahui saat endpoint event terputus. Nilai ini bukan pengukuran feedback elektris. Timeout mempertahankan RX kosong dan tidak mengisi milestone RX yang tidak terjadi.
 
-Gerak frame memutar ulang jarak event tercatat pada 1× lalu menahan label akhir selama 700 ms agar transaksi UART singkat tetap terlihat. Durasi dan hex byte tetap terbaca setelah gerak berakhir. Pengiriman browser menambah jeda, dan diagram arah bersifat skematis, bukan pengukuran waktu tempuh kabel A/B. Fetch API berbagi satu slot sampai body selesai dibaca dengan deadline aktif delapan detik. Waktu menunggu antrean tidak menghabiskan deadline tersebut, sedangkan Stop/Resume prioritas dapat membatalkan GET telemetry yang sedang berjalan.
+Jalur animasi memakai React Bits WakeSlider yang diberikan sebagai visual non-interaktif. Setiap transaksi selesai yang tercatat bergerak keluar 1100 ms, berhenti 140 ms lalu kembali 1100 ms jika byte RX tertangkap, dilanjutkan jeda 160 ms. Timeout hanya memutar request keluar tanpa frame kembali. Durasi ini membuat replay terbaca dan terpisah dari timing transaksi asli di bawahnya, tanpa menyimpulkan waktu tempuh listrik dari animasi.
+
+Playback hanya menyimpan satu transaksi aktif dan transaksi terbaru yang menunggu. Burst mengganti visual yang menunggu tanpa menumpuk antrean panjang, sedangkan raw event terbaru tetap tersedia pada log 32 entri. Pengelompokan membutuhkan sequence berurutan dengan ID, baud, parity, register, jumlah word, pin dan konteks diagnostik yang sama. Riwayat awal, riwayat reboot, sequence hilang atau respons tanpa request tidak membuat replay baru. Halaman tersembunyi, endpoint terputus dan preferensi reduced-motion membersihkan playback.
+
+![Replay komunikasi representatif dengan UART simulasi](../assets/ui-flow-desktop.png)
+
+Jam memakai Counter yang diberikan untuk pasangan jam/menit/detik, dengan roll 300 ms tanpa putaran pembuka, bounce atau blur. Sumbernya tetap referensi UTC/RTC perangkat dan re-anchor presentasi lima menit. Browser tidak menambah NTP atau berulang kali menulis RTC. Label timer aksesibel menyampaikan waktu lengkap sementara numerik visual berulang disembunyikan dari pembaca bantu.
+
+Menu memakai StarBorder yang diberikan di sekitar tombol native serta latar seleksi terpisah yang bergeser ke halaman aktif dalam sekitar 320 ms. Underline biru lama dan tap transport SVG dihapus. Reduced-motion menonaktifkan replay paket dan roll angka serta memakai tombol navigasi statis tanpa canvas dekoratif. WakeSlider telemetry bersifat inert dan disembunyikan dari penemuan kontrol bantu agar tidak dianggap sebagai pengaturan nilai meter.
+
+![Jam bergulir representatif](../assets/ui-clock.png)
+
+![Tombol menu representatif](../assets/ui-navigation.png)
+
+Fetch API tetap berbagi satu slot sampai body respons diterima dengan deadline aktif delapan detik. Waktu antre tidak menghabiskan deadline dan Stop/Resume prioritas dapat membatalkan GET telemetry aktif. Animasi dijalankan browser. ESP32 menyajikan bundle offline yang dikompilasi tanpa mengeksekusi React, Motion atau rendering canvas.

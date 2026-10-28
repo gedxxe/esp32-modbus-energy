@@ -80,6 +80,10 @@ function install(file, content) {
     ["React", "node_modules/react/LICENSE"],
     ["React DOM", "node_modules/react-dom/LICENSE"],
     ["Scheduler", "node_modules/scheduler/LICENSE"],
+    ["Motion", "node_modules/motion/LICENSE.md"],
+    ["Framer Motion", "node_modules/framer-motion/LICENSE.md"],
+    ["Motion DOM", "node_modules/motion-dom/LICENSE.md"],
+    ["Motion Utils", "node_modules/motion-utils/LICENSE.md"],
     ["GSAP", "web/vendor/gsap-NOTICE.txt"],
   ])
     notices.push(`\n--- ${label} ---\n${source(path.join(root, file))}`);

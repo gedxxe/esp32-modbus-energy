@@ -2,7 +2,7 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
-Versi 2.2.2 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.3.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -93,3 +93,9 @@ Discovery Wi-Fi dan association client berbagi radio pada core 0. Scanner menung
 Adapter ini mengikuti internal scan Arduino ESP32 2.0.17 yang dipin, sehingga perlu ditinjau ulang saat framework dinaikkan. Inisialisasi field konfigurasi lengkap dan callback menggantikan ketergantungan pada timeout wrapper dwell × 20, dengan satu pemilik storage hasil Arduino. Keberhasilan radio, kelangsungan AP dan kegagalan resource driver tetap membutuhkan penerimaan fisik.
 
 Scheduler browser menserialisasi fetch API sampai seluruh body respons diterima. Deadline delapan detik berlaku setelah request aktif dan tidak menghitung waktu antre. POST mendahului telemetry yang mengantre, sedangkan Stop/Resume diagnostik dapat membatalkan GET aktif tanpa membatalkan POST yang sudah diterima. Pada firmware, koneksi kosong yang menunggu lebih dari 250 ms mengalah saat socket lain tersedia. Parser upstream dan batas writer lima detik tetap berlaku. Perubahan ini menjadwalkan request WebServer satu client tanpa memindahkan akuisisi dari core 1.
+
+## Pemilik animasi browser
+
+FrameAssembler mengonsumsi metadata event tervalidasi tanpa mengurai byte Modbus. Sequence yang terputus, konteks koneksi/pin berbeda dan hasil tanpa event TX-complete ditolak untuk replay. FlowPlayback memiliki antrean visual tetap berupa satu transaksi aktif dan transaksi terbaru yang menunggu. Akumulator RAF membatasi satu langkah frame browser sampai 48 ms agar render yang terlambat tidak membuat paket berpindah mendadak ke ujung. WakeSlider yang diberikan dipakai sebagai visual inert dengan timing presentasi yang terpisah dari timestamp mikrodetik perangkat. State animasi tidak dikirim ke akuisisi atau persistensi.
+
+DeviceClock mempertahankan anchor UTC/sample-age dan memo Counter yang diberikan untuk setiap unit jam, sehingga unit yang tidak berubah tidak membangun ulang strip angka pada setiap sampel status. Aksesibilitas timer native menyampaikan HH:mm:ss lengkap. NavTabs mengukur offset tombol melalui ResizeObserver dan menggeser satu permukaan seleksi bersama, sementara StarBorder menyediakan efek border. Reduced-motion menonaktifkan replay serta canvas dekoratif, dan stream yang tersembunyi, gagal atau restart membuang state visual.

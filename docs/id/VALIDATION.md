@@ -2,7 +2,7 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.3.2**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.3.3**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
 ## Kompilasi
 
@@ -100,3 +100,9 @@ Kedua build ESP32-S3 dan ketiga suite native lulus. RAM statis utama tetap 83.08
 Suite browser lengkap pada byte generated lulus di Microsoft Edge pada 320–2560 px. Tes memeriksa jumlah 64–256 titik, lebar tetap 2 px serta tinggi maksimal 3 px, bersama pemeriksaan gerak/fade dan timeout tanpa RX buatan. Timing gerak sekarang diambil dari sampel di dalam requestAnimationFrame agar tidak bergantung pada pemanggilan Playwright yang terlambat, yang menyebabkan assertion posisi CI sebelumnya gagal. Replay harus melintasi jalur, merender posisi peralihan dan terlihat bergerak setidaknya 900 ms.
 
 JavaScript dan CSS Counter yang diberikan cocok dengan source vendored yang tetap utuh. Kasus energi utama mencakup perpindahan 999,999 ke 1.000,001, pembacaan turun, nol yang sah, energi hilang, format Inggris/Indonesia serta reduced motion. Nilai awal maupun data hilang tidak diputar dari nol. Rekaman counter representatif diperiksa secara visual saat digit bergerak dan setelah berhenti, dengan 74 frame browser yang berubah selama 2,93 detik. Rekaman titik terbaru memuat 89 frame yang berubah selama 3,57 detik. Keduanya memakai API simulasi dan tidak dimasukkan ke payload tertanam. Penerimaan perangkat fisik terpadu tetap terpisah dari pemeriksaan software ini.
+
+## Gelombang bergerak yang lebih tinggi pada 2.3.3
+
+Kedua build firmware, ketiga suite native serta suite browser pada byte generated lulus. RAM statis utama tetap 83.088 byte dan program tetap 1.398.057 byte. Image mandiri tetap memakai RAM statis 30.284 byte serta program 336.577 byte. Payload web generated tetap berukuran 134.707 byte gzip.
+
+Gelombang mempertahankan lebar tetap 2 px serta 64–256 titik responsif, dengan tinggi gerak sampai 36 px dan puncak yang lebih lebar. Sampel frame browser mensyaratkan puncak setidaknya 24 px dengan batas 36 px pada replay TX maupun RX. Pemeriksaan easing saat tiba, fade bertahap, timeout tanpa RX, reduced motion serta layout 320–2560 px tetap lulus. Pratinjau desktop dan HP diperiksa secara visual untuk memastikan gelombang tidak mengenai label paket maupun teks ujung. Rekaman simulasi terbaru memuat 90 frame browser yang berubah selama 3,6 detik. Capture UART, pengaturan komunikasi, validasi meter serta perhitungan energi tetap sama, dan pemeriksaan browser ini tidak membuktikan timing komunikasi fisik.

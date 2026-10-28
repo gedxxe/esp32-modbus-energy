@@ -1178,7 +1178,7 @@ async function checkVectors(browser, out) {
       "No idle/decorative packet animation without a new device event",
     );
     await page.evaluate(() => {
-      window.flowFadeSamples={tx:[],rx:[]};window.flowTravelSamples=[];
+      window.flowFadeSamples={tx:[],rx:[]};window.flowTravelSamples=[];window.flowWavePeak={tx:0,rx:0};
       let frame=0;
       const sample=()=>{
         const phase=document.querySelector(".flow-playback")?.dataset.phase;
@@ -1190,6 +1190,14 @@ async function checkVectors(browser, out) {
           }
         }
         for(const direction of ["tx","rx"]){
+          if(phase===direction&&window.flowWavePeak[direction]===0){
+            const train=document.querySelector(`.flow-train.${direction}`),track=document.querySelector(`.flow-rail.${direction} .flow-track`);
+            if(train&&track){
+              const a=train.getBoundingClientRect(),b=track.getBoundingClientRect();
+              const position=(a.x-b.x)/(b.width-a.width);
+              if(position>.4&&position<.6)window.flowWavePeak[direction]=Math.max(...[...track.querySelectorAll(".wake-slider__bar")].map(node=>node.getBoundingClientRect().height));
+            }
+          }
           if(phase!==`${direction}-settle`)continue;
           const train=document.querySelector(`.flow-train.${direction}`);
           const wake=document.querySelector(`.flow-rail.${direction} .flow-wake`);
@@ -1209,15 +1217,16 @@ async function checkVectors(browser, out) {
     const pointCount=await page.locator(".flow-rail.tx .wake-slider__bar").count();
     assert(pointCount>=64&&pointCount<=256,"The actual WakeSlider uses more, smaller points");
     const dotBounds=await page.locator(".flow-rail.tx .wake-slider__bar").evaluateAll(nodes=>nodes.map(node=>{const box=node.getBoundingClientRect();return{width:box.width,height:box.height};}));
-    assert(dotBounds.every(point=>Math.abs(point.width-2)<.1&&point.height<=3.1),"Points must remain small rather than stretching into dashes");
+    assert(dotBounds.every(point=>Math.abs(point.width-2)<.1&&point.height<=36.1),"Points retain their narrow width while the moving wake can grow vertically");
     assert.equal(await page.locator(".flow-train.rx").count(),0,"TX and RX replay must alternate");
     await page.waitForSelector(".flow-train.rx");
     await page.waitForFunction(()=>document.querySelector(".flow-playback")?.dataset.phase==="idle");
-    const {fadeSamples,travelSamples}=await page.evaluate(()=>{window.stopFlowFadeProbe();return{fadeSamples:window.flowFadeSamples,travelSamples:window.flowTravelSamples};});
+    const {fadeSamples,travelSamples,wavePeak}=await page.evaluate(()=>{window.stopFlowFadeProbe();return{fadeSamples:window.flowFadeSamples,travelSamples:window.flowTravelSamples,wavePeak:window.flowWavePeak};});
     assert(travelSamples.length>=8&&travelSamples[0].position<.1&&travelSamples.at(-1).position>.9,"The request must visibly travel across the track");
     assert(travelSamples.at(-1).at-travelSamples[0].at>=900,"Rendered travel must remain readable rather than flashing at the endpoint");
     assert(travelSamples.some(row=>row.position>.3&&row.position<.7),"The replay must paint intermediate positions");
     for(const direction of ["tx","rx"]){
+      assert(wavePeak[direction]>=24&&wavePeak[direction]<=36.1,`${direction}: the moving sound wave must visibly rise within its 36 px envelope`);
       const samples=fadeSamples[direction];
       assert(samples.length>=4,`${direction}: arrival must remain mounted over multiple rendering frames`);
       assert(samples[0].opacity>.9&&samples.at(-1).opacity<.1,`${direction}: fade must span from opaque to nearly transparent`);

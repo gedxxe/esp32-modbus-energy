@@ -2,6 +2,10 @@
 
 **English** · [Bahasa Indonesia](CHANGELOG.id.md)
 
+## 2.3.3 / 28 October 2026
+
+The moving TX/RX wake now rises up to 36 px with a broader crest, giving the dense 2 px tracks a sound-wave shape during travel. Resting dots, responsive point density, alternating directions and the existing arrival fade remain intact. The larger envelope fits inside the track without touching packet labels or endpoint text, and a timeout still leaves the RX lane inactive.
+
 ## 2.3.2 / 28 October 2026
 
 The TX/RX tracks now use 2 px points, with a gentle 3 px peak, instead of stretched bars. Their density follows the available width from 64 to 256 points per lane. The existing movement, arrival easing and 360 ms fade remain intact.

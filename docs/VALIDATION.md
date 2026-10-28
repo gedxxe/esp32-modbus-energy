@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.3.2**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.3.3**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
 ## Compilation
 
@@ -48,7 +48,7 @@ The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **1
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,030 | 527 |
-| `/assets/app.js` | 386,198 | 123,791 |
+| `/assets/app.js` | 386,200 | 123,791 |
 | `/assets/app.css` | 36,296 | 8,850 |
 | `/assets/third-party.txt` | 10,218 | 1,539 |
 
@@ -109,3 +109,9 @@ Both ESP32-S3 builds and all three native suites passed. Main static RAM remains
 The full generated-byte browser suite passed in Microsoft Edge at 320–2560 px. It verifies point counts between 64 and 256, fixed 2 px point width and at most 3 px height, along with the existing movement/fade and no-RX-on-timeout checks. Travel timing now comes from samples taken inside requestAnimationFrame, avoiding the delayed Playwright calls that made the previous CI position assertion fail. The measured replay must cross the track, paint intermediate positions and remain visible in motion for at least 900 ms.
 
 The supplied Counter JavaScript and CSS match the unchanged vendored source. Main-energy cases exercise the carry from 999.999 to 1,000.001, decreasing readings, a legitimate zero, missing energy, localized English/Indonesian labels and reduced motion. Initial/missing readings do not spin from zero. The representative counter recording was visually checked at intermediate digit positions and after settling. It contains 74 changing browser frames over 2.93 seconds, while the updated point replay contains 89 changing frames over 3.57 seconds. Both videos use simulated API data and are excluded from the embedded payload. Integrated physical-board acceptance remains separate from these software checks.
+
+## Larger moving wave in 2.3.3
+
+Both firmware builds, all three native suites and the generated-byte browser suite passed. Main static RAM remains 83,088 bytes and program space remains 1,398,057 bytes. The standalone image remains at 30,284 bytes of static RAM and 336,577 bytes of program space. The generated web payload is still 134,707 bytes gzip.
+
+The waveform keeps its fixed 2 px width and 64–256 responsive points, with a 36 px moving envelope and broader crest. Browser frame sampling requires a peak of at least 24 px, bounded by 36 px, in both TX and RX replay. The existing eased arrival, gradual fade, timeout without RX, reduced-motion and 320–2560 px layout checks passed. Desktop and phone previews were visually inspected for clearance from the packet badge and endpoint text. The refreshed simulated replay records 90 changing browser frames over 3.6 seconds. UART capture, communication settings, meter acceptance and energy calculations are unchanged, and these browser checks do not establish physical communication timing.

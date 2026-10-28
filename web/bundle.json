@@ -1,5 +1,5 @@
 {
-  "version": "2.3.2",
+  "version": "2.3.3",
   "transport": "gzip",
   "compressed_total": 134707,
   "libraries": {
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 386198,
+      "raw": 386200,
       "gzip": 123791,
-      "sha256": "e65c74f6f52ce28d90d41e1a93bbb3cba248c7012f7d1cdeec91806fdcf33040"
+      "sha256": "8c4bd673deea55dc454ed39e16ceb9c41c55bc123437dd9374b7d7a43429ba22"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "0a77fce4ee26d9b82371e69fe0c2f17e7f5f7c9b2db4a255aba447eb7c4d02e0",
-    "package.json": "7f943e0c9110bb6d94d4c7835cbb9546b7a774b51e5e852a7665018c1aaa74b8",
+    "package-lock.json": "e5429044a9a4e34f2249db17f98ffbd72c4af00c31e45f586dbadf204556247d",
+    "package.json": "98c5c4d91013ef8928475a8bd2e54513b1cf860df7097f86b36086b6ca249455",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "5cc47b36cb39916f24b2e3aa3c4cde8613d4a7da3693655c2718733fe6f4effd",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -49,7 +49,7 @@
     "web/components/DiagnosticConsole.jsx": "1a2061757b4c94296a15390de8c852052158d7a309028c758cdcbeedae57e4da",
     "web/components/DisplayControls.jsx": "b05ed78136bf41b23b00dbe3060fed334fc1c9c03811e63db9baa6eb9752db0f",
     "web/components/EnergyCounter.jsx": "1381966d55dc466b0bb65463f384f0b489e64d5837d00c57ea15a91d7cb27a58",
-    "web/components/FlowPlayback.jsx": "a8d229c4d076d681e2488cb2dec012fe5e74f36d6b59ccf82ad4fb000a06d481",
+    "web/components/FlowPlayback.jsx": "726415e1a1c90c37a56d7c07409258e03c3210c5fc78f35d9079360007507288",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
@@ -83,5 +83,5 @@
     "web/views/MeterSetup.jsx": "44cfd49084f7ab73bed6331592630595175388aa5944b25025dff0104dc31060",
     "web/views/Overview.jsx": "7c3096e4182f2d13ff43decfe00c2cd2764c2e15f77fa6bfb004c37d263be6bc"
   },
-  "header_sha256": "7813517d0169f291bc28ee8eb7f0764fc3fe967d881b27833a6c923d3a55d324"
+  "header_sha256": "23f1ebece755f54b1c5949f2df33a578b5aacf57c8b3cbdc08ff910475b5de49"
 }

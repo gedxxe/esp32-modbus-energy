@@ -2,6 +2,10 @@
 
 # Changelog
 
+## 2.3.3 / 28 Oktober 2026
+
+Gelombang TX/RX saat bergerak sekarang naik sampai 36 px dengan puncak yang lebih lebar, sehingga jalur rapat 2 px membentuk pola seperti sound wave. Titik saat diam, kerapatan responsif, arah bergantian serta fade saat tiba tetap dipertahankan. Gelombang yang lebih besar tetap berada di dalam jalur tanpa menyentuh label paket maupun teks ujung, dan timeout tetap membiarkan jalur RX tidak aktif.
+
 ## 2.3.2 / 28 Oktober 2026
 
 Jalur TX/RX sekarang memakai titik 2 px dengan puncak halus 3 px, menggantikan batang yang melebar. Kerapatannya mengikuti lebar tampilan, dari 64 sampai 256 titik per jalur. Gerakan, easing saat tiba serta fade 360 ms tetap dipertahankan.

@@ -2,7 +2,7 @@
 
 [English](../FLASHING.md) · **Bahasa Indonesia**
 
-Firmware **2.3.2** memakai target fisik ESP32-S3 N16R8 dengan flash 16 MB dan OPI PSRAM. Buka `firmware/` pada PlatformIO dan pilih `esp32s3`. FortMeter lokal ikut source checkout agar polling dan diagnostik tidak memilih versi library yang berbeda.
+Firmware **2.3.3** memakai target fisik ESP32-S3 N16R8 dengan flash 16 MB dan OPI PSRAM. Buka `firmware/` pada PlatformIO dan pilih `esp32s3`. FortMeter lokal ikut source checkout agar polling dan diagnostik tidak memilih versi library yang berbeda.
 
 Tutup Serial Monitor sebelum upload. Pada **terminal komputer yang berada di `firmware/`**, jalankan `pio run -e esp32s3`, kemudian `pio run -e esp32s3 -t upload`, dan buka monitor dengan `pio device monitor -e esp32s3`. Jika auto-reset gagal, tahan BOOT saat reset/reconnect dan lepas setelah uploader mulai berkomunikasi.
 
@@ -18,7 +18,7 @@ App-only tidak memiliki bootloader dan tidak ditulis pada 0x0. Factory memuat me
 
 ## Library diagnostik Arduino
 
-Pasang `FortMeter-library-v2.3.2.zip` lewat Add .ZIP Library pada Arduino IDE, lalu buka INO mandiri. ZIP dapat dibuat tanpa build firmware melalui `python tools/package-library.py` pada **terminal komputer di root repository**, atau salin folder source FortMeter ke folder libraries Sketchbook. [Panduan mandiri](../../examples/FortSerialDebug/README.id.md) menjelaskan opsi board dan tujuan INPUT/OUTPUT Serial Monitor.
+Pasang `FortMeter-library-v2.3.3.zip` lewat Add .ZIP Library pada Arduino IDE, lalu buka INO mandiri. ZIP dapat dibuat tanpa build firmware melalui `python tools/package-library.py` pada **terminal komputer di root repository**, atau salin folder source FortMeter ke folder libraries Sketchbook. [Panduan mandiri](../../examples/FortSerialDebug/README.id.md) menjelaskan opsi board dan tujuan INPUT/OUTPUT Serial Monitor.
 
 ## Aset dashboard React
 

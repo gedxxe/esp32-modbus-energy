@@ -78,7 +78,7 @@ export default function FlowPlayback({ item, enabled, resetKey }) {
         <div ref={transmitting?trackRef:null} className="flow-track" role="img" aria-label={t(transmitting?"flow_tx_path":"flow_rx_path")}>
           <div className="flow-rest-bars" aria-hidden="true">{Array.from({length:dotCount},(_,index)=><span key={index}/>)}</div>
           <div className="flow-wake" data-running={visible} style={{opacity:visible?leg.opacity:0}} aria-hidden="true" inert>
-            <WakeSlider key={`${job?.key}/${direction}`} value={percent} min={0} max={100} bars={dotCount} height={3} restHeight={2} gap={0} glide={0.08} smoothing={60} sensitivity={2.3} reach={9} skew={0.5} fillColor={fault?"#ffd19c":transmitting?"#88caff":"#7ce5d2"} trackColor="#a1c8ff26" crestColor={fault?"#ffe6c4":transmitting?"#d4edff":"#c0fff0"} disabled />
+            <WakeSlider key={`${job?.key}/${direction}`} value={percent} min={0} max={100} bars={dotCount} height={36} restHeight={2} gap={0} glide={0.08} smoothing={60} sensitivity={2.3} reach={14} skew={0.5} fillColor={fault?"#ffd19c":transmitting?"#88caff":"#7ce5d2"} trackColor="#a1c8ff26" crestColor={fault?"#ffe6c4":transmitting?"#d4edff":"#c0fff0"} disabled />
           </div>
           {visible && <span key={`${job.key}/${direction}`} className={`flow-train ${direction}`} data-event={event.seq} data-settling={view.phase===`${direction}-settle`} style={{opacity:leg.opacity,left:`${coordinate}%`,transform:`translateX(-${coordinate}%)`}}>{transmitting?"TX →":"← RX"}<small>{event.bytes.split(" ").length} B</small></span>}
         </div>

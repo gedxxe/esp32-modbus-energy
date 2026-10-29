@@ -9,11 +9,14 @@ Firmware, FortMeter and FortSerialDebug are **3.0.0**. This record covers softwa
 
 All three native suites, the full generated-byte browser regression, the separate discovery suite and the Enterprise suite passed. The Enterprise browser cases cover advertised-security selection, the username/password form, default outer identity, optional server DNS, missing-CA rejection before submission, CA/credential reuse after reload, trust-target changes, AP-only provisioning, clock errors, an authentication-rejection pause, English/Indonesian copy and mobile layout. Network codec tests cover the 779-byte CRC record, legacy 104/108-byte migration, field bounds, optional DNS, stale-secret-tail removal and the Enterprise-only retry rejection policy.
 
-The actual custom SDK was built with certificate date checking enabled, certificate key-usage checks retained, Arduino and its event task on core 0, 16 MB flash and OPI PSRAM. The Windows helper reuses a cache only when its configuration and SDK library hashes match. The application still compiles from the original workspace. The configuration header was renamed to network_settings.h to avoid Arduino 3's Network.h collision on Windows.
+The actual custom SDK was built with certificate date checking enabled, certificate key-usage checks retained, Arduino and its event task on core 0, 16 MB flash and OPI PSRAM. The shared SDK helper reuses a cache only when its configuration and SDK library hashes match. The application still compiles from the original workspace. The configuration header was renamed to network_settings.h to avoid Arduino 3's Network.h collision on Windows.
 
 The IDF 5 RGB adapter compiled through the real RMT TX/copy-encoder API. Inspection of the final ELF found the new driver and RgbDriver methods, with no legacy RMT conflict constructor linked. Its persistent symbol buffer and zero-time completion polling preserve asynchronous writes on core 0. Physical waveform, color order and LED brightness still require board acceptance.
 
 The public Windows profile exporter was exercised without exporting passwords or private keys. It correctly reported that the referenced CA was unavailable in the accessible certificate stores. This is a missing-trust-material result, not an authentication attempt. No corporate CA, employee account or successful corporate association is bundled or claimed. See [Enterprise Wi-Fi](ENTERPRISE_WIFI.md) for the source of public CA material and the remaining RADIUS tests.
+
+
+The first Linux CI run exposed a bootstrap dependency mismatch: installing upstream platformio alone allowed the platform to install a newer pioarduino distribution into its managed child environment. tools/setup-core.py now installs only pioarduino 6.1.19 into that environment, and the build guard checks both its version and interpreter. Both local targets passed again under the pinned distribution. The shared SDK cache is also used on Linux, allowing the standalone target to reuse the same verified SDK instead of replacing it.
 
 ## Discovery and named devices in 2.6.0
 

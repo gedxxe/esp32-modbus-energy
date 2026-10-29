@@ -12,6 +12,9 @@ Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.3
 
 WPA2-Enterprise PEAP / EAP-MSCHAPv2 tersedia melalui [panduan Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md). Form utama meminta username dan password, sedangkan pengaturan lanjutan memuat CA publik serta nama DNS server opsional. Validasi rantai CA dan tanggal sertifikat tetap aktif. CA berasal dari pengelola Wi-Fi atau penyimpanan sertifikat Windows yang sudah tersedia, dan izin perangkat mengikuti kebijakan jaringan. Profil Personal/open serta AP pemulihan tetap tersedia.
 
+
+Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` sekali lalu buka ulang terminal PlatformIO. Langkah ini memasang Core terkelola yang dipin untuk build turunan SDK.
+
 ## Profil meter
 
 Pilih **Fort** atau **Acrel ADL400** melalui **Meter setup → Model meter**, lalu simpan sebelum menjalankan scan. Pilihan ini mengatur register, dekode rasio trafo, diagnostik dan probe awal. Fort tetap menjadi default setelah upgrade instalasi lama, sedangkan checkpoint yang sudah tercatat tetap menyimpan identitas model asalnya.

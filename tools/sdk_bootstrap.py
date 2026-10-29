@@ -1,4 +1,4 @@
-"""Build the pinned SDK in a space-free Windows cache, then reuse its verified configuration."""
+"""Build the pinned SDK once in a shared cache, then reuse its verified configuration."""
 import hashlib
 import json
 import os
@@ -9,8 +9,6 @@ import sys
 
 def ensure_sdk(env,repository):
     project=Path(env.subst("$PROJECT_DIR"))
-    if os.name!="nt" or " " not in str(project.resolve()):
-        return
     keys=["platform","board","board_build.extra_flags","framework","custom_sdkconfig","board_build.arduino.memory_type","board_build.memory_type","board_build.psram_type","board_build.flash_mode","board_upload.flash_size","board_upload.maximum_size","board_build.partitions","build_flags","build_unflags"]
     options={key:env.GetProjectOption(key,None) for key in keys}
     options={key:value for key,value in options.items() if value is not None}
@@ -39,7 +37,7 @@ def ensure_sdk(env,repository):
         except (OSError,ValueError):
             ready=False
     if not ready:
-        print("Building the certificate-validating ESP32 SDK in a Windows cache without spaces. This first build can take several minutes.",flush=True)
+        print("Building the certificate-validating ESP32 SDK in a shared cache without spaces. This first build can take several minutes.",flush=True)
         (cache/"platformio.ini").write_text(config,encoding="utf-8")
         (cache/"src").mkdir(exist_ok=True)
         (cache/"src/main.cpp").write_text('#include <Arduino.h>\n#ifndef CONFIG_MBEDTLS_HAVE_TIME_DATE\n#error "Certificate dates must be verified"\n#endif\nvoid setup(){}\nvoid loop(){delay(1);}\n',encoding="utf-8")

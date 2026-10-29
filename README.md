@@ -55,6 +55,8 @@ An [automatic-direction module](docs/assets/rs485-auto.svg) remains an explicit 
 
 ## 2. Build and upload
 
+From the repository-root **computer terminal**, run `python tools/setup-core.py` once and restart the PlatformIO terminal. This pins the managed Core used by SDK child builds.
+
 Open **`firmware/`** in PlatformIO because that directory contains `platformio.ini`, close any Serial Monitor holding the upload port, then build the `esp32s3` environment. From a computer terminal already in `firmware/`, the commands are:
 
 ```sh

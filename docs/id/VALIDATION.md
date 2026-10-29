@@ -9,11 +9,14 @@ Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.0.0**. Pemeriksaan
 
 Ketiga suite native, regresi browser lengkap pada byte generated, suite discovery serta suite Enterprise lulus. Kasus Enterprise memeriksa pilihan keamanan SSID, form username/password, identitas luar default, DNS server opsional, penolakan pengisian tanpa CA, penggunaan ulang CA/kredensial setelah reload, pergantian target kepercayaan, pengisian melalui AP lokal, error jam, jeda setelah penolakan autentikasi, bahasa Inggris/Indonesia serta layout HP. Codec jaringan menguji record CRC 779 byte, migrasi record 104/108 byte, batas field, DNS opsional, penghapusan ekor secret lama serta kebijakan jeda retry khusus Enterprise.
 
-SDK khusus benar-benar dikompilasi dengan pemeriksaan tanggal sertifikat aktif, pemeriksaan key usage dipertahankan, task Arduino dan event pada core 0, flash 16 MB serta PSRAM OPI. Helper Windows hanya memakai ulang cache bila konfigurasi serta hash library SDK cocok. Aplikasi tetap dikompilasi dari workspace aslinya. Header konfigurasi diganti menjadi network_settings.h agar tidak berbenturan dengan Network.h milik Arduino 3 pada Windows.
+SDK khusus benar-benar dikompilasi dengan pemeriksaan tanggal sertifikat aktif, pemeriksaan key usage dipertahankan, task Arduino dan event pada core 0, flash 16 MB serta PSRAM OPI. Helper SDK bersama hanya memakai ulang cache bila konfigurasi serta hash library SDK cocok. Aplikasi tetap dikompilasi dari workspace aslinya. Header konfigurasi diganti menjadi network_settings.h agar tidak berbenturan dengan Network.h milik Arduino 3 pada Windows.
 
 Adapter RGB dikompilasi melalui API RMT TX/copy encoder IDF 5. ELF akhir memuat driver baru dan metode RgbDriver, tanpa constructor konflik RMT lama. Buffer simbol persisten dan polling completion tanpa menunggu mempertahankan pengiriman asinkron pada core 0. Bentuk gelombang, urutan warna dan brightness fisik tetap perlu diperiksa pada board.
 
 Ekspor profil Windows diuji tanpa mengekspor password maupun private key. Alat melaporkan bahwa CA yang dirujuk tidak tersedia pada certificate store yang bisa dibaca. Hasil ini menunjukkan material kepercayaan yang belum tersedia, bukan percobaan autentikasi. Paket tidak berisi CA perusahaan atau akun karyawan dan tidak mengklaim asosiasi perusahaan berhasil. [Panduan Enterprise](ENTERPRISE_WIFI.md) menjelaskan asal CA publik dan pengujian RADIUS yang masih diperlukan.
+
+
+CI Linux pertama menemukan ketidakcocokan dependency bootstrap: pemasangan upstream platformio saja membuat platform memasang distribusi pioarduino terbaru pada environment turunan terkelola. tools/setup-core.py kini hanya memasang pioarduino 6.1.19 pada environment tersebut, dan guard build memeriksa versi serta interpreternya. Kedua target lokal kembali lulus memakai distribusi terpin. Cache SDK bersama juga dipakai pada Linux agar target diagnostik memakai SDK terverifikasi yang sama tanpa menggantinya.
 
 ## Discovery dan perangkat bernama pada 2.6.0
 

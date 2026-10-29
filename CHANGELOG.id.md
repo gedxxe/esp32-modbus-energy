@@ -1,5 +1,13 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.0.0
+
+Menambahkan WPA2-Enterprise PEAP / EAP-MSCHAPv2 opsional dengan validasi rantai CA dan tanggal sertifikat serta batasan nama server opsional. Form utama memakai username/password dengan identitas luar mengikuti username, sedangkan pengaturan sertifikat berada di bagian lanjutan. Pengisian dibatasi melalui AP lokal yang diproteksi, kredensial tersimpan tidak dikembalikan melalui status, dan pergantian target kepercayaan mewajibkan pengisian ulang kredensial. Schema Wi-Fi membaca profil Personal/open lama dan menyimpan CA berdasarkan SHA256 tanpa mengubah layout partisi flash.
+
+Build fisik kini memin pioarduino 55.03.311, Arduino-ESP32 3.3.11 serta ESP-IDF 5.5.5 untuk API EAP yang dibutuhkan. Setup watchdog disesuaikan dengan IDF 5, sementara source Modbus, profil register dan jadwal checkpoint dipertahankan. Diagnostik, tes browser serta panduan commissioning Enterprise tersedia dalam kedua bahasa. Autentikasi perusahaan dan penolakan sertifikat masih memerlukan pengujian hardware/RADIUS berizin.
+
+Adapter RGB memakai API RMT TX baru untuk menghindari konflik driver lama saat boot. Cache SDK Windows menangani path project dengan spasi dan memverifikasi konfigurasi sertifikat hasil kompilasi sebelum digunakan kembali.
+
 ## 2.6.0
 
 Menambahkan discovery FC03 terbatas dengan plan yang dapat diubah, percobaan framing, respons raw serta empat record flash bernama. Pencadangan ID mencegah pemakaian ulang saat pemulihan bank lama dan schema checkpoint 3 membedakan instalasi sambil tetap membaca record lama. Enumerasi serial, codec serta adapter HTTP dipisahkan menjadi modul yang dapat diuji. Memperbaiki hasil scan lama setelah konfigurasi berubah, batas rasio Acrel, label flow Fort, pelaporan stop bit serta pembatalan discovery. Panduan dua bahasa dan pengujian browser diperluas.

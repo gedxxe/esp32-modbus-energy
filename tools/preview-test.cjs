@@ -99,7 +99,7 @@ const state = {
   version,profile:"fort",meter:meterCatalog[0],meterProfiles:meterCatalog,
   token: "test-session",
   display:{available:true,idleSeconds:60,stored:false,storageOK:true,sleeping:false},
-  network: {configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
+  network: {auth:"personal",hasEnterpriseCredentials:false,hasCustomIdentity:false,serverName:"",caFingerprint:"",error:"",disconnectReason:0,apiCode:0,attempts:0,enterpriseProvisioning:true,flashEncrypted:false,configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
   control: { accepted: 0, completed: 0, rejected: 0, lastError: "", pending: 0, results: [] },
   rtc: true,
   storage: true,
@@ -159,6 +159,7 @@ const historicalCheckpoints=checkpointFixture(state.checkpoints.day-1,true);
 // Simulated instrumentation only; exported screenshots are representative.
 let wifiScanGeneration=0,wifiScanRequests=0,wifiScanFinish=0,wifiDropAck=false,wifiReadFailures=0,wifiRadioFailure="",wifiReadDelay=0;
 const nearbyNetworks=[{ssid:"Plant WiFi",rssi:-80,channel:1,open:false,supported:true},{ssid:"Plant WiFi",rssi:-48,channel:6,open:false,supported:true},{ssid:"Open test network",rssi:-62,channel:11,open:true,supported:true},{ssid:"Guest WiFi",rssi:-70,channel:1,open:false,supported:true}];
+if(process.argv.includes("--enterprise-only"))nearbyNetworks.push({ssid:"Corporate test",rssi:-40,channel:6,open:false,supported:true,security:"wpa2-enterprise"});
 let flowBoot = 1;
 let flowSequence = 0,
   flowEvents = [],
@@ -485,7 +486,9 @@ const server = http.createServer((req, res) => {
       if (req.url === "/api/network") {
         const mode=data.get("mode"),previous=state.network;
         state.network={...previous,configuredAPIP:data.get("apIP")||previous.configuredAPIP,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
-        if(mode!=="ap"){state.network.ssid=data.get("ssid");state.network.hasPassword=data.get("open")!=="1";}
+        if(mode!=="ap"){state.network.ssid=data.get("ssid");state.network.auth=data.get("auth")||(data.get("open")==="1"?"open":"personal");state.network.hasPassword=state.network.auth==="personal";
+          state.network.hasEnterpriseCredentials=state.network.auth==="peap";if(state.network.auth!=="peap")state.network.hasCustomIdentity=false;else if(data.get("keepEnterprise")!=="1")state.network.hasCustomIdentity=data.get("autoIdentity")!=="1"&&Boolean(data.get("identity"));state.network.serverName=state.network.auth==="peap"?data.get("serverName"):"";state.network.caFingerprint=state.network.auth==="peap"?"ab".repeat(32):"";}
+
       }
       if (req.url === "/api/config"){
         Object.assign(state, {
@@ -623,6 +626,10 @@ async function checkVectors(browser, out) {
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--enterprise-only")){
+      const page=await browser.newPage({viewport:{width:1440,height:1100}});
+      await require("./test-enterprise.cjs")({page,origin,state,calls,root});return;
+    }
     if(process.argv.includes("--meter-lab-only")){
       const page=await browser.newPage({viewport:{width:1440,height:1100}});
       await require("./test-meter-lab.cjs")({page,origin,lab,calls,setMalformed:value=>labMalformed=value,setHold:value=>labHold=value,requests:()=>labRequests,root});

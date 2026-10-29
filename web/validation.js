@@ -67,9 +67,9 @@ export function validSystem(value) {
 const ipv4 = (value) => typeof value === "string" && (value === "" ||
   (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) && value.split(".").every((part) => Number(part) <= 255)));
 export function validNetworkView(value) {
-  return object(value) && ["ap", "client", "dual"].includes(value.mode) &&
+  return object(value) && [value.hasCustomIdentity,value.associated].every(v=>v===undefined||typeof v==="boolean") && (value.auth===undefined||([value.hasEnterpriseCredentials,value.enterpriseProvisioning,value.flashEncrypted].every(v=>typeof v==="boolean")&&uint(value.disconnectReason,65535)&&Number.isInteger(value.apiCode)&&uint(value.attempts))) && (value.auth===undefined||["personal","open","peap"].includes(value.auth)) && (value.error===undefined||["","enterprise_clock_required","enterprise_ca_missing","enterprise_api_failed","station_config_failed","enterprise_authentication_rejected","authentication_failed","ssid_unavailable","handshake_timeout","beacon_timeout","association_failed","link_lost"].includes(value.error)) && (value.caFingerprint===undefined||value.caFingerprint===""||/^[a-f0-9]{64}$/.test(value.caFingerprint)) && (value.serverName===undefined||(typeof value.serverName==="string"&&value.serverName.length<=253)) && ["ap", "client", "dual"].includes(value.mode) &&
     ["ap", "client", "dual"].includes(value.activeMode) &&
-    ["applying", "ap", "online", "fallback", "connecting"].includes(value.phase) &&
+    ["applying", "ap", "online", "fallback", "connecting", "addressing"].includes(value.phase) &&
     [value.pending, value.connected, value.apActive, value.hasPassword, value.stored].every((v) => typeof v === "boolean") &&
     validAPIP(value.configuredAPIP) && typeof value.ssid === "string" && value.ssid.length <= 32 &&
     typeof value.apSSID === "string" && value.apSSID.length <= 32 &&
@@ -89,7 +89,7 @@ export function validAPIP(text) {
   return d>0&&d<255&&(a===10||(a===172&&b>=16&&b<=31)||(a===192&&b===168));
 }
 export function validWifiScan(value) {
-  return object(value)&&["idle","scanning","ready","failed"].includes(value.phase)&&uint(value.generation)&&uint(value.ageMs)&&(!value.error||["radio_start","radio_enable","radio_failed","radio_timeout"].includes(value.error))&&(value.attempts===undefined||uint(value.attempts,3))&&(value.driverCode===undefined||Number.isInteger(value.driverCode))&&Array.isArray(value.networks)&&value.networks.length<=16&&value.networks.every((row)=>object(row)&&typeof row.ssid==="string"&&row.ssid.length>0&&row.ssid.length<=32&&Number.isInteger(row.rssi)&&typeof row.open==="boolean"&&typeof row.supported==="boolean"&&uint(row.channel,14));
+  return object(value)&&["idle","scanning","ready","failed"].includes(value.phase)&&uint(value.generation)&&uint(value.ageMs)&&(!value.error||["radio_start","radio_enable","radio_failed","radio_timeout"].includes(value.error))&&(value.attempts===undefined||uint(value.attempts,3))&&(value.driverCode===undefined||Number.isInteger(value.driverCode))&&Array.isArray(value.networks)&&value.networks.length<=16&&value.networks.every((row)=>object(row)&&typeof row.ssid==="string"&&row.ssid.length>0&&row.ssid.length<=32&&Number.isInteger(row.rssi)&&typeof row.open==="boolean"&&typeof row.supported==="boolean"&&(row.security===undefined||["open","wpa-personal","wpa2-personal","wpa-mixed","wpa3-personal","wpa2-wpa3-personal","wpa2-enterprise","unsupported"].includes(row.security))&&uint(row.channel,14));
 }
 
 export const CHECKPOINT_MINUTES=[360,390,420,450,480,1020,1050,1080,1110,1140];

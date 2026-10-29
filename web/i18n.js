@@ -1,7 +1,8 @@
+import { enterpriseText } from "./enterprise-i18n.js";
 import { meterLabText } from "./meter-lab-i18n.js";
 export const catalog = {
   en: {
-    ...meterLabText.en,
+    ...enterpriseText.en, ...meterLabText.en,
     save_profile_first:"Save the selected meter model before scanning.",
     meter_profile:"Meter model",
     meter_profile_help:"Save the model before scanning. It selects the register map, decoding, transformer ratios and supported scan rates. Existing checkpoint readings keep their original meter identity.",
@@ -102,7 +103,7 @@ export const catalog = {
     network_note_dual: "Both interfaces remain enabled. The access point shares the connected router channel, and its subnet moves if necessary to avoid overlapping the LAN.",
     network_save: "Save Wi-Fi settings",
     network_saved: "Wi-Fi settings saved. The connection changes after eight seconds. Read the current client or AP address from this panel or the OLED if the page disconnects.",
-    network_transition: "Changing mode can disconnect this browser. No reboot or firmware replacement is required. Client connection attempts retry every 30 seconds, with the recovery AP available during a failed attempt. The dashboard does not require internet access.",
+    network_transition: "Changing mode can disconnect this browser. No reboot or firmware replacement is required. Connection attempts run in the background, with the recovery AP available during a failed attempt. The dashboard does not require internet access.",
     network_recovery: "Recovery hotspot: {ssid}. Its password remains the configured AP password. The OLED shows the current reachable IP, which can change if the router uses the same subnet.",
     network_phase_applying: "Wi-Fi change scheduled",
     network_phase_ap: "Access point active",
@@ -468,7 +469,7 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
-    ...meterLabText.id,
+    ...enterpriseText.id, ...meterLabText.id,
     save_profile_first:"Simpan model meter yang dipilih sebelum menjalankan scan.",
     meter_profile:"Model meter",
     meter_profile_help:"Simpan model sebelum memulai scan. Pilihan ini menentukan register, dekode, rasio trafo, dan baud rate scan. Checkpoint yang sudah tercatat tetap menyimpan identitas meter asalnya.",

@@ -10,10 +10,10 @@ static DRAM_ATTR TaskHandle_t idleHandles[2]={};
 static bool coreSamplerOK[2]={};
 static TaskHandle_t acquisitionTask=nullptr,uiTask=nullptr;
 static uint32_t uiCycleMs=0;
-static void IRAM_ATTR sampleCore0(){++coreTicks[0];if(xTaskGetCurrentTaskHandleForCPU(0)!=idleHandles[0])++coreBusyTicks[0];}
-static void IRAM_ATTR sampleCore1(){++coreTicks[1];if(xTaskGetCurrentTaskHandleForCPU(1)!=idleHandles[1])++coreBusyTicks[1];}
+static void IRAM_ATTR sampleCore0(){coreTicks[0]=coreTicks[0]+1;if(xTaskGetCurrentTaskHandleForCore(0)!=idleHandles[0])coreBusyTicks[0]=coreBusyTicks[0]+1;}
+static void IRAM_ATTR sampleCore1(){coreTicks[1]=coreTicks[1]+1;if(xTaskGetCurrentTaskHandleForCore(1)!=idleHandles[1])coreBusyTicks[1]=coreBusyTicks[1]+1;}
 inline void initProcessMonitor(){
-  uiTask=xTaskGetCurrentTaskHandle();idleHandles[0]=xTaskGetIdleTaskHandleForCPU(0);idleHandles[1]=xTaskGetIdleTaskHandleForCPU(1);
+  uiTask=xTaskGetCurrentTaskHandle();idleHandles[0]=xTaskGetIdleTaskHandleForCore(0);idleHandles[1]=xTaskGetIdleTaskHandleForCore(1);
   coreSamplerOK[0]=esp_register_freertos_tick_hook_for_cpu(sampleCore0,0)==ESP_OK;
   coreSamplerOK[1]=esp_register_freertos_tick_hook_for_cpu(sampleCore1,1)==ESP_OK;
 }

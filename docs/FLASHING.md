@@ -2,10 +2,12 @@
 
 **English** · [Bahasa Indonesia](id/FLASHING.md)
 
-Firmware **2.6.0** targets the physical ESP32-S3 N16R8 with 16 MB flash and OPI PSRAM. Open `firmware/` in PlatformIO and select `esp32s3`. The local FortMeter library is part of the source checkout, so main polling and standalone diagnostics cannot silently select different registry versions.
+Firmware **3.0.0** targets the physical ESP32-S3 N16R8 with 16 MB flash and OPI PSRAM. Open `firmware/` in PlatformIO and select `esp32s3`. The local FortMeter library is part of the source checkout, so main polling and standalone diagnostics cannot silently select different registry versions.
 
 For an installed logger, use PlatformIO upload or the app-only image at 0x10000 with the unchanged partition layout. The merged factory image spans the NVS range at 0x9000–0xDFFF through padding, so it is not the preferred update path when preserving current settings and NVS recovery records. Export available checkpoint CSVs before maintenance, and do not use whole-chip erase or filesystem formatting for a routine update.
 
+
+Version 3 requires the pinned pioarduino integration and Arduino-ESP32 3.3.11. From the repository-root **computer terminal**, run `python -m pip install -r requirements-dev.txt` if using a standalone Python installation. The PlatformIO extension must also run Core 6.1.19. On Windows, install the root requirement file with its managed interpreter from the repository-root computer terminal: `& "$env:USERPROFILE/.platformio/penv/Scripts/python.exe" -m pip install -r requirements-dev.txt`. Restart the PlatformIO terminal afterward. The first build downloads the new SDK and compiler. The partition layout is unchanged, but keep the previous image and export records before a major runtime update.
 ## Physical board
 
 Close Serial Monitor before upload and connect the board's USB port used for programming. From a **computer terminal in `firmware/`**, run `pio run -e esp32s3`, then `pio run -e esp32s3 -t upload`. Open `pio device monitor -e esp32s3` afterward. If automatic entry fails, hold BOOT while resetting/reconnecting and release it when the uploader begins communication.
@@ -26,7 +28,7 @@ An app-only image does not contain a bootloader and must not be flashed at 0x0. 
 
 ## Arduino diagnostic library
 
-Install `FortMeter-library-v2.6.0.zip` through Arduino IDE's Add .ZIP Library menu, then open the standalone INO. The same ZIP can be generated without a firmware build using `python tools/package-library.py` from the repository-root computer terminal, or the source FortMeter folder can be copied into the configured Sketchbook libraries directory. Follow the [standalone guide](../examples/FortSerialDebug/README.md) for board options and explicit Serial Monitor INPUT/OUTPUT instructions.
+Install `FortMeter-library-v3.0.0.zip` through Arduino IDE's Add .ZIP Library menu, then open the standalone INO. The same ZIP can be generated without a firmware build using `python tools/package-library.py` from the repository-root computer terminal, or the source FortMeter folder can be copied into the configured Sketchbook libraries directory. Follow the [standalone guide](../examples/FortSerialDebug/README.md) for board options and explicit Serial Monitor INPUT/OUTPUT instructions.
 
 ## Rebuild browser assets
 

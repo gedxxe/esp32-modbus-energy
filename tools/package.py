@@ -19,7 +19,7 @@ if app.read_bytes() != built.read_bytes():
 sources = [*sorted((root / "firmware/src").rglob("*.cpp")),
            *sorted((root / "firmware/include").rglob("*.h")),
            *(p for p in sorted((root/"firmware/lib").rglob("*")) if p.is_file() and p.suffix in [".h",".cpp"]),
-           root / "firmware/platformio.ini"]
+           root / "firmware/platformio.ini",root / "firmware/default_16MB.csv",root / "firmware/sdk-dependencies.lock"]
 if any(p.stat().st_mtime > built.stat().st_mtime for p in sources):
     raise SystemExit("Sources changed after build; compile again before packaging.")
 shutil.copy2(root/'docs/FLASHING.md',root/'output/firmware/FLASHING.md')
@@ -38,7 +38,7 @@ files=[*(root/name for name in root_names),*sources,
        *(p for p in library_files if p not in sources),library_zip,
        *(p for p in sorted((root/"firmware/assets").rglob("*")) if p.is_file()),
        *(p for p in sorted((root/'firmware/test').rglob('*')) if p.is_file() and p.suffix in ['.cpp','.h']),
-       *(p for p in sorted((root/'examples').rglob('*')) if p.is_file() and '.pio' not in p.parts and p.suffix in ['.ino','.md','.ini','.csv','.txt']),
+       *(p for p in sorted((root/'examples').rglob('*')) if p.is_file() and not any(part in ['.pio','.dummy','managed_components','node_modules','__pycache__'] for part in p.parts) and p.name!='CMakeLists.txt' and p.suffix in ['.ino','.md','.ini','.csv','.txt']),
        *(p for p in sorted((root/'web').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'docs').rglob('*')) if p.is_file()),
        *(p for p in sorted((root/'.github').rglob('*')) if p.is_file()),
@@ -47,10 +47,11 @@ files=[*(root/name for name in root_names),*sources,
        root/'output/firmware/FLASHING.md',root/'Fort Power Meter_User Manual_compressed.pdf',root/'Acrel ADL400 Manual.pdf']
 manifest = {
     "version": version, "build_date_local": datetime.now(timezone(timedelta(hours=7))).date().isoformat(), "timezone": "Asia/Jakarta",
-    "target": "ESP32-S3 N16R8", "build": "PlatformIO SUCCESS, espressif32 6.10.0",
+    "target": "ESP32-S3 N16R8", "build": "PlatformIO SUCCESS, pioarduino 55.03.311, Arduino 3.3.11, ESP-IDF 5.5.5",
     "license": "GPL-3.0-only",
     "license_scope": "Original project code; third-party terms are recorded in NOTICE",
     "web": json.loads((root / "web/bundle.json").read_text(encoding="utf-8"))["compressed_total"],
+    "enterprise": {"method":"PEAP / EAP-MSCHAPv2","certificate_date_validation":True,"trusted_ca_required":True,"server_dns_name":"optional additional constraint","corporate_authentication_tested":False},
     "hardware_tested": False,
     "reference_sketch_report": "User reports successful reads with manual DE-/RE on GPIO16; integrated release still needs field acceptance",
     "modbus_transport": "ModbusMaster 2.0.1+fort.1",

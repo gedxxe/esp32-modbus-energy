@@ -6,7 +6,7 @@ Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta
 
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
 
-Versi 2.6.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 3.0.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -72,7 +72,7 @@ Driver Wi-Fi berjalan di core 0, sedangkan core 1 memvalidasi dan menyimpan reco
 
 Perintah jaringan harus lolos guard mode/revisi/umur dan tersimpan sebelum dikirim melalui antrean satu slot ke core 0. Penundaan delapan detik memberi browser waktu membaca hasil HTTP. Kegagalan simpan mempertahankan koneksi, sedangkan record boot rusak menyisakan AP default. Mode AP mempertahankan kredensial client dan endpoint GET tidak mengembalikan password tersimpan.
 
-NetworkPolicy pada network.h menghitung waktu dengan aman terhadap rollover tanpa memanggil driver. Core 0 memeriksa link setiap 250 ms, menjaga AP selama percobaan serta retry, lalu memberi tenggang 15 detik sesudah DHCP berhasil sebelum menonaktifkan AP dalam mode client. Koneksi yang hilang mengembalikan AP dan percobaan diulang setiap 30 detik. Mode AP + client memakai radio bersama, dengan pemeriksaan prefix subnet LAN/AP untuk memilih alamat yang tidak bertabrakan. Timing WLAN, DHCP dan isolasi router tetap memerlukan penerimaan perangkat fisik.
+NetworkPolicy pada network_settings.h menghitung waktu dengan aman terhadap rollover tanpa memanggil driver. Core 0 memeriksa link setiap 250 ms, menjaga AP selama percobaan serta retry, lalu memberi tenggang 15 detik sesudah DHCP berhasil sebelum menonaktifkan AP dalam mode client. Koneksi yang hilang mengembalikan AP dan percobaan diulang setiap 30 detik. Mode AP + client memakai radio bersama, dengan pemeriksaan prefix subnet LAN/AP untuk memilih alamat yang tidak bertabrakan. Timing WLAN, DHCP dan isolasi router tetap memerlukan penerimaan perangkat fisik.
 
 Endpoint diagnostik kini membawa setting sesi aktual serta counter bukti, dan mengikuti koneksi/status produksi ketika maintenance tidak aktif. Kontrol browser terstruktur menyusun perintah yang sama dengan konsol INO. Perbandingan capture juga mewajibkan direction, pin arah dan timing settle/gap sama agar perubahan transport tidak dibaca sebagai perubahan A/B semata. Peta route ke pemilik dan langkah operator tersedia pada [WEB](WEB.md).
 
@@ -94,7 +94,7 @@ Artwork disimpan sebagai paket RLE per frame dengan offset tervalidasi. build-ol
 
 Discovery Wi-Fi dan association client berbagi radio pada core 0. Scanner menunggu 300 ms setelah persiapan, menunda association yang belum selesai, mencoba ulang penolakan/kegagalan driver setiap 750 ms sampai tiga percobaan serta membatasi scan radio 12 detik dalam operasi total 20 detik. Konfigurasi IDF diinisialisasi nol dan menetapkan dwell aktif 100–200 ms serta dwell kanal utama 50 ms. Completion diterima setelah task event Arduino mengumpulkan hasil, melalui mailbox RTOS satu elemen berisi status dan timestamp. Core 0 menyalin maksimal 16 jaringan terlihat terkuat lalu membebaskan daftar Arduino. Deadline memakai waktu completion, bukan waktu loop HTTP yang mungkin terlambat, dan daftar sebelumnya bertahan saat scan gagal.
 
-Adapter ini mengikuti internal scan Arduino ESP32 2.0.17 yang dipin, sehingga perlu ditinjau ulang saat framework dinaikkan. Inisialisasi field konfigurasi lengkap dan callback menggantikan ketergantungan pada timeout wrapper dwell × 20, dengan satu pemilik storage hasil Arduino. Keberhasilan radio, kelangsungan AP dan kegagalan resource driver tetap membutuhkan penerimaan fisik.
+Adapter ini mengikuti internal scan Arduino ESP32 3.3.11 yang dipin, sehingga perlu ditinjau ulang saat framework dinaikkan. Inisialisasi field konfigurasi lengkap dan callback menggantikan ketergantungan pada timeout wrapper dwell × 20, dengan satu pemilik storage hasil Arduino. Keberhasilan radio, kelangsungan AP dan kegagalan resource driver tetap membutuhkan penerimaan fisik.
 
 Scheduler browser menserialisasi fetch API sampai seluruh body respons diterima. Deadline delapan detik berlaku setelah request aktif dan tidak menghitung waktu antre. POST mendahului telemetry yang mengantre, sedangkan Stop/Resume diagnostik dapat membatalkan GET aktif tanpa membatalkan POST yang sudah diterima. Pada firmware, koneksi kosong yang menunggu lebih dari 250 ms mengalah saat socket lain tersedia. Parser upstream dan batas writer lima detik tetap berlaku. Perubahan ini menjadwalkan request WebServer satu client tanpa memindahkan akuisisi dari core 1.
 
@@ -108,3 +108,6 @@ DeviceClock mempertahankan anchor UTC/sample-age dan memo Counter yang diberikan
 ## Pipeline checkpoint utama
 
 Pencatat sepuluh titik mentah terpisah dari Tracker interval lama. Aturan penerimaan, kontinuitas serta serialisasi eksplisit berada pada [checkpoint_log.h](../../firmware/include/checkpoint_log.h), sementara main.cpp memiliki bracket RTC, prioritas UART, commit NVS/LittleFS serta proyeksi antrean. Web tidak membuat capture. [CHECKPOINTS](CHECKPOINTS.md) menjelaskan format 426 byte, jendela penerimaan, perlindungan pergantian hari serta selisih turunan.
+
+
+Adapter RGB memakai API RMT TX dan copy encoder IDF 5. Inisialisasi di core 0 dilakukan sebelum konsumen RMT lain sehingga memakai channel TX pertama, yaitu channel 0 pada target ini. Buffer 25 simbol dipertahankan sampai polling completion tanpa waktu tunggu berhasil, lalu dikirim 24 bit GRB dengan resolusi 10 MHz dan reset low 100 us. Channel yang sibuk melewatkan frame animasi tersebut. Driver RMT lama tidak ditautkan karena berbenturan dengan driver HAL Arduino yang baru.

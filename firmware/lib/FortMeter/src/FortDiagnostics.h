@@ -346,7 +346,7 @@ void showStatus(){
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
   LOG("PROFILE: profile fort | profile acrel-adl400. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nFort diagnostics 2.6.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nFort diagnostics 3.0.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");

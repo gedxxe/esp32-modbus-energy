@@ -3,7 +3,7 @@ import { useText } from "../ui.js";
 import { deviceFetch } from "../request.js";
 import { validWifiScan } from "../validation.js";
 
-export default function WifiPicker({ device, ssid, open, onChoose, onBusy, disabled }) {
+export default function WifiPicker({ device, ssid, open, auth, onChoose, onBusy, disabled }) {
   const { t } = useText();
   const [rows, setRows] = useState([]), [phase, setPhase] = useState("idle");
   const [reason, setReason] = useState(""), [detail, setDetail] = useState(null);
@@ -34,7 +34,7 @@ export default function WifiPicker({ device, ssid, open, onChoose, onBusy, disab
         }
         const unique = new Map();
         for (const row of data.networks) {
-          const key = `${row.ssid}/${row.open}`, old = unique.get(key);
+          const key = `${row.ssid}/${row.open}/${row.security==="wpa2-enterprise"?"enterprise":row.supported?"personal":row.security||"unsupported"}`, old = unique.get(key);
           if (!old || (row.supported && !old.supported) || (row.supported === old.supported && row.rssi > old.rssi)) unique.set(key, row);
         }
         setRows([...unique.values()].sort((a,b) => b.rssi-a.rssi));
@@ -54,15 +54,17 @@ export default function WifiPicker({ device, ssid, open, onChoose, onBusy, disab
     setPhase("scanning"); busy(true); request(refresh > 0);
     return () => { alive = false; clearTimeout(timer); controller.abort(); busy(false); };
   }, [device.fresh, device.data?.token, refresh]);
-  const selected = rows.find((row) => row.ssid === ssid && row.open === open);
-  const value = selected ? `${selected.ssid}/${selected.open}` : ssid ? "saved" : "";
+  const rowKey=row=>`${row.ssid}/${row.security==="wpa2-enterprise"?"enterprise":row.open}`;
+  const securityLabel=row=>({"wpa-personal":"WPA-Personal","wpa2-personal":"WPA2-Personal","wpa-mixed":"WPA/WPA2-Personal","wpa3-personal":"WPA3-Personal","wpa2-wpa3-personal":"WPA2/WPA3-Personal"}[row.security]||t(!row.supported?"wifi_enterprise":row.security==="wpa2-enterprise"?"enterprise_detected":row.open?"wifi_open":"wifi_secured"));
+  const selected = rows.find((row) => row.ssid === ssid && row.open === open && (row.security==="wpa2-enterprise")===(auth==="peap"));
+  const value = selected ? rowKey(selected) : ssid ? "saved" : "";
   const message = phase === "failed" ? "wifi_error_radio" : phase === "reconnecting" ? "wifi_reconnecting" : phase === "unavailable" ? `wifi_error_${reason}` : phase === "scanning" ? "wifi_scanning" : rows.length ? "wifi_scan_ready" : "wifi_scan_empty";
   return <div className="wifi-picker">
     <div className="wifi-scan-heading"><label htmlFor="network-ssid">{t("network_ssid")}</label><button type="button" id="wifi-rescan" className="button compact" disabled={disabled || phase === "scanning"} onClick={() => setRefresh((value) => value + 1)}>{t("wifi_refresh")}</button></div>
-    <select id="network-ssid" value={value} disabled={disabled} onChange={(event) => { const row = rows.find((item) => `${item.ssid}/${item.open}` === event.target.value); if (row) onChoose(row); }} required>
+    <select id="network-ssid" value={value} disabled={disabled} onChange={(event) => { const row = rows.find((item) => rowKey(item) === event.target.value); if (row) onChoose(row); }} required>
       <option value="">{t("wifi_choose")}</option>
       {ssid && !selected && <option value="saved">{ssid} · {t("wifi_saved")}</option>}
-      {rows.map((row) => <option key={`${row.ssid}/${row.open}`} value={`${row.ssid}/${row.open}`} disabled={!row.supported}>{row.ssid} · {row.rssi} dBm · {t(!row.supported ? "wifi_enterprise" : row.open ? "wifi_open" : "wifi_secured")}</option>)}
+      {rows.map((row) => <option key={`${rowKey(row)}/${row.security}`} value={rowKey(row)} disabled={!row.supported}>{row.ssid} · {row.rssi} dBm · {securityLabel(row)}</option>)}
     </select>
     <p className="small muted" id="wifi-scan-status" role="status">{t(message, { count: rows.length })}</p>
     {detail && <p className="small muted mono" id="wifi-scan-detail">{t("wifi_scan_detail", { generation: detail.generation, attempts: detail.attempts ?? 0, code: detail.driverCode ?? 0, reason: detail.error || detail.phase })}</p>}

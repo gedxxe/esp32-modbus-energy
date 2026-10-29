@@ -55,8 +55,8 @@ def badge(name,label,value,color,icon):
 badge('firmware','Firmware',version,BLUE,'chip')
 badge('modbusmaster','ModbusMaster','2.0.1 + fort.1',GREEN,'wave')
 badge('license','License','GPL-3.0-only',GREEN,'check')
-badge('platformio','Espressif32','6.10.0',AMBER,'wave')
-badge('arduino','Arduino ESP32','2.0.17',GREEN,'chip')
+badge('platformio','pioarduino','55.03.311',AMBER,'wave')
+badge('arduino','Arduino ESP32','3.3.11',GREEN,'chip')
 badge('board','ESP32-S3','N16R8',PURPLE,'chip')
 badge('freertos','FreeRTOS','2 cores',GREEN,'wave')
 for name,key,label,icon,c in [
@@ -327,5 +327,18 @@ s.wire([(1195,305),(1195,355),(240,355),(240,420)],BLUE,3)
 s.wire([(440,492),(500,492)],BLUE,3);s.wire([(900,492),(960,492)],BLUE,3)
 s.text(45,622,'A valid reply confirms communication. Register meaning and manufacturer remain separate verification steps.',19,BLUE,600)
 s.save('meter-discovery.svg')
+
+
+s=SVG(1400,720,'WPA2-Enterprise trust and task ownership','Implementation diagram for PEAP with EAP-MSCHAPv2. Radio and RADIUS acceptance require authorized hardware tests.')
+s.heading('WPA2-Enterprise · trust before credentials','Core 0 owns Wi-Fi/EAP. Core 1 persists configuration and continues RS485 acquisition.')
+for x,title,lines in [(40,'IT-approved configuration',['PEM CA + optional DNS name','Username + password','Valid UTC from the RTC']),(510,'ESP32-S3 station',['CA/time + optional name check','PEAP tunnel / EAP-MSCHAPv2','No weaker authentication fallback']),(980,'Corporate access point',['2.4 GHz + WPA2-Enterprise','802.1X exchange to RADIUS','DHCP after authentication'])]:
+ s.rect(x,155,380,175);s.text(x+20,192,title,23,weight=700)
+ for i,line in enumerate(lines):s.text(x+20,230+i*29,line,17,MUTED)
+s.wire([(420,245),(510,245)]);s.wire([(890,245),(980,245)])
+s.rect(980,420,380,160);s.text(1000,455,'RADIUS / identity service',23,weight=700);s.text(1000,495,'Certificate + account + device policy',17,MUTED);s.text(1000,530,'Network access is not guaranteed',17,MUTED)
+s.wire([(1170,330),(1170,420)])
+s.rect(40,420,850,160);s.text(60,455,'Independent local operation',23,weight=700);s.text(60,495,'Core 1: UART, Modbus validation, checkpoints, NVS and CA writes',18,MUTED);s.text(60,530,'Recovery AP remains available during authentication failure',18,MUTED)
+s.text(45,665,'Scan security labels do not identify the EAP method. Credentials are provisioned through the protected device AP.',18,BLUE)
+s.save('enterprise-wifi.svg')
 
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
-#include "network.h"
+#include "network_settings.h"
 namespace fort {
 class OledNetworkMenu {
  public:

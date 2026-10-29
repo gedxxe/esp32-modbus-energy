@@ -42,6 +42,14 @@ Original FortTransport/FortDiagnostics code is GPL-3.0-only, as is the rest of
 this project's original firmware. These statements do not relicense the
 upstream files. The Arduino library ZIP includes these sources and notices.
 
+Firmware build dependencies
+---------------------------
+The pinned pioarduino 55.03.311 integration builds Espressif Arduino-ESP32
+3.3.11 with ESP-IDF 5.5.5. These packages and their managed components retain
+their own source licenses and notices. They are build/runtime dependencies,
+not relicensed as original GPL project code. firmware/sdk-dependencies.lock
+records the resolved SDK component revisions used by the custom build.
+
 OLED animation
 --------------
 firmware/assets/oled/ contains the original 772-frame animation supplied and

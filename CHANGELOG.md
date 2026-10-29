@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0
+
+Added optional WPA2-Enterprise PEAP / EAP-MSCHAPv2 with CA-chain and certificate-date validation plus an optional server-name constraint. The primary form uses username/password and defaults the outer identity to the username, with certificate settings under Advanced Wi-Fi settings. Provisioning is restricted to the local protected AP, saved credentials are never returned in status, and changing the trust target requires entering credentials again. The Wi-Fi schema migrates existing Personal/open profiles and stores CA files by SHA256 without changing the flash partition layout.
+
+The physical build now pins pioarduino 55.03.311, Arduino-ESP32 3.3.11 and ESP-IDF 5.5.5 for the supported EAP APIs. The watchdog setup is adapted to IDF 5, while Modbus source, register profiles and checkpoint schedules retain their existing definitions. Added Enterprise diagnostics, browser coverage and commissioning guides in both languages. Corporate authentication and certificate rejection still require authorized hardware/RADIUS tests.
+
+The RGB adapter uses the current RMT TX API to avoid the legacy/new-driver boot conflict. The Windows SDK cache handles project paths containing spaces and verifies the compiled certificate settings before reuse.
+
 ## 2.6.0
 
 Added bounded FC03 discovery with editable multi-address plans, serial framing trials, retained raw confirmations and four named flash records. Reserved IDs survive recovery to an older bank, while schema-3 checkpoints distinguish saved installations and read older records. Serial enumeration, codecs and the HTTP adapter are separated into testable modules. Fixed stale scan results after configuration changes, Acrel ratio bounds, Fort-only flow labels, stop-bit reporting and discovery cancellation. Added bilingual field/developer guidance and browser coverage.

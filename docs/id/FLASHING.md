@@ -2,7 +2,7 @@
 
 [English](../FLASHING.md) · **Bahasa Indonesia**
 
-Firmware **2.6.0** memakai target fisik ESP32-S3 N16R8 dengan flash 16 MB dan OPI PSRAM. Buka `firmware/` pada PlatformIO dan pilih `esp32s3`. FortMeter lokal ikut source checkout agar polling dan diagnostik tidak memilih versi library yang berbeda.
+Firmware **3.0.0** memakai target fisik ESP32-S3 N16R8 dengan flash 16 MB dan OPI PSRAM. Buka `firmware/` pada PlatformIO dan pilih `esp32s3`. FortMeter lokal ikut source checkout agar polling dan diagnostik tidak memilih versi library yang berbeda.
 
 Tutup Serial Monitor sebelum upload. Pada **terminal komputer yang berada di `firmware/`**, jalankan `pio run -e esp32s3`, kemudian `pio run -e esp32s3 -t upload`, dan buka monitor dengan `pio device monitor -e esp32s3`. Jika auto-reset gagal, tahan BOOT saat reset/reconnect dan lepas setelah uploader mulai berkomunikasi.
 
@@ -18,9 +18,11 @@ App-only tidak memiliki bootloader dan tidak ditulis pada 0x0. Factory memuat me
 
 Untuk logger terpasang, gunakan upload PlatformIO atau image app-only pada 0x10000 dengan layout partisi yang sama. Image factory gabungan melintasi area NVS 0x9000–0xDFFF lewat padding, sehingga bukan pilihan utama untuk mempertahankan setting serta record pemulihan NVS. Unduh CSV checkpoint sebelum pemeliharaan, dan jangan memakai erase seluruh flash atau format filesystem untuk update rutin.
 
+
+Versi 3 memerlukan integrasi pioarduino terpin dan Arduino-ESP32 3.3.11. Dari **terminal komputer pada root repository**, jalankan `python -m pip install -r requirements-dev.txt` bila memakai Python mandiri. Extension PlatformIO juga harus memakai Core 6.1.19. Pada Windows, pasang requirement root memakai interpreter terkelolanya melalui terminal komputer di root repo: `& "$env:USERPROFILE/.platformio/penv/Scripts/python.exe" -m pip install -r requirements-dev.txt`. Buka ulang terminal PlatformIO setelah selesai. Build pertama mengunduh SDK serta compiler baru. Layout partisi tidak berubah, tetapi simpan image sebelumnya dan ekspor record sebelum pembaruan runtime major.
 ## Library diagnostik Arduino
 
-Pasang `FortMeter-library-v2.6.0.zip` lewat Add .ZIP Library pada Arduino IDE, lalu buka INO mandiri. ZIP dapat dibuat tanpa build firmware melalui `python tools/package-library.py` pada **terminal komputer di root repository**, atau salin folder source FortMeter ke folder libraries Sketchbook. [Panduan mandiri](../../examples/FortSerialDebug/README.id.md) menjelaskan opsi board dan tujuan INPUT/OUTPUT Serial Monitor.
+Pasang `FortMeter-library-v3.0.0.zip` lewat Add .ZIP Library pada Arduino IDE, lalu buka INO mandiri. ZIP dapat dibuat tanpa build firmware melalui `python tools/package-library.py` pada **terminal komputer di root repository**, atau salin folder source FortMeter ke folder libraries Sketchbook. [Panduan mandiri](../../examples/FortSerialDebug/README.id.md) menjelaskan opsi board dan tujuan INPUT/OUTPUT Serial Monitor.
 
 ## Aset dashboard React
 

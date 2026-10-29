@@ -24,7 +24,7 @@ Pada **Wi-Fi mode**, pilih AP only, Client + AP recovery atau AP + client lalu t
 
 ## Memindai dan menghubungkan SSID
 
-Pilih **Scan / select SSID**, tunggu proses radio selesai, lalu gunakan PREV/NEXT untuk memilih jaringan yang terlihat. OLED menunjukkan level sinyal dan keamanannya. OK memilih SSID tersebut. Jaringan terbuka dapat langsung dihubungkan, SSID berpassword yang sama dengan koneksi tersimpan memakai key lama, dan jaringan baru berpassword membuka editor. Autentikasi enterprise dengan identitas/sertifikat belum tersedia.
+Pilih **Scan / select SSID**, tunggu proses radio selesai, lalu gunakan PREV/NEXT untuk memilih jaringan yang terlihat. OLED menunjukkan level sinyal dan keamanannya. OK memilih SSID tersebut. Jaringan terbuka dapat langsung dihubungkan, SSID berpassword yang sama dengan koneksi tersimpan memakai key lama, dan jaringan baru berpassword membuka editor. Jaringan Enterprise menampilkan petunjuk untuk mengatur PEAP melalui website, tempat sertifikat dan nama server yang diharapkan dapat diisi. Setelah profil disimpan, tombol tetap dapat mengganti mode Wi-Fi atau IP AP. Lihat [Wi-Fi Enterprise](ENTERPRISE_WIFI.md).
 
 Pada editor, PREV/NEXT mengganti karakter ASCII tercetak dan OK singkat menambahkan karakter terpilih. Tahan PREV/NEXT untuk pengulangan lebih cepat setelah 450 ms. Password tetap disamarkan dengan batas input 63 karakter. Tahan OK untuk membuka tools, lalu pilih Save and connect, Delete last, Clear password atau Cancel. Simpan memerlukan key 8–63 karakter. Key WPA heksadesimal 64 digit dapat dimasukkan melalui web.
 

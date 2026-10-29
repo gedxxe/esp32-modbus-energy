@@ -1,9 +1,19 @@
-# Validation record / 29 October 2026
+# Validation record / 30 October 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.6.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.0.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## Enterprise client and runtime migration in 3.0.0
+
+All three native suites, the full generated-byte browser regression, the separate discovery suite and the Enterprise suite passed. The Enterprise browser cases cover advertised-security selection, the username/password form, default outer identity, optional server DNS, missing-CA rejection before submission, CA/credential reuse after reload, trust-target changes, AP-only provisioning, clock errors, an authentication-rejection pause, English/Indonesian copy and mobile layout. Network codec tests cover the 779-byte CRC record, legacy 104/108-byte migration, field bounds, optional DNS, stale-secret-tail removal and the Enterprise-only retry rejection policy.
+
+The actual custom SDK was built with certificate date checking enabled, certificate key-usage checks retained, Arduino and its event task on core 0, 16 MB flash and OPI PSRAM. The Windows helper reuses a cache only when its configuration and SDK library hashes match. The application still compiles from the original workspace. The configuration header was renamed to network_settings.h to avoid Arduino 3's Network.h collision on Windows.
+
+The IDF 5 RGB adapter compiled through the real RMT TX/copy-encoder API. Inspection of the final ELF found the new driver and RgbDriver methods, with no legacy RMT conflict constructor linked. Its persistent symbol buffer and zero-time completion polling preserve asynchronous writes on core 0. Physical waveform, color order and LED brightness still require board acceptance.
+
+The public Windows profile exporter was exercised without exporting passwords or private keys. It correctly reported that the referenced CA was unavailable in the accessible certificate stores. This is a missing-trust-material result, not an authentication attempt. No corporate CA, employee account or successful corporate association is bundled or claimed. See [Enterprise Wi-Fi](ENTERPRISE_WIFI.md) for the source of public CA material and the remaining RADIUS tests.
 
 ## Discovery and named devices in 2.6.0
 
@@ -27,12 +37,12 @@ The local Acrel V1.3 PDF pages 9, 15–19 were inspected as rendered images. The
 
 ## Compilation
 
-Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.0.17** toolchain for the physical ESP32-S3 N16R8, with 16 MB flash and OPI PSRAM. The final compiler output contained no warnings or errors.
+Both physical-target application builds passed with pinned pioarduino **55.03.311**, Arduino-ESP32 **3.3.11**, ESP-IDF **5.5.5** and PlatformIO Core **6.1.19**. The application build logs contain no compiler warnings or errors. The first custom SDK bootstrap includes upstream component diagnostics and is not represented as a warning-free SDK build.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 111,488 | 1,466,681 |
-| Standalone FortSerialDebug | 33,300 | 343,269 |
+| Main `esp32s3` environment | 133,060 | 1,841,719 |
+| Standalone FortSerialDebug | 36,840 | 367,776 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
 
@@ -60,7 +70,7 @@ The added browser cases cover AP/client/combined mode submission and reload, pas
 
 Malformed status, archive, process, trace and UART-event payloads retain the last usable data with a stale/unavailable state. Diagnostics, process metrics and raw trace polling stop when their panel closes. UART animation requires new events, honors reduced motion and does not turn idle time or pre-reboot history into live packets. Its readable replay uses presentation timing, while the unscaled device timestamps remain available.
 
-Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **27 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
+Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **28 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
 
 ## Asset and source provenance
 
@@ -69,13 +79,13 @@ The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **1
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
 | `/` | 1,031 | 533 |
-| `/assets/app.js` | 420,328 | 133,692 |
-| `/assets/app.css` | 39,054 | 9,439 |
+| `/assets/app.js` | 434,532 | 137,475 |
+| `/assets/app.css` | 40,035 | 9,674 |
 | `/assets/third-party.txt` | 10,218 | 1,539 |
 
-The combined payload is **145,203 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **149,221 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-The documentation checker validates 35 Markdown guides and their relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
+The documentation checker validates 37 Markdown guides and their relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
 ## Packaging and remaining hardware work
 

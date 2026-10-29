@@ -1,7 +1,7 @@
 #include "screen_saver.h"
 #include "oled_frames.h"
 #include "oled_menu.h"
-#include "network.h"
+#include "network_settings.h"
 #include "energy.h"
 #include "checkpoint_log.h"
 #include "debounce.h"
@@ -65,16 +65,31 @@ void testScreenSaver(){
 }
 void testNetwork(){
   using namespace fort;
-  NetworkSettings s{};assert(validNetwork(s));s.mode=NETWORK_CLIENT;assert(!validNetwork(s));
-  strcpy(s.ssid,"Plant WiFi");assert(validNetwork(s));strcpy(s.password,"short");assert(!validNetwork(s));
+  NetworkSettings s{};assert(pauseEnterpriseRetry(NETWORK_PEAP,23)&&pauseEnterpriseRetry(NETWORK_PEAP,202));
+  assert(!pauseEnterpriseRetry(NETWORK_PEAP,201)&&!pauseEnterpriseRetry(NETWORK_PEAP,204)&&!pauseEnterpriseRetry(NETWORK_PERSONAL,202));
+  assert(validNetwork(s));s.mode=NETWORK_CLIENT;assert(!validNetwork(s));
+  strcpy(s.ssid,"Plant WiFi");assert(!validNetwork(s));s.auth=NETWORK_OPEN;assert(validNetwork(s));s.auth=NETWORK_PERSONAL;strcpy(s.password,"short");assert(!validNetwork(s));
   strcpy(s.password,"plant-key-123");assert(validNetwork(s));
   uint32_t parsed=0;assert(parseAPAddress("192.168.8.1",parsed)&&parsed==0xC0A80801);assert(!parseAPAddress("192.168.8.0",parsed));assert(!parseAPAddress("8.8.8.8",parsed));assert(!parseAPAddress("192.168.1.256",parsed));
   s.apIP=0xC0A80801;
+  {NetworkSettings tail=s;size_t end=strlen(tail.password)+1;memset(tail.password+end,88,sizeof(tail.password)-end);uint8_t clean[NETWORK_RECORD_SIZE];encodeNetwork(tail,clean);assert(clean[37+end]==0);}
   uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(s,bytes);NetworkSettings restored{};
   assert(decodeNetwork(bytes,sizeof(bytes),restored)&&!strcmp(restored.password,s.password)&&restored.mode==NETWORK_CLIENT);
   assert(restored.apIP==s.apIP);
   uint8_t legacy[104];memcpy(legacy,bytes,102);legacy[2]=1;uint16_t legacyCRC=networkCRC(legacy,102);legacy[102]=uint8_t(legacyCRC);legacy[103]=uint8_t(legacyCRC>>8);
   assert(decodeNetwork(legacy,sizeof(legacy),restored)&&restored.apIP==0xC0A80401);assert(!decodeNetwork(legacy,2,restored));
+  {NetworkSettings e{};e.mode=NETWORK_CLIENT;e.auth=NETWORK_PEAP;strcpy(e.ssid,"Corporate 2.4 GHz");
+    strcpy(e.identity,"anonymous@example.org");strcpy(e.username,"plant-device");strcpy(e.eapPassword,"enterprise-secret");strcpy(e.serverName,"radius.example.org");e.caHash[0]=1;
+    assert(validNetwork(e));NetworkSettings changed=e;assert(canReuseEnterprise(e,changed));changed.caHash[0]=2;assert(!canReuseEnterprise(e,changed));changed=e;strcpy(changed.serverName,"other.example.org");assert(!canReuseEnterprise(e,changed));changed=e;strcpy(changed.ssid,"Other SSID");assert(!canReuseEnterprise(e,changed));encodeNetwork(e,bytes);assert(decodeNetwork(bytes,sizeof(bytes),restored)&&sameNetwork(e,restored));
+    assert(!validRadiusName("*.example.org")&&!validRadiusName("example.org;other.org")&&!validRadiusName("-radius.example.org")&&!validRadiusName("radius..example.org")&&!validRadiusName("Midea Wireless Network"));
+    bytes[410]^=1;assert(!decodeNetwork(bytes,sizeof(bytes),restored));
+    changed=e;changed.serverName[0]=0;changed.identity[0]=0;assert(validNetwork(changed));
+    e.caHash[0]=0;assert(!validNetwork(e));e.caHash[0]=1;e.username[0]=0;assert(!validNetwork(e));strcpy(e.username,"device");strcpy(e.password,"personal-secret");assert(!validNetwork(e));e.password[0]=0;assert(validNetwork(e));
+    uint8_t v2[108]={};encodeNetwork(s,bytes);memcpy(v2,bytes,106);v2[2]=2;uint16_t crc=networkCRC(v2,106);v2[106]=uint8_t(crc);v2[107]=uint8_t(crc>>8);assert(decodeNetwork(v2,sizeof(v2),restored)&&restored.auth==NETWORK_PERSONAL&&!strcmp(restored.password,s.password));
+    NetworkPolicy ep;ep.begin(NETWORK_CLIENT,0,60000);assert(!ep.update(30000,false)&&ep.apWanted(30000));assert(ep.update(60000,false)&&ep.fallback);
+    assert(!strcmp(networkDisconnectHint(202),"authentication_failed")&&!strcmp(networkDisconnectHint(201),"ssid_unavailable"));
+    encodeNetwork(s,bytes);
+  }
   assert(chooseAPAddress(0,0,0xC0A80801)==0xC0A80801);
   {OledNetworkMenu menu;NetworkSettings current;menu.enter();assert(menu.screen==OledNetworkMenu::MAIN);
     menu.handle(2,1,current,0);assert(menu.screen==OledNetworkMenu::MODE);menu.handle(1,1,current,0);assert(menu.handle(2,1,current,0)==OledNetworkMenu::SAVE_MODE&&menu.selected==1);

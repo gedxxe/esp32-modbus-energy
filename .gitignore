@@ -8,3 +8,14 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Generated ESP-IDF SDK build state (custom settings live in platformio.ini).
+managed_components/
+.dummy/
+sdkconfig.*
+
+# Custom SDK entry points and lock copies are regenerated from the pinned source lock.
+/firmware/CMakeLists.txt
+/firmware/dependencies.lock
+/examples/FortSerialDebug/CMakeLists.txt
+/examples/FortSerialDebug/dependencies.lock

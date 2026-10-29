@@ -6,7 +6,7 @@ Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta
 
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
 
-Firmware 2.6.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 3.0.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Mengambil angka meter terjadwal
 
@@ -16,7 +16,7 @@ Ringkasan dimulai dari energi langsung serta **Checkpoint kWh terjadwal**. Lima 
 
 Pada instalasi baru, hubungkan HP ke **Midea Engineering AP** memakai **betahdijre12345**, kemudian buka **http://192.168.4.1**. Password AP mengikuti [board.h](../../firmware/include/board.h). Bahasa awal adalah English dan dapat diganti ke Indonesia melalui pemilih bahasa. Jika ESP32 menjadi client, gunakan IP DHCP dari router yang ditampilkan pada halaman jaringan OLED maupun panel Wi-Fi.
 
-Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, pilih SSID dari scan otomatis jaringan 2,4 GHz lalu isi password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Form ini tidak menyediakan identitas atau sertifikat untuk jaringan enterprise.
+Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, pilih SSID dari scan otomatis jaringan 2,4 GHz lalu isi password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Untuk WPA2-Enterprise, pilih profil PEAP / EAP-MSCHAPv2 secara eksplisit lalu ikuti [pengisian sertifikat](ENTERPRISE_WIFI.md). Form utama memakai username dan password. Pengaturan lanjutan menyimpan CA publik tepercaya, nama DNS server opsional dan identitas luar yang berbeda bila diperlukan.
 
 | Mode | Jalur akses yang tersedia |
 | --- | --- |
@@ -32,7 +32,7 @@ AP dan client memakai satu radio, sehingga AP mengikuti kanal router dalam mode 
 
 ## Memilih jaringan, IP khusus dan OLED
 
-Pemilih SSID memulai scan otomatis ketika cache belum tersedia atau berumur lebih dari 30 detik. Pindai lagi memperbaruinya secara eksplisit. Firmware menjalankan scan radio asinkron di core 0, menyimpan maksimal 16 jaringan terlihat dengan sinyal/keamanan, melepas hasil driver dan membiarkan akuisisi Modbus di core 1. Jaringan terbuka dan personal yang didukung dapat dipilih, sedangkan enterprise/WEP/keamanan lain yang belum didukung dinonaktifkan. SSID tersembunyi tidak ditampilkan oleh pemilih jaringan terlihat ini.
+Pemilih SSID memulai scan otomatis ketika cache belum tersedia atau berumur lebih dari 30 detik. Pindai lagi memperbaruinya secara eksplisit. Firmware menjalankan scan radio asinkron di core 0, menyimpan maksimal 16 jaringan terlihat dengan sinyal/keamanan, melepas hasil driver dan membiarkan akuisisi Modbus di core 1. Jaringan terbuka, Personal yang didukung dan WPA2-Enterprise dapat dipilih. WEP serta mode lain yang belum didukung tetap dinonaktifkan. Label keamanan hasil scan tidak menentukan metode EAP. SSID tersembunyi tidak ditampilkan oleh pemilih jaringan terlihat ini.
 
 Kolom alamat AP menerima host IPv4 privat dengan subnet tetap /24. Simpan mempertahankan alamat pilihan sebelum menerapkannya sesudah delapan detik. Hubungkan ulang HP ke hotspot untuk memperbarui DHCP dan buka IP baru. Jika subnet LAN bertabrakan, alamat runtime AP dapat berbeda dan ditampilkan terpisah dari alamat pilihan. Record Wi-Fi v1 tetap terbaca dengan default 192.168.4.1, lalu simpan berikutnya memakai format record baru.
 
@@ -77,7 +77,7 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 2.6.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 3.0.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 

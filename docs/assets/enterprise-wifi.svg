@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="720" viewBox="0 0 1400 720" role="img" aria-labelledby="title desc"><title id="title">WPA2-Enterprise trust and task ownership</title><desc id="desc">Implementation diagram for PEAP with EAP-MSCHAPv2. Radio and RADIUS acceptance require authorized hardware tests.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">WPA2-Enterprise · trust before credentials</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Core 0 owns Wi-Fi/EAP. Core 1 persists configuration and continues RS485 acquisition.</text>
+<rect x="40" y="155" width="380" height="175" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="60" y="192" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">IT-approved configuration</text>
+<text x="60" y="230" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">PEM CA + optional DNS name</text>
+<text x="60" y="259" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Username + password</text>
+<text x="60" y="288" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Valid UTC from the RTC</text>
+<rect x="510" y="155" width="380" height="175" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="530" y="192" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">ESP32-S3 station</text>
+<text x="530" y="230" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">CA/time + optional name check</text>
+<text x="530" y="259" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">PEAP tunnel / EAP-MSCHAPv2</text>
+<text x="530" y="288" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">No weaker authentication fallback</text>
+<rect x="980" y="155" width="380" height="175" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1000" y="192" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Corporate access point</text>
+<text x="1000" y="230" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">2.4 GHz + WPA2-Enterprise</text>
+<text x="1000" y="259" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">802.1X exchange to RADIUS</text>
+<text x="1000" y="288" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DHCP after authentication</text>
+<polyline points="420,245 510,245" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="890,245 980,245" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="980" y="420" width="380" height="160" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1000" y="455" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">RADIUS / identity service</text>
+<text x="1000" y="495" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Certificate + account + device policy</text>
+<text x="1000" y="530" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Network access is not guaranteed</text>
+<polyline points="1170,330 1170,420" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="40" y="420" width="850" height="160" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="60" y="455" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Independent local operation</text>
+<text x="60" y="495" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Core 1: UART, Modbus validation, checkpoints, NVS and CA writes</text>
+<text x="60" y="530" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Recovery AP remains available during authentication failure</text>
+<text x="45" y="665" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Scan security labels do not identify the EAP method. Credentials are provisioned through the protected device AP.</text>
+</svg>

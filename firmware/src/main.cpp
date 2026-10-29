@@ -9,10 +9,12 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
+#include <esp_flash_encrypt.h>
 #include <esp_wifi.h>
 #include <lwip/sockets.h>
 #include <errno.h>
-#include <driver/rmt.h>
+#include <sys/time.h>
+#include "rgb_driver.h"
 #include "board.h"
 #include "energy.h"
 #include "checkpoint_log.h"
@@ -32,7 +34,8 @@
 #include "clock_guard.h"
 #include "command_policy.h"
 #include "bounded_write.h"
-#include "network.h"
+#include "network_settings.h"
+#include "enterprise_wifi.h"
 #include "oled_menu.h"
 #include "screen_saver.h"
 #include "oled_frames.h"
@@ -77,6 +80,26 @@ IdleScreen idleScreen;uint16_t lastIdleFrame=0xffff;
 struct NetworkUpdate {NetworkSettings settings{};bool stored=true,deferred=false;};
 NetworkSettings activeNetwork{},pendingNetwork{};
 NetworkPolicy networkPolicy;
+QueueHandle_t networkCAQueue,networkEventQueue;
+struct NetworkCAInput {uint32_t token=0;char pem[NETWORK_CA_MAX+1]={};};
+struct NetworkEvent {uint16_t reason=0;};
+EnterpriseWiFi stationDriver;
+// Core-0 clock copy comes only from the existing core-1 snapshot queue.
+struct NetworkClockCopy {uint32_t utc=0,sampled=0,revision=0;bool valid=false;};
+NetworkClockCopy networkClockCopy;
+char stationCA[NETWORK_CA_MAX+1]={};uint32_t networkCAToken=0;
+bool networkClock(uint32_t &utc,uint32_t *revision=nullptr);
+void syncEnterpriseClock();
+void startStation(){
+  if(activeNetwork.mode==NETWORK_AP)return;
+  WiFi.disconnect(false,false);stationDriver.reset();
+  bool certificate=true;
+  if(activeNetwork.auth==NETWORK_PEAP){certificate=false;if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){certificate=loadNetworkCA(LittleFS,activeNetwork.caHash,stationCA);xSemaphoreGive(fsMutex);}}
+  uint32_t utc=0;bool clock=networkClock(utc);
+  bool started=stationDriver.begin(activeNetwork,certificate?stationCA:nullptr,clock,utc);
+  Serial.printf("[WiFi] attempt=%lu auth=%s result=%s code=%ld\n",(unsigned long)stationDriver.attempts,networkAuthName(activeNetwork.auth),started?"started":stationDriver.error,(long)stationDriver.apiCode);
+}
+
 bool networkStored=true,networkPending=false,networkAwaitingSave=false;
 uint32_t networkPendingAt=0,networkCommand=0,lastNetworkTick=0,apAddress=0xC0A80401,lastAPTry=0;
 uint32_t ipv4(const IPAddress &ip){return (uint32_t(ip[0])<<24)|(uint32_t(ip[1])<<16)|(uint32_t(ip[2])<<8)|ip[3];}
@@ -90,11 +113,11 @@ bool startAP(uint32_t address){
   if(ready)apAddress=address;return ready;
 }
 void applyNetwork(const NetworkSettings &settings){
-  activeNetwork=settings;networkPolicy.begin(settings.mode,millis());
+  stationDriver.reset();activeNetwork=settings;networkPolicy.begin(settings.mode,millis(),settings.auth==NETWORK_PEAP?60000:NETWORK_RETRY_MS);
   WiFi.setAutoReconnect(false);if(WiFi.getMode()&WIFI_MODE_STA)WiFi.disconnect(false,false);
   WiFi.mode(settings.mode==NETWORK_AP?WIFI_AP:WIFI_AP_STA);WiFi.setSleep(false);
   WiFi.setHostname("fort-energy");apOK=startAP(settings.apIP);
-  if(settings.mode!=NETWORK_AP)WiFi.begin(settings.ssid,settings.password[0]?settings.password:nullptr);
+  if(settings.mode!=NETWORK_AP)startStation();
 }
 void networkNotice(const char *message);
 void syncNetworkCommandResult();
@@ -102,7 +125,9 @@ void tickWiFiScan();
 bool wifiScanRunning();
 bool resumeStationAfterScan=false;
 void tickNetwork(){
-  syncNetworkCommandResult();tickWiFiScan();
+  syncNetworkCommandResult();tickWiFiScan();syncEnterpriseClock();
+  NetworkEvent event;while(xQueueReceive(networkEventQueue,&event,0)==pdTRUE)if(activeNetwork.mode!=NETWORK_AP){stationDriver.disconnected(event.reason);if(event.reason!=8)Serial.printf("[WiFi] disconnected reason=%u hint=%s\n",event.reason,networkDisconnectHint(event.reason));}
+  if(stationReady())stationDriver.online();
   uint32_t now=millis();NetworkUpdate update;
   if(xQueueReceive(networkQueue,&update,0)==pdTRUE){
     networkStored=update.stored;networkAwaitingSave=false;
@@ -113,11 +138,13 @@ void tickNetwork(){
   if(uint32_t(now-lastNetworkTick)<250)return;
   lastNetworkTick=now;bool ready=stationReady();
   bool retry=networkPolicy.update(now,ready);
+  uint32_t usableUTC=0;if(activeNetwork.auth==NETWORK_PEAP&&!ready&&!wifiScanRunning()&&!networkPending&&strcmp(stationDriver.error,"enterprise_clock_required")==0&&networkClock(usableUTC))retry=true;
   if(networkPolicy.apWanted(now)){
     uint32_t address=ready?chooseAPAddress(ipv4(WiFi.localIP()),ipv4(WiFi.subnetMask()),activeNetwork.apIP):apAddress;
     if((!apOK||address!=apAddress)&&uint32_t(now-lastAPTry)>=3000)apOK=startAP(address);
   }else if(apOK&&WiFi.enableAP(false)){apOK=false;}
-  if((retry||resumeStationAfterScan)&&!wifiScanRunning()){resumeStationAfterScan=false;WiFi.disconnect(false,false);WiFi.begin(activeNetwork.ssid,activeNetwork.password[0]?activeNetwork.password:nullptr);}
+  if(stationDriver.authenticationPaused)resumeStationAfterScan=false;
+  if((retry||resumeStationAfterScan)&&!wifiScanRunning()&&!stationDriver.authenticationPaused){resumeStationAfterScan=false;startStation();}
 }
 struct WiFiEntry {char ssid[33]={};int32_t rssi=0;uint8_t auth=0,channel=0;};
 struct WiFiScanView:WiFiScanPolicy {WiFiEntry rows[16]{};uint8_t count=0;uint32_t generation=0;int32_t driverCode=0;};
@@ -139,7 +166,7 @@ class ManagedWiFiScan:public WiFiClass {
   static uint16_t count(){return _scanCount;}
 };
 bool wifiScanRunning(){return wifiScan.running;}
-bool supportedWiFiAuth(uint8_t auth){return auth==WIFI_AUTH_OPEN||auth==WIFI_AUTH_WPA2_PSK||auth==WIFI_AUTH_WPA_WPA2_PSK||auth==WIFI_AUTH_WPA3_PSK||auth==WIFI_AUTH_WPA2_WPA3_PSK;}
+bool supportedWiFiAuth(uint8_t auth){return auth==WIFI_AUTH_WPA2_ENTERPRISE||auth==WIFI_AUTH_WPA_PSK||auth==WIFI_AUTH_OPEN||auth==WIFI_AUTH_WPA2_PSK||auth==WIFI_AUTH_WPA_WPA2_PSK||auth==WIFI_AUTH_WPA3_PSK||auth==WIFI_AUTH_WPA2_WPA3_PSK;}
 void finishWiFiScan(bool ok,const char *error=""){
   wifiScan.finish(millis(),ok,error);ManagedWiFiScan::clear();
   if(activeNetwork.mode==NETWORK_AP)WiFi.enableSTA(false);
@@ -183,7 +210,7 @@ void tickWiFiScan(){
 }
 String preferredAddress(){return stationReady()?WiFi.localIP().toString():apOK?WiFi.softAPIP().toString():String();}
 
-struct Command { MeterLabRequest lab{};CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
+struct Command { uint32_t caToken=0;MeterLabRequest lab{};CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
 struct CommandResult { uint32_t id=0;char error[80]={}; };
 constexpr uint8_t COMMAND_RESULTS=8;
 uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
@@ -208,14 +235,10 @@ LedSettings defaultLed() {
 LedSettings renderedLed=defaultLed();
 LedAnimation ledAnimation;
 bool ledDriverOK=false;
-constexpr rmt_channel_t LED_RMT_CHANNEL=RMT_CHANNEL_0;
+RgbDriver rgbDriver;
 void initLED() {
   if(!RGB_LED_ENABLED)return;
-  rmt_config_t config={};config.rmt_mode=RMT_MODE_TX;config.channel=LED_RMT_CHANNEL;
-  config.gpio_num=gpio_num_t(RGB_LED_PIN);config.clk_div=8;config.mem_block_num=1;
-  config.tx_config.loop_en=false;config.tx_config.carrier_en=false;
-  config.tx_config.idle_output_en=true;config.tx_config.idle_level=RMT_IDLE_LEVEL_LOW;
-  ledDriverOK=rmt_config(&config)==ESP_OK&&rmt_driver_install(LED_RMT_CHANNEL,0,0)==ESP_OK;
+  ledDriverOK=rgbDriver.begin(RGB_LED_PIN);
   if(!ledDriverOK)Serial.println("Onboard LED: RMT initialization failed");
 }
 void tickLED(const LedSettings *settings=nullptr) {
@@ -226,14 +249,7 @@ void tickLED(const LedSettings *settings=nullptr) {
   uint32_t now=millis();if(written&&uint32_t(now-lastFrame)<20)return;
   lastFrame=now;LedColor color=ledAnimation.sample(renderedLed,now);
   if(!written||color.red!=previous.red||color.green!=previous.green||color.blue!=previous.blue){
-    // Keep symbols alive until TX completes. A busy channel skips this frame.
-    if(rmt_wait_tx_done(LED_RMT_CHANNEL,0)!=ESP_OK)return;
-    static rmt_item32_t items[24];uint8_t grb[]={color.green,color.red,color.blue};
-    for(uint8_t i=0;i<24;++i){bool one=grb[i/8]&(1<<(7-i%8));
-      items[i].level0=1;items[i].duration0=one?8:4;
-      items[i].level1=0;items[i].duration1=one?4:8;
-    }
-    if(rmt_write_items(LED_RMT_CHANNEL,items,24,false)==ESP_OK){previous=color;written=true;}
+    if(rgbDriver.write(color)){previous=color;written=true;}
   }
 }
 void serviceHTTP(){esp_task_wdt_reset();tickLED();vTaskDelay(1);}
@@ -284,7 +300,7 @@ uint32_t lastClockMono=0,lastClockUTC=0;
 struct Checkpoint { uint32_t magic=0x46524432; Day day{}; uint16_t crc=0; };
 
 void setError(const char *s,const char *code) { strlcpy(state.error,s,sizeof(state.error));strlcpy(state.errorCode,code,sizeof(state.errorCode)); }
-bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
+bool readSnapshot(Snapshot &s) {if(xQueuePeek(snapshotQueue,&s,0)!=pdTRUE)return false;networkClockCopy.utc=s.utc;networkClockCopy.sampled=s.utcSampleMs;networkClockCopy.revision=s.clockRevision;networkClockCopy.valid=s.rtc;return true;}
 void syncNetworkCommandResult(){
   if(!networkAwaitingSave||!networkCommand)return;
   Snapshot snapshot{};if(!readSnapshot(snapshot)||int32_t(snapshot.completedCommand-networkCommand)<0)return;
@@ -610,6 +626,7 @@ void pollDebugEntry(){
 // Runs only at core-1 transaction boundaries, never from the UART service hook.
 // 202 acknowledges admission; each completion/rejection is visible in status.
 void completeCommand(const Command &cmd,const char *error=""){
+  if(cmd.type==SET_NETWORK&&cmd.caToken)xQueueReset(networkCAQueue);
   if(!cmd.id)return; // Physical buttons do not have an HTTP acknowledgement.
   state.completedCommand=cmd.id;
   if(*error){state.rejectedCommand=cmd.id;strlcpy(state.commandError,error,sizeof(state.commandError));}
@@ -687,10 +704,23 @@ void processCommands(){
         state.display=cmd.display;state.displayStored=true;state.displayStorageOK=true;break;
       }
       case SET_NETWORK:{
+        static NetworkCAInput caInput;memset(&caInput,0,sizeof(caInput));
+        if(cmd.caToken&&(xQueueReceive(networkCAQueue,&caInput,0)!=pdTRUE||caInput.token!=cmd.caToken)){error="enterprise_ca_queue_failed";break;}
         if(!validNetwork(cmd.network)){error="invalid_network";break;}
+        if(cmd.network.mode!=NETWORK_AP&&cmd.network.auth==NETWORK_PEAP){
+          bool ready=false;
+          if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))==pdTRUE){
+            if(cmd.caToken)ready=fsOK&&storeNetworkCA(LittleFS,caInput.pem,cmd.network.caHash);
+            else ready=fsOK;
+            if(ready)ready=loadNetworkCA(LittleFS,cmd.network.caHash,caInput.pem);
+            xSemaphoreGive(fsMutex);
+          }
+          memset(&caInput,0,sizeof(caInput));if(!ready){error="enterprise_ca_storage_failed";break;}
+        }
         if(!uxQueueSpacesAvailable(networkQueue)){error="network_queue_busy";break;}
         uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(cmd.network,bytes);
         if(!nvsOK||prefs.putBytes("wifi",bytes,sizeof(bytes))!=sizeof(bytes)){error="network_storage_failed";break;}
+        uint8_t verify[NETWORK_RECORD_SIZE];if(prefs.getBytesLength("wifi")!=sizeof(verify)||prefs.getBytes("wifi",verify,sizeof(verify))!=sizeof(verify)||memcmp(bytes,verify,sizeof(bytes))){error="network_storage_failed";break;}
         NetworkUpdate update;update.settings=cmd.network;update.stored=true;update.deferred=true;
         if(xQueueSend(networkQueue,&update,0)!=pdTRUE)error="network_queue_busy";
         break;
@@ -738,7 +768,7 @@ void acquisition(void *) {
   NetworkUpdate networkBoot;networkBoot.stored=nvsOK;
   if(nvsOK&&prefs.isKey("wifi")){
     uint8_t bytes[NETWORK_RECORD_SIZE]={};
-    size_t size=prefs.getBytesLength("wifi");networkBoot.stored=(size==104||size==sizeof(bytes))&&prefs.getBytes("wifi",bytes,size)==size&&decodeNetwork(bytes,size,networkBoot.settings);
+    size_t size=prefs.getBytesLength("wifi");networkBoot.stored=(size==104||size==108||size==sizeof(bytes))&&prefs.getBytes("wifi",bytes,size)==size&&decodeNetwork(bytes,size,networkBoot.settings);
   }
   xQueueSend(networkQueue,&networkBoot,pdMS_TO_TICKS(100));
   state.displayStorageOK=nvsOK;
@@ -894,13 +924,21 @@ void jsonReply(int code,const String &msg,const char *messageCode) {
 bool authorizePost() {
   if(server.arg("token")!=apiToken){jsonReply(403,"Session expired. Reload this page.","invalid_token");return false;}
   size_t argumentBytes=0;for(int i=0;i<server.args();++i)argumentBytes+=server.argName(i).length()+server.arg(i).length();
-  if(server.args()>12||argumentBytes>512||server.arg("plain").length()>512){jsonReply(413,"Request is too large","request_too_large");return false;}
+  size_t limit=server.uri()=="/api/network"?6144:512;
+  if(server.args()>(limit==6144?18:12)||argumentBytes>limit||server.arg("plain").length()>limit){jsonReply(413,"Request is too large","request_too_large");return false;}
   return true;
 }
 bool parseNumber(const String &s,uint32_t &value) {
   if(!s.length()||s.length()>10)return false;uint64_t v=0;
   for(size_t i=0;i<s.length();++i){if(s[i]<'0'||s[i]>'9')return false;v=v*10+s[i]-'0';if(v>UINT32_MAX)return false;}
   value=v;return true;
+}
+bool networkClock(uint32_t &utc,uint32_t *revision){uint32_t age=uint32_t(millis()-networkClockCopy.sampled);if(!networkClockCopy.valid||age>5000)return false;utc=networkClockCopy.utc+age/1000;if(revision)*revision=networkClockCopy.revision;return true;}
+void syncEnterpriseClock(){
+  if(activeNetwork.auth!=NETWORK_PEAP)return;
+  static uint32_t checked=0,anchored=0,lastRevision=UINT32_MAX;uint32_t now=millis();if(uint32_t(now-checked)<1000)return;checked=now;
+  uint32_t utc=0,revision=0;if(!networkClock(utc,&revision))return;
+  if(revision!=lastRevision||uint32_t(now-anchored)>=300000){timeval reference{};reference.tv_sec=utc;if(settimeofday(&reference,nullptr)==0){anchored=now;lastRevision=revision;}}
 }
 void enqueueCommand(const Command &input) {
   Snapshot s{};readSnapshot(s);
@@ -961,11 +999,15 @@ void webSetup() {
     const NetworkSettings &shownNetwork=networkPending?pendingNetwork:activeNetwork;
     JsonObject network=d["network"].to<JsonObject>();
     network["configuredAPIP"]=ipv4Address(shownNetwork.apIP).toString();network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
-    network["hasPassword"]=shownNetwork.password[0]!=0;network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
-    bool station=stationReady();network["connected"]=station;network["rssi"]=station?WiFi.RSSI():0;
+    network["auth"]=networkAuthName(shownNetwork.auth);network["hasPassword"]=shownNetwork.password[0]!=0;
+    network["hasCustomIdentity"]=shownNetwork.identity[0]!=0;network["hasEnterpriseCredentials"]=shownNetwork.identity[0]&&shownNetwork.username[0]&&shownNetwork.eapPassword[0];network["serverName"]=shownNetwork.serverName;
+    char fingerprint[65];formatCAHash(shownNetwork.caHash,fingerprint);network["caFingerprint"]=shownNetwork.auth==NETWORK_PEAP?fingerprint:"";
+    network["error"]=stationDriver.error;network["disconnectReason"]=stationDriver.disconnectReason;network["apiCode"]=stationDriver.apiCode;network["attempts"]=stationDriver.attempts;
+    network["enterpriseProvisioning"]=apOK&&server.client().localIP()==WiFi.softAPIP();network["flashEncrypted"]=esp_flash_encryption_enabled();network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
+    bool station=stationReady(),associated=WiFi.status()==WL_CONNECTED&&WiFi.SSID()==activeNetwork.ssid;network["associated"]=associated;network["connected"]=station;network["rssi"]=associated?WiFi.RSSI():0;
     network["clientIP"]=station?WiFi.localIP().toString():String();network["apIP"]=apOK?WiFi.softAPIP().toString():String();
     network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
-    network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":networkPolicy.fallback?"fallback":"connecting";
+    network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":associated?"addressing":networkPolicy.fallback?"fallback":"connecting";
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
@@ -1097,7 +1139,7 @@ void webSetup() {
   });
   server.on("/api/network/scan",HTTP_GET,[]{
     JsonDocument d;d["ageMs"]=wifiScan.finished?uint32_t(millis()-wifiScan.finished):0;d["generation"]=wifiScan.generation;d["attempts"]=wifiScan.attempts;d["error"]=wifiScan.error;d["driverCode"]=wifiScan.driverCode;d["elapsedMs"]=uint32_t((wifiScan.running?millis():wifiScan.finished)-wifiScan.started);d["phase"]=wifiScan.running?"scanning":wifiScan.failed?"failed":wifiScan.generation?"ready":"idle";
-    JsonArray rows=d["networks"].to<JsonArray>();for(uint8_t i=0;i<wifiScan.count;++i){const WiFiEntry &e=wifiScan.rows[i];JsonObject row=rows.add<JsonObject>();row["ssid"]=e.ssid;row["rssi"]=e.rssi;row["channel"]=e.channel;row["open"]=e.auth==WIFI_AUTH_OPEN;row["supported"]=supportedWiFiAuth(e.auth);}
+    JsonArray rows=d["networks"].to<JsonArray>();for(uint8_t i=0;i<wifiScan.count;++i){const WiFiEntry &e=wifiScan.rows[i];JsonObject row=rows.add<JsonObject>();row["ssid"]=e.ssid;row["rssi"]=e.rssi;row["channel"]=e.channel;row["open"]=e.auth==WIFI_AUTH_OPEN;row["supported"]=supportedWiFiAuth(e.auth);row["security"]=e.auth==WIFI_AUTH_WPA2_ENTERPRISE?"wpa2-enterprise":e.auth==WIFI_AUTH_OPEN?"open":e.auth==WIFI_AUTH_WPA_PSK?"wpa-personal":e.auth==WIFI_AUTH_WPA2_PSK?"wpa2-personal":e.auth==WIFI_AUTH_WPA_WPA2_PSK?"wpa-mixed":e.auth==WIFI_AUTH_WPA3_PSK?"wpa3-personal":e.auth==WIFI_AUTH_WPA2_WPA3_PSK?"wpa2-wpa3-personal":"unsupported";}
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/network/scan",HTTP_POST,[]{
@@ -1113,19 +1155,45 @@ void webSetup() {
     if(mode!="ap"&&mode!="client"&&mode!="dual"){jsonReply(400,"Choose an available Wi-Fi mode","invalid_network");return;}
     Command c{};c.type=SET_NETWORK;c.network=activeNetwork;
     String ap=server.arg("apIP");if(ap.length()&&(strlen(ap.c_str())!=ap.length()||!parseAPAddress(ap.c_str(),c.network.apIP))){jsonReply(400,"Choose a private IPv4 host address for the AP","invalid_ap_ip");return;}c.network.mode=mode=="ap"?NETWORK_AP:mode=="client"?NETWORK_CLIENT:NETWORK_DUAL;
+    static NetworkCAInput caStage;memset(&caStage,0,sizeof(caStage));
     if(c.network.mode!=NETWORK_AP){
-      if(ssid.length()>32||strlen(ssid.c_str())!=ssid.length()||password.length()>64||strlen(password.c_str())!=password.length()){
-        jsonReply(400,"SSID or password length is invalid","invalid_network");return;
+      if(ssid.length()>32||strlen(ssid.c_str())!=ssid.length()||password.length()>64||strlen(password.c_str())!=password.length()){jsonReply(400,"SSID or password length is invalid","invalid_network");return;}
+      String auth=server.arg("auth");if(!auth.length())auth=server.arg("open")=="1"?"open":"personal";
+      if(auth!="open"&&auth!="personal"&&auth!="peap"){jsonReply(400,"Choose a supported authentication mode","invalid_network");return;}
+      c.network.auth=auth=="peap"?NETWORK_PEAP:auth=="open"?NETWORK_OPEN:NETWORK_PERSONAL;strlcpy(c.network.ssid,ssid.c_str(),sizeof(c.network.ssid));
+      if(c.network.auth==NETWORK_PEAP){
+        if(!apOK||server.client().localIP()!=WiFi.softAPIP()){jsonReply(403,"Connect to the device recovery AP before provisioning Enterprise credentials","enterprise_ap_required");return;}
+        memset(c.network.password,0,sizeof(c.network.password));
+        if(server.arg("keepEnterprise")=="1"&&activeNetwork.auth==NETWORK_PEAP&&ssid==activeNetwork.ssid){}
+        else{
+          auto copyField=[](const String &value,char *target,size_t capacity){if(value.length()>=capacity||strlen(value.c_str())!=value.length())return false;strlcpy(target,value.c_str(),capacity);return true;};
+          if(!copyField(server.arg("username"),c.network.username,sizeof(c.network.username))||!copyField(server.arg("eapPassword"),c.network.eapPassword,sizeof(c.network.eapPassword))){jsonReply(400,"EAP identity, username or password exceeds 127 bytes","invalid_enterprise");return;}
+          if(server.arg("autoIdentity")=="1")memset(c.network.identity,0,sizeof(c.network.identity));
+          else if(server.arg("identity").length()){if(!copyField(server.arg("identity"),c.network.identity,sizeof(c.network.identity))){jsonReply(400,"EAP identity exceeds 127 bytes","invalid_enterprise");return;}}
+          else if(activeNetwork.auth!=NETWORK_PEAP||ssid!=activeNetwork.ssid)memset(c.network.identity,0,sizeof(c.network.identity));
+        }
+        String name=server.arg("serverName");if(name.length()>=sizeof(c.network.serverName)||strlen(name.c_str())!=name.length()){jsonReply(400,"Enter the RADIUS certificate name supplied by IT","invalid_enterprise");return;}strlcpy(c.network.serverName,name.c_str(),sizeof(c.network.serverName));
+        String ca=server.arg("ca");
+        if(ca.length()){
+          if(ca.length()>NETWORK_CA_MAX||strlen(ca.c_str())!=ca.length()||!validateEnterpriseCA(ca.c_str(),c.network.caHash)){jsonReply(400,"Upload a valid PEM CA certificate or chain up to 4096 bytes","invalid_enterprise_ca");return;}
+          ++networkCAToken;if(!networkCAToken)++networkCAToken;c.caToken=networkCAToken;caStage.token=c.caToken;memcpy(caStage.pem,ca.c_str(),ca.length()+1);
+        }else if(server.arg("keepCA")!="1"||activeNetwork.auth!=NETWORK_PEAP){jsonReply(400,"A trusted CA certificate supplied by IT is required","invalid_enterprise_ca");return;}
+      }else{
+        clearEnterprise(c.network);
+        if(c.network.auth==NETWORK_OPEN)memset(c.network.password,0,sizeof(c.network.password));
+        else if(server.arg("keep")=="1"&&activeNetwork.auth==NETWORK_PERSONAL&&ssid==activeNetwork.ssid&&activeNetwork.password[0]){}
+        else if(password.length())strlcpy(c.network.password,password.c_str(),sizeof(c.network.password));
+        else{jsonReply(400,"Enter a password or explicitly choose an open network","invalid_network");return;}
       }
-      strlcpy(c.network.ssid,ssid.c_str(),sizeof(c.network.ssid));
-      if(server.arg("open")=="1")c.network.password[0]=0;
-      else if(server.arg("keep")=="1"&&ssid==activeNetwork.ssid&&activeNetwork.password[0]){}
-      else if(password.length())strlcpy(c.network.password,password.c_str(),sizeof(c.network.password));
-      else{jsonReply(400,"Enter a password or explicitly choose an open network","invalid_network");return;}
     }
-    if(!validNetwork(c.network)){jsonReply(400,"SSID or WPA password is invalid","invalid_network");return;}
+    if(c.network.mode!=NETWORK_AP&&c.network.auth==NETWORK_PEAP&&server.arg("keepEnterprise")=="1"&&
+       !canReuseEnterprise(activeNetwork,c.network)){jsonReply(400,"Re-enter credentials when changing the trusted server or CA","enterprise_reenter_credentials");return;}
+    if(!validNetwork(c.network)){jsonReply(400,"Check the selected network authentication fields","invalid_network");return;}
+    if(c.caToken&&xQueueSend(networkCAQueue,&caStage,0)!=pdTRUE){memset(&caStage,0,sizeof(caStage));jsonReply(409,"Certificate provisioning is still pending","network_pending");return;}
+    memset(&caStage,0,sizeof(caStage));
     uint32_t previous=acceptedCommand;enqueueCommand(c);
     if(acceptedCommand!=previous){networkAwaitingSave=true;networkCommand=acceptedCommand;}
+    else if(c.caToken){xQueueReceive(networkCAQueue,&caStage,0);memset(&caStage,0,sizeof(caStage));}
   });
   server.on("/api/config",HTTP_POST,[]{
     if(!authorizePost())return;Snapshot s{};readSnapshot(s);
@@ -1236,9 +1304,10 @@ void handleNetworkMenu(uint8_t button,uint8_t event,const Snapshot &snapshot){
   if(action==OledNetworkMenu::SELECT_SSID){
     const auto &entry=wifiScan.rows[networkMenu.selected];
     if(!supportedWiFiAuth(entry.auth)){networkNotice("Security unsupported");return;}
-    oledNetworkDraft=activeNetwork;if(oledNetworkDraft.mode==NETWORK_AP)oledNetworkDraft.mode=NETWORK_CLIENT;
+    if(entry.auth==WIFI_AUTH_WPA2_ENTERPRISE){networkNotice("802.1X: setup via web");return;}
+    oledNetworkDraft=activeNetwork;clearEnterprise(oledNetworkDraft);oledNetworkDraft.auth=entry.auth==WIFI_AUTH_OPEN?NETWORK_OPEN:NETWORK_PERSONAL;if(oledNetworkDraft.mode==NETWORK_AP)oledNetworkDraft.mode=NETWORK_CLIENT;
     bool reuse=!strcmp(entry.ssid,activeNetwork.ssid)&&activeNetwork.password[0];strlcpy(oledNetworkDraft.ssid,entry.ssid,sizeof(oledNetworkDraft.ssid));
-    if(entry.auth==WIFI_AUTH_OPEN){oledNetworkDraft.password[0]=0;saveOLEDNetwork(oledNetworkDraft,snapshot);}
+    if(entry.auth==WIFI_AUTH_OPEN){memset(oledNetworkDraft.password,0,sizeof(oledNetworkDraft.password));saveOLEDNetwork(oledNetworkDraft,snapshot);}
     else if(reuse)saveOLEDNetwork(oledNetworkDraft,snapshot);
     else networkMenu.enterKey();
   }
@@ -1248,7 +1317,7 @@ void drawNetworkMenu(){
   using Menu=OledNetworkMenu;oled.setTextSize(1);oled.setCursor(0,0);oled.println("NETWORK OPTIONS");oled.drawLine(0,11,127,11,SSD1306_WHITE);oled.setCursor(0,16);
   if(networkMenu.screen==Menu::MAIN){const char *items[]={"Wi-Fi mode","Scan / select SSID","AP IPv4 address","AP password","Back"};for(unsigned i=0;i<3;++i){unsigned n=(networkMenu.selected+i)%5;oled.print(i?"  ":"> ");oled.println(items[n]);}}
   else if(networkMenu.screen==Menu::MODE){const char *items[]={"AP only","Client + AP recovery","AP + client"};for(unsigned i=0;i<3;++i){oled.print(networkMenu.selected==i?"> ":"  ");oled.println(items[i]);}}
-  else if(networkMenu.screen==Menu::NETWORKS){if(wifiScan.running)oled.println("Scanning Wi-Fi...");else if(!wifiScan.count)oled.println("No networks. Retry");else{const auto &e=wifiScan.rows[networkMenu.selected%wifiScan.count];oled.printf("%u/%u %ld dBm\n",networkMenu.selected+1,wifiScan.count,(long)e.rssi);oled.println(String(e.ssid).substring(0,21));oled.println(e.auth==WIFI_AUTH_OPEN?"Open network":"Secured: key needed");}}
+  else if(networkMenu.screen==Menu::NETWORKS){if(wifiScan.running)oled.println("Scanning Wi-Fi...");else if(!wifiScan.count)oled.println("No networks. Retry");else{const auto &e=wifiScan.rows[networkMenu.selected%wifiScan.count];oled.printf("%u/%u %ld dBm\n",networkMenu.selected+1,wifiScan.count,(long)e.rssi);oled.println(String(e.ssid).substring(0,21));oled.println(e.auth==WIFI_AUTH_WPA2_ENTERPRISE?"802.1X: setup via web":e.auth==WIFI_AUTH_OPEN?"Open network":"Secured: key needed");}}
   else if(networkMenu.screen==Menu::KEY){oled.printf("Key: %u/63 characters\n",networkMenu.length);for(unsigned i=0;i<networkMenu.length&&i<19;++i)oled.print('*');oled.println();oled.printf("Choose: [%c]\n",networkMenu.letter);oled.println("OK:add Hold:tools");}
   else if(networkMenu.screen==Menu::KEY_TOOLS){const char *items[]={"Save and connect","Delete last","Clear password","Cancel"};oled.println(items[networkMenu.selected]);oled.println("PREV/NEXT to choose");}
   else if(networkMenu.screen==Menu::IP){oled.println(ipv4Address(networkMenu.address()).toString());oled.printf("Edit octet %u / 4\n",networkMenu.octet+1);oled.println("OK:next Hold:save");}
@@ -1325,10 +1394,10 @@ void setup() {
   if(oledOK)oled.setRotation(OLED_ROTATE_180?2:0);
   uint32_t artworkStarted=showBootArtwork();
   i2cMutex=xSemaphoreCreateMutex();fsMutex=xSemaphoreCreateMutex();
-  snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));networkQueue=xQueueCreate(1,sizeof(NetworkUpdate));
+  snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));networkQueue=xQueueCreate(1,sizeof(NetworkUpdate));networkCAQueue=xQueueCreate(1,sizeof(NetworkCAInput));networkEventQueue=xQueueCreate(4,sizeof(NetworkEvent));
   diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(DiagnosticStop));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));meterLabQueue=xQueueCreate(1,sizeof(MeterLabSnapshot));
   state.flow.boot=esp_random();
-  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue||!meterLabQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
+  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!networkCAQueue||!networkEventQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue||!meterLabQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
   initLED();holdBootArtwork(artworkStarted);bootAnimation();
   // Never format existing data automatically. First installation: hold OK at boot.
   fsOK=LittleFS.begin(false);
@@ -1339,11 +1408,12 @@ void setup() {
   }
   wifiScanDoneQueue=xQueueCreate(1,sizeof(WiFiScanDone));
   if(!wifiScanDoneQueue){Serial.println("FATAL: cannot allocate Wi-Fi scan mailbox");delay(1000);ESP.restart();}
+  WiFi.onEvent([](WiFiEvent_t,WiFiEventInfo_t info){NetworkEvent event;event.reason=info.wifi_sta_disconnected.reason;xQueueSend(networkEventQueue,&event,0);},ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.onEvent([](WiFiEvent_t,WiFiEventInfo_t info){WiFiScanDone result;result.status=info.wifi_scan_done.status;result.atMs=millis();xQueueOverwrite(wifiScanDoneQueue,&result);},ARDUINO_EVENT_WIFI_SCAN_DONE);
   WiFi.persistent(false);applyNetwork(NetworkSettings{});
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
-  initProcessMonitor();webSetup();esp_task_wdt_init(8,true);esp_task_wdt_add(nullptr);
+  initProcessMonitor();webSetup();esp_task_wdt_config_t wdt{};wdt.timeout_ms=8000;wdt.idle_core_mask=3;wdt.trigger_panic=true;if(esp_task_wdt_status(nullptr)==ESP_ERR_INVALID_STATE)esp_task_wdt_init(&wdt);else esp_task_wdt_reconfigure(&wdt);esp_task_wdt_add(nullptr);
   if(xTaskCreatePinnedToCore(acquisition,"fort-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
   Serial.printf("Midea Energy Station ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }

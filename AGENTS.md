@@ -32,12 +32,13 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `firmware/include/process_monitor.h`: bounded IRAM tick sampling. Do not present tick samples as exact instruction-time CPU accounting.
 - `firmware/include/trace.h`: fixed-size passive UART capture and diagnostic classification. Never bypass CRC/frame validation or silently strip echo bytes in the main firmware.
 - `examples/FortSerialDebug/`: standalone Arduino diagnostic. Keep it read-only and use the same FortMeter source library as production. Runtime options and the eight cases/*.txt recipes must match both language guides and the actual-INO host tests. Do not collapse transport detection into energy-profile acceptance.
-- `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding.
+- `firmware/include/led.h`: RGB modes, brightness, rollover-safe animation and versioned CRC-protected NVS encoding. `rgb_driver.h` and `rgb_driver.cpp` own the IDF 5 asynchronous RMT adapter. Initialize it first on core 0, retain its persistent symbol buffer until completion, and never link the legacy RMT driver.
 - `firmware/include/screen_saver.h`, `firmware/assets/oled/` and `tools/build-oled.py`: first-frame boot artwork, idle policy, consumed wake press, versioned display preferences and lossless RLE frame generation. Keep the boot XBM in LSB-first format and its 3-second hold before the loading animation. Preserve artwork attribution and keep the original reference outside deployable source.
 - `firmware/include/oled_menu.h`: button-driven Wi-Fi modes, scan selection, masked password editor and custom AP IPv4 editor. Keep menu policy host-testable and writes queued through core 1.
 - `web/components/EnergyCounter.jsx`: animate only accepted numeric kWh readings with three locale-aware decimals. Preserve the missing-value placeholder and reduced motion, and keep measured values separate from rolling numeral positions.
 - `web/components/DeviceClock.jsx`: monotonic presentation from a device UTC reference, re-anchored every five minutes or on a clock revision. Never synchronize RTC automatically from browser polling.
-- `firmware/include/network.h` and `web/components/NetworkControls.jsx`: AP/client/dual configuration, versioned CRC record, retry/grace timing and local-address display. Wi-Fi driver calls belong to core 0 and credential Preferences to core 1. Never return stored client passwords through HTTP status.
+- `firmware/include/enterprise_wifi.h` and `firmware/src/enterprise_wifi.cpp`: PEAP-only authentication, pinned ESP-IDF 5.5.5 MSCHAPv2 defaults, CA-chain/time validation and an optional explicit server-name constraint and immutable CA storage. Never disable validation or fall back to another authentication method. Keep the custom SDK date/key-usage checks and compile guards enabled. The verified Windows SDK bootstrap cache avoids ESP-IDF whitespace limits without moving production source files. Provision Enterprise credentials only through the protected AP interface, and do not claim that stock NVS storage is encrypted.
+- `firmware/include/network_settings.h` and `web/components/NetworkControls.jsx`: AP/client/dual configuration, versioned CRC record, retry/grace timing and local-address display. Wi-Fi driver calls belong to core 0 and credential Preferences to core 1. Never return stored client passwords through HTTP status.
 - `firmware/include/clock_guard.h`, `command_policy.h`, `bounded_write.h`: retained-day/queued-time protection, execution-mode arbitration and bounded HTTP writes.
 - `firmware/src/main.cpp`: hardware drivers, RTOS ownership, persistence and HTTP API.
 - `docs/DESIGN.md`: manual page references and documented limitations.
@@ -88,6 +89,7 @@ Run checks appropriate to the change. Do not broaden/repeat them after they pass
 - Documentation, assets, versions and relative links: `python tools/check_docs.py`.
 - Firmware: from `firmware`, `pio run`. Use the installed PlatformIO Python module if `pio` is absent from PATH.
 - Standalone sketch: `pio run -d examples/FortSerialDebug` (same ESP32-S3 N16R8 target and local FortMeter library).
+- Enterprise browser checks: `node tools/preview-test.cjs [playwright-module-path] [browser-channel] --enterprise-only`.
 - Discovery browser checks: `node tools/preview-test.cjs [playwright-module-path] [browser-channel] --meter-lab-only`.
 - Browser/UI and SVG visual checks: `node tools/preview-test.cjs [playwright-module-path] [browser-channel]`. The script uses a localhost mock, not real hardware.
 

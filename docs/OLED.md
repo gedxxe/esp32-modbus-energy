@@ -24,7 +24,7 @@ Select **Wi-Fi mode** and choose AP only, Client + AP recovery, or AP + client w
 
 ## Scan and connect without a keyboard
 
-Select **Scan / select SSID** and wait for the radio scan to finish. PREV/NEXT selects one of the retained visible networks, with its signal level and security shown, then OK chooses it. An open network can connect directly. A secured SSID that matches the saved connection reuses its existing key, while a new secured network opens the password editor. Enterprise identity/certificate authentication is not implemented.
+Select **Scan / select SSID** and wait for the radio scan to finish. PREV/NEXT selects one of the retained visible networks, with its signal level and security shown, then OK chooses it. An open network can connect directly. A secured SSID that matches the saved connection reuses its existing key, while a new secured network opens the password editor. Enterprise networks display a concrete instruction to configure PEAP through the website, where the certificate and expected server name can be supplied. The buttons can still switch Wi-Fi mode or the AP address after that profile is saved. See [Enterprise Wi-Fi](ENTERPRISE_WIFI.md).
 
 In the editor, PREV/NEXT cycles printable ASCII characters and short OK appends the selected character. Hold PREV or NEXT to repeat more quickly after 450 ms. The existing password remains masked, and input is limited to 63 characters. Hold OK to open password tools, then choose Save and connect, Delete last, Clear password or Cancel. Save requires a valid 8–63-character key. The web also accepts a 64-digit hexadecimal WPA key for installations that use one.
 

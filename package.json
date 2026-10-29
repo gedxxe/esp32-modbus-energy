@@ -10,7 +10,7 @@
     "check:web": "node tools/build-web.cjs --check",
     "test:meter-lab": "node tools/preview-test.cjs playwright chromium --meter-lab-only",
     "test:enterprise": "node tools/preview-test.cjs playwright chromium --enterprise-only",
-    "test:habuer": "node tools/preview-test.cjs node_modules/playwright --habuer-only"
+    "test:habuer": "node tools/preview-test.cjs playwright chromium --habuer-only"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

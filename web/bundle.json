@@ -41,7 +41,7 @@
   },
   "inputs": {
     "package-lock.json": "af9407ad3da4f3908c5b78f3ed68881df4101443e3974e6972192c7585e791e3",
-    "package.json": "152fbf6e7c6f9aa9dd9c68ee7f893bff56ac4e3d3fe2d3151d2faa8b29dc97c5",
+    "package.json": "5f698175a3f56cafbca7a747381680fca9abde9664075fc4022d52e4afd243f7",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",

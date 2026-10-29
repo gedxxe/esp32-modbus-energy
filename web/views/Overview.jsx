@@ -1,4 +1,5 @@
-import { meterProfile, addressHex } from "../meter-profile.js";
+import MeterMeasurements from "../components/MeterMeasurements.jsx";
+import { meterProfile, directEnergy } from "../meter-profile.js";
 import CheckpointRecords from "../components/CheckpointRecords.jsx";
 import EnergyCounter from "../components/EnergyCounter.jsx";
 import DeviceClock from "../components/DeviceClock.jsx";
@@ -160,10 +161,10 @@ export default function Overview({ device }) {
         <div className="secondary-readings">
           <div>
             <div className="secondary-label">
-              {t("power")}
+              {t(profile.power?"power":"power_factor")}
               <div className="secondary-number">
-                <span id="power">{live ? number(s?.power, 2) : "—"}</span>
-                <small>kW</small>
+                <span id={profile.power?"power":"power-factor"}>{live ? number(profile.power?s?.power:s?.powerFactor, profile.power?2:3) : "—"}</span>
+                <small>{profile.power?"kW":"cos φ"}</small>
               </div>
             </div>
             <Icon name="overview" size={21} />
@@ -182,14 +183,7 @@ export default function Overview({ device }) {
         </div>
       </div>
       <CheckpointRecords device={device} />
-      <section className="panel register-summary" aria-labelledby="register-title">
-        <div><h2 id="register-title">{t("register_title")}</h2><p>{t("register_intro")}</p></div>
-        <dl className="register-values">
-          {[["current_a", "currentA", "A"], ["voltage_a", "voltageA", "V"], ["frequency", "frequency", "Hz"], ["secondary_energy", "secondaryEnergy", "kWh"]].map(([label, key, unit, address]) => (
-            <div key={key}><dt>{t(label)} <code>0x{addressHex(profile[key].address)}</code></dt><dd id={`value-${key}`}>{live ? number(s?.[key], key === "frequency" ? 2 : 3) : "—"} <small>{unit}</small>{key === "secondaryEnergy" && s?.secondaryAge != null && <div className="small muted">{t("sample", { seconds: s.secondaryAge })}</div>}</dd></div>
-          ))}
-        </dl><p className="small muted">{t("register_note")}</p>
-      </section>
+      <MeterMeasurements profile={profile} status={s} live={live}/>
       <details id="legacy-intervals" className="legacy-intervals"><summary>{t("cp_legacy")}</summary>
       <section aria-labelledby="interval-title">
         <div className="section-heading">
@@ -262,8 +256,8 @@ export default function Overview({ device }) {
           </b>
         </span>
         <span>
-          {t("ratio")}
-          <b>{s?.ratios ? number(s.ratio, 0) : "—"}</b>
+          {t(directEnergy(profile)?"energy_conversion":"ratio")}
+          <b>{directEnergy(profile)?t("no_extra_ratio"):s?.ratios ? number(s.ratio, 0) : "—"}</b>
         </span>
         <span className="mono">
           ID {s?.slave || "—"} / {s?.baud || "—"} / 8{s?.parity || "N"}1

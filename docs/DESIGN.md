@@ -4,9 +4,9 @@
 
 The shared discovery controller, named flash registry, immutable checkpoint source IDs and refactored settings codec are described in [Meter discovery](METER_DISCOVERY.md). The scanner remains FC03-only and does not infer a manufacturer from raw values.
 
-Meter-specific Fort examples below remain valid for Fort. For Acrel, select the saved model first and use [Meter profiles](METER_PROFILES.md) for its register map, terminals, conversion and diagnostic workflow.
+Meter-specific Fort examples below remain valid for Fort. For Acrel or Habuer, select the saved model first and use [Meter profiles](METER_PROFILES.md) and the [Habuer reference](HABUER.md) for their maps, conversion and diagnostic workflow.
 
-Version 3.0.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
+Version 3.1.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
 
 ## Fort register reference
 
@@ -52,19 +52,23 @@ I2C is protected by a mutex, with RTC operations bounded by driver timeouts and 
 
 ## Acquisition and scheduling
 
-A failed contact attempt reads only the manual handshake register and backs off for three seconds, avoiding a burst through the entire profile when the link is unavailable. Once contact succeeds, normal polling targets a two-second period, ratios refresh on their existing retry/backoff schedule, and electrical comparison values refresh approximately every ten seconds. Each transaction has its own bound, so target periods can lengthen under timeouts. These are cooperative periods, not hard real-time deadlines.
+A failed contact attempt reads only the selected profile's probe and backs off for three seconds, avoiding a burst through the entire profile when the link is unavailable. Once contact succeeds, normal polling targets a two-second period, ratios refresh on their existing retry/backoff schedule, and electrical comparison values refresh approximately every ten seconds. Each transaction has its own bound, so target periods can lengthen under timeouts. These are cooperative periods, not hard real-time deadlines.
 
-The secondary energy read is independent of ratio validation. Its raw kWh remains visible when CT/PT is unavailable, but the primary counter and Tracker receive no fabricated or unscaled substitute. The energy timestamp is bracketed by RTC reads, and slow or inconsistent brackets interrupt continuity instead of producing a complete interval.
+Fort and Acrel secondary energy reads are independent of ratio validation. Its raw kWh remains visible when CT/PT is unavailable, but the primary counter and Tracker receive no fabricated or unscaled substitute. The energy timestamp is bracketed by RTC reads, and slow or inconsistent brackets interrupt continuity instead of producing a complete interval.
+
+The allocation-free `MeterReadings.h` policy separates wire transactions from typed snapshot acceptance. Required fields come from `MeterProfiles.h`, and production and diagnostics share the same policy. Habuer requires four independent requests at 0x0030, 0x0032, 0x0034 and 0x0035. The last two starting addresses overlap by design in the supplied reference, so a bulk-read optimization would change the proven transactions. A candidate replaces the accepted snapshot only after all required transport and value checks pass. Habuer active energy is the UInt32 total multiplied by 0.1, with no extra CT/PT read or multiplication. Optional current, voltage and power descriptors are absent instead of pointing to guessed registers.
+
+The RTC pair surrounds the actual energy request, rather than the whole four-query group. A 2.5-second group budget and the checkpoint admission rules reject slow candidates for recording. Snapshot failure interrupts continuity, while the last accepted readings retain their age. Reactive kvarh remains live telemetry and does not change the active-kWh checkpoint schema.
 
 ## RTC, counter conversion and continuity
 
-The DS3231 stores UTC. WIB is applied only for display, day selection and the nine scheduled windows. The production counter is `uint32_secondary × 0.001 × PT_num / PT_den × CT`, evaluated in double precision with validated nonzero ratios. Changes to ratios, raw-counter decreases, excessive increases, invalid RTC, reboot and sample gaps beyond 15 seconds all break continuity. Completed intervals survive that interruption. Interpolation is limited to accepted neighboring samples inside the gap limit.
+The DS3231 stores UTC. WIB is applied only for display, day selection and the nine scheduled windows. The Fort production counter is `uint32_secondary × 0.001 × PT_num / PT_den × CT`, evaluated in double precision with validated nonzero ratios. Changes to ratios, raw-counter decreases, excessive increases, invalid RTC, reboot and sample gaps beyond 15 seconds all break continuity. Completed intervals survive that interruption. Interpolation is limited to accepted neighboring samples inside the gap limit.
 
 `clock_guard.h` validates calendar bounds and protects the retained day even when RTC health is false. A queued phone timestamp is compensated for whole seconds spent waiting, bounded to ten seconds, then checked again before writing. Automatic rollover also refuses a day earlier than the retained records. The OLED rotation flag applies before any boot/recovery drawing and does not affect timekeeping.
 
 ## Scan controller
 
-Discovery enumerates the saved ID/format first, then the selected current-format or 18-format range without duplicate candidates. Its default probe is 0x0058/two words. A valid data response or CRC-checked exception is repeated once. Only a second valid contact promotes a candidate. The scan result remains distinct from profile compatibility, because an exception can prove protocol contact without proving the requested register is readable.
+Discovery enumerates the saved ID/format first, then the selected current-format or 18-format range without duplicate candidates. Its probe comes from the profile descriptor, with 0x0058/two words for Fort, 0x0064/one word for Acrel and 0x0030/two words for Habuer. A valid data response or CRC-checked exception is repeated once. Only a second valid contact promotes a candidate. The scan result remains distinct from profile compatibility, because an exception can prove protocol contact without proving the requested register is readable.
 
 Direction is retained from the selected connection throughout the search. Settings are not reconfigured on the meter and no broadcast/write functions are called. At the default timeout, a fully silent 4,446-candidate matrix takes about three hours. Failed probes are not misreported as proof of a defective module. Cancellation is serviced during a request and the saved production connection is restored afterward.
 

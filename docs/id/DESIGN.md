@@ -4,9 +4,9 @@
 
 Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta codec setting yang dipisahkan dijelaskan pada [Pencarian meter](METER_DISCOVERY.md). Scanner tetap hanya memakai FC03 dan tidak menebak produsen dari nilai mentah.
 
-Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
+Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel atau Habuer, simpan model terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) serta [referensi Habuer](HABUER.md) untuk register, konversi dan alur diagnostiknya.
 
-Versi 3.0.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 3.1.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 
@@ -46,15 +46,19 @@ Stop/Resume memakai mailbox dan generasi pembatalan tersendiri. Hanya core 1 yan
 
 ## Alur akuisisi dan kualitas interval
 
-Ketika kontak gagal, firmware hanya mencoba handshake manual lalu menunggu tiga detik sebelum mengulang, sehingga tidak langsung menyapu seluruh profil. Kontak yang berhasil membuka polling bertarget dua detik, pembacaan rasio dengan retry/backoff dan nilai pembanding sekitar setiap sepuluh detik. Timeout dapat memperpanjang periode aktual karena target tersebut bersifat kooperatif.
+Ketika kontak gagal, firmware hanya mencoba probe model tersimpan lalu menunggu tiga detik sebelum mengulang, sehingga tidak langsung menyapu seluruh profil. Kontak yang berhasil membuka polling bertarget dua detik, pembacaan rasio dengan retry/backoff dan nilai pembanding sekitar setiap sepuluh detik. Timeout dapat memperpanjang periode aktual karena target tersebut bersifat kooperatif.
 
-Counter sekunder tetap dibaca ketika rasio invalid, tetapi counter utama dan tracker tidak menerima pengganti tanpa skala. Energi produksi dihitung dengan `uint32 × 0,001 × PT_num / PT_den × CT` dalam double. UTC disimpan pada DS3231, sedangkan WIB diterapkan untuk tampilan, hari serta sembilan interval. Reboot, RTC invalid, counter turun, perubahan rasio dan gap lebih dari 15 detik memutus kontinuitas. Hanya sampel sah yang boleh diinterpolasi dan interval lengkap tetap tersimpan.
+Pada Fort dan Acrel, counter sekunder tetap dibaca ketika rasio invalid, tetapi counter utama dan tracker tidak menerima pengganti tanpa skala. Energi produksi Fort dihitung dengan `uint32 × 0,001 × PT_num / PT_den × CT` dalam double. UTC disimpan pada DS3231, sedangkan WIB diterapkan untuk tampilan, hari serta sembilan interval. Reboot, RTC invalid, counter turun, perubahan rasio dan gap lebih dari 15 detik memutus kontinuitas. Hanya sampel sah yang boleh diinterpolasi dan interval lengkap tetap tersimpan.
 
 `clock_guard.h` melindungi hari rekaman terlepas dari kesehatan RTC. Timestamp HP antre dikompensasi dalam detik penuh, dibatasi umur sepuluh detik dan diperiksa lagi sebelum ditulis. Rollover otomatis menolak tanggal sebelum hari yang dipertahankan. Rotasi OLED diterapkan sebelum gambar boot dan tidak memengaruhi perhitungan waktu.
 
+Policy `MeterReadings.h` tanpa alokasi dinamis memisahkan transaksi dari penerimaan snapshot bertipe. Parameter wajib berasal dari `MeterProfiles.h`, dengan policy yang sama pada produksi dan diagnostik. Habuer memerlukan empat request terpisah pada 0x0030, 0x0032, 0x0034 dan 0x0035. Dua alamat terakhir bertumpang tindih pada referensi yang berhasil, sehingga tidak digabung menjadi bulk read. Snapshot baru menggantikan data sebelumnya hanya setelah semua pemeriksaan transport dan nilai lolos. Total aktif Habuer adalah UInt32 dikali 0,1 tanpa pembacaan atau pengali CT/PT tambahan. Current, voltage dan power yang belum memiliki register terverifikasi tidak ditanyakan.
+
+Pasangan timestamp RTC membatasi request energi yang sebenarnya, bukan seluruh grup. Budget grup 2,5 detik dan aturan admission checkpoint menolak kandidat lambat untuk pencatatan. Snapshot gagal memutus kontinuitas, sementara nilai terakhir yang diterima tetap memiliki umur sampel. Kvarh reaktif tersedia langsung tanpa mengubah schema checkpoint kWh aktif.
+
 ## Discovery dan penyimpanan
 
-Enumerator menguji ID/format tersimpan lebih dahulu tanpa duplikasi, dengan pilihan current atau 18 kombinasi. Probe default 0x0058/dua word diulang setelah kontak sah. Data atau exception ber-CRC sah pada transaksi kedua diperlukan sebelum menjadi hasil. Exception membuktikan komunikasi, bukan ketersediaan register ataupun kebenaran skala. Direction mengikuti setting koneksi dan tidak ada broadcast atau write register meter.
+Enumerator menguji ID/format tersimpan lebih dahulu tanpa duplikasi, dengan pilihan current atau 18 kombinasi. Probe berasal dari descriptor model: Fort 0x0058/dua word, Acrel 0x0064/satu word atau Habuer 0x0030/dua word, lalu diulang setelah kontak sah. Data atau exception ber-CRC sah pada transaksi kedua diperlukan sebelum menjadi hasil. Exception membuktikan komunikasi, bukan ketersediaan register ataupun kebenaran skala. Direction mengikuti setting koneksi dan tidak ada broadcast atau write register meter.
 
 Record koneksi v2 memakai magic baru dengan layout tetap 12 byte. Byte padding sebelumnya menampung direction serta reserved. Record v1 ber-CRC sah mempertahankan ID/baud/parity dan dimigrasikan ke default manual yang telah dikonfirmasi, tanpa mengubah record hari atau LED. Kegagalan menyimpan migrasi dilaporkan sebagai masalah storage.
 

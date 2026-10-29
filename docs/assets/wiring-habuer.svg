@@ -1,0 +1,188 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1320" viewBox="0 0 1800 1320" role="img" aria-labelledby="title desc"><title id="title">ESP32-S3, OLED, RTC, RS485, Habuer, buttons and optional buzzer wiring</title><desc id="desc">Midea Habuer schematic. Labels and colors identify connections. Screen values are simulated.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Installed wiring · manual RS485 direction</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">GPIO17 to DI, GPIO18 from RO, GPIO16 to tied DE and /RE. All low-voltage grounds share one net.</text>
+<rect x="650" y="180" width="350" height="780" rx="16" fill="#e5f1ef" stroke="#087e82"/>
+<text x="825" y="225" fill="#183438" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">ESP32-S3</text>
+<text x="825" y="258" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="middle">N16R8 · DevKitC style</text>
+<rect x="715" y="120" width="220" height="45" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="825" y="149" fill="#183438" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">USB-C / board supply</text>
+<polyline points="825,165 825,180" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="825" y="590" fill="#087e82" font-family="Arial, sans-serif" font-size="20" font-weight="600" text-anchor="middle">UART1 + I2C</text>
+<text x="825" y="625" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Core 0: web / UI</text>
+<text x="825" y="653" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Core 1: acquisition</text>
+<text x="825" y="705" fill="#b5534a" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">3V3 from board regulator</text>
+<circle cx="650" cy="300" r="5" fill="#b5534a"/>
+<text x="664" y="306" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">3V3</text>
+<circle cx="650" cy="340" r="5" fill="#5d6f76"/>
+<text x="664" y="346" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GND</text>
+<circle cx="650" cy="380" r="5" fill="#087e82"/>
+<text x="664" y="386" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GPIO8 / SDA</text>
+<circle cx="650" cy="420" r="5" fill="#28755e"/>
+<text x="664" y="426" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GPIO9 / SCL</text>
+<circle cx="650" cy="800" r="5" fill="#6d5897"/>
+<text x="664" y="806" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GPIO4 / PREV</text>
+<circle cx="650" cy="840" r="5" fill="#6d5897"/>
+<text x="664" y="846" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GPIO5 / NEXT</text>
+<circle cx="650" cy="880" r="5" fill="#6d5897"/>
+<text x="664" y="886" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GPIO6 / OK</text>
+<circle cx="1000" cy="300" r="5" fill="#b5534a"/>
+<text x="986" y="306" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">3V3</text>
+<circle cx="1000" cy="340" r="5" fill="#5d6f76"/>
+<text x="986" y="346" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GND</text>
+<circle cx="1000" cy="390" r="5" fill="#087e82"/>
+<text x="986" y="396" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO18 / RX</text>
+<circle cx="1000" cy="430" r="5" fill="#28755e"/>
+<text x="986" y="436" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO17 / TX</text>
+<circle cx="1000" cy="490" r="5" fill="#6d5897"/>
+<text x="986" y="496" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO16 / DIR</text>
+<circle cx="1000" cy="800" r="5" fill="#906121"/>
+<text x="986" y="806" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO7 / BUZZ</text>
+<rect x="60" y="240" width="330" height="235" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="85" y="277" fill="#183438" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="start">OLED SSD1306</text>
+<text x="85" y="305" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">I2C · 128 × 64 · 0x3C</text>
+<circle cx="390" cy="300" r="5" fill="#b5534a"/>
+<text x="376" y="306" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">VCC</text>
+<circle cx="390" cy="340" r="5" fill="#5d6f76"/>
+<text x="376" y="346" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GND</text>
+<circle cx="390" cy="380" r="5" fill="#087e82"/>
+<text x="376" y="386" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">SDA</text>
+<circle cx="390" cy="420" r="5" fill="#28755e"/>
+<text x="376" y="426" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">SCL</text>
+<rect x="60" y="530" width="330" height="235" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="85" y="567" fill="#183438" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="start">RTC DS3231</text>
+<text x="85" y="595" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">I2C · 0x68 · battery backup</text>
+<circle cx="390" cy="590" r="5" fill="#b5534a"/>
+<text x="376" y="596" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">VCC</text>
+<circle cx="390" cy="630" r="5" fill="#5d6f76"/>
+<text x="376" y="636" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GND</text>
+<circle cx="390" cy="670" r="5" fill="#087e82"/>
+<text x="376" y="676" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">SDA</text>
+<circle cx="390" cy="710" r="5" fill="#28755e"/>
+<text x="376" y="716" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">SCL</text>
+<polyline points="390,300 650,300" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="390,340 650,340" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="390,380 650,380" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="390,420 650,420" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="390,590 450,590 450,300 650,300" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="450" cy="300" r="4" fill="#b5534a"/>
+<polyline points="390,630 480,630 480,340 650,340" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="480" cy="340" r="4" fill="#5d6f76"/>
+<polyline points="390,670 520,670 520,380 650,380" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="520" cy="380" r="4" fill="#087e82"/>
+<polyline points="390,710 560,710 560,420 650,420" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="560" cy="420" r="4" fill="#28755e"/>
+<text x="60" y="805" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">OLED and RTC share the SDA and SCL nets.</text>
+<rect x="1190" y="240" width="260" height="330" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1210" y="278" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">RS485 · 3V3</text>
+<circle cx="1190" cy="300" r="5" fill="#b5534a"/>
+<text x="1204" y="306" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">VCC</text>
+<circle cx="1190" cy="340" r="5" fill="#5d6f76"/>
+<text x="1204" y="346" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GND</text>
+<circle cx="1190" cy="390" r="5" fill="#087e82"/>
+<text x="1204" y="396" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">RO → RX</text>
+<circle cx="1190" cy="430" r="5" fill="#28755e"/>
+<text x="1204" y="436" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">DI ← TX</text>
+<circle cx="1190" cy="480" r="5" fill="#6d5897"/>
+<text x="1204" y="486" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">DE</text>
+<circle cx="1190" cy="520" r="5" fill="#6d5897"/>
+<text x="1204" y="526" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">/RE</text>
+<circle cx="1450" cy="340" r="5" fill="#906121"/>
+<text x="1436" y="346" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">A</text>
+<circle cx="1450" cy="390" r="5" fill="#28755e"/>
+<text x="1436" y="396" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">B</text>
+<polyline points="1000,300 1190,300" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1000,340 1190,340" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1000,390 1190,390" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1000,430 1190,430" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1000,490 1100,490 1100,480 1190,480" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1100,490 1100,520 1190,520" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1100" cy="490" r="4" fill="#6d5897"/>
+<text x="1025" y="555" fill="#6d5897" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">DE + /RE joined</text>
+<rect x="1540" y="240" width="210" height="330" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1560" y="278" fill="#183438" font-family="Arial, sans-serif" font-size="26" font-weight="700" text-anchor="start">HABUER</text>
+<text x="1560" y="310" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Field reference</text>
+<circle cx="1540" cy="340" r="5" fill="#906121"/>
+<text x="1554" y="346" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">A label</text>
+<polyline points="1450,340 1540,340" fill="none" stroke="#906121" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1540" cy="390" r="5" fill="#28755e"/>
+<text x="1554" y="396" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">B label</text>
+<polyline points="1450,390 1540,390" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1560" y="455" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Dedicated meter port</text>
+<text x="1560" y="482" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">ESP32 is the</text>
+<text x="1560" y="509" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">only master</text>
+<text x="1190" y="612" fill="#906121" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Habuer: use the A and B labels on the installed meter.</text>
+<text x="1190" y="640" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Numeric terminal assignments were not supplied for this model.</text>
+<rect x="60" y="850" width="330" height="300" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="85" y="882" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="700" text-anchor="start">3 × TACTILE SWITCH</text>
+<text x="85" y="908" fill="#6d5897" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="start">PREV</text>
+<polyline points="180,920 240,920" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="240" cy="920" r="4" fill="#5d6f76"/>
+<circle cx="275" cy="920" r="4" fill="#6d5897"/>
+<polyline points="240,920 267,905" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="275,920 390,920" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="85" y="973" fill="#6d5897" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="start">NEXT</text>
+<polyline points="180,985 240,985" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="240" cy="985" r="4" fill="#5d6f76"/>
+<circle cx="275" cy="985" r="4" fill="#6d5897"/>
+<polyline points="240,985 267,970" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="275,985 390,985" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="85" y="1038" fill="#6d5897" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="start">OK</text>
+<polyline points="180,1050 240,1050" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="240" cy="1050" r="4" fill="#5d6f76"/>
+<circle cx="275" cy="1050" r="4" fill="#6d5897"/>
+<polyline points="240,1050 267,1035" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="275,1050 390,1050" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="180,920 180,1110" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="196" y="1117" fill="#5d6f76" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">GND (shared net)</text>
+<polyline points="650,800 590,800 590,920 390,920" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="650,840 610,840 610,985 390,985" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="650,880 630,880 630,1050 390,1050" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="415" y="1110" fill="#6d5897" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">INPUT_PULLUP</text>
+<text x="415" y="1138" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Pressed = LOW</text>
+<rect x="1130" y="700" width="620" height="450" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1160" y="741" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">OPTIONAL BUZZER · NPN driver</text>
+<polyline points="1000,800 1080,800 1080,900 1190,900" fill="none" stroke="#906121" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1190" y="890" width="85" height="20" rx="2" fill="none" stroke="#906121"/>
+<text x="1232" y="876" fill="#906121" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="middle">1 kΩ</text>
+<polyline points="1275,900 1440,900" fill="none" stroke="#906121" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1460" cy="900" r="36" fill="none" stroke="#183438" stroke-width="2"/>
+<polyline points="1440,879 1440,921" fill="none" stroke="#183438" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1440,889 1480,868 1560,868 1560,828" fill="none" stroke="#183438" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1440,911 1480,935 1480,1060" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1471,928 1479,935 1469,934" fill="none" stroke="#5d6f76" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1525" y="966" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Q1 NPN</text>
+<text x="1525" y="990" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">B / C / E</text>
+<text x="1419" y="883" fill="#906121" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">B</text>
+<text x="1491" y="855" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">C</text>
+<text x="1494" y="942" fill="#5d6f76" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">E</text>
+<rect x="1518" y="780" width="84" height="48" rx="12" fill="#fff7e7" stroke="#906121"/>
+<text x="1560" y="812" fill="#906121" font-family="Arial, sans-serif" font-size="20" font-weight="700" text-anchor="middle">BZ</text>
+<text x="1615" y="799" fill="#b5534a" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">+</text>
+<text x="1615" y="834" fill="#5d6f76" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">−</text>
+<polyline points="1560,780 1560,763" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1560" y="760" fill="#b5534a" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="middle">3V3</text>
+<polyline points="1340,900 1340,963" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1340" cy="900" r="4" fill="#906121"/>
+<rect x="1330" y="963" width="20" height="65" rx="2" fill="none" stroke="#5d6f76"/>
+<text x="1305" y="1003" fill="#5d6f76" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="end">10 kΩ</text>
+<polyline points="1340,1028 1340,1060 1480,1060" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1480" cy="1060" r="4" fill="#5d6f76"/>
+<text x="1494" y="1066" fill="#5d6f76" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">GND</text>
+<text x="1160" y="1100" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">Q1 + 1 kΩ + 10 kΩ are additional parts.</text>
+<text x="1160" y="1127" fill="#587176" font-family="Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">Find physical B/C/E pin order in the transistor datasheet.</text>
+<rect x="45" y="1185" width="1710" height="102" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="70" y="1215" fill="#087e82" font-family="Arial, sans-serif" font-size="13" font-weight="700" text-anchor="start">NET LABELS</text>
+<polyline points="70,1245 105,1245" fill="none" stroke="#b5534a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="115" y="1251" fill="#b5534a" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">3V3</text>
+<polyline points="215,1245 250,1245" fill="none" stroke="#5d6f76" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="260" y="1251" fill="#5d6f76" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">GND</text>
+<polyline points="360,1245 395,1245" fill="none" stroke="#087e82" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="405" y="1251" fill="#087e82" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">SDA / RX</text>
+<polyline points="560,1245 595,1245" fill="none" stroke="#28755e" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="605" y="1251" fill="#28755e" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">SCL / TX / B</text>
+<polyline points="810,1245 845,1245" fill="none" stroke="#6d5897" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="855" y="1251" fill="#6d5897" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">GPIO / DIR</text>
+<polyline points="1040,1245 1075,1245" fill="none" stroke="#906121" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1085" y="1251" fill="#906121" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">RS485 A / buzzer</text>
+<text x="70" y="1276" fill="#587176" font-family="Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">Repeated GND/3V3 labels identify one net. Dots mark joins. Crossings without dots do not connect. Port positions are not physical headers.</text>
+</svg>

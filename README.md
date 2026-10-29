@@ -2,9 +2,9 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 3.0.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
+![Firmware 3.1.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
-This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort or Acrel ADL400 power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
+This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort, Acrel ADL400 or Habuer power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
 
 The primary schedule is **06:00, 06:30, 07:00, 07:30, 08:00** and **17:00, 17:30, 18:00, 18:30, 19:00 WIB**. For example, a reading recorded near 07:00 remains the 07:00 record when someone connects at 09:20. The table retains its actual request and response time, and a failed checkpoint stays marked missed instead of being filled with a later value. [Checkpoint operation and storage](docs/CHECKPOINTS.md) explains timing, retrieval, CSV fields and recovery.
 
@@ -14,9 +14,11 @@ WPA2-Enterprise PEAP / EAP-MSCHAPv2 is available through the [Enterprise Wi-Fi g
 
 ## Meter profiles
 
-Choose **Fort** or **Acrel ADL400** in **Meter setup → Meter model**, then save the reader settings before starting a scan. That choice selects a complete register profile for acquisition, transformer ratios, diagnostics and scan defaults. It does not configure the meter itself. Fort remains the default after upgrading an existing installation, and saved checkpoints retain their original model identity.
+Choose **Fort**, **Acrel ADL400** or **Habuer** in **Meter setup → Meter model**, then save the reader settings before starting a scan. That choice selects a complete register profile for acquisition, transformer ratios, diagnostics and scan defaults. It does not configure the meter itself. Fort remains the default after upgrading an existing installation, and saved checkpoints retain their original model identity.
 
 The ADL400 implementation follows the supplied **V1.3 manual**. Its import counter is `0x000A` at 0.01 kWh per count, compared with Fort `0x0082` at 0.001 kWh per count. Its RS485 port is **21/A1 and 22/B1**, while Fort uses **58/A and 59/B**. [Meter profiles and commissioning](docs/METER_PROFILES.md) documents the complete maps, revision differences, conversion, migration and field checks. [Acrel full wiring](docs/assets/wiring-acrel-adl400.svg) shows the alternate meter terminals with the same ESP32 electronics.
+
+Habuer follows the [owner's working reference sketch](docs/HABUER.md), with separate reads for PF, frequency, cumulative active kWh and reactive kvarh. Its active total comes from `0x0034`, two words divided by 10, without an additional transformer multiplier. The guide includes the exact read plan, supported values and [complete Habuer wiring](docs/assets/wiring-habuer.svg).
 
 ## Discovery and saved meters
 
@@ -72,7 +74,7 @@ A normal firmware build uses the committed web header and does not require Node.
 | PlatformIO Core | 6.1.19 |
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 3.0.0 / 2.0.1+fort.1, local source |
+| FortMeter / ModbusMaster | 3.1.0 / 2.0.1+fort.1, local source |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -81,7 +83,7 @@ A normal firmware build uses the committed web header and does not require Node.
 
 ## 3. First startup and meter scan
 
-Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.0.0, match the meter's CONi slave ID/baud/parity in Meter setup, and confirm Manual direction. The firmware begins contact testing with FC03 at `0x0058`, two registers, before requesting the wider measurement profile. When contact fails it returns to a bounded retry rather than immediately querying every register.
+Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.1.0, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, Acrel `0x0064/1`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
 
 On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 
@@ -93,11 +95,11 @@ Open **Device & records → Wi-Fi connection** to choose AP, Client with AP reco
 
 ### Diagnostics without replacing the firmware
 
-Open **Meter setup → Diagnostic console**, enter `intermediate` in **Command input**, and choose **Run command** to repeat the manual's current request. Enter `diagnose` separately when you need passive RX observation followed by the configured register plan. The output includes raw TX/RX, ModbusMaster status and decoded words, while test values stay outside production interval records. [DIAGNOSTICS](docs/DIAGNOSTICS.md) explains the commands and how to save their output.
+Open **Meter setup → Diagnostic console**, enter `intermediate` in **Command input**, and choose **Run command** to repeat the selected profile's contact probe. Enter `diagnose` separately when you need passive RX observation followed by the configured register plan. The output includes raw TX/RX, ModbusMaster status and decoded words, while test values stay outside production interval records. [DIAGNOSTICS](docs/DIAGNOSTICS.md) explains the commands and how to save their output.
 
-### Scan Fort from the dashboard
+### Scan the selected meter from the dashboard
 
-Start with the saved serial format and a known ID or a small range. The default probe is `0x0058/2`. A candidate that returns valid data or a CRC-verified exception is queried again before it becomes a result. Applying that result saves reader settings, not meter registers, and does not certify the energy scale. A full 247-ID, 18-format search has 4,446 candidates and can take about three hours when every probe reaches the default two-second timeout.
+Start with the saved serial format and a known ID or a small range. The probe follows the saved model, with `0x0058/2` retained as the Fort default. A candidate that returns valid data or a CRC-verified exception is queried again before it becomes a result. Applying that result saves reader settings, not meter registers, and does not certify the energy scale. A full 247-ID, 18-format search has 4,446 candidates and can take about three hours when every probe reaches the default two-second timeout.
 
 ### OLED mounting and onboard RGB
 
@@ -121,9 +123,11 @@ The Network OLED page also provides Wi-Fi mode selection, SSID scanning, a maske
 
 ## 4. Energy calculation and recording quality
 
-The live secondary counter is read from `0x0082–0x0083` as a high-word-first unsigned integer divided by 1000. It is available even when ratio validation fails. The main imported-energy value and interval tracker use `secondary_kWh × (PT numerator / PT denominator) × CT`, with the three ratios read at `0x002C–0x002E`. CT/PT is applied once and cumulative calculations use `double`.
+For Fort, the live secondary counter is read from `0x0082–0x0083` as a high-word-first unsigned integer divided by 1000. It is available even when ratio validation fails. The main imported-energy value and interval tracker use `secondary_kWh × (PT numerator / PT denominator) × CT`, with the three ratios read at `0x002C–0x002E`. CT/PT is applied once and cumulative calculations use `double`.
 
-The primary float pair at `0x008A–0x008B` is a separate diagnostic view. The console's `primary` command prints both word-order candidates so they can be compared with the corresponding Fort display. It does not silently choose the plausible-looking number or change the production counter. The scanned energy table's length inconsistency is documented in [DESIGN](docs/DESIGN.md#fort-register-reference).
+Acrel uses its own secondary scale and PT/CT layout. Habuer uses a meter-reported total with no extra CT/PT multiplication, and requires all four reference parameters before accepting a new snapshot. The main counter and checkpoints use only accepted active-energy readings. Reactive energy remains live telemetry.
+
+The Fort primary float pair at `0x008A–0x008B` is a separate diagnostic view. The console's `primary` command prints both word-order candidates so they can be compared with the corresponding Fort display. It does not silently choose the plausible-looking number or change the production counter. The scanned energy table's length inconsistency is documented in [DESIGN](docs/DESIGN.md#fort-register-reference).
 
 | Morning checkpoints, WIB | Evening checkpoints, WIB |
 | --- | --- |

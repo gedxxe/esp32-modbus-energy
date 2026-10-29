@@ -1,5 +1,9 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.1.0
+
+Menambahkan profil referensi Habuer dengan PF/frekuensi Float32, kWh/kvarh kumulatif langsung serta empat pembacaan wajib terpisah. Kemampuan meter, probe kontak, audit plan dan binding discovery berasal dari descriptor bersama, sedangkan register yang belum terbukti tidak dibaca atau ditampilkan sebagai pengukuran. ID profil lama, matematika konversi historis dan layout checkpoint dipertahankan. Status login Enterprise juga diperbaiki saat identitas luar mengikuti username.
+
 ## 3.0.0
 
 Menambahkan WPA2-Enterprise PEAP / EAP-MSCHAPv2 opsional dengan validasi rantai CA dan tanggal sertifikat serta batasan nama server opsional. Form utama memakai username/password dengan identitas luar mengikuti username, sedangkan pengaturan sertifikat berada di bagian lanjutan. Pengisian dibatasi melalui AP lokal yang diproteksi, kredensial tersimpan tidak dikembalikan melalui status, dan pergantian target kepercayaan mewajibkan pengisian ulang kredensial. Schema Wi-Fi membaca profil Personal/open lama dan menyimpan CA berdasarkan SHA256 tanpa mengubah layout partisi flash.

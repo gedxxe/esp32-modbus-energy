@@ -20,3 +20,6 @@ docs/assets/badges/*.svg linguist-generated=true
 
 *.rle binary
 firmware/src/oled_frames.cpp linguist-generated=true
+
+# Preserve the exact field-reference bytes used by the documented SHA256.
+docs/references/*.ino.txt -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

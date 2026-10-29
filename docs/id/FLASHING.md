@@ -2,7 +2,7 @@
 
 [English](../FLASHING.md) · **Bahasa Indonesia**
 
-Firmware **3.0.0** memakai target fisik ESP32-S3 N16R8 dengan flash 16 MB dan OPI PSRAM. Buka `firmware/` pada PlatformIO dan pilih `esp32s3`. FortMeter lokal ikut source checkout agar polling dan diagnostik tidak memilih versi library yang berbeda.
+Firmware **3.1.0** memakai target fisik ESP32-S3 N16R8 dengan flash 16 MB dan OPI PSRAM. Buka `firmware/` pada PlatformIO dan pilih `esp32s3`. FortMeter lokal ikut source checkout agar polling dan diagnostik tidak memilih versi library yang berbeda.
 
 Tutup Serial Monitor sebelum upload. Pada **terminal komputer yang berada di `firmware/`**, jalankan `pio run -e esp32s3`, kemudian `pio run -e esp32s3 -t upload`, dan buka monitor dengan `pio device monitor -e esp32s3`. Jika auto-reset gagal, tahan BOOT saat reset/reconnect dan lepas setelah uploader mulai berkomunikasi.
 
@@ -22,7 +22,7 @@ Untuk logger terpasang, gunakan upload PlatformIO atau image app-only pada 0x100
 Versi 3 memerlukan integrasi pioarduino terpin dan Arduino-ESP32 3.3.11. Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` sekali untuk memasang pioarduino Core 6.1.19 pada environment terkelola yang dipakai build turunan SDK. Buka ulang terminal PlatformIO sesudahnya, atau gunakan path interpreter yang dicetak alat setup. Build pertama mengunduh SDK/compiler dan membuat cache SDK bersama. Layout partisi tetap sama, tetapi simpan image sebelumnya serta ekspor record sebelum memperbarui runtime major.
 ## Library diagnostik Arduino
 
-Pasang `FortMeter-library-v3.0.0.zip` lewat Add .ZIP Library pada Arduino IDE, lalu buka INO mandiri. ZIP dapat dibuat tanpa build firmware melalui `python tools/package-library.py` pada **terminal komputer di root repository**, atau salin folder source FortMeter ke folder libraries Sketchbook. [Panduan mandiri](../../examples/FortSerialDebug/README.id.md) menjelaskan opsi board dan tujuan INPUT/OUTPUT Serial Monitor.
+Pasang `FortMeter-library-v3.1.0.zip` lewat Add .ZIP Library pada Arduino IDE, lalu buka INO mandiri. ZIP dapat dibuat tanpa build firmware melalui `python tools/package-library.py` pada **terminal komputer di root repository**, atau salin folder source FortMeter ke folder libraries Sketchbook. [Panduan mandiri](../../examples/FortSerialDebug/README.id.md) menjelaskan opsi board dan tujuan INPUT/OUTPUT Serial Monitor.
 
 ## Aset dashboard React
 

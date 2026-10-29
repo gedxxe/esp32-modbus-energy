@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Install the supplied FortMeter 3.0.0 library ZIP in Arduino IDE before compiling.
+// Install the supplied FortMeter 3.1.0 library ZIP in Arduino IDE before compiling.
 #include <Arduino.h>
 #include <FortDiagnostics.h>
 HardwareSerial fortUART(1);

@@ -11,10 +11,12 @@ struct DiscoveryConfig {
   SerialTarget preferred{};uint8_t first=1,last=16,direction=0,count=0;bool matrix=false;uint16_t responseMs=350;
   DiscoveryQuery plan[DISCOVERY_PROBES];
   DiscoveryConfig(){
-    plan[0].address=0;plan[0].words=1;count=1;
-    for(uint8_t id=0;id<profiles::COUNT;++id){const auto &p=profiles::get(id);const DiscoveryQuery queries[]={{p.current.address,p.current.words},{p.energy.address,p.energy.words},{p.ratios,p.ratioWords}};
-      for(const auto &query:queries){bool duplicate=false;for(unsigned i=0;i<count;++i)if(plan[i].address==query.address&&plan[i].words==query.words)duplicate=true;if(!duplicate&&count<DISCOVERY_PROBES)plan[count++]=query;}
+    size_t countAsSize=0;
+    for(uint8_t id=0;id<profiles::COUNT;++id){
+      DiscoveryQuery queries[3];size_t size=profiles::discoveryQueries(profiles::get(id),queries,3);
+      for(size_t i=0;i<size;++i)profiles::appendQuery(plan,countAsSize,DISCOVERY_PROBES,queries[i].address,queries[i].words);
     }
+    count=uint8_t(countAsSize);
   }
 };
 inline bool validDiscoveryConfig(const DiscoveryConfig &c){
@@ -52,7 +54,7 @@ struct DiscoveryDevice {
   bool confirmed()const{for(unsigned i=0;i<count;++i)if(probes[i].confirmed())return true;return false;}
   bool dataAt(uint16_t address,uint8_t words)const{for(unsigned i=0;i<count;++i)if(probes[i].address==address&&probes[i].words==words&&probes[i].data())return true;return false;}
   uint8_t mapEvidence()const{
-    uint8_t mask=0;for(uint8_t id=0;id<profiles::COUNT&&id<8;++id){const auto &p=profiles::get(id);if(dataAt(p.current.address,p.current.words)&&dataAt(p.energy.address,p.energy.words)&&dataAt(p.ratios,p.ratioWords))mask|=uint8_t(1<<id);}return mask;
+    uint8_t mask=0;for(uint8_t id=0;id<profiles::COUNT&&id<8;++id){DiscoveryQuery queries[3];size_t n=profiles::discoveryQueries(profiles::get(id),queries,3);bool matches=n>0;for(size_t i=0;i<n;++i)matches=matches&&dataAt(queries[i].address,queries[i].words);if(matches)mask|=uint8_t(1<<id);}return mask;
   }
 };
 enum DiscoveryPhase:uint8_t { DISCOVERY_IDLE,DISCOVERY_RUNNING,DISCOVERY_COMPLETE,DISCOVERY_CANCELLED,DISCOVERY_CAPACITY };

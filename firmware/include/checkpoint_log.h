@@ -26,7 +26,7 @@ struct CaptureSource {
 inline bool validCaptureSource(const CaptureSource &s) {
   return profiles::valid(s.profile)&&s.slave>=1&&s.slave<=247&&s.baud>0&&s.baud<=1000000&&
     (s.parity=='N'||s.parity=='E'||s.parity=='O')&&s.direction<=1&&
-    (profiles::get(s.profile).ratioWords==3||s.ptDen==1)&&s.ptNum>=1&&s.ptNum<=9999&&s.ptDen>=1&&s.ptDen<=9999&&s.ct>=1&&s.ct<=9999;
+    (profiles::get(s.profile).ratioWords==3||s.ptDen==1)&&(!profiles::directEnergy(profiles::get(s.profile))||(s.ptNum==1&&s.ptDen==1&&s.ct==1))&&s.ptNum>=1&&s.ptNum<=9999&&s.ptDen>=1&&s.ptDen<=9999&&s.ct>=1&&s.ct<=9999;
 }
 inline bool sameCaptureSource(const CaptureSource &a,const CaptureSource &b) {
   return a.slave==b.slave&&a.baud==b.baud&&a.parity==b.parity&&a.direction==b.direction&&

@@ -96,8 +96,8 @@ int main(){
   assert(engine.discovery.begin(config,17,millis(),99));
   port.onWrite=[&](){const auto &tx=port.transmitted.back();if(tx[3]==0x64)for(auto byte:response({1,0x83,2}))port.incoming.push_back(byte);};
   while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185200);
-  assert(engine.discovery.phase==DISCOVERY_COMPLETE&&engine.discovery.count==1&&engine.discovery.tested==7);
-  const auto &device=engine.discovery.found[0];assert(device.confirmed()&&device.mapEvidence()==0&&device.probes[4].confirmed());assert(device.probes[0].status[0]==0xE2);
+  assert(engine.discovery.phase==DISCOVERY_COMPLETE&&engine.discovery.count==1&&engine.discovery.tested==config.count);
+  const auto &device=engine.discovery.found[0];assert(device.confirmed()&&device.mapEvidence()==0&&device.dataAt(0x64,1)==false&&device.probes[3].confirmed());assert(device.probes[0].status[0]==0xE2);
   RegistryBackend backend;MeterRegistryStore storage;assert(storage.load(backend,true));MeterRegistry next=storage.registry;
   next.count=1;next.nextId=2;next.entries[0].id=1;strcpy(next.entries[0].name,"Panel 4");strcpy(next.entries[0].model,"Unknown meter");next.entries[0].evidence=device;
   assert(storage.commit(backend,next));MeterRegistryStore reboot;assert(reboot.load(backend,true)&&reboot.registry.entries[0].id==1);
@@ -117,10 +117,38 @@ int main(){
  {HardwareSerial port(1);FortDiagnostics engine(port);DiscoveryConfig config;config.first=1;config.last=5;config.responseMs=150;
   port.onWrite=[&](){const auto &tx=port.transmitted.back();std::vector<uint8_t> bytes={tx[0],3,uint8_t(tx[5]*2)};bytes.resize(3+tx[5]*2,0);uint16_t crc=meterCRC(bytes.data(),bytes.size());bytes.push_back(uint8_t(crc));bytes.push_back(uint8_t(crc>>8));for(auto byte:bytes)port.incoming.push_back(byte);};
   assert(engine.discovery.begin(config,2,millis(),50));while(engine.discovery.running())engine.discovery.step(engine,millis(),0);
-  assert(engine.discovery.phase==DISCOVERY_CAPACITY&&engine.discovery.count==4&&engine.discovery.tested==28);
-  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==3);SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(canActivateSaved(saved,settings));
+  assert(engine.discovery.phase==DISCOVERY_CAPACITY&&engine.discovery.count==4&&engine.discovery.tested==4*config.count);
+  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==uint8_t((1<<profiles::COUNT)-1));SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(canActivateSaved(saved,settings));
+  saved.profile=profiles::HABUER;strcpy(saved.model,"Habuer reference");assert(canActivateSaved(saved,settings)&&settings.profile==profiles::HABUER);
+  MeterRegistry registry;registry.generation=1;registry.nextId=10;registry.count=1;registry.entries[0]=saved;uint8_t encodedRegistry[METER_REGISTRY_BYTES];encodeMeterRegistry(registry,encodedRegistry);MeterRegistry restoredRegistry;assert(decodeMeterRegistry(encodedRegistry,sizeof(encodedRegistry),restoredRegistry)&&restoredRegistry.entries[0].profile==profiles::HABUER);
   saved.evidence.link.stops=2;assert(!canActivateSaved(saved,settings));
   DiscoveryConfig plan;assert(parseDiscoveryPlan("FFFE:2,0000:1",plan)&&plan.count==2);auto previous=plan;assert(!parseDiscoveryPlan("FFFF:2",plan)&&plan.count==previous.count);assert(!parseDiscoveryPlan("0000:1,0000:1",plan));assert(!parseDiscoveryPlan("0000:1,",plan));
+ }
+
+ // The user's Habuer map is parameter-addressed. Every request stays independent.
+ {HardwareSerial port(1);char storage[8192];FortDiagnostics engine(port,storage,sizeof(storage));engine.command("profile habuer");
+  assert(engine.options.profile==profiles::HABUER&&engine.options.probeAddress==0x30&&engine.options.probeWords==2&&engine.auditCount==4);
+  int failure=0;bool invalidPF=false,invalidHz=false;
+  port.onWrite=[&](){const auto &tx=port.transmitted.back();uint16_t address=uint16_t(tx[2])<<8|tx[3];
+   if(failure==address)return;
+   uint32_t raw=address==0x30?(invalidPF?0x3FC00000UL:0x3F600000UL):address==0x32?(invalidHz?0x7FC00000UL:0x42480000UL):address==0x34?123456UL:654321UL;
+   assert(address==0x30||address==0x32||address==0x34||address==0x35);assert(tx[5]==2);
+   for(auto byte:response({tx[0],3,4,uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(byte);
+  };
+  size_t before=port.transmitted.size();assert(engine.readEnergy(engine.current));
+  const uint16_t addresses[]={0x30,0x32,0x34,0x35};for(unsigned i=0;i<4;++i)assert(port.transmitted[before+i][3]==addresses[i]);
+  char text[4097];engine.copyLog(text,sizeof(text));assert(std::string(text).find("12345.600000 kWh")!=std::string::npos);assert(std::string(text).find("[COHERENT_SNAPSHOT]")!=std::string::npos);
+  const auto &profile=profiles::get(profiles::HABUER);assert(fabs(profiles::primaryEnergy(profile.id,123456,20,2,400)-12345.6)<1e-8);
+  MeterReadings last;last.meterEnergy=42;ReadingQuality quality;
+  auto read=[&](const profiles::Register &reg,uint8_t *bytes){return engine.readRegisters(engine.current,reg.address,reg.words,bytes);};
+  invalidPF=true;before=port.transmitted.size();assert(!readMeterReadings(profile,read,last,&quality)&&last.meterEnergy==42&&quality.invalid==FIELD_PF&&port.transmitted.size()==before+4);
+  invalidPF=false;invalidHz=true;assert(!readMeterReadings(profile,read,last,&quality)&&quality.invalid==FIELD_FREQUENCY&&last.meterEnergy==42);
+  invalidHz=false;failure=0x30;engine.options.responseMs=150;assert(!readMeterReadings(profile,read,last,&quality)&&quality.transportFailed==FIELD_PF&&last.meterEnergy==42);
+  failure=0;assert(readMeterReadings(profile,read,last,&quality)&&quality.complete);assert(fabs(last.powerFactor-.875)<1e-8&&last.frequency==50&&fabs(last.reactiveEnergy-65432.1)<1e-8);
+  assert(!profiles::available(profile.current)&&!profiles::available(profile.voltage)&&!profiles::available(profile.power)&&profile.ratioWords==0);
+  assert(!profiles::valid(255)&&!profiles::available(profiles::get(255).probe)&&std::isnan(profiles::primaryEnergy(255,123,1,1,1)));
+  DiscoveryConfig defaults;assert(defaults.count==8&&validDiscoveryConfig(defaults));
+  for(uint8_t id=0;id<profiles::COUNT;++id){DiscoveryQuery probes[3];size_t count=profiles::discoveryQueries(profiles::get(id),probes,3);for(size_t i=0;i<count;++i){bool included=false;for(unsigned j=0;j<defaults.count;++j)included=included||(probes[i].address==defaults.plan[j].address&&probes[i].words==defaults.plan[j].words);assert(included);}}
  }
  assert(meter::signed32(0xFFFFFF9CUL)==-100);assert(meter::float32(0x3F80,0)==1.0f);assert(meter::float32(0,0x3F80)!=1.0f);
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";

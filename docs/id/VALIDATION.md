@@ -2,8 +2,18 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.0.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.1.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
+
+## Integrasi Habuer dan policy pembacaan bersama pada 3.1.0
+
+Target fisik ESP32-S3 N16R8 dan diagnostik mandiri berhasil dikompilasi memakai Core pioarduino 6.1.19, platform 55.03.311, Arduino 3.3.11 serta ESP-IDF 5.5.5 yang terpin. Firmware utama memakai RAM statis 133.084 byte dan program 1.839.259 byte. Diagnostik memakai 36.840 dan 369.956 byte. Aset browser terkompresi berjumlah 150.174 byte, di bawah batas 163.840 byte. Angka tersebut merupakan hasil build, bukan pengukuran heap atau CPU saat perangkat berjalan.
+
+Ketiga suite native lulus. Kasus tambahan menjalankan library ModbusMaster sebenarnya dengan request terpisah 0x0030, 0x0032, 0x0034 dan 0x0035, memeriksa Float32 ABCD serta skala UInt32, melanjutkan setelah parameter pertama tidak menjawab, menolak PF invalid/frekuensi non-finite, mempertahankan snapshot terakhir dan memastikan profil total langsung tidak membaca CT/PT. ID profil 2 lolos round trip registry serta checkpoint schema 3, konversi identitas diwajibkan pada capture total langsung, sedangkan aritmetika Fort/Acrel dan pembaca record lama tetap diuji. Delapan signature discovery kini berasal dari katalog tanpa mengubah layout bukti persisten. Penggunaan ulang login Enterprise tanpa identitas luar eksplisit juga memiliki regresi native.
+
+Regresi Edge lengkap pada byte gzip sebenarnya, suite discovery, Enterprise serta Habuer lulus. Pengujian Habuer mencakup pemilihan/simpan model, probe 0x0030, nilai PF/frekuensi/aktif/reaktif, penghilangan kartu current/voltage/power yang tidak didukung, diagnostik snapshot parsial, retensi nilai sah, bahasa Inggris/Indonesia, reload, lebar HP, aktivasi finding bernama dan perpindahan kembali ke Fort. Seluruh 29 SVG dirender. Screenshot Habuer desktop/HP menggunakan data simulasi sebagai ilustrasi UI.
+
+Profil mengikuti [sketch referensi yang berhasil diuji pengguna](HABUER.md), dengan byte asli serta SHA256 tersimpan. Manual vendor Habuer, model persis, register current/voltage/power maupun nomor terminal belum diberikan. Firmware terpadu ini belum di-flash ke Habuer dalam pengujian lokal. Bandingkan kWh aktif, PF, frekuensi serta kvarh reaktif dengan LCD terpasang dan periksa timing, pemulihan restart serta capture batas waktu pada hardware sebelum penerimaan instalasi. Energi reaktif tersedia sebagai telemetry, sementara checkpoint persisten tetap mencatat kWh aktif.
 
 ## Client Enterprise dan migrasi runtime pada 3.0.0
 

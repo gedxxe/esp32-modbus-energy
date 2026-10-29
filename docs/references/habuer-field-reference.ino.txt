@@ -1,0 +1,221 @@
+/*
+  HABUER POWER METER | ESP32-S3 + MAX485 manual DE/RE
+  Library: ModbusMaster by Doc Walker (tested interface for v2.0.1)
+  Serial Monitor: 115200
+
+  GPIO17 (ESP TX) -> DI (MAX485)
+  GPIO18 (ESP RX) <- RO (MAX485, 3.3 V-safe input required)
+  GPIO16          -> DE + /RE (tie together)
+  GND             -> GND
+
+  CONFIRMED ON THE USER'S HABUER LCD / SCANNER:
+  FC03, 0x0030 x2: Power factor / cos phi, Float32 ABCD
+  FC03, 0x0032 x2: Frequency (Hz), Float32 ABCD
+  FC03, 0x0034 x2: Total active energy (kWh), UInt32 / 10
+  FC03, 0x0035 x2: Total reactive energy (kvarh), UInt32 / 10
+
+  IMPORTANT: each parameter is queried SEPARATELY with 2 registers.
+  This code sends ONLY read requests (FC03). NO writes.
+  The reported kWh/kvarh are cumulative meter readings, not daily use.
+  Timestamp is uptime, NOT current date/time.
+
+  Version FIXED: avoids Arduino IDE auto-prototype issue with custom Pair type.
+*/
+
+#include <Arduino.h>
+#include <ModbusMaster.h>
+#include <string.h>
+#include <math.h>
+
+#define RS485_TX_PIN   17
+#define RS485_RX_PIN   18
+#define RS485_DIR_PIN  16
+
+#define METER_SLAVE_ID 1
+#define METER_BAUD     9600
+#define REPORT_EVERY_MS 15000UL
+
+HardwareSerial MeterUART(1);
+ModbusMaster meter;
+
+uint32_t reportNumber = 0;
+uint32_t lastRun = 0;
+bool previousValid = false;
+double previousKWh = 0.0;
+double previousKvarh = 0.0;
+uint32_t previousUptime = 0;
+
+// Direction-control hooks for a non-auto MAX485 board.
+void beforeRequest() {
+  digitalWrite(RS485_DIR_PIN, HIGH);  // DE=1, /RE=1: transmit
+  delayMicroseconds(100);
+}
+
+void afterRequest() {
+  // ModbusMaster waits for UART to finish transmitting first.
+  digitalWrite(RS485_DIR_PIN, LOW);   // DE=0, /RE=0: receive
+}
+
+const char* modbusErrorText(uint8_t code) {
+  switch (code) {
+    case 0x01: return "Illegal function";
+    case 0x02: return "Illegal register address";
+    case 0x03: return "Illegal register value";
+    case 0xE0: return "Invalid slave ID / echo";
+    case 0xE1: return "Invalid function code";
+    case 0xE2: return "Timeout";
+    case 0xE3: return "CRC error";
+    default:   return "Other communication error";
+  }
+}
+
+// No custom return type: safe for Arduino IDE's auto-generated prototypes.
+bool readTwoRegisters(uint16_t address,
+                      const char* name,
+                      uint16_t &word0,
+                      uint16_t &word1) {
+  uint8_t status = 0xFF;
+
+  for (uint8_t attempt = 1; attempt <= 2; attempt++) {
+    status = meter.readHoldingRegisters(address, 2);
+
+    if (status == meter.ku8MBSuccess) {
+      word0 = meter.getResponseBuffer(0);
+      word1 = meter.getResponseBuffer(1);
+      Serial.printf("[OK] %-10s FC03 0x%04X x2 -> %04X %04X\n",
+                    name, address, word0, word1);
+      return true;
+    }
+    delay(100);
+  }
+
+  Serial.printf("[FAIL] %-10s FC03 0x%04X x2 -> 0x%02X (%s)\n",
+                name, address, status, modbusErrorText(status));
+  return false;
+}
+
+uint32_t decodeUInt32(uint16_t word0, uint16_t word1) {
+  return ((uint32_t)word0 << 16) | (uint32_t)word1;
+}
+
+float decodeFloat32(uint16_t word0, uint16_t word1) {
+  uint32_t bits = decodeUInt32(word0, word1);
+  float value = 0.0f;
+  memcpy(&value, &bits, sizeof(value));
+  return value;
+}
+
+void takeReport() {
+  reportNumber++;
+  uint16_t pfHigh = 0, pfLow = 0;
+  uint16_t hzHigh = 0, hzLow = 0;
+  uint16_t kwhHigh = 0, kwhLow = 0;
+  uint16_t kvarhHigh = 0, kvarhLow = 0;
+
+  Serial.println();
+  Serial.println("=================================================");
+  Serial.printf("HABUER MODBUS REPORT #%lu\n", (unsigned long)reportNumber);
+
+  bool pfOK = readTwoRegisters(0x0030, "COS PHI", pfHigh, pfLow);
+  delay(80);
+  bool hzOK = readTwoRegisters(0x0032, "FREQUENCY", hzHigh, hzLow);
+  delay(80);
+  bool kwhOK = readTwoRegisters(0x0034, "KWH", kwhHigh, kwhLow);
+  delay(80);
+  bool kvarhOK = readTwoRegisters(0x0035, "KVARH", kvarhHigh, kvarhLow);
+
+  uint8_t good = (uint8_t)pfOK + (uint8_t)hzOK +
+                 (uint8_t)kwhOK + (uint8_t)kvarhOK;
+
+  if (good != 4) {
+    Serial.printf("STATUS: INCOMPLETE (%u/4 reads). Report rejected.\n", good);
+    Serial.println("No missing measurement is silently replaced with zero.");
+    return;
+  }
+
+  float powerFactor = decodeFloat32(pfHigh, pfLow);
+  float frequencyHz = decodeFloat32(hzHigh, hzLow);
+  double totalKWh = (double)decodeUInt32(kwhHigh, kwhLow) / 10.0;
+  double totalKvarh = (double)decodeUInt32(kvarhHigh, kvarhLow) / 10.0;
+  uint32_t uptimeS = millis() / 1000UL;
+
+  if (!isfinite(powerFactor) || !isfinite(frequencyHz) ||
+      powerFactor < -1.05f || powerFactor > 1.05f ||
+      frequencyHz < 40.0f || frequencyHz > 70.0f) {
+    Serial.println("STATUS: REVIEW REQUIRED (unexpected PF or frequency).");
+    return;
+  }
+
+  Serial.println();
+  Serial.println("[INDONESIA FACTORY - HABUER ENERGY REPORT]");
+  Serial.printf("Device          : HABUER (Slave ID %u)\n", METER_SLAVE_ID);
+  Serial.printf("Communication   : Modbus RTU, %u baud, 8N1, FC03\n", METER_BAUD);
+  Serial.printf("Acquired        : uptime %lu seconds (not wall-clock time)\n",
+                (unsigned long)uptimeS);
+  Serial.println("Reading status  : SUCCESS (4/4 valid responses)");
+  Serial.printf("Power Factor    : %.4f cos phi\n", powerFactor);
+  Serial.printf("Frequency       : %.3f Hz\n", frequencyHz);
+  Serial.printf("Active Energy   : %.1f kWh (cumulative)\n", totalKWh);
+  Serial.printf("Reactive Energy : %.1f kvarh (cumulative)\n", totalKvarh);
+
+  bool deltaValid = false;
+  double deltaKWh = 0.0;
+  double deltaKvarh = 0.0;
+
+  if (previousValid) {
+    deltaKWh = totalKWh - previousKWh;
+    deltaKvarh = totalKvarh - previousKvarh;
+    deltaValid = (deltaKWh >= 0.0 && deltaKvarh >= 0.0);
+    if (deltaValid) {
+      Serial.printf("Interval change : %.1f kWh, %.1f kvarh (%lu s)\n",
+                    deltaKWh, deltaKvarh,
+                    (unsigned long)(uptimeS - previousUptime));
+    } else {
+      Serial.println("Interval change : N/A (possible counter reset)");
+    }
+  } else {
+    Serial.println("Interval change : N/A (first valid reading)");
+  }
+
+  Serial.println("STATUS          : VALID SNAPSHOT");
+  // CSV fields: report, uptime_s, PF, Hz, total_kWh, total_kvarh, delta_kWh, delta_kvarh
+  Serial.printf("CSV,%lu,%lu,%.4f,%.3f,%.1f,%.1f,",
+                (unsigned long)reportNumber, (unsigned long)uptimeS,
+                powerFactor, frequencyHz, totalKWh, totalKvarh);
+  if (deltaValid) {
+    Serial.printf("%.1f,%.1f\n", deltaKWh, deltaKvarh);
+  } else {
+    Serial.println(",");
+  }
+
+  previousValid = true;
+  previousKWh = totalKWh;
+  previousKvarh = totalKvarh;
+  previousUptime = uptimeS;
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1200);
+  pinMode(RS485_DIR_PIN, OUTPUT);
+  digitalWrite(RS485_DIR_PIN, LOW); // receive by default
+
+  MeterUART.begin(METER_BAUD, SERIAL_8N1, RS485_RX_PIN, RS485_TX_PIN);
+  meter.begin(METER_SLAVE_ID, MeterUART);
+  meter.preTransmission(beforeRequest);
+  meter.postTransmission(afterRequest);
+
+  Serial.println("HABUER ENERGY READER | ESP32-S3 | ModbusMaster");
+  Serial.println("TX GPIO17 -> DI | RX GPIO18 <- RO | DIR GPIO16 -> DE+/RE");
+  Serial.println("CSV fields: report,uptime_s,PF,Hz,kWh_total,kvarh_total,delta_kWh,delta_kvarh");
+
+  takeReport();
+  lastRun = millis();
+}
+
+void loop() {
+  if ((uint32_t)(millis() - lastRun) >= REPORT_EVERY_MS) {
+    takeReport();
+    lastRun = millis();
+  }
+}

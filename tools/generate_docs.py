@@ -119,8 +119,10 @@ s.text(70,1276,'Repeated GND/3V3 labels identify one net. Dots mark joins. Cross
 s.save('wiring-overview.svg')
 # Same local electronics, alternate meter port from ADL400 V1.3 PDF page 9.
 fort_parts=s.parts
-s.parts=[part.replace('RS485, Fort,','RS485, Acrel ADL400,').replace('>FORT<','>ACREL<').replace('>Power meter<','>ADL400 V1.3<').replace('58 / A','21 / A1').replace('59 / B','22 / B1').replace('Manual: terminal 58 = A, terminal 59 = B.','ADL400: terminal 21 = A1, terminal 22 = B1.').replace('70 / COM is a switch input common, not RS485 ground.','17 / 18 are pulse outputs. Do not connect them as RS485.') for part in fort_parts]
+s.parts=[part.replace('RS485, Fort,','RS485, Acrel ADL400,').replace('Fort schematic','Acrel ADL400 schematic').replace('>FORT<','>ACREL<').replace('>Power meter<','>ADL400 V1.3<').replace('58 / A','21 / A1').replace('59 / B','22 / B1').replace('Manual: terminal 58 = A, terminal 59 = B.','ADL400: terminal 21 = A1, terminal 22 = B1.').replace('70 / COM is a switch input common, not RS485 ground.','17 / 18 are pulse outputs. Do not connect them as RS485.') for part in fort_parts]
 s.save('wiring-acrel-adl400.svg')
+s.parts=[part.replace('RS485, Fort,','RS485, Habuer,').replace('Fort schematic','Habuer schematic').replace('>FORT<','>HABUER<').replace('>Power meter<','>Field reference<').replace('58 / A','A label').replace('59 / B','B label').replace('Manual: terminal 58 = A, terminal 59 = B.','Habuer: use the A and B labels on the installed meter.').replace('70 / COM is a switch input common, not RS485 ground.','Numeric terminal assignments were not supplied for this model.') for part in fort_parts]
+s.save('wiring-habuer.svg')
 s.parts=fort_parts
 
 
@@ -206,6 +208,7 @@ rows.extend([('BZ01','BUZZER_CONTROL','ESP32.GPIO'+str(pins['PIN_BUZZER']),'R1.1
 stream=io.StringIO(newline='');writer=csv.writer(stream,lineterminator='\n');writer.writerow(['wire','net','from','to']);writer.writerows(rows)
 write_generated(ROOT/'docs/wiring-netlist.csv',stream.getvalue())
 write_generated(ROOT/'docs/wiring-acrel-adl400.csv',stream.getvalue().replace('FORT.58/A','ACREL.21/A1').replace('FORT.59/B','ACREL.22/B1'))
+write_generated(ROOT/'docs/wiring-habuer.csv',stream.getvalue().replace('FORT.58/A','HABUER.A_label').replace('FORT.59/B','HABUER.B_label'))
 
 
 

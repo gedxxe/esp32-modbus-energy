@@ -53,7 +53,7 @@ manifest = {
     "web": json.loads((root / "web/bundle.json").read_text(encoding="utf-8"))["compressed_total"],
     "enterprise": {"method":"PEAP / EAP-MSCHAPv2","certificate_date_validation":True,"trusted_ca_required":True,"server_dns_name":"optional additional constraint","corporate_authentication_tested":False},
     "hardware_tested": False,
-    "reference_sketch_report": "User reports successful reads with manual DE-/RE on GPIO16; integrated release still needs field acceptance",
+    "reference_sketch_report": "User reports working Fort and Habuer reference sketches with manual DE-/RE on GPIO16; integrated release still needs field acceptance",
     "modbus_transport": "ModbusMaster 2.0.1+fort.1",
     "sha256": {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
 }

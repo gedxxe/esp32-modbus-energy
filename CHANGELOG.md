@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.0
+
+Added the Habuer field-reference profile with Float32 PF/frequency, direct cumulative kWh/kvarh and four independent required reads. Meter capabilities, contact probes, audit plans and discovery bindings now come from shared descriptors, with unsupported registers omitted from acquisition and UI. Existing profile IDs, historical conversion math and checkpoint layouts are preserved. Fixed saved Enterprise-login detection when the outer identity defaults to the username.
+
 ## 3.0.0
 
 Added optional WPA2-Enterprise PEAP / EAP-MSCHAPv2 with CA-chain and certificate-date validation plus an optional server-name constraint. The primary form uses username/password and defaults the outer identity to the username, with certificate settings under Advanced Wi-Fi settings. Provisioning is restricted to the local protected AP, saved credentials are never returned in status, and changing the trust target requires entering credentials again. The Wi-Fi schema migrates existing Personal/open profiles and stores CA files by SHA256 without changing the flash partition layout.

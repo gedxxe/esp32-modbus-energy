@@ -144,6 +144,14 @@ export const catalog = {
     diag_count_localErrors: "Local UART errors",
     health_profile: "The connection is responding, but the primary energy value is not ready or is stale. Check the ratio and energy-register results before accepting intervals.",
     secondary_energy: "Secondary import counter",
+    power_factor: "Power factor",
+    reactive_energy: "Total reactive energy",
+    meter_active_energy: "Meter active energy",
+    energy_conversion: "Energy conversion",
+    no_extra_ratio: "Meter total",
+    register_direct_intro: "Cumulative energy and verified measurements reported by the selected meter profile.",
+    register_coherent_note: "Each parameter uses its own request. A new snapshot is accepted only when all required responses and the profile checks pass. No extra CT/PT multiplier is applied.",
+    snapshot_rejected: "The required meter snapshot is incomplete or invalid. Inspect the timestamped UART frames for the failing parameter.",
     frequency: "Frequency",
     voltage_a: "Phase-A voltage",
     current_a: "Phase-A current",
@@ -380,7 +388,7 @@ export const catalog = {
       "Scan cancelled. The previous connection has been restored.",
     scan_exhausted:
       "No validated reply in IDs {first}–{last} for this probe. Check reader settings or run the diagnostic console. This does not prove a cable fault.",
-    scan_limits: "The full search uses the saved model’s supported baud rates and three parity modes. Fort uses six rates and ADL400 V1.3 uses five. Begin with known serial settings and a small ID range because a silent full-range search can take hours.",
+    scan_limits: "The full search uses the saved profile’s baud-rate search limit and three parity modes. The saved profile defines the bounded baud-rate search. Begin with known serial settings and a small ID range because a silent full-range search can take hours.",
     scan_pause_note:
       "Scanning interrupts the current interval. Old settings are restored until you apply a result.",
     scan_counts: "Timeout {timeouts} · CRC {crc} · Rejected {rejected}",
@@ -612,6 +620,14 @@ export const catalog = {
     health_profile: "Koneksi membalas, tetapi energi primer belum tersedia atau sampelnya sudah lama. Periksa hasil rasio dan register energi sebelum menerima interval.",
     secondary_energy: "Counter impor sekunder",
 
+    power_factor: "Faktor daya",
+    reactive_energy: "Energi reaktif total",
+    meter_active_energy: "Energi aktif meter",
+    energy_conversion: "Konversi energi",
+    no_extra_ratio: "Total dari meter",
+    register_direct_intro: "Energi kumulatif dan parameter terverifikasi dari profil meter yang dipilih.",
+    register_coherent_note: "Setiap parameter dibaca dengan request tersendiri. Snapshot baru diterima setelah seluruh respons wajib serta pemeriksaan profil lulus. Tidak ada pengali CT/PT tambahan.",
+    snapshot_rejected: "Snapshot meter yang diwajibkan belum lengkap atau invalid. Periksa frame UART bertimestamp untuk menemukan parameter yang gagal.",
     frequency: "Frekuensi",
 
     voltage_a: "Tegangan fasa A",
@@ -862,7 +878,7 @@ export const catalog = {
     scan_cancelled: "Scan dibatalkan. Koneksi sebelumnya dipulihkan.",
     scan_exhausted:
       "Tidak ada balasan sah pada ID {first}–{last} untuk probe ini. Periksa setting pembaca atau konsol diagnostik. Belum membuktikan kabel bermasalah.",
-    scan_limits: "Pencarian penuh memakai baud rate model tersimpan dan tiga parity. Fort memakai enam baud rate, sedangkan ADL400 V1.3 memakai lima. Mulai dengan setting yang diketahui dan rentang ID kecil karena pencarian semua ID tanpa respons bisa memerlukan beberapa jam.",
+    scan_limits: "Pencarian penuh memakai batas baud pencarian profil tersimpan dan tiga parity. Profil tersimpan menentukan batas pencarian baud rate. Mulai dengan setting yang diketahui dan rentang ID kecil karena pencarian semua ID tanpa respons bisa memerlukan beberapa jam.",
     scan_pause_note:
       "Scan memutus interval aktif. Setting lama dipulihkan sampai hasil diterapkan.",
     scan_counts: "Timeout {timeouts} · CRC {crc} · Ditolak {rejected}",

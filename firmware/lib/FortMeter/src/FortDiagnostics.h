@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "FortTransport.h"
 #include "MeterDiscovery.h"
+#include "MeterReadings.h"
 #include <atomic>
 #include <math.h>
 #include <stdarg.h>
@@ -19,23 +20,20 @@ struct DebugOptions {
   int rx=18,tx=17,dir=16;
   bool manualDirection=true;uint16_t settleUs=100,gapMs=200;
   uint32_t responseMs=2000,pollMs=2000;
-  uint16_t probeAddress=meter::CURRENT_A,energyAddress=0x0082,ratioAddress=0x002C;
-  uint8_t probeWords=meter::HANDSHAKE_WORDS,profile=profiles::FORT;
-  double energyScale=0.001;
+  uint16_t probeAddress=profiles::get(profiles::FORT).probe.address,energyAddress=profiles::get(profiles::FORT).energy.address,ratioAddress=profiles::get(profiles::FORT).ratios;
+  uint8_t probeWords=profiles::get(profiles::FORT).probe.words,profile=profiles::FORT;
+  double energyScale=profiles::get(profiles::FORT).energy.scale;
   bool swappedWords=false,decodeEnergy=true,scanCurrent=false;
 } options;
 struct Query { uint16_t address; uint8_t words; };
-Query auditPlan[8]={{meter::CURRENT_A,2},{meter::VOLTAGE_A,2},{meter::POWER_TOTAL,2},{meter::FREQUENCY,1},{meter::SECONDARY_ENERGY,2},{meter::PRIMARY_ENERGY,2}};
-uint8_t auditCount=6;
+Query auditPlan[8]={};
+uint8_t auditCount=0;
 void selectProfile(uint8_t id){
   if(!profiles::valid(id))return;
-  const auto &p=profiles::get(id);options.profile=id;options.probeAddress=p.current.address;options.probeWords=p.current.words;
+  const auto &p=profiles::get(id);options.profile=id;options.probeAddress=p.probe.address;options.probeWords=p.probe.words;
   options.energyAddress=p.energy.address;options.energyScale=p.energy.scale;options.ratioAddress=p.ratios;
   options.swappedWords=false;options.decodeEnergy=true;
-  auditCount=0;
-  for(const auto &r:{p.current,p.voltage,p.power,p.frequency,p.energy})auditPlan[auditCount++]={r.address,r.words};
-  if(p.primaryFloat)auditPlan[auditCount++]={p.primaryFloat,2};
-  else auditPlan[auditCount++]={p.ratios,p.ratioWords};
+  auditCount=uint8_t(profiles::auditQueries(p,auditPlan,8));
   const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};baudCount=0;
   for(auto b:defaults)if(b<=p.maxBaud)BAUDS[baudCount++]=b;
 }
@@ -190,17 +188,21 @@ uint32_t bigEndian32(const uint8_t *p) {
 }
 bool readEnergy(const Link &link) {
   if(!options.decodeEnergy){LOG("[DECODE_DISABLED] use reg/deeper for raw values. No kWh computed\n");return false;}
-  uint8_t energy[4], ratios[6];
-  if (!readRegisters(link,options.energyAddress,2,energy) || !readRegisters(link,options.ratioAddress,profiles::get(options.profile).ratioWords,ratios)){++evidence.energyBad;return false;}
-  uint16_t ptNum=0,ptDen=0,ct=0;
-  if(!profiles::ratios(profiles::get(options.profile),ratios,ptNum,ptDen,ct)){++evidence.energyBad;LOG("[RATIO_REJECTED] PT=%u/%u CT=%u\n",ptNum,ptDen,ct);return false;}
-  uint8_t ordered[4];memcpy(ordered,energy,4);
-  if(options.swappedWords){ordered[0]=energy[2];ordered[1]=energy[3];ordered[2]=energy[0];ordered[3]=energy[1];}
-  uint32_t raw=bigEndian32(ordered); double secondary=double(raw)*options.energyScale;
-  LOG("[DECODE_SETTINGS] energy=0x%04X ratios=0x%04X scale=%.12g order=%s. Configured interpretation, compare with meter display\n",options.energyAddress,options.ratioAddress,options.energyScale,options.swappedWords?"swap":"normal");
-  double multiplier=double(ptNum)/ptDen*ct;
-  LOG("[ENERGY] raw=%lu secondary=%.3f kWh PT=%u/%u CT=%u multiplier=%.6f\n",(unsigned long)raw,secondary,ptNum,ptDen,ct,multiplier);
-  ++evidence.energyOK;LOG("[PRIMARY_IMPORT] %.6f kWh\n",secondary*multiplier);
+  auto profile=profiles::get(options.profile);profile.energy.address=options.energyAddress;profile.energy.scale=options.energyScale;
+  MeterReadings reading;ReadingQuality quality;
+  bool valid=readMeterReadings(profile,[&](const profiles::Register &reg,uint8_t *bytes){
+    if(!readRegisters(link,reg.address,reg.words,bytes))return false;
+    if(&reg==&profile.energy&&options.swappedWords){uint8_t original[4];memcpy(original,bytes,4);memcpy(bytes,original+2,2);memcpy(bytes+2,original,2);}
+    return true;
+  },reading,&quality);
+  if(!valid){++evidence.energyBad;LOG("[SNAPSHOT_REJECTED] transport=0x%02X invalid=0x%02X (PF=1 Hz=2 kWh=4 kvarh=8). No new energy accepted\n",quality.transportFailed,quality.invalid);return false;}
+  uint8_t ratioBytes[6]={};uint16_t ptNum=1,ptDen=1,ct=1;
+  if(profile.ratioWords&&(!readRegisters(link,options.ratioAddress,profile.ratioWords,ratioBytes)||!profiles::ratios(profile,ratioBytes,ptNum,ptDen,ct))){++evidence.energyBad;LOG("[RATIO_REJECTED] CT/PT response unavailable or invalid\n");return false;}
+  double multiplier=profiles::directEnergy(profile)?1.0:double(ptNum)/ptDen*ct;
+  LOG("[DECODE_SETTINGS] energy=0x%04X scale=%.12g order=%s basis=%s. Compare with meter display\n",options.energyAddress,options.energyScale,options.swappedWords?"swap":"normal",profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios");
+  LOG("[ENERGY] raw=%lu meter=%.3f kWh PT=%u/%u CT=%u multiplier=%.6f\n",(unsigned long)reading.rawEnergy,reading.meterEnergy,ptNum,ptDen,ct,multiplier);
+  if(profiles::coherentSnapshot(profile))LOG("[COHERENT_SNAPSHOT] PF=%.4f frequency=%.3f Hz reactive=%.1f kvarh. Required independent FC03 responses accepted\n",reading.powerFactor,reading.frequency,reading.reactiveEnergy);
+  ++evidence.energyOK;LOG("[%s] %.6f kWh\n",profiles::directEnergy(profile)?"METER_TOTAL":"PRIMARY_IMPORT",reading.meterEnergy*multiplier);
   return true;
 }
 // Level 1: UART receive activity only. A slave may be completely silent without requests.
@@ -233,7 +235,7 @@ void dumpRegisters(const Link &link,uint16_t address,uint8_t words){
   uint8_t data[6];if(!readRegisters(link,address,words,data))return;
   uint16_t values[3]={};for(uint8_t i=0;i<words;++i){values[i]=(uint16_t(data[2*i])<<8)|data[2*i+1];LOG("[REGISTER] 0x%04X = %04X (%u)\n",address+i,values[i],values[i]);}
   const auto &p=profiles::get(options.profile);
-  for(const auto &r:{p.current,p.voltage,p.power,p.frequency,p.energy})if(address==r.address&&words==r.words)
+  for(const auto &r:{p.current,p.voltage,p.power,p.powerFactor,p.frequency,p.energy,p.reactiveEnergy})if(address==r.address&&words==r.words)
     LOG("[PROFILE_VALUE] %s address=0x%04X value=%.6f scale=%.8g. CT/PT not applied\n",p.name,address,profiles::decode(r,data),r.scale);
   if(words==2){uint32_t raw=meter::u32(values[0],values[1]);LOG("[UINT32] %lu [INT32] %.0f\n",(unsigned long)raw,meter::signed32(raw));}
   if(p.primaryFloat&&address==p.primaryFloat&&words==2)LOG("[PRIMARY_FLOAT_CANDIDATES] ABCD=%.6g CDAB=%.6g. Compare with meter LCD, neither selected automatically\n",double(meter::float32(values[0],values[1])),double(meter::float32(values[1],values[0])));
@@ -345,8 +347,8 @@ void showStatus(){
 }
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
-  LOG("PROFILE: profile fort | profile acrel-adl400. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nFort diagnostics 3.0.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("PROFILE: profile fort | profile acrel-adl400 | profile habuer. Apply documented map, ratio layout and scan bauds in RAM\n");
+  LOG("\nMeter diagnostics 3.1.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");
@@ -375,7 +377,7 @@ void command(const char *line) {
   }
   if(sscanf(line,"settle %u %c",&a,&extra)==1&&a>=20&&a<=1000){options.settleUs=uint16_t(a);showStatus();return;}
   if(sscanf(line,"gap %u %c",&a,&extra)==1&&a>=4&&a<=2000){options.gapMs=uint16_t(a);showStatus();return;}
-  if(!strcmp(line,"primary")){abortRequested=false;polling=false;const auto &p=profiles::get(options.profile);if(p.primaryFloat)dumpRegisters(current,p.primaryFloat,2);else LOG("[UNSUPPORTED] This profile has no documented primary float energy register. Use read for integer energy with CT/PT\n");return;}
+  if(!strcmp(line,"primary")){abortRequested=false;polling=false;const auto &p=profiles::get(options.profile);if(p.primaryFloat)dumpRegisters(current,p.primaryFloat,2);else LOG("[UNSUPPORTED] This profile has no documented primary float energy register. Use read for the selected profile energy conversion\n");return;}
   if(sscanf(line,"profile %15s %c",token,&extra)==1){uint8_t id=0;if(profiles::parse(token,id)){polling=false;selectProfile(id);showStatus();return;}}
   if(!strncmp(line,"discoverplan ",13)){if(parseDiscoveryPlan(line+13,discoveryOptions))LOG("Discovery plan updated in RAM\n");else LOG("Invalid discovery plan. Use HEX:WORDS pairs separated by commas, at most eight\n");return;}
   if(!strcmp(line,"discover")){DiscoveryConfig c=discoveryOptions;c.first=firstID;c.last=lastID;c.preferred.baud=current.baud;c.preferred.slave=current.id;c.preferred.parity=current.parity;c.preferred.stops=current.stops;c.direction=options.manualDirection?0:1;c.matrix=!options.scanCurrent;c.responseMs=uint16_t(options.responseMs>3000?3000:options.responseMs<150?150:options.responseMs);abortRequested=false;polling=false;evidence=Evidence{};uint32_t nextRun=discovery.run+1;if(!nextRun)nextRun=1;discovery.begin(c,nextRun,millis(),0);LOG("[DISCOVERY] FC03 multi-address survey, %lu query slots. No manufacturer identification or energy acceptance\n",(unsigned long)discovery.total);return;}
@@ -440,7 +442,7 @@ void serialInput(){
   executing=true;LOG("[COMMAND_INPUT] %s\n",line);command(line);executing=false;
 }
 
-  explicit FortDiagnostics(HardwareSerial &port,char *storage=nullptr,size_t capacity=0):meter(port),transport(port),logStorage(storage),logCapacity(capacity){}
+  explicit FortDiagnostics(HardwareSerial &port,char *storage=nullptr,size_t capacity=0):meter(port),transport(port),logStorage(storage),logCapacity(capacity){selectProfile(profiles::FORT);}
   void (*service)()=nullptr;
   void (*event)(uint8_t,const Link &,uint16_t,uint8_t,const uint8_t *,const uint8_t *,size_t,bool)=nullptr;
   void (*onResume)()=nullptr;

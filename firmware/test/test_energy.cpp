@@ -80,7 +80,7 @@ void testNetwork(){
   assert(decodeNetwork(legacy,sizeof(legacy),restored)&&restored.apIP==0xC0A80401);assert(!decodeNetwork(legacy,2,restored));
   {NetworkSettings e{};e.mode=NETWORK_CLIENT;e.auth=NETWORK_PEAP;strcpy(e.ssid,"Corporate 2.4 GHz");
     strcpy(e.identity,"anonymous@example.org");strcpy(e.username,"plant-device");strcpy(e.eapPassword,"enterprise-secret");strcpy(e.serverName,"radius.example.org");e.caHash[0]=1;
-    assert(validNetwork(e));NetworkSettings changed=e;assert(canReuseEnterprise(e,changed));changed.caHash[0]=2;assert(!canReuseEnterprise(e,changed));changed=e;strcpy(changed.serverName,"other.example.org");assert(!canReuseEnterprise(e,changed));changed=e;strcpy(changed.ssid,"Other SSID");assert(!canReuseEnterprise(e,changed));encodeNetwork(e,bytes);assert(decodeNetwork(bytes,sizeof(bytes),restored)&&sameNetwork(e,restored));
+    assert(validNetwork(e)&&hasEnterpriseLogin(e));NetworkSettings autoIdentity=e;autoIdentity.identity[0]=0;assert(hasEnterpriseLogin(autoIdentity));NetworkSettings changed=e;assert(canReuseEnterprise(e,changed));changed.caHash[0]=2;assert(!canReuseEnterprise(e,changed));changed=e;strcpy(changed.serverName,"other.example.org");assert(!canReuseEnterprise(e,changed));changed=e;strcpy(changed.ssid,"Other SSID");assert(!canReuseEnterprise(e,changed));encodeNetwork(e,bytes);assert(decodeNetwork(bytes,sizeof(bytes),restored)&&sameNetwork(e,restored));
     assert(!validRadiusName("*.example.org")&&!validRadiusName("example.org;other.org")&&!validRadiusName("-radius.example.org")&&!validRadiusName("radius..example.org")&&!validRadiusName("Midea Wireless Network"));
     bytes[410]^=1;assert(!decodeNetwork(bytes,sizeof(bytes),restored));
     changed=e;changed.serverName[0]=0;changed.identity[0]=0;assert(validNetwork(changed));
@@ -146,6 +146,12 @@ void testMeterCheckpoints(){
 }
 
 int main(){
+  {CaptureSource source;source.profile=profiles::HABUER;source.meterId=77;source.baud=9600;source.slave=1;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
+   assert(validCaptureSource(source));CaptureTracker log;const uint32_t day=20754;log.newDay(day);uint32_t at=captureTarget(day,0);
+   assert(log.sample(at,at+1,123456,source));near(log.day.points[0].energy,12345.6);
+   uint8_t encoded[CAPTURE_RECORD_SIZE];encodeCaptureDay(log.day,encoded);CaptureDay restored;assert(decodeCaptureDay(encoded,sizeof(encoded),restored)&&restored.points[0].source.profile==profiles::HABUER&&restored.points[0].source.meterId==77);near(restored.points[0].energy,12345.6);
+   source.ct=2;assert(!validCaptureSource(source));
+  }
   {Settings a;a.profile=profiles::ACREL_ADL400;assert(validSettings(a));a.baud=38400;assert(!validSettings(a));a.baud=9600;
    ScanController scan;assert(scan.begin(1,16,a,0));assert(scan.progress.total==240);
    while(scan.running()){assert(scan.progress.candidate.profile==profiles::ACREL_ADL400);assert(scan.progress.candidate.baud<=19200);scan.completeProbe(false,1);}

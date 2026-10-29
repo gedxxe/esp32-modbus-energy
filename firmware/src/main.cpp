@@ -31,6 +31,7 @@
 #include "flow.h"
 #include "process_monitor.h"
 #include <FortDiagnostics.h>
+#include <MeterReadings.h>
 #include "clock_guard.h"
 #include "command_policy.h"
 #include "bounded_write.h"
@@ -222,8 +223,9 @@ struct Snapshot {
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
   uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
-  double energy=0,power=NAN,ratio=0,secondaryEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN;
-  uint32_t lastContactMs=0,lastSecondaryMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
+  double energy=0,power=NAN,ratio=0,meterEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN,powerFactor=NAN,reactiveEnergy=NAN;
+  ReadingQuality readingQuality{};
+  uint32_t lastContactMs=0,lastMeterMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false,discoveryRunning=false;uint16_t savedMeterId=0;char meterName[32]={};
   char error[64]="Waiting for a response";
   char errorCode[32]="waiting_for_meter";
@@ -635,7 +637,7 @@ void completeCommand(const Command &cmd,const char *error=""){
   state.commandResultNext=(state.commandResultNext+1)%COMMAND_RESULTS;publish();
 }
 void resetMeterMeasurements(){
-  haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastSecondaryMs=0;state.ratios=false;state.energy=0;state.secondaryEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.ratio=0;
+  haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastMeterMs=0;state.ratios=false;state.energy=0;state.meterEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.powerFactor=NAN;state.reactiveEnergy=NAN;state.readingQuality=ReadingQuality{};state.ratio=0;
   ct=ptNum=ptDen=0;lastRatio=lastPoll=lastRatioTry=0;lastContactTry=millis()-3000;normalReader.activeBaud=0;
 }
 bool applyMeterSettings(const Settings &settings,uint16_t id,bool clearScan){
@@ -643,7 +645,7 @@ bool applyMeterSettings(const Settings &settings,uint16_t id,bool clearScan){
   configOK=nvsOK&&prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes)&&prefs.getBytesLength("config")==sizeof(bytes)&&prefs.getBytes("config",verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));
   if(!configOK)return false;
   ++state.modeRevision;interruptRecording();state.config=settings;selectedMeterId=id;resetMeterMeasurements();if(clearScan)scanner.reset();
-  state.scanAddress=profiles::get(settings.profile).current.address;state.scanWords=profiles::get(settings.profile).current.words;
+  state.scanAddress=profiles::get(settings.profile).probe.address;state.scanWords=profiles::get(settings.profile).probe.words;
   saveCheckpoint(true);startBus();publishDiagnostic();return true;
 }
 const char *processMeterLab(const MeterLabRequest &request,uint32_t commandId){
@@ -777,7 +779,7 @@ void acquisition(void *) {
     state.displayStored=prefs.getBytesLength("display")==sizeof(bytes)&&prefs.getBytes("display",bytes,sizeof(bytes))==sizeof(bytes)&&decodeDisplay(bytes,sizeof(bytes),state.display);
     state.displayStorageOK=state.displayStored;
   }
-  state.config=config;state.scanAddress=profiles::get(config.profile).current.address;state.scanWords=profiles::get(config.profile).current.words;state.led=defaultLed();state.ledStorageOK=nvsOK;
+  state.config=config;state.scanAddress=profiles::get(config.profile).probe.address;state.scanWords=profiles::get(config.profile).probe.words;state.led=defaultLed();state.ledStorageOK=nvsOK;
   if(nvsOK&&prefs.isKey("led")) {
     uint8_t bytes[LED_RECORD_SIZE]={};
     state.ledStored=prefs.getBytesLength("led")==sizeof(bytes)&&prefs.getBytes("led",bytes,sizeof(bytes))==sizeof(bytes)&&decodeLed(bytes,sizeof(bytes),state.led);
@@ -855,11 +857,12 @@ void acquisition(void *) {
     if(!captureUrgent&&(!state.lastContactMs||uint32_t(millis()-state.lastContactMs)>15000)){
       if(uint32_t(millis()-lastContactTry)<3000){publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       lastContactTry=millis();uint8_t handshake[4];
-      bool contactData=readWordsFor(state.config,profile.current.address,profile.current.words,handshake,1,true);
+      bool contactData=readWordsFor(state.config,profile.probe.address,profile.probe.words,handshake,1,true);
       if(!contactData&&normalReader.lastReply!=DiagnosticEngine::REPLY_EXCEPTION){state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
-      state.lastContactMs=millis();state.currentA=contactData?profiles::decode(profile.current,handshake):NAN;
+      state.lastContactMs=millis();state.currentA=contactData&&profiles::available(profile.current)&&profile.current.address==profile.probe.address&&profile.current.words==profile.probe.words?profiles::decode(profile.current,handshake):NAN;
     }
-    if((!captureUrgent||!state.ratios)&&ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
+    if(profiles::directEnergy(profile)){ptNum=ptDen=ct=1;state.ratio=1;state.ratios=true;}
+    if(profile.ratioWords&&(!captureUrgent||!state.ratios)&&ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
         lastRatioTry=millis();uint8_t p[6];
         if(readWords(profile.ratios,profile.ratioWords,p)) {
           uint16_t a=0,b=0,c=0;
@@ -871,20 +874,26 @@ void acquisition(void *) {
         }else if(state.ratios&&millis()-lastRatio>120000){state.ratios=false;interruptRecording();}
     }
     if((captureDue&&uint32_t(millis()-lastPoll)>=250)||(!captureUrgent&&uint32_t(millis()-lastPoll)>=2000)) {
-      lastPoll=millis();uint8_t e[4],p[4];
-      // Time stamp brackets the energy read. Discard slow/inconsistent windows.
-      uint32_t beginUTC=0,endUTC=0,beginMono=millis();bool beginOK=rtcRead(beginUTC);
-      bool energyRead=readWords(profile.energy.address,profile.energy.words,e);
-      if(energyRead){state.secondaryEnergy=profiles::decode(profile.energy,e);state.lastSecondaryMs=millis();state.lastContactMs=millis();}
+      lastPoll=millis();uint8_t p[4];MeterReadings reading;
+      // The UTC pair brackets the actual energy request, even in a multi-read snapshot.
+      uint32_t beginUTC=0,endUTC=0,beginMono=millis();bool beginOK=false,endOK=false;
+      bool energyRead=readMeterReadings(profile,[&](const profiles::Register &reg,uint8_t *bytes){
+        bool energy=&reg==&profile.energy;if(energy)beginOK=rtcRead(beginUTC);
+        bool ok=readWords(reg.address,reg.words,bytes);
+        if(energy)endOK=rtcRead(endUTC);
+        return ok;
+      },reading,&state.readingQuality);
+      if(energyRead){state.meterEnergy=reading.meterEnergy;state.lastMeterMs=millis();state.lastContactMs=millis();
+        if(profiles::coherentSnapshot(profile)){state.powerFactor=reading.powerFactor;state.frequency=reading.frequency;state.reactiveEnergy=reading.reactiveEnergy;}}
+      else if(profiles::coherentSnapshot(profile)){interruptRecording();setError("Required meter snapshot incomplete or invalid. Inspect UART frames","snapshot_rejected");}
       bool energyOK=state.ratios&&energyRead;
-      bool endOK=rtcRead(endUTC);
       if(energyOK) {
-        uint32_t raw=be32(e);bool accepted=true;
+        uint32_t raw=reading.rawEnergy;bool accepted=true;
         if(rawKnown&&raw<previousRaw) {
           // A wrap cannot be distinguished reliably from a reset: invalidate continuity.
           interruptRecording();++state.rejected;setError("Counter decreased. Continuity interrupted","counter_reset");
         }
-        double energy=raw*profile.energy.scale*state.ratio;
+        double energy=profiles::primaryEnergy(profile.id,raw,ptNum,ptDen,ct);
         // Physical sanity limit: editable compile-time plant limit (100 MW).
         if(rawKnown&&raw>=previousRaw&&millis()!=previousMono) {
           double maxDelta=100000.0*(millis()-previousMono)/3600000.0+2*profile.energy.scale*state.ratio;
@@ -903,15 +912,15 @@ void acquisition(void *) {
           }else interruptRecording();
         }
       }
-      if(!captureUrgent&&readWordsFor(state.config,profile.power.address,profile.power.words,p,1,true))state.power=profiles::decode(profile.power,p);else state.power=NAN;
+      if(!captureUrgent&&profiles::available(profile.power)&&readWordsFor(state.config,profile.power.address,profile.power.words,p,1,true))state.power=profiles::decode(profile.power,p);else state.power=NAN;
     }
     if(haveSample&&millis()-lastGood>15000)interruptRecording();
     static uint32_t lastElectrical=0;
     if(!captureUrgent&&uint32_t(millis()-lastElectrical)>=10000&&state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<15000){
       lastElectrical=millis();uint8_t raw[4];
-      state.currentA=readWordsFor(state.config,profile.current.address,profile.current.words,raw,1,true)?profiles::decode(profile.current,raw):NAN;
-      state.voltageA=readWordsFor(state.config,profile.voltage.address,profile.voltage.words,raw,1,true)?profiles::decode(profile.voltage,raw):NAN;
-      state.frequency=readWordsFor(state.config,profile.frequency.address,profile.frequency.words,raw,1,true)?profiles::decode(profile.frequency,raw):NAN;
+      state.currentA=profiles::available(profile.current)&&readWordsFor(state.config,profile.current.address,profile.current.words,raw,1,true)?profiles::decode(profile.current,raw):NAN;
+      state.voltageA=profiles::available(profile.voltage)&&readWordsFor(state.config,profile.voltage.address,profile.voltage.words,raw,1,true)?profiles::decode(profile.voltage,raw):NAN;
+      if(!profiles::coherentSnapshot(profile))state.frequency=profiles::available(profile.frequency)&&readWordsFor(state.config,profile.frequency.address,profile.frequency.words,raw,1,true)?profiles::decode(profile.frequency,raw):NAN;
     }
     if(millis()-lastSave>=300000)saveCheckpoint(true);
     publish();vTaskDelay(pdMS_TO_TICKS(100));
@@ -1000,7 +1009,7 @@ void webSetup() {
     JsonObject network=d["network"].to<JsonObject>();
     network["configuredAPIP"]=ipv4Address(shownNetwork.apIP).toString();network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
     network["auth"]=networkAuthName(shownNetwork.auth);network["hasPassword"]=shownNetwork.password[0]!=0;
-    network["hasCustomIdentity"]=shownNetwork.identity[0]!=0;network["hasEnterpriseCredentials"]=shownNetwork.identity[0]&&shownNetwork.username[0]&&shownNetwork.eapPassword[0];network["serverName"]=shownNetwork.serverName;
+    network["hasCustomIdentity"]=shownNetwork.identity[0]!=0;network["hasEnterpriseCredentials"]=hasEnterpriseLogin(shownNetwork);network["serverName"]=shownNetwork.serverName;
     char fingerprint[65];formatCAHash(shownNetwork.caHash,fingerprint);network["caFingerprint"]=shownNetwork.auth==NETWORK_PEAP?fingerprint:"";
     network["error"]=stationDriver.error;network["disconnectReason"]=stationDriver.disconnectReason;network["apiCode"]=stationDriver.apiCode;network["attempts"]=stationDriver.attempts;
     network["enterpriseProvisioning"]=apOK&&server.client().localIP()==WiFi.softAPIP();network["flashEncrypted"]=esp_flash_encryption_enabled();network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
@@ -1011,17 +1020,22 @@ void webSetup() {
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
-      info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
+      info["primaryFloat"]=profile.primaryFloat;info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
+      info["energyBasis"]=profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios";info["coherentSnapshot"]=profiles::coherentSnapshot(profile);info["requiredReadings"]=profile.requiredReadings;
       info["energyScale"]=profile.energy.scale;info["ratios"]=profile.ratios;info["ratioWords"]=profile.ratioWords;info["wordOrder"]="high-first";
-      const char *names[]={"currentA","voltageA","power","frequency","secondaryEnergy"};
-      const profiles::Register registers[]={profile.current,profile.voltage,profile.power,profile.frequency,profile.energy};
-      for(unsigned i=0;i<5;++i){JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;}
+      const char *names[]={"currentA","voltageA","power","frequency","secondaryEnergy","probe","powerFactor","reactiveEnergy"};
+      const profiles::Register registers[]={profile.current,profile.voltage,profile.power,profile.frequency,profile.energy,profile.probe,profile.powerFactor,profile.reactiveEnergy};
+      for(unsigned i=0;i<8;++i){if(!profiles::available(registers[i])){info[names[i]]=nullptr;continue;}JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;reg["encoding"]=registers[i].encoding==profiles::F32?"float32":registers[i].encoding==profiles::I32?"int32":registers[i].encoding==profiles::U32?"uint32":"uint16";}
+      info["meterEnergy"]=info["secondaryEnergy"];
     };
     describeProfile(d["meter"].to<JsonObject>(),profiles::get(s.config.profile));
     JsonArray supported=d["meterProfiles"].to<JsonArray>();for(uint8_t id=0;id<profiles::COUNT;++id)describeProfile(supported.add<JsonObject>(),profiles::get(id));
     d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
-    if(isfinite(s.secondaryEnergy)){d["secondaryEnergy"]=s.secondaryEnergy;d["secondaryAge"]=(millis()-s.lastSecondaryMs)/1000;}else d["secondaryEnergy"]=nullptr;
-    d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;
+    if(isfinite(s.meterEnergy)){d["secondaryEnergy"]=s.meterEnergy;d["secondaryAge"]=(millis()-s.lastMeterMs)/1000;}else d["secondaryEnergy"]=nullptr;
+    d["meterEnergy"]=d["secondaryEnergy"];d["meterAge"]=d["secondaryAge"]; // v3.0 aliases remain readable.
+    d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;d["powerFactor"]=nullptr;d["reactiveEnergy"]=nullptr;
+    if(isfinite(s.powerFactor))d["powerFactor"]=s.powerFactor;if(isfinite(s.reactiveEnergy))d["reactiveEnergy"]=s.reactiveEnergy;
+    JsonObject readingQuality=d["readingQuality"].to<JsonObject>();readingQuality["required"]=s.readingQuality.required;readingQuality["transportFailed"]=s.readingQuality.transportFailed;readingQuality["invalid"]=s.readingQuality.invalid;readingQuality["complete"]=s.readingQuality.complete;
     if(isfinite(s.currentA))d["currentA"]=s.currentA;if(isfinite(s.voltageA))d["voltageA"]=s.voltageA;if(isfinite(s.frequency))d["frequency"]=s.frequency;
     if(s.lastContactMs)d["contactAge"]=(millis()-s.lastContactMs)/1000;else d["contactAge"]=nullptr;
     d["diagnosticActive"]=s.diagnosticActive;d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
@@ -1079,7 +1093,7 @@ void webSetup() {
     Snapshot production{};readSnapshot(production);
     DiagnosticEngine::DebugOptions o=view.active?view.options:DiagnosticEngine::DebugOptions{};
     auto link=view.active?view.link:diagnosticLink(production.config);
-    if(!view.active){const auto &p=profiles::get(production.config.profile);o.profile=p.id;o.probeAddress=p.current.address;o.probeWords=p.current.words;o.energyAddress=p.energy.address;o.ratioAddress=p.ratios;o.energyScale=p.energy.scale;o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
+    if(!view.active){const auto &p=profiles::get(production.config.profile);o.profile=p.id;o.probeAddress=p.probe.address;o.probeWords=p.probe.words;o.energyAddress=p.energy.address;o.ratioAddress=p.ratios;o.energyScale=p.energy.scale;o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
     JsonObject settings=d["settings"].to<JsonObject>();
     settings["stopBits"]=link.stops;settings["profile"]=profiles::get(o.profile).key;settings["slave"]=link.id;settings["baud"]=link.baud;settings["parity"]=String(link.parity);settings["rx"]=o.rx;settings["tx"]=o.tx;
     settings["dir"]=o.dir;settings["direction"]=o.manualDirection?"manual":"auto";settings["timeout"]=o.responseMs;settings["gap"]=o.gapMs;settings["settle"]=o.settleUs;
@@ -1214,7 +1228,7 @@ void webSetup() {
     uint32_t first=0,last=0;
     if(!parseNumber(server.arg("first"),first)||!parseNumber(server.arg("last"),last)||first<1||last>247||first>last){jsonReply(400,"Use IDs 1-247, with first ID <= last ID","invalid_scan_range");return;}
     Command c{};c.type=START_SCAN;c.first=first;c.last=last;
-    uint32_t address=profiles::get(s.config.profile).current.address,words=profiles::get(s.config.profile).current.words;
+    uint32_t address=profiles::get(s.config.profile).probe.address,words=profiles::get(s.config.profile).probe.words;
     if(server.hasArg("address")&&!parseNumber(server.arg("address"),address)){jsonReply(400,"Invalid probe address","invalid_diagnostic_command");return;}
     if(server.hasArg("words")&&!parseNumber(server.arg("words"),words)){jsonReply(400,"Invalid word count","invalid_diagnostic_command");return;}
     if(address>65535||words<1||words>3||address+words>65536){jsonReply(400,"Probe outside supported register bounds","invalid_diagnostic_command");return;}
@@ -1256,14 +1270,14 @@ void webSetup() {
     else if(day==s.capturePending.number){record=s.capturePending;archived=false;}
     else if(!readCaptureFile(day,record)){jsonReply(404,"Checkpoint record is not available","archive_missing");return;}
     server.sendHeader("Cache-Control","no-store");
-    if(server.arg("format")=="csv"){server.sendHeader("Content-Disposition","attachment; filename=fort-checkpoints-"+dateForDay(day)+".csv");server.send(200,"text/csv; charset=utf-8",csvCaptures(record));return;}
+    if(server.arg("format")=="csv"){server.sendHeader("Content-Disposition","attachment; filename=meter-checkpoints-"+dateForDay(day)+".csv");server.send(200,"text/csv; charset=utf-8",csvCaptures(record));return;}
     JsonDocument d;addCaptureJSON(d,record,durable,archived,s.captureBacklog);String out;serializeJson(d,out);server.send(200,"application/json",out);
   });
   server.on("/api/export",HTTP_GET,[]{
     Snapshot s{};readSnapshot(s);uint32_t day=s.day.number;
     if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid archive date","invalid_archive_date");return;}
     if(!day||day>s.day.number||s.day.number-day>=31){jsonReply(404,"Archive is not available","archive_missing");return;}
-    server.sendHeader("Content-Disposition","attachment; filename=fort-"+dateForDay(day)+".csv");
+    server.sendHeader("Content-Disposition","attachment; filename=meter-"+dateForDay(day)+".csv");
     server.sendHeader("Cache-Control","no-store");
     if(day==s.day.number){server.send(200,"text/csv; charset=utf-8",csvDay(s.day));return;}
     if(!fsOK||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))!=pdTRUE){jsonReply(503,"Storage is not available","storage_unavailable");return;}
@@ -1414,7 +1428,7 @@ void setup() {
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
   initProcessMonitor();webSetup();esp_task_wdt_config_t wdt{};wdt.timeout_ms=8000;wdt.idle_core_mask=3;wdt.trigger_panic=true;if(esp_task_wdt_status(nullptr)==ESP_ERR_INVALID_STATE)esp_task_wdt_init(&wdt);else esp_task_wdt_reconfigure(&wdt);esp_task_wdt_add(nullptr);
-  if(xTaskCreatePinnedToCore(acquisition,"fort-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
+  if(xTaskCreatePinnedToCore(acquisition,"meter-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
   Serial.printf("Midea Energy Station ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }
 void loop() {

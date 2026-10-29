@@ -1,4 +1,6 @@
-# FortSerialDebug 3.0.0 / field diagnostic guide
+# FortSerialDebug 3.1.0 / field diagnostic guide
+
+Habuer is selected with `profile habuer` in **Arduino IDE Serial Monitor INPUT at 115200 baud with Newline, then Enter/Send**, or the **web Command input + Run command** after entering diagnostics. Run `read` in the same input for the four required reference reads, or `deeper` for raw parameters and conversion. Habuer uses direct meter totals without an additional CT/PT multiplier. See [Habuer field-reference guide](../../docs/HABUER.md) for the exact map and rejection rules.
 
 The sketch supports `discover`, `discoverplan`, `discoveryreport` and `stops` through the same controller as the website. [Discovery instructions](../../docs/METER_DISCOVERY.md#standalone-arduino-investigation) identify where to type commands and collect output. Saved flash records belong to the main website and are not written by this INO.
 
@@ -6,11 +8,11 @@ This sketch also supports Acrel ADL400 through `profile acrel-adl400`. See [Mete
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-This sketch runs the same FortMeter/ModbusMaster source used by firmware 3.0.0, with USB Serial instead of the web application. Its default is the confirmed manual transceiver: TX17→DI, RX18←RO and DIR16→DE+/RE, with 100 µs settling, 200 ms request spacing and a two-second response timeout. It sends FC03 reads only and keeps test configuration in RAM.
+This sketch runs the same FortMeter/ModbusMaster source used by firmware 3.1.0, with USB Serial instead of the web application. Its default is the confirmed manual transceiver: TX17→DI, RX18←RO and DIR16→DE+/RE, with 100 µs settling, 200 ms request spacing and a two-second response timeout. It sends FC03 reads only and keeps test configuration in RAM.
 
 ## 1. Upload once
 
-In Arduino IDE, install the supplied **FortMeter-library-v3.0.0.zip** through **Sketch → Include Library → Add .ZIP Library**, then open `FortSerialDebug.ino`. The ZIP includes the documented ModbusMaster 2.0.1+fort.1 source. Installing only the stock ModbusMaster library does not supply its runtime service hooks. From a source checkout, copying the entire [FortMeter folder](../../firmware/lib/FortMeter) into your configured Sketchbook `libraries` folder is the equivalent installation.
+In Arduino IDE, install the supplied **FortMeter-library-v3.1.0.zip** through **Sketch → Include Library → Add .ZIP Library**, then open `FortSerialDebug.ino`. The ZIP includes the documented ModbusMaster 2.0.1+fort.1 source. Installing only the stock ModbusMaster library does not supply its runtime service hooks. From a source checkout, copying the entire [FortMeter folder](../../firmware/lib/FortMeter) into your configured Sketchbook `libraries` folder is the equivalent installation.
 
 Select an ESP32-S3 board with 16 MB flash, OPI PSRAM and USB CDC enabled, then compile/upload with Arduino ESP32 3.3.11. PlatformIO is an alternative: from the repository-root **computer terminal**, run `pio run -d examples/FortSerialDebug`, or add `-t upload`. It resolves the same local library automatically. Neither route requires the React build to run this standalone sketch.
 

@@ -1,5 +1,5 @@
 import MeterLab from "../components/MeterLab.jsx";
-import { meterProfile, meterProfiles } from "../meter-profile.js";
+import { meterProfile, meterProfiles, probeRegister } from "../meter-profile.js";
 import { useEffect, useState } from "react";
 import DiagnosticConsole from "../components/DiagnosticConsole.jsx";
 import RawTrace from "../components/RawTrace.jsx";
@@ -38,7 +38,7 @@ export default function MeterSetup({ device }) {
         words: scan.words,
       });
   }, [scan.phase, scan.address, scan.words]);
-  useEffect(()=>{setProbe({address:profile.currentA.address.toString(16).padStart(4,"0"),words:profile.currentA.words});},[s?.profile]);
+  useEffect(()=>{setProbe({address:probeRegister(profile).address.toString(16).padStart(4,"0"),words:probeRegister(profile).words});},[s?.profile]);
   const profilePending=config.profile!==profile.key;
   const applied =
     scan.result &&

@@ -4,9 +4,9 @@
 
 The shared discovery controller, named flash registry, immutable checkpoint source IDs and refactored settings codec are described in [Meter discovery](METER_DISCOVERY.md). The scanner remains FC03-only and does not infer a manufacturer from raw values.
 
-Meter-specific Fort examples below remain valid for Fort. For Acrel, select the saved model first and use [Meter profiles](METER_PROFILES.md) for its register map, terminals, conversion and diagnostic workflow.
+Meter-specific Fort examples below remain valid for Fort. For Acrel or Habuer, select the saved model first and use [Meter profiles](METER_PROFILES.md) and the [Habuer reference](HABUER.md) for the applicable map, conversion and diagnostic workflow.
 
-Firmware 3.0.0 uses the same FortMeter/ModbusMaster source for normal reads, scanner probes and the standalone sketch. The diagnostic console therefore tests the installed reading path rather than a separate parser. Its default connection is manual direction on TX17/RX18/DIR16, with a 2000 ms response timeout, 100 µs driver/receiver settling and 200 ms between requests.
+Firmware 3.1.0 uses the same FortMeter/ModbusMaster source for normal reads, scanner probes and the standalone sketch. The diagnostic console therefore tests the installed reading path rather than a separate parser. Its default connection is manual direction on TX17/RX18/DIR16, with a 2000 ms response timeout, 100 µs driver/receiver settling and 200 ms between requests.
 
 
 The web console now also shows the current session settings and evidence counters, with structured register and trial-setting controls. The primary-float preset prepares the same `primary` command available to the standalone sketch. Use the [complete web guide](WEB.md) for the feature-to-API map and AP/client connection steps.
@@ -14,7 +14,7 @@ The web console now also shows the current session settings and evidence counter
 
 ## First run at the panel
 
-1. Join **Midea Engineering AP**, password **betahdijre12345**, open **http://192.168.4.1**, and confirm Firmware 3.0.0 in the footer. In Meter setup, match the Fort CONi ID/baud/parity and select Manual direction for the confirmed DE-/RE installation.
+1. Join **Midea Engineering AP**, password **betahdijre12345**, open **http://192.168.4.1**, and confirm Firmware 3.1.0 in the footer. In Meter setup, match the Fort CONi ID/baud/parity and select Manual direction for the confirmed DE-/RE installation.
 2. Open **Diagnostic console**. Type `status` into the web **Command input**, then choose **Run command**. Read the printed ID, format, direction and timings before starting a test. These command lines are device input, not messages for a support chat.
 3. Enter `intermediate` as a new command and choose Run command. This sends the manual's phase-A current request at `0x0058`, two registers, and prints TX/RX plus the ModbusMaster result. At ID 1 the request bytes are `01 03 00 58 00 02 45 D8`.
 4. Enter `diagnose` separately when a wider record is needed. It first observes RX without TX for three seconds, then tries the selected probe and the configured raw register plan, including energy/ratio decoding when enabled. A silent first address does not prevent the later plan entries from running.
@@ -79,3 +79,6 @@ Open **Arduino IDE/PlatformIO Serial Monitor at 115200 baud with Newline**. Type
 ## Paired physical observations
 
 `check connected`, `check isolated` and `compare` retain user-labeled captures with matching settings and completion guards. Only use those labels when you actually change A/B at the module between captures. Do not run both on an unchanged physical connection and interpret them as automatic cable detection. The [eight field recipes](../examples/FortSerialDebug/README.md#choose-the-test-by-the-observation) provide bounded variations for passive RX, format search, raw-map and word-order checks.
+
+
+[Habuer field-reference diagnostics](HABUER.md) use the same console and transport. Select the profile before reading or scanning.

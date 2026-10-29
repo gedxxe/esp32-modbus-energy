@@ -2,8 +2,18 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.0.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.1.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## Habuer integration and shared reading policy in 3.1.0
+
+The physical ESP32-S3 N16R8 target and standalone diagnostic both compiled under the pinned pioarduino 6.1.19 Core, platform 55.03.311, Arduino 3.3.11 and ESP-IDF 5.5.5. The main image uses 133,084 bytes of static RAM and 1,839,259 program bytes. The standalone uses 36,840 and 369,956 bytes. The committed browser payload is 150,174 gzip bytes, below the 163,840-byte limit. These are build metrics, not runtime heap or CPU measurements.
+
+All three native suites passed. New cases execute the real ModbusMaster library with independent FC03 requests at 0x0030, 0x0032, 0x0034 and 0x0035, verify Float32 ABCD and UInt32 scaling, continue after a missing first parameter, reject invalid PF/non-finite frequency, retain the previous accepted snapshot and omit CT/PT transactions for direct meter totals. Profile ID 2 survives registry and schema-3 checkpoint round trips, identity conversion is enforced for direct-total captures, and Fort/Acrel arithmetic and old record readers remain covered. Discovery plans now derive eight deduplicated signatures from the catalog without changing the persisted evidence layout. Optional Enterprise identity reuse also has a native regression.
+
+The full generated-byte Edge browser regression, discovery suite, Enterprise suite and Habuer suite passed. Habuer checks cover selecting and saving the model, the 0x0030 probe, PF/frequency/active/reactive values, absent unsupported current/voltage/power cards, partial-snapshot diagnostics, accepted-value retention, English/Indonesian text, reload, mobile width, named finding activation and switching back to Fort. All 29 SVGs rendered. The Habuer desktop/mobile screenshots use simulated data and are representative UI illustrations.
+
+The profile follows the owner's working [reference sketch](HABUER.md), whose original bytes and SHA256 are retained. No Habuer vendor manual, exact model, current/voltage/power register or numeric terminal assignment was provided. The integrated firmware was not flashed to a Habuer meter here. Compare active kWh, PF, frequency and reactive kvarh with the installed LCD and verify timing, restart recovery and boundary captures on hardware before accepting the installation. Reactive energy is live telemetry, while persistent checkpoints remain the active-kWh series.
 
 ## Enterprise client and runtime migration in 3.0.0
 

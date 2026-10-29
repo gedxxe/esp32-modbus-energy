@@ -1,8 +1,8 @@
-# Agent instructions / Midea Fort Energy Station
+# Agent instructions / Midea Energy Station
 
 ## Purpose and confirmed hardware
 
-Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a selected Fort or Acrel ADL400 power meter over Modbus RTU and serves a local dashboard. The user's Fort RS485 port is unused: the ESP32 is the only master. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL. Treat these as established facts. Do not repeatedly question them or invent a PLC/BMS connection.
+Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a selected Fort, Acrel ADL400 or Habuer power meter over Modbus RTU and serves a local dashboard. The user's Fort RS485 port is unused: the ESP32 is the only master. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL. Treat these as established facts. Do not repeatedly question them or invent a PLC/BMS connection.
 
 The root Fort PDF is the primary meter reference. It is a scanned document. Verify the relevant page image before changing terminal assignments, registers, scaling, or protocol details. The documented meter communication terminals are 58/A and 59/B. Terminal 70/COM belongs to the switch inputs and is not an RS485 ground connection.
 
@@ -23,7 +23,8 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `firmware/include/meter_config.h`, `meter_registry.h`, `meter_registry_store.h` and `meter_lab.h`: explicit codecs, named inventory, two-bank recovery and CRC-protected ID reservations. Reserve IDs before committing a bank and never reuse them after rollback.
 - `firmware/src/meter_lab_web.cpp` and `web/components/MeterLab.jsx`: queue-only HTTP adapter and discovery/registry controls. Keep unknown findings separate from verified production profiles.
 - `firmware/include/checkpoint_log.h`: primary ten-point daily cumulative kWh log, actual read timestamps, immutable captures, five-second admission window and explicit CRC serialization. Schema 3 is 446 bytes with immutable saved IDs. Preserve schema 1/2 readers at 426 bytes.
-- `firmware/lib/FortMeter/src/MeterProfiles.h`: immutable meter profile IDs and typed register/ratio descriptors. Fort remains ID 0 for old settings and schema-1 captures. Acrel ADL400 follows the supplied V1.3 map. Never repurpose an archived profile ID for different scaling. Review docs/METER_PROFILES.md and the local PDF page images before changing it.
+- `firmware/lib/FortMeter/src/MeterProfiles.h`: immutable meter profile IDs and typed register/ratio descriptors. Fort remains ID 0 for old settings and schema-1 captures. Acrel ADL400 follows the supplied V1.3 map. Habuer is ID 2 and follows the supplied field-reference sketch with four independent reads and direct meter totals. Never repurpose an archived profile ID for different scaling. Review docs/METER_PROFILES.md and the local PDF page images before changing it.
+- `firmware/lib/FortMeter/src/MeterReadings.h`: shared required-reading policy, typed validation and atomic snapshot acceptance. Preserve Habuer starting addresses 0x0030/0x0032/0x0034/0x0035 as separate requests, and never manufacture unsupported current, voltage, power or CT/PT registers.
 - `firmware/include/energy.h`: retained legacy interval schedule, continuity/quality logic and CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
 - `firmware/lib/FortMeter/src/FortTransport.h` and `FortDiagnostics.h`: source-shared ModbusMaster transport and diagnostic console for main firmware and the standalone INO. The old diagnostic_engine.h and build-diagnostic.py paths are compatibility/provenance entry points. Do not create a second parser there.
@@ -49,7 +50,7 @@ Keep the README, wiring SVG, netlist, diagrams, tests and release package consis
 
 1. Read the meter with Modbus function 03 only. Do not add register writes, automatic meter reconfiguration or resets without an explicit product requirement.
 2. Reject bad CRC, wrong ID/function/length and exception frames. CRC integrity is never bypassed to match a typo in the manual.
-3. Use the secondary integer energy counter and apply CT/PT once. Keep cumulative calculations in `double`. Never treat missing data as zero.
+3. Use the selected profile energy basis. Apply CT/PT once to secondary integer counters, and do not multiply meter-reported totals again. Keep cumulative calculations in `double`. Never treat missing data as zero.
 4. Primary checkpoints are 06:00, 06:30, 07:00, 07:30, 08:00 and 17:00, 17:30, 18:00, 18:30, 19:00 WIB. Store actual cumulative readings with their request/response RTC timestamps, never interpolation or late backfill. The earlier nine consumption windows remain a separate legacy analysis/API and must not overwrite checkpoint or historical data. All day boundaries are WIB (UTC+7). DS3231 stores UTC.
 5. Missing/invalid RTC, reboots, counter resets, changed CT/PT and excessive sample gaps must not yield a complete interval. Preserve completed intervals.
 6. Core 1 exclusively owns UART, Preferences and tracker mutation. Core 0 handles HTTP/UI. Exchange copies through RTOS queues. Lock I2C and filesystem access. Keep waits bounded and leave time for idle/Wi-Fi tasks.

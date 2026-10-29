@@ -70,7 +70,8 @@ inline bool decodeMeterRegistry(const uint8_t *p,size_t size,MeterRegistry &out)
 inline bool canActivateSaved(const SavedMeter &m,Settings &settings){
   if(!validSavedMeter(m)||!m.verified||!profiles::valid(m.profile)||m.evidence.link.stops!=1)return false;
   const auto &profile=profiles::get(m.profile);
-  if(!m.evidence.dataAt(profile.current.address,profile.current.words)||!m.evidence.dataAt(profile.energy.address,profile.energy.words)||!m.evidence.dataAt(profile.ratios,profile.ratioWords))return false;
+  DiscoveryQuery required[3];size_t count=profiles::discoveryQueries(profile,required,3);
+  for(size_t i=0;i<count;++i)if(!m.evidence.dataAt(required[i].address,required[i].words))return false;
   Settings s;s.profile=m.profile;s.slave=m.evidence.link.slave;s.baud=m.evidence.link.baud;s.parity=m.evidence.link.parity;s.direction=m.evidence.direction;
   if(!validSettings(s))return false;
   settings=s;return true;

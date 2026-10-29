@@ -92,8 +92,9 @@ const trace = {
 const calls = [],
   assetRequests = new Set();
 const meterCatalog=[
- {key:"fort",name:"Fort",terminals:"58 / A · 59 / B",maxBaud:38400,energyScale:.001,ratios:44,ratioWords:3,currentA:{address:88,words:2},voltageA:{address:66,words:2},power:{address:106,words:2},frequency:{address:128,words:1},secondaryEnergy:{address:130,words:2}},
- {key:"acrel-adl400",name:"Acrel ADL400",terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:362,words:2},frequency:{address:119,words:1},secondaryEnergy:{address:10,words:2}}
+ {key:"fort",name:"Fort",primaryFloat:138,terminals:"58 / A · 59 / B",maxBaud:38400,energyScale:.001,ratios:44,ratioWords:3,currentA:{address:88,words:2},voltageA:{address:66,words:2},power:{address:106,words:2},frequency:{address:128,words:1},secondaryEnergy:{address:130,words:2}},
+ {key:"acrel-adl400",name:"Acrel ADL400",terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:362,words:2},frequency:{address:119,words:1},secondaryEnergy:{address:10,words:2}},
+ {key:"habuer",name:"Habuer",terminals:"A / B · use meter labels",maxBaud:38400,energyScale:.1,energyBasis:"meter-total",coherentSnapshot:true,ratios:0,ratioWords:0,probe:{address:48,words:2},currentA:null,voltageA:null,power:null,powerFactor:{address:48,words:2},frequency:{address:50,words:2},secondaryEnergy:{address:52,words:2},reactiveEnergy:{address:53,words:2}}
 ];
 const state = {
   version,profile:"fort",meter:meterCatalog[0],meterProfiles:meterCatalog,
@@ -180,6 +181,10 @@ const diagnostic = {
   log: "",
 };
 function appendFlow(outcome="valid") {
+  const profile=state.meter,reg=profile.secondaryEnergy,slave=state.slave;
+  const tx=rtuHex([slave,3,reg.address>>8,reg.address&255,0,reg.words]);
+  const data=profile.key==="habuer"?[0,1,226,64]:[0,0,3,232];
+  const rx=rtuHex([slave,3,data.length,...data]);
   const now = Math.floor((Date.now() % 1000000) * 1000);
   for (const [kind, offset, result] of [
     [1, 80000, "invalid"],
@@ -194,24 +199,28 @@ function appendFlow(outcome="valid") {
       rxPin:18,txPin:17,dirPin:16,
       baud: 9600,
       parity: "N",
-      slave: 1,
-      address: 130,
-      words: 2,
+      slave,
+      address: reg.address,
+      words: reg.words,
       diagnostic: diagnostic.active,
       overflow: false,
       result,
       bytes:
-        kind===6?"":kind < 3 ? "01 03 00 82 00 02 64 23" : "01 03 04 00 00 03 E8 FA 84",
+        kind===6?"":kind < 3 ? tx : rx,
     });
   flowEvents = flowEvents.slice(-32);
 }
+function rtuHex(bytes){let crc=65535;for(const byte of bytes){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>1)^((crc&1)?0xa001:0);}return [...bytes,crc&255,crc>>8].map(b=>b.toString(16).padStart(2,"0").toUpperCase()).join(" ");}
 function labEvidence(index=0){
- const profile=meterCatalog[index],addresses=index?[100,10,141]:[88,130,44],widths=index?[1,2,2]:[2,2,3];
- const probes=addresses.map((address,i)=>({address,words:widths[i],attempts:2,confirmed:true,data:true,tx:"01 03 00 58 00 02 45 D8",replies:[{status:0,accepted:true,truncated:false,attemptMs:221,rx:widths[i]===1?"01 03 02 13 88 B5 2F":widths[i]===2?"01 03 04 00 00 03 E8 FA 84":"01 03 06 00 01 00 01 00 50 00 00"},{status:0,accepted:true,truncated:false,attemptMs:221,rx:widths[i]===1?"01 03 02 13 88 B5 2F":widths[i]===2?"01 03 04 00 00 03 E8 FA 84":"01 03 06 00 01 00 01 00 50 00 00"}]}));
- for(const probe of probes)for(const reply of probe.replies){reply.tx=probe.tx;reply.txBytes=8;}
- return {slave:index+1,baud:9600,parity:"N",stopBits:1,direction:"manual",boot:99,run:1,utc:1793185200,elapsedMs:2000,requests:6,timeouts:0,crcErrors:0,rejected:0,exceptions:0,mapEvidence:index?2:1,mappingHints:[profile.key],confirmed:true,probes};
+ const profile=meterCatalog[index],slave=index+1,queries=[profile.probe||profile.currentA,profile.secondaryEnergy,...(profile.ratioWords?[{address:profile.ratios,words:profile.ratioWords}]:[])];
+ const probes=queries.map(({address,words})=>{const tx=rtuHex([slave,3,address>>8,address&255,0,words]);
+  let data=Array(words*2).fill(0);if(words===3)data=[0,1,0,1,0,80];else if(words===1)data=[0,123];else data=[0,0,3,232];
+  if(profile.key==="habuer")data=address===48?[63,96,0,0]:[0,1,226,64];
+  const rx=rtuHex([slave,3,data.length,...data]);return {address,words,attempts:2,confirmed:true,data:true,tx,replies:[0,1].map(()=>({status:0,accepted:true,truncated:false,attemptMs:221,tx,txBytes:8,rx}))};});
+ return {slave,baud:9600,parity:"N",stopBits:1,direction:"manual",boot:99,run:1,utc:1793185200,elapsedMs:2000,requests:2*probes.length,timeouts:0,crcErrors:0,rejected:0,exceptions:0,mapEvidence:1<<index,mappingHints:[profile.key],confirmed:true,probes};
 }
-const defaultLabPlan=[{address:0,words:1},...meterCatalog.flatMap(p=>[p.currentA,p.secondaryEnergy,{address:p.ratios,words:p.ratioWords}])];
+
+const defaultLabPlan=meterCatalog.flatMap(p=>[p.probe||p.currentA,p.secondaryEnergy,...(p.ratioWords?[{address:p.ratios,words:p.ratioWords}]:[])]);
 const lab={schema:1,version,ready:true,storageOK:true,activeId:0,error:"",discovery:{plan:defaultLabPlan,phase:"idle",run:0,tested:0,total:0,elapsedMs:0,requests:0,timeouts:0,crcErrors:0,rejected:0,exceptions:0},current:{...labEvidence(),run:0,confirmed:false,probes:[]},findings:[],saved:[]};
 let labRequests=0,labHold=false,labMalformed=false,labNextId=1;
 const server = http.createServer((req, res) => {
@@ -295,7 +304,7 @@ const server = http.createServer((req, res) => {
             stackFreeMin: 9216,
           },
           {
-            name: "fort-acquisition / UART",
+            name: "meter-acquisition / UART",
             core: 1,
             state: "blocked",
             priority: 2,
@@ -360,7 +369,7 @@ const server = http.createServer((req, res) => {
     const url=new URL(req.url,"http://localhost");
     const day=Number(url.searchParams.get("day")||state.checkpoints.day),record=day===state.checkpoints.day?state.checkpoints:historicalCheckpoints;
     if(url.searchParams.get("format")==="csv"){
-      res.setHeader("Content-Type","text/csv");res.setHeader("Content-Disposition",`attachment; filename=fort-checkpoints-${record.date}.csv`);
+      res.setHeader("Content-Type","text/csv");res.setHeader("Content-Disposition",`attachment; filename=meter-checkpoints-${record.date}.csv`);
       res.end("date,scheduled_wib,cumulative_kwh,status\n"+record.rows.map(row=>`${record.date},${String(Math.floor(row.minute/60)).padStart(2,"0")}:${String(row.minute%60).padStart(2,"0")},${row.kwh??""},${row.status}`).join("\n"));return;
     }
     res.end(JSON.stringify(malformedCaptureArchive?{...record,rows:record.rows.slice(0,2)}:record));return;
@@ -379,7 +388,7 @@ const server = http.createServer((req, res) => {
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=fort-2026-10-26.csv",
+      "attachment; filename=meter-2026-10-26.csv",
     );
     res.end("date,shift,quality\n2026-10-26,morning,complete_estimated\n");
     return;
@@ -419,7 +428,7 @@ const server = http.createServer((req, res) => {
         const action=data.get("action");
         if(action==="start"){
           const run=lab.discovery.run+1;lab.discovery={...lab.discovery,run,phase:"running",tested:0,total:7,elapsedMs:0,plan:data.get("plan").split(",").map(s=>({address:parseInt(s.split(":")[0],16),words:Number(s.split(":")[1])}))};lab.findings=[];state.discoveryRunning=true;
-          if(!labHold)setTimeout(()=>{lab.discovery.phase="complete";lab.discovery.tested=7;lab.findings=[0,1].map(index=>({...labEvidence(index),run,index}));lab.current=lab.findings[1];state.discoveryRunning=false;},200);
+          if(!labHold)setTimeout(()=>{lab.discovery.phase="complete";lab.discovery.tested=7;lab.findings=(process.argv.includes("--habuer-only")?[2]:[0,1]).map((index,slot)=>({...labEvidence(index),run,index:slot}));lab.current=lab.findings[lab.findings.length-1];state.discoveryRunning=false;},200);
         }
         if(action==="save"){const evidence=lab.findings[Number(data.get("index"))];lab.saved.push({id:labNextId++,name:data.get("name"),model:data.get("model"),notes:data.get("notes"),profile:data.get("profile"),verified:data.get("verified")==="1",activatable:data.get("profile")!=="unknown"&&data.get("verified")==="1",evidence});}
         if(action==="remove")lab.saved=lab.saved.filter(row=>row.id!==Number(data.get("id")));
@@ -498,7 +507,7 @@ const server = http.createServer((req, res) => {
           parity: data.get("parity"),
           direction: data.get("direction"),
         });
-        state.meter=meterCatalog.find(p=>p.key===state.profile);state.scan.address=state.meter.currentA.address;state.scan.words=state.meter.currentA.words;
+        state.meter=meterCatalog.find(p=>p.key===state.profile);state.scan.address=(state.meter.probe||state.meter.currentA).address;state.scan.words=(state.meter.probe||state.meter.currentA).words;
       }
       if (req.url === "/api/scan/start")
         state.scan = {
@@ -626,6 +635,10 @@ async function checkVectors(browser, out) {
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--habuer-only")){
+      const page=await browser.newPage({viewport:{width:1440,height:1100}});
+      await require("./test-habuer.cjs")({page,origin,state,calls,root});return;
+    }
     if(process.argv.includes("--enterprise-only")){
       const page=await browser.newPage({viewport:{width:1440,height:1100}});
       await require("./test-enterprise.cjs")({page,origin,state,calls,root});return;
@@ -1025,7 +1038,7 @@ async function checkVectors(browser, out) {
     const rawDownloadPromise = page.waitForEvent("download");
     await page.locator("#trace-download").click();
     const rawDownload = await rawDownloadPromise;
-    assert.equal(rawDownload.suggestedFilename(), "fort-raw-1.txt");
+    assert.equal(rawDownload.suggestedFilename(), "meter-raw-1.txt");
     const rawText = fs.readFileSync(await rawDownload.path(), "utf8");
     assert(
       rawText.includes("result=echo") &&
@@ -1475,7 +1488,7 @@ async function checkVectors(browser, out) {
     const downloadPromise = page.waitForEvent("download");
     await page.locator("#diagnostic-download").click();
     const logDownload = await downloadPromise;
-    assert(logDownload.suggestedFilename().startsWith("fort-diagnostic-"));
+    assert(logDownload.suggestedFilename().startsWith("meter-diagnostic-"));
     await page.locator("#language").selectOption("id");
     assert(
       (await page.locator("#diagnostic-resume").innerText()).includes(

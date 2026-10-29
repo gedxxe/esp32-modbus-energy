@@ -1,7 +1,7 @@
 export const meterLabText={
   "en": {
     "lab_title": "Meter discovery and saved devices",
-    "lab_intro": "Survey FC03 devices without choosing a manufacturer first, then save a named record with serial settings and observed frames. Fort and Acrel remain available as explicit production profiles.",
+    "lab_intro": "Survey FC03 devices without choosing a manufacturer first, then save a named record with serial settings and observed frames. Fort, Acrel and Habuer are available as explicit production profiles.",
     "lab_limits": "Current format uses the saved baud, parity and one stop bit. The matrix tests eight baud rates, N/E/O and one/two stop bits. A wide silent search can take hours. Recording pauses during discovery, and the run stops after four complete findings.",
     "lab_frames": "Inspect captured frames and numeric candidates",
     "lab_decode_note": "These numeric interpretations are unscaled candidates. A valid response confirms a responding slave, while register meanings, units and model still need the meter manual and LCD comparison. Attempt times include bus spacing and driver waits.",
@@ -47,7 +47,7 @@ export const meterLabText={
   },
   "id": {
     "lab_title": "Pencarian meter dan perangkat tersimpan",
-    "lab_intro": "Cari perangkat FC03 tanpa harus memilih merek lebih dahulu, lalu simpan nama instalasi beserta setting serial dan frame yang diamati. Fort serta Acrel tetap tersedia sebagai profil produksi yang eksplisit.",
+    "lab_intro": "Cari perangkat FC03 tanpa harus memilih merek lebih dahulu, lalu simpan nama instalasi beserta setting serial dan frame yang diamati. Fort, Acrel dan Habuer tersedia sebagai profil produksi yang eksplisit.",
     "lab_limits": "Format tersimpan memakai baud, parity dan satu stop bit. Matrix menguji delapan baud rate, N/E/O serta satu/dua stop bit. Pencarian luas tanpa respons bisa memerlukan beberapa jam. Pencatatan berhenti sementara dan scan berakhir setelah empat temuan lengkap.",
     "lab_frames": "Periksa frame dan kandidat angka",
     "lab_decode_note": "Interpretasi angka berikut masih berupa kandidat tanpa skala. Respons sah membuktikan slave membalas, sedangkan arti register, satuan dan model perlu dicocokkan dengan manual serta LCD. Durasi percobaan mencakup jeda bus dan driver.",

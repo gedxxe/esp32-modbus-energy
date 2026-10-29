@@ -61,7 +61,7 @@ function TraceData({ device }) {
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = `fort-raw-${capture.generation}.txt`;
+    link.download = `meter-raw-${capture.generation}.txt`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };

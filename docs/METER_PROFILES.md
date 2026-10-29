@@ -75,3 +75,8 @@ The in-memory Settings layout remains 12 bytes, while the explicit 16-byte persi
 Add another meter by defining a new immutable profile ID with reviewed sources, descriptors and tests. Never repurpose an existing profile ID for a different scale or map because archived rows rely on its meaning. A new encoding, ratio layout or byte-order variant requires an explicit typed decoder and fixtures before it is enabled. Future revisions with different meanings need their own profile rather than a silent fallback after a failed probe.
 
 Core ownership, bounded retries, active-maintenance arbitration, Wi-Fi modes, RTC handling and checkpoint admission windows remain shared across profiles. Native tests exercise both widths, signed power, CT/PT conversion, scan bounds, legacy settings and record migration through the real ModbusMaster library. Browser verification uses simulated APIs and the actual shipped gzip assets. Neither those checks nor PDF review substitutes for acceptance on the installed Acrel hardware.
+
+
+## Habuer and profile capabilities
+
+Habuer uses immutable ID 2 with a direct meter-total energy basis. Its required-reading mask, typed Float32 measurements and absent CT/PT registers are described in [Habuer integration](HABUER.md). The formula above applies to the Fort/Acrel secondary profiles. The runtime catalog marks unsupported registers as null, uses a dedicated contact probe and generates diagnostic/discovery plans from the same descriptors. Historical FortMeter API names and NVS keys remain for compatibility and do not restrict the selected manufacturer.

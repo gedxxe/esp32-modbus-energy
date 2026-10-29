@@ -62,6 +62,7 @@ inline bool validNetwork(const NetworkSettings &s){
   return true;
 }
 inline bool sameNetwork(const NetworkSettings &a,const NetworkSettings &b){return a.mode==b.mode&&a.auth==b.auth&&a.apIP==b.apIP&&!strcmp(a.ssid,b.ssid)&&!strcmp(a.password,b.password)&&!strcmp(a.identity,b.identity)&&!strcmp(a.username,b.username)&&!strcmp(a.eapPassword,b.eapPassword)&&!strcmp(a.serverName,b.serverName)&&!memcmp(a.caHash,b.caHash,32);}
+inline bool hasEnterpriseLogin(const NetworkSettings &s){return s.auth==NETWORK_PEAP&&s.username[0]&&s.eapPassword[0];}
 inline bool canReuseEnterprise(const NetworkSettings &saved,const NetworkSettings &next){return saved.auth==NETWORK_PEAP&&next.auth==NETWORK_PEAP&&!strcmp(saved.ssid,next.ssid)&&!strcmp(saved.serverName,next.serverName)&&!memcmp(saved.caHash,next.caHash,32);}
 constexpr size_t NETWORK_RECORD_SIZE=779,NETWORK_CA_MAX=4096;
 inline size_t networkLength(const char *value,size_t capacity){size_t length=0;while(length<capacity&&value[length])++length;return length;}

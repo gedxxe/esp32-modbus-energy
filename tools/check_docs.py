@@ -2,6 +2,7 @@
 from pathlib import Path
 from urllib.parse import unquote,urlsplit
 import csv
+import hashlib
 import json
 import re
 import subprocess
@@ -10,6 +11,8 @@ import xml.etree.ElementTree as ET
 
 ROOT=Path(__file__).resolve().parent.parent
 errors=[]
+reference=ROOT/"docs/references/habuer-field-reference.ino.txt"
+if not reference.exists() or hashlib.sha256(reference.read_bytes()).hexdigest()!="6ad372465827f8636a0dd2644bd205f86be4e954c68fb18da6454d642ee1447b":errors.append("Habuer field-reference bytes or provenance changed")
 def need(ok,message):
     if not ok:errors.append(message)
 def exact_case(path):
@@ -100,7 +103,7 @@ need('FORT.58/A' in all_endpoints and 'FORT.59/B' in all_endpoints,'Fort termina
 need(not any('FORT.70' in x for x in all_endpoints),'Switch-input COM must not be wired as RS485 ground')
 need((ROOT/'AGENTS.md').exists(),'Root AGENTS.md missing')
 debug_source=(ROOT/'firmware/lib/FortMeter/src/FortDiagnostics.h').read_text(encoding='utf-8')
-debug_version=re.search(r'Fort diagnostics ([0-9.]+) \|',debug_source).group(1)
+debug_version=re.search(r'Meter diagnostics ([0-9.]+) \|',debug_source).group(1)
 for name in ['README.md','README.id.md']:
     guide=(ROOT/'examples/FortSerialDebug'/name).read_text(encoding='utf-8')
     need('FortSerialDebug '+debug_version in guide,f'{name}: diagnostic version mismatch')

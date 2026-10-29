@@ -2,9 +2,9 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 3.0.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 3.1.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
-Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
+Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort, Acrel ADL400 atau Habuer. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
 
 Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.30, 18.00, 18.30, 19.00 WIB**. Angka yang tercatat di sekitar 07.00 tetap menjadi rekaman 07.00 saat petugas terhubung pukul 09.20. Waktu request serta respons aktual ikut disimpan, sedangkan checkpoint yang gagal tetap ditandai terlewat dan tidak diisi dengan angka belakangan. [Panduan checkpoint dan penyimpanan](docs/id/CHECKPOINTS.md) menjelaskan timing, pengambilan data, kolom CSV serta pemulihan.
 
@@ -17,9 +17,11 @@ Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` s
 
 ## Profil meter
 
-Pilih **Fort** atau **Acrel ADL400** melalui **Meter setup → Model meter**, lalu simpan sebelum menjalankan scan. Pilihan ini mengatur register, dekode rasio trafo, diagnostik dan probe awal. Fort tetap menjadi default setelah upgrade instalasi lama, sedangkan checkpoint yang sudah tercatat tetap menyimpan identitas model asalnya.
+Pilih **Fort**, **Acrel ADL400** atau **Habuer** melalui **Meter setup → Model meter**, lalu simpan sebelum menjalankan scan. Pilihan ini mengatur register, dekode rasio trafo, diagnostik dan probe awal. Fort tetap menjadi default setelah upgrade instalasi lama, sedangkan checkpoint yang sudah tercatat tetap menyimpan identitas model asalnya.
 
 Implementasi ADL400 mengikuti **manual V1.3 yang disediakan**. Counter impor berada pada `0x000A` dengan skala 0,01 kWh per count, sedangkan Fort memakai `0x0082` dengan skala 0,001 kWh per count. Port Acrel adalah **21/A1 dan 22/B1**, berbeda dari **58/A dan 59/B** milik Fort. Baca [profil meter dan commissioning](docs/id/METER_PROFILES.md) untuk peta register, konversi, migrasi dan pemeriksaan lapangan, atau lihat [wiring Acrel lengkap](docs/assets/wiring-acrel-adl400.svg).
+
+Habuer mengikuti [sketch referensi yang berhasil diuji pengguna](docs/id/HABUER.md), dengan pembacaan terpisah untuk PF, frekuensi, kWh aktif kumulatif dan kvarh reaktif. Total aktif dibaca pada `0x0034`, dua word dibagi 10, tanpa pengali trafo tambahan. Panduan tersebut menjelaskan urutan pembacaan dan [wiring Habuer lengkap](docs/assets/wiring-habuer.svg).
 
 ## Pencarian meter dan record bernama
 
@@ -73,7 +75,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.19 |
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 3.0.0 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 3.1.0 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -82,7 +84,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.0.0, samakan slave ID/baud/parity dengan menu CONi Fort, dan pilih Manual direction. Firmware menguji kontak melalui FC03 `0x0058`, dua register, sebelum meminta profil pengukuran lainnya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.1.0, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 
@@ -96,9 +98,9 @@ Buka **Perangkat & arsip → Koneksi Wi-Fi** untuk memilih AP, Client dengan pem
 
 Buka **Meter setup → Diagnostic console**, ketik `intermediate` di **Command input**, lalu pilih **Run command** untuk menjalankan contoh arus pada manual. Masukkan `diagnose` secara terpisah bila memerlukan observasi RX pasif dan plan register yang lebih luas. Output memuat TX/RX mentah, status ModbusMaster dan word hasil baca. Nilai uji tidak masuk rekaman interval. Panduan [DIAGNOSTICS](docs/id/DIAGNOSTICS.md) menjelaskan alur serta cara menyimpan OUTPUT.
 
-## Scan Fort
+## Scan meter yang dipilih
 
-Mulai dari format tersimpan dan ID yang diketahui atau rentang kecil. Probe awal `0x0058/2` memakai contoh manual. Kandidat dengan data atau exception ber-CRC sah diuji sekali lagi sebelum menjadi hasil. Apply result menyimpan setting pembaca, bukan register meter, serta belum membuktikan skala energi. Pencarian 247 ID dan 18 format mempunyai 4.446 kandidat dan dapat memerlukan sekitar tiga jam bila semuanya mencapai timeout dua detik.
+Mulai dari format tersimpan dan ID yang diketahui atau rentang kecil. Probe mengikuti model tersimpan, dengan `0x0058/2` tetap menjadi default Fort. Kandidat dengan data atau exception ber-CRC sah diuji sekali lagi sebelum menjadi hasil. Apply result menyimpan setting pembaca, bukan register meter, serta belum membuktikan skala energi. Pencarian 247 ID dan 18 format mempunyai 4.446 kandidat dan dapat memerlukan sekitar tiga jam bila semuanya mencapai timeout dua detik.
 
 ### Posisi OLED dan LED RGB bawaan
 
@@ -118,9 +120,11 @@ Tombol memakai pull-up internal dan debounce stabil 35 ms, dengan satu event lon
 
 ## 4. Perhitungan dan kualitas interval
 
-Counter sekunder `0x0082–0x0083` dibaca sebagai integer unsigned high-word-first dan dibagi 1000. Nilainya tetap tersedia saat validasi rasio gagal. Counter energi utama serta tracker interval menghitung `kWh_sekunder × (PT numerator / PT denominator) × CT`, dengan rasio pada `0x002C–0x002E`. CT/PT hanya diterapkan sekali dan kalkulasi kumulatif memakai `double`.
+Pada Fort, counter sekunder `0x0082–0x0083` dibaca sebagai integer unsigned high-word-first dan dibagi 1000. Nilainya tetap tersedia saat validasi rasio gagal. Counter energi utama serta tracker interval menghitung `kWh_sekunder × (PT numerator / PT denominator) × CT`, dengan rasio pada `0x002C–0x002E`. CT/PT hanya diterapkan sekali dan kalkulasi kumulatif memakai `double`.
 
-Float primer `0x008A–0x008B` merupakan tampilan diagnostik terpisah. Perintah `primary` mencetak dua kandidat urutan word untuk dibandingkan dengan halaman Fort yang sesuai, tanpa memilih angka yang terlihat masuk akal secara otomatis. Ketidakselarasan kolom panjang energi pada scan manual tetap dicatat di [DESIGN](docs/id/DESIGN.md).
+Acrel menggunakan skala sekunder dan layout PT/CT sendiri. Habuer memakai total meter tanpa pengali CT/PT tambahan, dan empat parameter referensi harus lolos sebelum snapshot baru diterima. Counter utama serta checkpoint hanya memakai energi aktif yang diterima. Energi reaktif tersedia sebagai telemetry langsung.
+
+Float primer Fort `0x008A–0x008B` merupakan tampilan diagnostik terpisah. Perintah `primary` mencetak dua kandidat urutan word untuk dibandingkan dengan halaman Fort yang sesuai, tanpa memilih angka yang terlihat masuk akal secara otomatis. Ketidakselarasan kolom panjang energi pada scan manual tetap dicatat di [DESIGN](docs/id/DESIGN.md).
 
 | Checkpoint pagi, WIB | Checkpoint sore, WIB |
 | --- | --- |

@@ -10,7 +10,9 @@ constexpr unsigned CAPTURE_COUNT=10;
 constexpr uint16_t CAPTURE_MINUTES[CAPTURE_COUNT]={360,390,420,450,480,1020,1050,1080,1110,1140};
 constexpr uint32_t CAPTURE_WINDOW=5; // First accepted read requested at/after the target, within five seconds.
 constexpr uint32_t CAPTURE_OFFSET=7*3600;
-constexpr size_t CAPTURE_RECORD_SIZE=24+CAPTURE_COUNT*40+2;
+constexpr size_t CAPTURE_LEGACY_SIZE=24+CAPTURE_COUNT*40+2;
+constexpr size_t CAPTURE_RECORD_SIZE=24+CAPTURE_COUNT*42+2;
+inline bool captureRecordSize(size_t size){return size==CAPTURE_RECORD_SIZE||size==CAPTURE_LEGACY_SIZE;}
 enum CaptureStatus : uint8_t { CAPTURE_WAITING,CAPTURE_RECORDED,CAPTURE_MISSED };
 inline const char *captureStatusCode(uint8_t status) {
   return status==CAPTURE_WAITING?"waiting":status==CAPTURE_RECORDED?"recorded":status==CAPTURE_MISSED?"missed":"invalid";
@@ -18,7 +20,7 @@ inline const char *captureStatusCode(uint8_t status) {
 struct CaptureSource {
   uint32_t baud=0;
   uint16_t ptNum=0,ptDen=0,ct=0;
-  uint8_t profile=profiles::FORT;
+  uint8_t profile=profiles::FORT;uint16_t meterId=0;
   uint8_t slave=0;char parity=0;uint8_t direction=0;
 };
 inline bool validCaptureSource(const CaptureSource &s) {
@@ -28,7 +30,7 @@ inline bool validCaptureSource(const CaptureSource &s) {
 }
 inline bool sameCaptureSource(const CaptureSource &a,const CaptureSource &b) {
   return a.slave==b.slave&&a.baud==b.baud&&a.parity==b.parity&&a.direction==b.direction&&
-    a.profile==b.profile&&a.ptNum==b.ptNum&&a.ptDen==b.ptDen&&a.ct==b.ct;
+    a.meterId==b.meterId&&a.profile==b.profile&&a.ptNum==b.ptNum&&a.ptDen==b.ptDen&&a.ct==b.ct;
 }
 struct MeterCapture {
   double energy=0;
@@ -118,25 +120,28 @@ inline void capturePut32(uint8_t *p,uint32_t value){for(unsigned i=0;i<4;++i)p[i
 inline uint16_t captureGet16(const uint8_t *p){return uint16_t(p[0])|uint16_t(p[1])<<8;}
 inline uint32_t captureGet32(const uint8_t *p){uint32_t value=0;for(unsigned i=0;i<4;++i)value|=uint32_t(p[i])<<(8*i);return value;}
 inline void encodeCaptureDay(const CaptureDay &day,uint8_t *bytes) {
-  memset(bytes,0,CAPTURE_RECORD_SIZE);capturePut32(bytes,0x31545043);capturePut16(bytes+4,2);capturePut16(bytes+6,CAPTURE_COUNT);
+  memset(bytes,0,CAPTURE_RECORD_SIZE);capturePut32(bytes,0x31545043);capturePut16(bytes+4,3);capturePut16(bytes+6,CAPTURE_COUNT);
   capturePut32(bytes+8,day.number);capturePut32(bytes+12,day.revision);capturePut32(bytes+16,day.generation);capturePut32(bytes+20,0x06001900);
-  for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &x=day.points[i];uint8_t *p=bytes+24+i*40;
+  for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &x=day.points[i];uint8_t *p=bytes+24+i*42;
     p[0]=x.status;p[1]=x.source.slave;p[2]=uint8_t(x.source.parity);p[3]=x.source.direction;
     capturePut32(p+4,x.startedUTC);capturePut32(p+8,x.capturedUTC);capturePut32(p+12,x.raw);capturePut32(p+16,x.source.baud);
     capturePut16(p+20,x.source.ptNum);capturePut16(p+22,x.source.ptDen);capturePut16(p+24,x.source.ct);
     uint64_t bits=0;static_assert(sizeof(double)==8,"Checkpoint records require IEEE754 double");memcpy(&bits,&x.energy,8);
     for(unsigned j=0;j<8;++j)p[26+j]=uint8_t(bits>>(8*j));
-    capturePut32(p+34,x.generation);p[38]=x.source.profile;
+    capturePut32(p+34,x.generation);p[38]=x.source.profile;capturePut16(p+40,x.source.meterId);
   }
   capturePut16(bytes+CAPTURE_RECORD_SIZE-2,crc16(bytes,CAPTURE_RECORD_SIZE-2));
 }
 inline bool decodeCaptureDay(const uint8_t *bytes,size_t size,CaptureDay &out) {
-  if(!bytes||size!=CAPTURE_RECORD_SIZE||captureGet32(bytes)!=0x31545043||(captureGet16(bytes+4)!=1&&captureGet16(bytes+4)!=2)||captureGet16(bytes+6)!=CAPTURE_COUNT||
+  if(!bytes||!captureRecordSize(size)||captureGet32(bytes)!=0x31545043||(captureGet16(bytes+4)<1||captureGet16(bytes+4)>3)||captureGet16(bytes+6)!=CAPTURE_COUNT||
      captureGet32(bytes+20)!=0x06001900||captureGet16(bytes+size-2)!=crc16(bytes,size-2))return false;
+  const uint16_t schema=captureGet16(bytes+4);const size_t stride=schema==3?42:40;
+  if(size!=24+CAPTURE_COUNT*stride+2)return false;
   CaptureDay day{};day.number=captureGet32(bytes+8);day.revision=captureGet32(bytes+12);day.generation=captureGet32(bytes+16);
   if(!validCaptureDayNumber(day.number)||!day.generation)return false;
-  for(unsigned i=0;i<CAPTURE_COUNT;++i){const uint8_t *p=bytes+24+i*40;auto &x=day.points[i];
+  for(unsigned i=0;i<CAPTURE_COUNT;++i){const uint8_t *p=bytes+24+i*stride;auto &x=day.points[i];
     x.source.profile=captureGet16(bytes+4)==1?uint8_t(profiles::FORT):p[38];
+    x.source.meterId=schema==3?captureGet16(p+40):0;
     x.status=p[0];x.source.slave=p[1];x.source.parity=char(p[2]);x.source.direction=p[3];
     x.startedUTC=captureGet32(p+4);x.capturedUTC=captureGet32(p+8);x.raw=captureGet32(p+12);x.source.baud=captureGet32(p+16);
     x.source.ptNum=captureGet16(p+20);x.source.ptDen=captureGet16(p+22);x.source.ct=captureGet16(p+24);x.generation=captureGet32(p+34);
@@ -149,7 +154,7 @@ inline bool decodeCaptureDay(const uint8_t *bytes,size_t size,CaptureDay &out) {
          x.startedUTC<target||x.capturedUTC<x.startedUTC||x.capturedUTC>target+CAPTURE_WINDOW||x.capturedUTC-x.startedUTC>2||
          fabs(x.energy-expected)>16*DBL_EPSILON*fmax(1.0,expected))return false;
     }else{
-      for(unsigned j=1;j<40;++j)if(p[j])return false;
+      for(unsigned j=1;j<stride;++j)if(p[j])return false;
     }
   }
   out=day;return true;

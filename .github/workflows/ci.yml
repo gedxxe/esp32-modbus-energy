@@ -73,6 +73,7 @@ jobs:
         run: npm run check:web
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
+      - run: npm run test:meter-lab
       - uses: actions/upload-artifact@v7
         if: always()
         with:

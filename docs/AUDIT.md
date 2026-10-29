@@ -1,6 +1,8 @@
-# Implementation review for version 2.5.0
+# Implementation review for version 2.6.0
 
 **English** · [Bahasa Indonesia](id/AUDIT.md)
+
+The shared discovery controller, named flash registry, immutable checkpoint source IDs and refactored settings codec are described in [Meter discovery](METER_DISCOVERY.md). The scanner remains FC03-only and does not infer a manufacturer from raw values.
 
 The user reported a successful ModbusMaster sketch using a manual transceiver with DIR16. The previous installation default selected automatic direction, and its custom receiver depended on task-observed gaps to finish a frame. V2 changes both the circuit default and transaction engine to follow the working reference. This is a design revision based on that evidence, not an isolated measurement proving that only one difference caused every earlier failure.
 

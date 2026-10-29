@@ -16,7 +16,7 @@ inline double signed32(uint32_t raw){return (raw&0x80000000UL)?double(int64_t(ra
 inline float float32(uint16_t hi,uint16_t lo){uint32_t raw=u32(hi,lo);float value;static_assert(sizeof(value)==4,"IEEE754 float32 required");memcpy(&value,&raw,4);return value;}
 }
 inline uint16_t meterCRC(const uint8_t *data,size_t size){uint16_t crc=0xFFFF;while(size--)crc=crc16_update(crc,*data++);return crc;}
-struct MeterLink {uint32_t baud=9600;uint8_t id=1;char parity='N';};
+struct MeterLink {uint32_t baud=9600;uint8_t id=1;char parity='N';uint8_t stops=1;};
 struct TransportOptions {
   int rx=18,tx=17,dir=16;
   bool manual=true;
@@ -38,20 +38,21 @@ class FortTransport {
   explicit FortTransport(HardwareSerial &uart):uart(uart),observed(*this){}
   TransportOptions options{};Transaction last{};
   Event event=nullptr;Service service=nullptr;void *context=nullptr;
-  uint32_t activeBaud=0;char activeParity=0;int activeRx=-1,activeTx=-1;
+  uint32_t activeBaud=0;char activeParity=0;uint8_t activeStops=0;int activeRx=-1,activeTx=-1;
   int configuredDir=-1;bool configuredManual=false;
   void invalidate(){activeBaud=0;}
   bool open(const MeterLink &link){
+    if((link.stops!=1&&link.stops!=2)||(link.parity!='N'&&link.parity!='E'&&link.parity!='O'))return false;
     if(options.manual&&(options.dir==options.rx||options.dir==options.tx))return false;
     if(configuredManual&&(!options.manual||configuredDir!=options.dir)){digitalWrite(configuredDir,LOW);}
     if(options.manual){pinMode(options.dir,OUTPUT);digitalWrite(options.dir,LOW);}
     configuredManual=options.manual;configuredDir=options.dir;
-    if(activeBaud==link.baud&&activeParity==link.parity&&activeRx==options.rx&&activeTx==options.tx&&uart)return true;
+    if(activeBaud==link.baud&&activeParity==link.parity&&activeStops==link.stops&&activeRx==options.rx&&activeTx==options.tx&&uart)return true;
     uart.end();uart.setRxBufferSize(256);
-    uint32_t format=link.parity=='E'?SERIAL_8E1:link.parity=='O'?SERIAL_8O1:SERIAL_8N1;
+    uint32_t format=link.stops==2?(link.parity=='E'?SERIAL_8E2:link.parity=='O'?SERIAL_8O2:SERIAL_8N2):(link.parity=='E'?SERIAL_8E1:link.parity=='O'?SERIAL_8O1:SERIAL_8N1);
     uart.begin(link.baud,format,options.rx,options.tx);
     if(!uart){activeBaud=0;return false;}
-    activeBaud=link.baud;activeParity=link.parity;activeRx=options.rx;activeTx=options.tx;return true;
+    activeBaud=link.baud;activeParity=link.parity;activeStops=link.stops;activeRx=options.rx;activeTx=options.tx;return true;
   }
   uint8_t read(const MeterLink &link,uint16_t address,uint8_t words,uint16_t *out){
     last=Transaction{};current=link;currentAddress=address;currentWords=words;

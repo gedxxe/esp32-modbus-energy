@@ -1,6 +1,8 @@
-# Tinjauan implementasi versi 2.5.0
+# Tinjauan implementasi versi 2.6.0
 
 [English](../AUDIT.md) · **Bahasa Indonesia**
+
+Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta codec setting yang dipisahkan dijelaskan pada [Pencarian meter](METER_DISCOVERY.md). Scanner tetap hanya memakai FC03 dan tidak menebak produsen dari nilai mentah.
 
 Pengguna melaporkan sketch ModbusMaster berhasil dengan transceiver manual dan DIR16. Default instalasi sebelumnya memakai arah otomatis, sementara receiver khusus bergantung pada gap yang diamati task untuk menyelesaikan frame. V2 mengubah kedua bagian agar mengikuti acuan berhasil, tanpa mengklaim bahwa satu perbedaan saja telah terbukti menjadi penyebab seluruh kegagalan sebelumnya.
 

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="650" viewBox="0 0 1400 650" role="img" aria-labelledby="title desc"><title id="title">Meter discovery and saved-device architecture</title><desc id="desc">Software data flow. Communication evidence is distinct from operator identity and production-profile acceptance.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Meter discovery · FC03 observations and named records</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Core 1 owns UART, evidence and NVS. Core 0 serves queue copies through the local website.</text>
+<rect x="40" y="160" width="300" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="60" y="199" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Editable probe plan</text>
+<text x="60" y="239" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">HEX PDU offsets</text>
+<text x="60" y="266" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">1–3 words · up to 8 queries</text>
+<rect x="375" y="160" width="300" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="395" y="199" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Serial sweep</text>
+<text x="395" y="239" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Saved format or matrix</text>
+<text x="395" y="266" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">IDs · baud · parity · stops</text>
+<rect x="710" y="160" width="300" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="730" y="199" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Strict transport</text>
+<text x="730" y="239" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">ModbusMaster + CRC</text>
+<text x="730" y="266" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">No writes or echo stripping</text>
+<rect x="1045" y="160" width="300" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1065" y="199" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Observed evidence</text>
+<text x="1065" y="239" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Two matching replies</text>
+<text x="1065" y="266" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Raw frames · errors · timing</text>
+<polyline points="340,230 375,230" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="675,230 710,230" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1010,230 1045,230" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="40" y="420" width="400" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="60" y="460" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Operator declaration</text>
+<text x="60" y="500" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Name and model supplied by operator</text>
+<text x="60" y="527" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Supported map + LCD verification</text>
+<rect x="500" y="420" width="400" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="520" y="460" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Flash registry / core 1</text>
+<text x="520" y="500" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">4 entries · alternating CRC banks</text>
+<text x="520" y="527" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Reserve IDs before writing a new bank</text>
+<rect x="960" y="420" width="400" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="980" y="460" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Production reader</text>
+<text x="980" y="500" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Explicit verified profile selection</text>
+<text x="980" y="527" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">Checkpoint source ID · schema 3</text>
+<polyline points="1195,305 1195,355 240,355 240,420" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="440,492 500,492" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,492 960,492" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="45" y="622" fill="#087e82" font-family="Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">A valid reply confirms communication. Register meaning and manufacturer remain separate verification steps.</text>
+</svg>

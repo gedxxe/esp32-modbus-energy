@@ -1,20 +1,22 @@
 #pragma once
 #include <stdint.h>
+#include "../lib/FortMeter/src/SerialSweep.h"
 #include "../lib/FortMeter/src/MeterProfiles.h"
 
 namespace fort {
 enum Direction:uint8_t { DIRECTION_MANUAL=0,DIRECTION_AUTO=1 };
-struct Settings { uint32_t magic=0x46525433; uint32_t baud=9600; uint8_t slave=1; char parity='N';uint8_t direction=DIRECTION_MANUAL,profile=profiles::FORT; };
+struct Settings { uint32_t magic=0x46525434; uint32_t baud=9600; uint8_t slave=1; char parity='N';uint8_t direction=DIRECTION_MANUAL,profile=profiles::FORT; };
 static_assert(sizeof(Settings)==12,"Persisted settings layout changed");
 inline bool validBaud(uint32_t b) { return b==1200||b==2400||b==4800||b==9600||b==19200||b==38400; }
 inline bool validSettings(const Settings &s) {
-  return s.magic==0x46525433&&profiles::valid(s.profile)&&s.baud<=profiles::get(s.profile).maxBaud&&s.direction<=DIRECTION_AUTO&&s.slave>=1&&s.slave<=247&&validBaud(s.baud)&&(s.parity=='N'||s.parity=='E'||s.parity=='O');
+  return s.magic==0x46525434&&profiles::valid(s.profile)&&s.baud<=profiles::get(s.profile).maxBaud&&s.direction<=DIRECTION_AUTO&&s.slave>=1&&s.slave<=247&&validBaud(s.baud)&&(s.parity=='N'||s.parity=='E'||s.parity=='O');
 }
 inline bool migrateLegacySettings(Settings &s){
-  if((s.magic!=0x46525431&&s.magic!=0x46525432)||s.slave<1||s.slave>247||!validBaud(s.baud)||(s.parity!='N'&&s.parity!='E'&&s.parity!='O'))return false;
-  if(s.magic==0x46525431)s.direction=DIRECTION_MANUAL;
-  if(s.direction>DIRECTION_AUTO)return false;
-  s.magic=0x46525433;s.profile=profiles::FORT;return true;
+  const uint32_t old=s.magic;
+  if((old!=0x46525431&&old!=0x46525432&&old!=0x46525433)||s.slave<1||s.slave>247||!validBaud(s.baud)||(s.parity!='N'&&s.parity!='E'&&s.parity!='O'))return false;
+  if(old==0x46525431)s.direction=DIRECTION_MANUAL;
+  if(old!=0x46525433)s.profile=profiles::FORT;
+  s.magic=0x46525434;return validSettings(s);
 }
 
 enum ScanPhase:uint8_t { SCAN_IDLE,SCAN_RUNNING,SCAN_FOUND,SCAN_CANCELLED,SCAN_EXHAUSTED };
@@ -36,13 +38,13 @@ class ScanController {
   bool running() const { return progress.phase==SCAN_RUNNING; }
   bool begin(uint8_t first,uint8_t last,const Settings &preferred,uint32_t now,bool currentOnly=false) {
     if(running()||first<1||last>247||first>last||!validSettings(preferred))return false;
-    const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};
-    const char parities[]={'N','E','O'};
-    bauds[0]=preferred.baud;int i=1;for(auto b:defaults)if(b!=preferred.baud&&b<=profiles::get(preferred.profile).maxBaud)bauds[i++]=b;
-    baudCount=i;modes[0]=preferred.parity;i=1;for(auto p:parities)if(p!=preferred.parity)modes[i++]=p;
-    preferredProfile=preferred.profile;preferredDirection=preferred.direction;preferredID=preferred.slave;started=now;progress=ScanProgress{};
-    combinations=currentOnly?1:baudCount*3;progress.currentOnly=currentOnly;
-    progress.first=first;progress.last=last;progress.total=(last-first+1)*combinations;
+    const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};const char parities[]={'N','E','O'};
+    uint32_t rates[6]={preferred.baud};char modes[3]={preferred.parity};uint8_t nr=1,nm=1,stops[]={1};
+    if(!currentOnly){for(auto baud:defaults)if(baud!=preferred.baud&&baud<=profiles::get(preferred.profile).maxBaud)rates[nr++]=baud;for(auto parity:parities)if(parity!=preferred.parity)modes[nm++]=parity;}
+    SerialTarget base;base.baud=preferred.baud;base.slave=preferred.slave;base.parity=preferred.parity;
+    if(!sweep.begin(first,last,base,rates,nr,modes,nm,stops,1))return false;
+    preferredDirection=preferred.direction;preferredProfile=preferred.profile;started=now;progress=ScanProgress{};progress.currentOnly=currentOnly;
+    progress.first=first;progress.last=last;progress.total=uint16_t(sweep.total);
     progress.phase=SCAN_RUNNING;updateCandidate();return true;
   }
   void refresh(uint32_t now) { if(running())progress.elapsedMs=now-started; }
@@ -57,23 +59,12 @@ class ScanController {
     if(!running())return false;
     refresh(now);progress.phase=SCAN_CANCELLED;return true;
   }
+  void reset(){if(!running())progress=ScanProgress{};}
  private:
-  uint32_t bauds[6]{},started=0;
-  char modes[3]{};
-  uint8_t preferredID=1,combinations=18,preferredDirection=DIRECTION_MANUAL,preferredProfile=0,baudCount=6;
-  void updateCandidate() {
-    uint16_t count=progress.last-progress.first+1,index=progress.tested%count,combo=progress.tested/count;
-    uint16_t id=progress.first+index;
-    if(preferredID>=progress.first&&preferredID<=progress.last) {
-      // Fast pass: all 18 serial modes at the configured ID before other IDs.
-      if(progress.tested<combinations){id=preferredID;combo=progress.tested;}
-      else {
-        uint16_t remaining=count-1,offset=progress.tested-combinations;
-        combo=offset/remaining;id=progress.first+offset%remaining;if(id>=preferredID)++id;
-      }
-    }
-    progress.candidate=Settings{};progress.candidate.baud=bauds[combo/3];
-    progress.candidate.profile=preferredProfile;progress.candidate.direction=preferredDirection;progress.candidate.parity=modes[combo%3];progress.candidate.slave=id;
+  SerialSweep sweep;uint32_t started=0;uint8_t preferredDirection=0,preferredProfile=0;
+  void updateCandidate(){SerialTarget link;if(!sweep.at(progress.tested,link))return;
+    progress.candidate=Settings{};progress.candidate.baud=link.baud;progress.candidate.slave=link.slave;progress.candidate.parity=link.parity;
+    progress.candidate.profile=preferredProfile;progress.candidate.direction=preferredDirection;
   }
 };
 inline bool validScanRatios(const uint8_t *p) {

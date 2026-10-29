@@ -59,13 +59,13 @@ for file in svgs:
     except ET.ParseError as e:errors.append(f'{file.relative_to(ROOT)}: {e}')
 
 # All production API capabilities must be reachable and documented in the local app.
-main_source=(ROOT/'firmware/src/main.cpp').read_text(encoding='utf-8')
-device_routes=set(re.findall(r'server\.on\("(/api/[a-z/]+)"',main_source))
+main_source='\n'.join(p.read_text(encoding='utf-8') for p in sorted((ROOT/'firmware/src').glob('*.cpp')))
+device_routes=set(re.findall(r'server\.on\("(/api/[a-z0-9_/-]+)"',main_source))
 web_source='\n'.join(p.read_text(encoding='utf-8') for p in (ROOT/'web').rglob('*') if p.suffix in ['.jsx','.js'] and 'vendor' not in p.parts)
-web_routes=set(re.findall(r'/api/[a-z/]+',web_source))
+web_routes=set(re.findall(r'/api/[a-z0-9_/-]+',web_source))
 need(device_routes==web_routes,f'Web/firmware API integration differs: {device_routes ^ web_routes}')
 for language_guide in ['docs/WEB.md','docs/id/WEB.md']:
-    documented=set(re.findall(r'/api/[a-z/]+',(ROOT/language_guide).read_text(encoding='utf-8')))
+    documented=set(re.findall(r'/api/[a-z0-9_/-]+',(ROOT/language_guide).read_text(encoding='utf-8')))
     need(documented==device_routes,f'{language_guide}: incomplete API integration map')
 
 capture_header=(ROOT/'firmware/include/checkpoint_log.h').read_text(encoding='utf-8')

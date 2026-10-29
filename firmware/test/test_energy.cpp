@@ -143,7 +143,9 @@ int main(){
    assert(restored.points[0].source.profile==saved.points[0].source.profile);
    // Schema 1 contains Fort captures only. Keep the old byte layout readable.
    source.profile=profiles::FORT;captures.newDay(day);assert(captures.sample(at,at,123456,source));encodeCaptureDay(captures.day,bytes);
-   capturePut16(bytes+4,1);capturePut16(bytes+sizeof(bytes)-2,crc16(bytes,sizeof(bytes)-2));assert(decodeCaptureDay(bytes,sizeof(bytes),restored));near(restored.points[0].energy,9876.48);
+   uint8_t legacyCapture[CAPTURE_LEGACY_SIZE]={};memcpy(legacyCapture,bytes,24);capturePut16(legacyCapture+4,1);for(unsigned i=0;i<CAPTURE_COUNT;++i)memcpy(legacyCapture+24+i*40,bytes+24+i*42,40);
+   capturePut16(legacyCapture+sizeof(legacyCapture)-2,crc16(legacyCapture,sizeof(legacyCapture)-2));assert(decodeCaptureDay(legacyCapture,sizeof(legacyCapture),restored));near(restored.points[0].energy,9876.48);assert(restored.points[0].source.meterId==0);
+   capturePut16(legacyCapture+4,2);capturePut16(legacyCapture+sizeof(legacyCapture)-2,crc16(legacyCapture,sizeof(legacyCapture)-2));assert(decodeCaptureDay(legacyCapture,sizeof(legacyCapture),restored));
    auto changed=source;changed.profile=profiles::ACREL_ADL400;assert(!sameCaptureSource(source,changed));
   }
 

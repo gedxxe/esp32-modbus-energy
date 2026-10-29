@@ -1,3 +1,4 @@
+import MeterLab from "../components/MeterLab.jsx";
 import { meterProfile, meterProfiles } from "../meter-profile.js";
 import { useEffect, useState } from "react";
 import DiagnosticConsole from "../components/DiagnosticConsole.jsx";
@@ -12,7 +13,7 @@ export default function MeterSetup({ device }) {
   const scan = s?.scan || { phase: "idle", tested: 0, total: 0 };
   const running = scan.phase === "running";
   const blocked =
-    device.pending || !device.fresh || Boolean(s?.diagnosticActive);
+    device.pending || !device.fresh || Boolean(s?.diagnosticActive) || Boolean(s?.discoveryRunning);
   const [config, setConfig] = useState({ slave: 1, baud: 9600, parity: "N", direction: "manual", profile:"fort" });
   const [probe, setProbe] = useState({ address: "0058", words: 2 });
   const [scanMode, setScanMode] = useState("current");
@@ -371,6 +372,7 @@ export default function MeterSetup({ device }) {
           <div className="hint">{t("scan_pause_note")}</div>
         </section>
       </div>
+      <MeterLab device={device} />
       <DiagnosticConsole device={device} />
       <RawTrace device={device} />
       <details className="wiring-help">

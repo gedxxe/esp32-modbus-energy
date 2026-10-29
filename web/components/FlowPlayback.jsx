@@ -4,7 +4,7 @@ import WakeSlider from "../vendor/react-bits/WakeSlider.jsx";
 import { flowLeg, flowPhaseDuration, nextFlowPhase } from "../flow-playback.js";
 import { useText } from "../ui.js";
 
-export default function FlowPlayback({ item, enabled, resetKey }) {
+export default function FlowPlayback({ item, enabled, resetKey, meterName="Modbus device", profiles=[] }) {
   const { t } = useText();
   const reduced = useReducedMotion();
   const [view,setView] = useState({ job:null,phase:"idle",progress:0 });
@@ -64,6 +64,7 @@ export default function FlowPlayback({ item, enabled, resetKey }) {
     else start(item);
   },[item]);
   const job=view.job;
+  const observedMeter=job?.request.profile==="unknown"?"Modbus device":profiles.find(profile=>profile.key===job?.request.profile)?.name||meterName;
   return <div className="flow-playback" data-phase={view.phase} data-transaction={job?.key ?? ""}>
     <div className="flow-playback-heading"><span className="flow-replay-badge">{t("flow_readable")}</span><span className="mono">{job ? `#${job.request.seq}–${job.outcome.seq} · FC03 0x${job.request.address.toString(16).padStart(4,"0")}` : t("flow_waiting")}</span></div>
     {["tx","rx"].map(direction => {
@@ -82,7 +83,7 @@ export default function FlowPlayback({ item, enabled, resetKey }) {
           </div>
           {visible && <span key={`${job.key}/${direction}`} className={`flow-train ${direction}`} data-event={event.seq} data-settling={view.phase===`${direction}-settle`} style={{opacity:leg.opacity,left:`${coordinate}%`,transform:`translateX(-${coordinate}%)`}}>{transmitting?"TX →":"← RX"}<small>{event.bytes.split(" ").length} B</small></span>}
         </div>
-        <div className="flow-rail-endpoints"><span>{transmitting?"ESP32 · UART TX":"ESP32 · UART RX"}</span><span>{transmitting?"FORT · A/B":"FORT · A/B"}</span></div>
+        <div className="flow-rail-endpoints"><span>{transmitting?"ESP32 · UART TX":"ESP32 · UART RX"}</span><span>{observedMeter} · A/B</span></div>
       </div>;
     })}
     {job && !job.rx && <p className="flow-no-response">{t("trace_no_rx")}</p>}

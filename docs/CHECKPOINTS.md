@@ -53,7 +53,7 @@ A valid difference represents the change between the actual observed endpoints, 
 
 ## Persistence, retention and recovery
 
-Core 1 exclusively mutates captures and writes Preferences. Each day is encoded as a 426-byte record with an explicit little-endian schema, schedule marker, day/revision/generation fields, ten fixed-size rows and CRC16. Encoding does not depend on C++ structure padding. Captured rows retain the request/response UTC times, raw counter, cumulative value, serial metadata, ratios and continuity generation. Decoding checks CRC, schema, calendar, timing bounds and the stored value's agreement with its source.
+Core 1 exclusively mutates captures and writes Preferences. Each day is encoded as a 446-byte schema-3 record with an explicit little-endian schema, schedule marker, day/revision/generation fields, ten fixed-size rows and CRC16. Encoding does not depend on C++ structure padding. Captured rows retain the request/response UTC times, raw counter, cumulative value, serial metadata, ratios and continuity generation. Decoding checks CRC, schema, calendar, timing bounds and the stored value's agreement with its source.
 
 A changed record is written immediately to the `captures` NVS key and `/c<day>.bin` in LittleFS. A flushed temporary file is verified before installation, and the existing backup-preserving rename policy retains a recoverable copy on failure. Boot recovery compares valid NVS, archive, backup, temporary and previous-day records. Corrupt data does not trigger automatic formatting.
 
@@ -68,4 +68,4 @@ An upgrade preserves the legacy `day` NVS record and `/d<day>.csv` files. The ph
 CSV columns include the record date, shift, scheduled WIB time, actual bracket times, response delay, cumulative kWh, secondary raw count, PT numerator/denominator, CT, slave ID, baud/parity, status and optional difference from the preceding checkpoint. A blank value represents unavailable data rather than zero. File names begin with `fort-checkpoints-` to distinguish this export from the older interval CSV.
 
 
-Schema 2 retains the 426-byte layout and records the immutable meter profile in row byte 38. Schema 1 remains readable as Fort. Energy validation uses the stored profile scale and ratios, and differences never cross a model change. The table and CSV retain each row’s original model. See [Meter profiles](METER_PROFILES.md) for migration and conversion details.
+Schema 3 uses 42-byte rows and a 446-byte day record, retaining the profile at row byte 38 and named-meter ID at bytes 40–41. Schema 1/2 remain readable with their original 40-byte rows and 426-byte size. Older captures receive saved ID zero. New CSV exports add `saved_meter_id`, and differences do not cross an inventory selection. See [Meter discovery](METER_DISCOVERY.md) for ID allocation and registry recovery.

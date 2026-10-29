@@ -18,7 +18,7 @@ function Health({ device }) {
       ? "health_stale"
       : s.diagnosticActive
         ? "health_diagnostic"
-        : s.scan?.phase === "running"
+        : s.discoveryRunning || s.scan?.phase === "running"
           ? "health_scan"
           : !s.storage
             ? "health_storage"
@@ -96,7 +96,7 @@ export default function Application() {
     ? "connecting"
     : !device.fresh
       ? "disconnected"
-      : s.scan?.phase === "running"
+      : s.discoveryRunning || s.scan?.phase === "running"
         ? "scanning"
         : s.online
           ? "connected"

@@ -15,6 +15,7 @@ int main(){
  submit("profile acrel-adl400");assert(debug.options.probeAddress==0x64&&debug.options.probeWords==1);submit("profile fort");
  fortUART.replies.push_back(response({1,3,4,0,0,0xC3,0x17}));submit("intermediate");assert(debug.evidence.data==1&&fortUART.transmitted.back()[3]==0x58);
  assert(Serial.output.find("VALID_RESPONSE")!=std::string::npos);
+ submit("timeout 150");submit("range 1 1");submit("scanmode current");submit("discoverplan 0000:1,0064:1");submit("discover");assert(debug.discovery.phase==fort::DISCOVERY_COMPLETE&&debug.discovery.tested==2);
  submit("timeout 60");submit("direction auto");assert(!debug.options.manualDirection);submit("direction manual");assert(debug.options.manualDirection);
  submit("pins 16 17");assert(debug.options.rx==18);submit("pins 17 18");assert(debug.options.rx==17);submit("pins 18 17");
  submit("reg FFFF 3");assert(debug.options.rx==18);

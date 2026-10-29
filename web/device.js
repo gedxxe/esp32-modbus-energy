@@ -57,7 +57,7 @@ export default function useDevice() {
     };
   }, [poll]);
   const act = async (path, fields = {}, { priority = false } = {}) => {
-    priority = priority && path === "/api/diagnostic" && ["x", "stop", "resume"].includes(fields.command);
+    priority = priority && (path === "/api/meter-lab/stop" || (path === "/api/diagnostic" && ["x", "stop", "resume"].includes(fields.command)));
     const lock = priority ? priorityInFlight : actionInFlight;
     // A ref closes the same-render window before React applies disabled controls.
     if (lock.current || !fresh || !data) return null;

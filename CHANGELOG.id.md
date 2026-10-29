@@ -1,5 +1,9 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 2.6.0
+
+Menambahkan discovery FC03 terbatas dengan plan yang dapat diubah, percobaan framing, respons raw serta empat record flash bernama. Pencadangan ID mencegah pemakaian ulang saat pemulihan bank lama dan schema checkpoint 3 membedakan instalasi sambil tetap membaca record lama. Enumerasi serial, codec serta adapter HTTP dipisahkan menjadi modul yang dapat diuji. Memperbaiki hasil scan lama setelah konfigurasi berubah, batas rasio Acrel, label flow Fort, pelaporan stop bit serta pembatalan discovery. Panduan dua bahasa dan pengujian browser diperluas.
+
 ## 2.5.0
 
 Menambahkan profil Fort dan Acrel ADL400 V1.3 yang dipakai bersama oleh akuisisi, scanner, diagnostik dan katalog web. Register, skala, rasio serta terminal mengikuti model terpilih. Migrasi mempertahankan konfigurasi Fort lama, dan schema checkpoint 2 menyimpan model setiap baris dengan dukungan baca schema 1 sebagai Fort. Panduan dua bahasa, wiring lengkap serta pengujian native/browser diperluas.

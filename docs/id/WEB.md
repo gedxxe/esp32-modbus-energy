@@ -2,9 +2,11 @@
 
 [English](../WEB.md) · **Bahasa Indonesia**
 
+Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta codec setting yang dipisahkan dijelaskan pada [Pencarian meter](METER_DISCOVERY.md). Scanner tetap hanya memakai FC03 dan tidak menebak produsen dari nilai mentah.
+
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
 
-Firmware 2.5.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 2.6.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Mengambil angka meter terjadwal
 
@@ -75,7 +77,7 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 2.5.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 2.6.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 
@@ -114,3 +116,13 @@ Menu memakai StarBorder yang diberikan di sekitar tombol native serta latar sele
 Fetch API tetap berbagi satu slot sampai body respons diterima dengan deadline aktif delapan detik. Waktu antre tidak menghabiskan deadline dan Stop/Resume prioritas dapat membatalkan GET telemetry aktif. Animasi dijalankan browser. ESP32 menyajikan bundle offline yang dikompilasi tanpa mengeksekusi React, Motion atau rendering canvas.
 
 [Lihat transisi kWh utama dengan pembacaan simulasi](../assets/ui-energy-demo.mp4).
+
+
+## API discovery dan meter bernama
+
+Adapter meter-lab menyediakan discovery serta registry flash yang sama dengan panel lokal melalui queue pemilik. Request baca tidak mengganggu pengukuran. Alur operator serta batasnya dijelaskan pada [Pencarian meter](METER_DISCOVERY.md).
+
+| Route | Methods | Perilaku |
+| --- | --- | --- |
+| `/api/meter-lab` | GET, POST | GET mengembalikan bukti serta record bernama, dengan `download=1` untuk ekspor JSON. POST mengantrekan `start`, `save`, `select` atau `remove` beserta ID penyelesaian. |
+| `/api/meter-lab/stop` | POST | Stop prioritas untuk run yang cocok melalui token atomik terpisah tanpa membatalkan POST yang sudah diterima. |

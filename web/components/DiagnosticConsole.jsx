@@ -64,7 +64,7 @@ function ConsoleData({ device }) {
     !view ||
     !device.fresh ||
     device.pending ||
-    device.data?.scan?.phase === "running" ||
+    device.data?.discoveryRunning || device.data?.scan?.phase === "running" ||
     view?.busy ||
     view?.pendingCommands > 0 ||
     failed;
@@ -75,7 +75,7 @@ function ConsoleData({ device }) {
     const url = URL.createObjectURL(
       new Blob(
         [
-          `Fort firmware ${view.version} | session ${view.generation}\nOld log bytes discarded: ${view.discardedBytes}\n\n${view.log}`,
+          `Energy station firmware ${view.version} | session ${view.generation}\nOld log bytes discarded: ${view.discardedBytes}\n\n${view.log}`,
         ],
         { type: "text/plain;charset=utf-8" },
       ),
@@ -105,7 +105,7 @@ function ConsoleData({ device }) {
       {view?.settings && <div className="diagnostic-summary">
         <h3>{t("diag_values")}</h3><p className="small muted">{t("diag_values_intro")}</p>
         <div className="pins" id="diagnostic-settings">
-          <code>ID {view.settings.slave} / {view.settings.baud} / 8{view.settings.parity}1</code>
+          <code>ID {view.settings.slave} / {view.settings.baud} / 8{view.settings.parity}{view.settings.stopBits||1}</code>
           <code>RX{view.settings.rx} / TX{view.settings.tx} / DIR{view.settings.dir} / {view.settings.direction}</code>
           <code>timeout {view.settings.timeout} ms / gap {view.settings.gap} ms / settle {view.settings.settle} µs</code>
           <code>Modbus 0x{view.settings.status.toString(16).padStart(2, "0").toUpperCase()}</code>
@@ -130,8 +130,8 @@ function ConsoleData({ device }) {
           <button id="diagnostic-read" type="submit" className="button" disabled={blocked}>{t("diag_read_action")}</button>
         </form>
         <form id="diagnostic-setting-form" onSubmit={(event) => { event.preventDefault();const line=`${setting} ${value.trim()}`;setCommand(line);send(line); }}>
-          <div className="form-grid"><div><label htmlFor="diagnostic-setting">{t("diag_setting")}</label><select id="diagnostic-setting" value={setting} disabled={blocked} onChange={(event) => {setSetting(event.target.value);setValue(({profile:profile.key,id:"1",baud:"9600",parity:"N",direction:"manual",timeout:"2000",gap:"200",settle:"100",interval:"2000",probe:`${addressHex(profile.currentA.address)} ${profile.currentA.words}`,energy:addressHex(profile.secondaryEnergy.address),ratios:addressHex(profile.ratios),scale:String(profile.energyScale),order:"normal",decode:"on",pins:"18 17",range:"1 16",scanmode:"current",bauds:"9600 19200",parities:"NE"})[event.target.value]);}}>
-            {["profile","id","baud","parity","direction","timeout","gap","settle","interval","probe","energy","ratios","scale","order","decode","pins","range","scanmode","bauds","parities"].map((key) => <option key={key}>{key}</option>)}
+          <div className="form-grid"><div><label htmlFor="diagnostic-setting">{t("diag_setting")}</label><select id="diagnostic-setting" value={setting} disabled={blocked} onChange={(event) => {setSetting(event.target.value);setValue(({profile:profile.key,id:"1",baud:"9600",parity:"N",stops:"1",direction:"manual",timeout:"2000",gap:"200",settle:"100",interval:"2000",probe:`${addressHex(profile.currentA.address)} ${profile.currentA.words}`,energy:addressHex(profile.secondaryEnergy.address),ratios:addressHex(profile.ratios),scale:String(profile.energyScale),order:"normal",decode:"on",pins:"18 17",range:"1 16",scanmode:"current",bauds:"9600 19200",parities:"NE"})[event.target.value]);}}>
+            {["profile","id","baud","parity","stops","direction","timeout","gap","settle","interval","probe","energy","ratios","scale","order","decode","pins","range","scanmode","bauds","parities"].map((key) => <option key={key}>{key}</option>)}
           </select></div><div><label htmlFor="diagnostic-setting-value">{t("diag_setting_value")}</label><input id="diagnostic-setting-value" value={value} required maxLength={60} pattern="[ -~]+" disabled={blocked} autoCapitalize="none" spellCheck={false} onChange={(event) => setValue(event.target.value)} /></div></div>
           <p className="small muted">{t("diag_setting_note")}</p><button id="diagnostic-setting-apply" type="submit" className="button" disabled={blocked}>{t("diag_setting_action")}</button>
         </form>

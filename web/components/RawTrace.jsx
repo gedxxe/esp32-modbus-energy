@@ -43,14 +43,14 @@ function TraceData({ device }) {
   const blocked = !device.fresh || device.pending || !capture || failed;
   const download = () => {
     const lines = [
-      `Fort raw capture | firmware ${capture.version} | capture ${capture.generation}`,
+      `Modbus raw capture | firmware ${capture.version} | capture ${capture.generation}`,
       `Production pins: ESP32 TX GPIO${capture.txPin} / RX GPIO${capture.rxPin}; diagnostic frames may use trial pins.`,
       "Times are milliseconds since boot; UART-buffer observations, not a wire-level trace.",
       "",
     ];
     capture.frames.forEach((frame, index) =>
       lines.push(
-        `#${index + 1} t=${frame.atMs}ms ID=${frame.slave} ${frame.baud} 8${frame.parity}1 address=0x${frame.address.toString(16).padStart(4, "0")} words=${frame.words} attempt=${frame.attempt} source=${frame.diagnostic ? "diagnostic" : frame.scan ? "scan" : "poll"} result=${frame.result} overflow=${frame.overflow}`,
+        `#${index + 1} t=${frame.atMs}ms ID=${frame.slave} ${frame.baud} 8${frame.parity}${frame.stopBits||1} address=0x${frame.address.toString(16).padStart(4, "0")} words=${frame.words} attempt=${frame.attempt} source=${frame.discovery?"discovery":frame.diagnostic ? "diagnostic" : frame.scan ? "scan" : "poll"} result=${frame.result} overflow=${frame.overflow}`,
         `TX (${frame.tx.split(" ").length} bytes): ${frame.tx}`,
         `RX (${frame.rxBytes} captured bytes): ${frame.rx || "<none>"}`,
         "",

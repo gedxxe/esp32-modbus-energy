@@ -19,7 +19,7 @@ inline uint16_t word(uint8_t hi,uint8_t lo){return (uint16_t(hi)<<8)|lo;}
 #define bitWrite(value,bit,flag) ((flag)?bitSet(value,bit):bitClear(value,bit))
 class Print {public:virtual ~Print(){};virtual size_t write(uint8_t)=0;virtual size_t write(const uint8_t *data,size_t size){size_t count=0;while(count<size&&write(data[count])==1)++count;return count;}};
 class Stream:public Print {public:virtual int available()=0;virtual int read()=0;virtual int peek()=0;virtual void flush()=0;};
-constexpr uint32_t SERIAL_8N1=0, SERIAL_8E1=1, SERIAL_8O1=2;
+constexpr uint32_t SERIAL_8N1=0, SERIAL_8E1=1, SERIAL_8O1=2, SERIAL_8N2=3, SERIAL_8E2=4, SERIAL_8O2=5;
 enum hardwareSerial_error_t { UART_NO_ERROR,UART_BREAK_ERROR,UART_BUFFER_FULL_ERROR,UART_FIFO_OVF_ERROR,UART_FRAME_ERROR,UART_PARITY_ERROR };
 static uint64_t testMicros=0;
 inline uint32_t millis(){return uint32_t(testMicros/1000);}

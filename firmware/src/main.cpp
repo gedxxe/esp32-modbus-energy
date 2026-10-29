@@ -21,6 +21,9 @@
 #include "version.h"
 #include "recovery.h"
 #include "scan.h"
+#include "meter_config.h"
+#include "meter_registry_store.h"
+#include "meter_lab_web.h"
 #include "led.h"
 #include "trace.h"
 #include "flow.h"
@@ -180,7 +183,7 @@ void tickWiFiScan(){
 }
 String preferredAddress(){return stationReady()?WiFi.localIP().toString():apOK?WiFi.softAPIP().toString():String();}
 
-struct Command { CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
+struct Command { MeterLabRequest lab{};CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
 struct CommandResult { uint32_t id=0;char error[80]={}; };
 constexpr uint8_t COMMAND_RESULTS=8;
 uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
@@ -194,7 +197,7 @@ struct Snapshot {
   uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=NAN,ratio=0,secondaryEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN;
   uint32_t lastContactMs=0,lastSecondaryMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
-  bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false;
+  bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false,discoveryRunning=false;uint16_t savedMeterId=0;char meterName[32]={};
   char error[64]="Waiting for a response";
   char errorCode[32]="waiting_for_meter";
 };
@@ -237,6 +240,12 @@ void serviceHTTP(){esp_task_wdt_reset();tickLED();vTaskDelay(1);}
 constexpr size_t DIAGNOSTIC_LOG_SIZE=8192;
 char diagnosticLog[DIAGNOSTIC_LOG_SIZE]{};
 DiagnosticEngine normalReader(bus),diagnostic(bus,diagnosticLog,sizeof(diagnosticLog));
+MeterRegistryStore meterRegistry;
+MeterLabSnapshot labOwnerView{},labWebView{};QueueHandle_t meterLabQueue;
+bool meterLabActive=false;uint16_t selectedMeterId=0;std::atomic<uint32_t> meterLabStopRun{0};
+void publishMeterLab(){labOwnerView.discovery=normalReader.discovery;labOwnerView.registry=meterRegistry.registry;labOwnerView.activeId=selectedMeterId;labOwnerView.storageOK=meterRegistry.healthy;labOwnerView.ready=true;xQueueOverwrite(meterLabQueue,&labOwnerView);}
+const MeterLabSnapshot &readMeterLab(){xQueuePeek(meterLabQueue,&labWebView,0);return labWebView;}
+
 struct DiagnosticInput { uint32_t generation=0;char line[96]={}; };
 struct DiagnosticStop { uint32_t generation=0;uint8_t action=0; };
 uint32_t diagnosticInputGeneration=0; // Core 0 writer; copied in each message.
@@ -266,14 +275,14 @@ uint32_t retainedDay(){return fmax(tracker.day.number,fmax(captureLog.day.number
 ScanController scanner;
 Preferences prefs;
 bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=true;
-uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0;
+uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0,lastRatioTry=0,lastContactTry=0;
 bool haveSample=false,muted=false;
 uint32_t previousRaw=0,previousMono=0;
 bool rawKnown=false,clockKnown=false;
 uint32_t lastClockMono=0,lastClockUTC=0;
 
 struct Checkpoint { uint32_t magic=0x46524432; Day day{}; uint16_t crc=0; };
-struct ConfigRecord { Settings settings{};uint16_t crc=0; };
+
 void setError(const char *s,const char *code) { strlcpy(state.error,s,sizeof(state.error));strlcpy(state.errorCode,code,sizeof(state.errorCode)); }
 bool readSnapshot(Snapshot &s) { return xQueuePeek(snapshotQueue,&s,0)==pdTRUE; }
 void syncNetworkCommandResult(){
@@ -287,12 +296,13 @@ void startBusFor(const Settings &config){normalReader.options.rx=PIN_RX;normalRe
 void startBus(){normalReader.selectProfile(state.config.profile);startBusFor(state.config);}
 uint8_t currentAttempt=1;bool readingNormally=true;
 void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,uint8_t words,const uint8_t *tx,const uint8_t *rx,size_t size,bool overflow){
+  uint8_t observedProfile=(meterLabActive||(diagnosticActive&&(diagnostic.discovery.running()||diagnostic.discovery.inFlight)))?UNKNOWN_PROFILE:diagnosticActive?diagnostic.options.profile:state.config.profile;
   TraceResult result=kind==6?TRACE_TIMEOUT:TRACE_INVALID;
   if(kind==4&&tx)result=inspectTrace(tx,rx,size,overflow,link.id,words);
   if(kind==4||kind==5||kind==6){
-    if(tx)state.trace.append(tx,rx,size,overflow,millis(),link.baud,link.parity,link.id,address,words,currentAttempt,scanner.running(),diagnosticActive,kind==5);
+    if(tx)state.trace.append(tx,rx,size,overflow,millis(),link.baud,link.parity,link.id,address,words,currentAttempt,scanner.running(),diagnosticActive,kind==5,link.stops,meterLabActive,observedProfile);
   }
-  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx,diagnosticActive?(diagnostic.options.manualDirection?diagnostic.options.dir:-1):(normalReader.options.manualDirection?normalReader.options.dir:-1),diagnosticActive?diagnostic.options.profile:state.config.profile);
+  state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx,diagnosticActive?(diagnostic.options.manualDirection?diagnostic.options.dir:-1):(normalReader.options.manualDirection?normalReader.options.dir:-1),observedProfile,link.stops);
 }
 // Production polling and diagnostics use the identical strict FC03 transport.
 // Echoes and extra bytes remain visible and are rejected within a transaction.
@@ -410,7 +420,7 @@ bool readCaptureFile(uint32_t day,CaptureDay &out){
   uint8_t bytes[CAPTURE_RECORD_SIZE];bool ok=false;
   for(unsigned attempt=0;attempt<2&&!ok;++attempt){
     String path=capturePath(day)+(attempt?".bak":"");File f=LittleFS.open(path,"r");
-    if(f&&f.size()==sizeof(bytes)&&f.read(bytes,sizeof(bytes))==sizeof(bytes))ok=decodeCaptureDay(bytes,sizeof(bytes),out)&&out.number==day;
+    if(f&&captureRecordSize(f.size())){size_t size=f.size();if(f.read(bytes,size)==size)ok=decodeCaptureDay(bytes,size,out)&&out.number==day;}
     if(f)f.close();
   }
   xSemaphoreGive(fsMutex);return ok;
@@ -431,8 +441,8 @@ bool writeCaptureNVS(const char *key,const CaptureDay &day){
   return prefs.putBytes(key,bytes,sizeof(bytes))==sizeof(bytes);
 }
 bool readCaptureNVS(const char *key,CaptureDay &day){
-  if(!nvsOK||!prefs.isKey(key)||prefs.getBytesLength(key)!=CAPTURE_RECORD_SIZE)return false;
-  uint8_t bytes[CAPTURE_RECORD_SIZE];return prefs.getBytes(key,bytes,sizeof(bytes))==sizeof(bytes)&&decodeCaptureDay(bytes,sizeof(bytes),day);
+  if(!nvsOK||!prefs.isKey(key))return false;size_t size=prefs.getBytesLength(key);if(!captureRecordSize(size))return false;
+  uint8_t bytes[CAPTURE_RECORD_SIZE];return prefs.getBytes(key,bytes,size)==size&&decodeCaptureDay(bytes,size,day);
 }
 void retryCaptureBacklog(){
   if(capturePending.number&&writeCaptureFile(capturePending)){
@@ -475,7 +485,7 @@ void loadCaptures(){
   // A flushed temporary record can survive power loss before its final rename.
   if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
     uint8_t bytes[CAPTURE_RECORD_SIZE];CaptureDay pendingFile;File f=LittleFS.open("/capture.pending","r");
-    bool recovered=f&&f.size()==sizeof(bytes)&&f.read(bytes,sizeof(bytes))==sizeof(bytes)&&decodeCaptureDay(bytes,sizeof(bytes),pendingFile);if(f)f.close();
+    size_t size=f?f.size():0;bool recovered=f&&captureRecordSize(size)&&f.read(bytes,size)==size&&decodeCaptureDay(bytes,size,pendingFile);if(f)f.close();
     xSemaphoreGive(fsMutex);
     if(recovered&&(!found||newerCaptureDay(pendingFile,saved))){saved=pendingFile;found=true;}
   }
@@ -509,15 +519,15 @@ void addCaptureJSON(JsonDocument &d,const CaptureDay &day,bool durable,bool arch
   JsonArray rows=d["rows"].to<JsonArray>();
   for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &p=day.points[i];JsonObject row=rows.add<JsonObject>();
     row["minute"]=CAPTURE_MINUTES[i];row["status"]=captureStatusCode(p.status);row["kwh"]=nullptr;row["startedUTC"]=nullptr;row["capturedUTC"]=nullptr;row["delaySeconds"]=nullptr;row["difference"]=nullptr;
-    if(p.status==CAPTURE_RECORDED){row["profile"]=profiles::get(p.source.profile).key;row["kwh"]=p.energy;row["startedUTC"]=p.startedUTC;row["capturedUTC"]=p.capturedUTC;row["delaySeconds"]=p.capturedUTC-captureTarget(day.number,i);row["raw"]=p.raw;row["slave"]=p.source.slave;row["ptNum"]=p.source.ptNum;row["ptDen"]=p.source.ptDen;row["ct"]=p.source.ct;double delta=0;if(i&&captureDifference(day,i-1,delta))row["difference"]=delta;}
+    if(p.status==CAPTURE_RECORDED){row["meterId"]=p.source.meterId;row["profile"]=profiles::get(p.source.profile).key;row["kwh"]=p.energy;row["startedUTC"]=p.startedUTC;row["capturedUTC"]=p.capturedUTC;row["delaySeconds"]=p.capturedUTC-captureTarget(day.number,i);row["raw"]=p.raw;row["slave"]=p.source.slave;row["ptNum"]=p.source.ptNum;row["ptDen"]=p.source.ptDen;row["ct"]=p.source.ct;double delta=0;if(i&&captureDifference(day,i-1,delta))row["difference"]=delta;}
   }
 }
 String captureClock(uint32_t utc){DateTime d(utc+LOCAL_OFFSET);char out[12];snprintf(out,sizeof(out),"%02u:%02u:%02u",d.hour(),d.minute(),d.second());return String(out);}
 String csvCaptures(const CaptureDay &day){
-  String csv="date,shift,scheduled_wib,read_started_wib,captured_wib,delay_seconds,cumulative_kwh,register_raw,pt_num,pt_den,ct,slave_id,baud,parity,meter_profile,status,consumption_since_previous_kwh\r\n";
+  String csv="date,shift,scheduled_wib,read_started_wib,captured_wib,delay_seconds,cumulative_kwh,register_raw,pt_num,pt_den,ct,slave_id,baud,parity,meter_profile,saved_meter_id,status,consumption_since_previous_kwh\r\n";
   for(unsigned i=0;i<CAPTURE_COUNT;++i){const auto &p=day.points[i];char clock[8];snprintf(clock,sizeof(clock),"%02u:%02u",CAPTURE_MINUTES[i]/60,CAPTURE_MINUTES[i]%60);
     csv+=dateForDay(day.number)+","+(i<5?"morning":"evening")+","+clock+",";
-    if(p.status==CAPTURE_RECORDED){csv+=captureClock(p.startedUTC)+","+captureClock(p.capturedUTC)+","+String(p.capturedUTC-captureTarget(day.number,i))+","+String(p.energy,6)+","+String(p.raw)+","+String(p.source.ptNum)+","+String(p.source.ptDen)+","+String(p.source.ct)+","+String(p.source.slave)+","+String(p.source.baud)+","+String(p.source.parity)+","+profiles::get(p.source.profile).key+",";}else csv+=",,,,,,,,,,,,";
+    if(p.status==CAPTURE_RECORDED){csv+=captureClock(p.startedUTC)+","+captureClock(p.capturedUTC)+","+String(p.capturedUTC-captureTarget(day.number,i))+","+String(p.energy,6)+","+String(p.raw)+","+String(p.source.ptNum)+","+String(p.source.ptDen)+","+String(p.source.ct)+","+String(p.source.slave)+","+String(p.source.baud)+","+String(p.source.parity)+","+profiles::get(p.source.profile).key+","+String(p.source.meterId)+",";}else csv+=",,,,,,,,,,,,,";
     csv+=captureStatusCode(p.status);csv+=",";double delta=0;if(i&&captureDifference(day,i-1,delta))csv+=String(delta,6);csv+="\r\n";
   }
   return csv;
@@ -532,6 +542,8 @@ void saveCheckpoint(bool archive) {
 }
 void publish() {
   scanner.refresh(millis());state.scan=scanner.progress;
+  state.discoveryRunning=meterLabActive;state.savedMeterId=selectedMeterId;const auto *saved=meterRegistry.registry.find(selectedMeterId);strlcpy(state.meterName,saved?saved->name:"",sizeof(state.meterName));
+  normalReader.discovery.refresh(millis());publishMeterLab();
   state.captures=captureLog.day;state.capturePending=capturePending;state.captureDurable=captureNVSOK||captureFSOK;state.captureArchiveOK=captureFSOK;state.captureBacklog=captureBacklog;
   state.diagnosticManual=diagnostic.options.manualDirection;state.day=tracker.day;state.muted=muted;state.storage=fsOK&&nvsOK&&archiveOK&&checkpointOK&&configOK&&(!captureLog.day.number||(state.captureDurable&&!captureBacklog));
   state.lastGoodMs=lastGood;state.haveEnergy=haveSample;
@@ -546,8 +558,9 @@ void publishDiagnostic(){
   xQueueOverwrite(diagnosticViewQueue,&diagnosticView);lastDiagnosticPublish=millis();
 }
 void serviceDiagnosticStop(){
+  if(meterLabActive&&meterLabStopRun.load(std::memory_order_relaxed)==normalReader.discovery.run){normalReader.abortRequested=true;normalReader.discovery.cancel();}
   DiagnosticStop stop;
-  if(xQueueReceive(diagnosticStopQueue,&stop,0)==pdTRUE){diagnosticActiveGeneration=stop.generation;diagnostic.emergencyStop();if(stop.action==2){resumeRequested=true;entryRequested=false;}}
+  if(xQueueReceive(diagnosticStopQueue,&stop,0)==pdTRUE){if(meterLabActive){normalReader.abortRequested=true;normalReader.discovery.cancel();}diagnosticActiveGeneration=stop.generation;diagnostic.emergencyStop();if(stop.action==2){resumeRequested=true;entryRequested=false;}}
 }
 void serviceDiagnostic(){
   esp_task_wdt_reset();diagnostic.drainSerial();serviceDiagnosticStop();
@@ -563,7 +576,7 @@ void serviceDiagnostic(){
   }
 }
 void enterDiagnostic(){
-  if(diagnosticActive||scanner.running()||uxQueueMessagesWaiting(commandQueue))return;
+  if(diagnosticActive||meterLabActive||scanner.running()||uxQueueMessagesWaiting(commandQueue))return;
   ++state.modeRevision;diagnosticActive=true;state.diagnosticActive=true;publish();
   interruptRecording();saveCheckpoint(true);haveSample=false;rawKnown=false;state.lastContactMs=0;state.ratios=false;state.power=NAN;
   currentAttempt=1;entryRequested=false;resumeRequested=false;diagnostic.activeBaud=0;
@@ -604,15 +617,59 @@ void completeCommand(const Command &cmd,const char *error=""){
   result.id=cmd.id;strlcpy(result.error,error,sizeof(result.error));
   state.commandResultNext=(state.commandResultNext+1)%COMMAND_RESULTS;publish();
 }
+void resetMeterMeasurements(){
+  haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastSecondaryMs=0;state.ratios=false;state.energy=0;state.secondaryEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.ratio=0;
+  ct=ptNum=ptDen=0;lastRatio=lastPoll=lastRatioTry=0;lastContactTry=millis()-3000;normalReader.activeBaud=0;
+}
+bool applyMeterSettings(const Settings &settings,uint16_t id,bool clearScan){
+  uint8_t bytes[METER_CONFIG_BYTES],verify[METER_CONFIG_BYTES];encodeMeterConfig(settings,id,bytes);
+  configOK=nvsOK&&prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes)&&prefs.getBytesLength("config")==sizeof(bytes)&&prefs.getBytes("config",verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));
+  if(!configOK)return false;
+  ++state.modeRevision;interruptRecording();state.config=settings;selectedMeterId=id;resetMeterMeasurements();if(clearScan)scanner.reset();
+  state.scanAddress=profiles::get(settings.profile).current.address;state.scanWords=profiles::get(settings.profile).current.words;
+  saveCheckpoint(true);startBus();publishDiagnostic();return true;
+}
+const char *processMeterLab(const MeterLabRequest &request,uint32_t commandId){
+  auto &discovery=normalReader.discovery;auto &registry=meterRegistry.registry;
+  if(request.operation==LAB_START){
+    DiscoveryConfig config=request.config;config.preferred.baud=state.config.baud;config.preferred.parity=state.config.parity;config.preferred.slave=state.config.slave;config.direction=state.config.direction;
+    if(!discovery.begin(config,commandId,millis(),state.flow.boot))return "Invalid discovery plan";
+    ++state.modeRevision;meterLabActive=true;interruptRecording();saveCheckpoint(true);resetMeterMeasurements();normalReader.abortRequested=false;normalReader.options.manualDirection=config.direction==DIRECTION_MANUAL;
+    strlcpy(labOwnerView.error,"",sizeof(labOwnerView.error));setError("Generic discovery running. Recording paused","discovery_running");return "";
+  }
+  if(request.operation==LAB_SELECT){
+    const auto *saved=registry.find(request.meterId);Settings settings;
+    if(!saved||!canActivateSaved(*saved,settings))return "Select a verified supported profile with one stop bit";
+    return applyMeterSettings(settings,saved->id,true)?"":"Saved meter settings could not be verified in flash";
+  }
+  MeterRegistry next=registry;
+  if(request.operation==LAB_REMOVE){
+    if(request.meterId==selectedMeterId)return "Change the active connection before removing this saved meter";
+    bool found=false;for(unsigned i=0;i<next.count;++i)if(next.entries[i].id==request.meterId){for(unsigned j=i+1;j<next.count;++j)next.entries[j-1]=next.entries[j];--next.count;found=true;break;}
+    if(!found)return "Saved meter no longer exists";
+  }else if(request.operation==LAB_SAVE){
+    if(request.run!=discovery.run||request.index>=discovery.count)return "Discovery result changed. Refresh and choose the finding again";
+    const auto &observed=discovery.found[request.index];
+    for(unsigned i=0;i<registry.count;++i){const auto &old=registry.entries[i];if(old.evidence.run==observed.run&&old.evidence.boot==observed.boot&&old.evidence.link.slave==observed.link.slave&&old.evidence.link.baud==observed.link.baud&&old.evidence.link.parity==observed.link.parity&&old.evidence.link.stops==observed.link.stops&&old.profile==request.profile&&old.verified==request.verified&&!strcmp(old.name,request.name)&&!strcmp(old.model,request.model)&&!strcmp(old.notes,request.notes))return "";}
+    if(next.count>=SAVED_METER_LIMIT||!next.nextId)return "Saved meter storage is full. Export records before removing an inactive entry";
+    auto &saved=next.entries[next.count];saved=SavedMeter{};saved.id=next.nextId;saved.profile=request.profile;saved.verified=request.verified;saved.evidence=discovery.found[request.index];
+    strcpy(saved.name,request.name);strcpy(saved.model,request.model);strcpy(saved.notes,request.notes);
+    if(!validSavedMeter(saved))return "Saved meter name, profile or evidence is invalid";
+    ++next.nextId;++next.count;
+  }else return "Unsupported meter operation";
+  if(!meterRegistry.commit(prefs,next))return "Meter registry save failed. Previous verified bank retained";
+  return "";
+}
 void processCommands(){
   Command cmd;
   for(uint8_t handled=0;handled<6&&xQueueReceive(commandQueue,&cmd,0)==pdTRUE;++handled){
     esp_task_wdt_reset();
-    if(!commandContextValid(cmd.type,cmd.modeRevision,state.modeRevision,cmd.queuedAt,millis(),diagnosticActive,scanner.running(),scanner.progress.phase==SCAN_FOUND)){
+    if(!commandContextValid(cmd.type,cmd.modeRevision,state.modeRevision,cmd.queuedAt,millis(),diagnosticActive,scanner.running()||meterLabActive,scanner.progress.phase==SCAN_FOUND)){
       completeCommand(cmd,"Device mode changed or command expired. Refresh status and retry");continue;
     }
     const char *error="";
     switch(cmd.type){
+      case METER_LAB:error=processMeterLab(cmd.lab,cmd.id);strlcpy(labOwnerView.error,error,sizeof(labOwnerView.error));break;
       case TOGGLE_MUTE:muted=!muted;break;
       case START_TRACE:
         if(state.trace.active)error="A raw capture is already running";else state.trace.begin();break;
@@ -657,11 +714,8 @@ void processCommands(){
       case SET_CONFIG:{
         Settings settings=cmd.type==APPLY_SCAN?scanner.progress.result:cmd.config;
         if(!validSettings(settings)){error="Invalid serial configuration";break;}
-        ++state.modeRevision;interruptRecording();state.config=settings;state.ratios=false;rawKnown=false;haveSample=false;state.lastContactMs=0;state.energy=0;state.secondaryEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.ratio=0;ct=ptNum=ptDen=0;state.scanAddress=profiles::get(settings.profile).current.address;state.scanWords=profiles::get(settings.profile).current.words;
-        ConfigRecord record{};record.settings=state.config;record.crc=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
-        configOK=nvsOK&&prefs.putBytes("config",&record,sizeof(record))==sizeof(record);
-        if(!configOK)error="Connection changed in RAM. Saving settings failed";
-        saveCheckpoint(true);startBus();publishDiagnostic();lastRatio=0;lastPoll=0;break;
+        if(!applyMeterSettings(settings,0,cmd.type==SET_CONFIG))error="Meter settings could not be verified in flash";
+        break;
       }
       default:error="Unsupported command";break;
     }
@@ -673,16 +727,14 @@ void acquisition(void *) {
   esp_task_wdt_add(nullptr);
   nvsOK=prefs.begin("fort",false);Settings config{};
   if(nvsOK&&prefs.isKey("config")) {
-    ConfigRecord record{};
-    bool read=prefs.getBytesLength("config")==sizeof(record)&&prefs.getBytes("config",&record,sizeof(record))==sizeof(record);
-    uint16_t c=crc16(reinterpret_cast<uint8_t*>(&record),offsetof(ConfigRecord,crc));
-    if(read&&record.crc==c&&validSettings(record.settings))config=record.settings;
-    else if(read&&record.crc==c&&migrateLegacySettings(record.settings)){
-      config=record.settings;ConfigRecord migrated{};migrated.settings=config;migrated.crc=crc16(reinterpret_cast<uint8_t*>(&migrated),offsetof(ConfigRecord,crc));
-      configOK=prefs.putBytes("config",&migrated,sizeof(migrated))==sizeof(migrated);
-    }
-    else {config=Settings{};configOK=false;setError("Stored configuration invalid. Defaults loaded","config_corrupt");}
+    uint8_t bytes[METER_CONFIG_BYTES]={};size_t size=prefs.getBytesLength("config");
+    if(size==sizeof(bytes)&&prefs.getBytes("config",bytes,size)==size&&decodeMeterConfig(bytes,size,config,selectedMeterId)){
+      if(meterGet32(bytes)!=config.magic){encodeMeterConfig(config,selectedMeterId,bytes);configOK=prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes);}
+    }else{config=Settings{};configOK=false;setError("Stored configuration invalid. Defaults loaded","config_corrupt");}
   }
+  meterRegistry.load(prefs,nvsOK);
+  if(selectedMeterId){const auto *saved=meterRegistry.registry.find(selectedMeterId);Settings expected;if(!saved||!canActivateSaved(*saved,expected)||!sameMeterSettings(config,expected)){selectedMeterId=0;configOK=false;}}
+
   NetworkUpdate networkBoot;networkBoot.stored=nvsOK;
   if(nvsOK&&prefs.isKey("wifi")){
     uint8_t bytes[NETWORK_RECORD_SIZE]={};
@@ -708,7 +760,7 @@ void acquisition(void *) {
   }
   loadCaptures();
   normalReader.service=serviceDiagnostic;normalReader.event=uartEvent;diagnostic.service=serviceDiagnostic;diagnostic.event=uartEvent;diagnostic.directionPinReserved=!RS485_AUTO_DIRECTION;diagnostic.onResume=[](){resumeRequested=true;diagnostic.emergencyStop();};
-  startBus();publishDiagnostic();uint32_t previousCycle=millis(),lastRatioTry=0,lastContactTry=millis()-3000;bool previousRTC=false;
+  startBus();publishDiagnostic();uint32_t previousCycle=millis();lastRatioTry=0;lastContactTry=millis()-3000;bool previousRTC=false;
   while(true) {
     state.acquisitionCycleMs=millis()-previousCycle;previousCycle=millis();
     esp_task_wdt_reset();pollDebugEntry();
@@ -717,16 +769,16 @@ void acquisition(void *) {
     if(!diagnosticActive){
       for(uint8_t handled=0;handled<16&&xQueueReceive(diagnosticInputQueue,&next,0)==pdTRUE;++handled){
         if(next.generation!=diagnosticActiveGeneration)continue;
-        bool passive=!strcmp(next.line,"report")||!strcmp(next.line,"status")||!strcmp(next.line,"help")||!strcmp(next.line,"compare")||!strcmp(next.line,"plan show");
+        bool passive=!strcmp(next.line,"report")||!strcmp(next.line,"status")||!strcmp(next.line,"help")||!strcmp(next.line,"compare")||!strcmp(next.line,"plan show")||!strcmp(next.line,"discoveryreport");
         if(passive){
-          if(!diagnosticView.generation){diagnostic.current=diagnosticLink(state.config);diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;}
+          if(!diagnosticView.generation){diagnostic.selectProfile(state.config.profile);diagnostic.options.manualDirection=state.config.direction==DIRECTION_MANUAL;diagnostic.current=diagnosticLink(state.config);diagnostic.options.rx=PIN_RX;diagnostic.options.tx=PIN_TX;}
           diagnostic.logf("[PRODUCTION_SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d. Test settings below are RAM only\n",state.config.slave,(unsigned long)state.config.baud,state.config.parity,PIN_RX,PIN_TX);
-          diagnostic.command(next.line);publishDiagnostic();
+          if(!strcmp(next.line,"discoveryreport"))diagnostic.showDiscovery(&normalReader.discovery);else diagnostic.command(next.line);publishDiagnostic();
         }else{haveNext=true;break;}
       }
     }
     processCommands();
-    if(!diagnosticActive&&(entryRequested||haveNext)&&!scanner.running())enterDiagnostic();
+    if(!diagnosticActive&&(entryRequested||haveNext)&&!scanner.running()&&!meterLabActive)enterDiagnostic();
     if(haveNext){
       serviceDiagnosticStop(); // Preserve FIFO: submit the held first input before transferring later lines.
       if(next.generation!=diagnosticActiveGeneration||resumeRequested){diagnostic.logf("[CANCELLED] Pending command cancelled by stop/resume\n");}
@@ -759,6 +811,12 @@ void acquisition(void *) {
     }
     if(captureLog.day.number&&uint32_t(millis()-lastCaptureSave)>=5000&&(!captureNVSOK||!captureFSOK||capturePending.number)){retryCaptureBacklog();saveCaptures();}
     if(diagnosticActive){if(resumeRequested)leaveDiagnostic();else{readingNormally=false;diagnostic.tick();publishDiagnostic();publish();vTaskDelay(pdMS_TO_TICKS(5));continue;}}
+    if(meterLabActive){
+      serviceDiagnosticStop();
+      if(normalReader.discovery.running()){normalReader.abortRequested=false;normalReader.discovery.step(normalReader,millis(),state.rtc?state.utc:0);}
+      if(!normalReader.discovery.running()){meterLabActive=false;++state.modeRevision;interruptRecording();resetMeterMeasurements();startBus();setError("Discovery finished. Saved reader restored","discovery_finished");}
+      publish();vTaskDelay(pdMS_TO_TICKS(5));continue;
+    }
     const auto &profile=profiles::get(state.config.profile);
     const bool captureUrgent=rtcOK&&captureLog.urgent(utc),captureDue=rtcOK&&captureLog.due(utc);
     if(scanner.running()) {
@@ -806,7 +864,7 @@ void acquisition(void *) {
           state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
           uint32_t local=endUTC+LOCAL_OFFSET;
           if(beginOK&&endOK&&endUTC>=beginUTC&&endUTC-beginUTC<=2&&millis()-beginMono<=2500&&local/86400==tracker.day.number) {
-            CaptureSource source;source.profile=state.config.profile;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
+            CaptureSource source;source.meterId=selectedMeterId;source.profile=state.config.profile;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
             if(captureLog.sample(beginUTC,endUTC,raw,source))saveCaptures();
             uint8_t before[SLOT_COUNT];for(int i=0;i<SLOT_COUNT;++i)before[i]=tracker.day.slots[i].quality;
             if(tracker.sample(local,energy)) {
@@ -835,7 +893,8 @@ void jsonReply(int code,const String &msg,const char *messageCode) {
 }
 bool authorizePost() {
   if(server.arg("token")!=apiToken){jsonReply(403,"Session expired. Reload this page.","invalid_token");return false;}
-  if(server.args()>8||server.arg("plain").length()>512){jsonReply(413,"Request is too large","request_too_large");return false;}
+  size_t argumentBytes=0;for(int i=0;i<server.args();++i)argumentBytes+=server.argName(i).length()+server.arg(i).length();
+  if(server.args()>12||argumentBytes>512||server.arg("plain").length()>512){jsonReply(413,"Request is too large","request_too_large");return false;}
   return true;
 }
 bool parseNumber(const String &s,uint32_t &value) {
@@ -845,7 +904,7 @@ bool parseNumber(const String &s,uint32_t &value) {
 }
 void enqueueCommand(const Command &input) {
   Snapshot s{};readSnapshot(s);
-  if(!commandModeAllowed(input.type,s.diagnosticActive,s.scan.phase==SCAN_RUNNING,s.scan.phase==SCAN_FOUND)){
+  if(!commandModeAllowed(input.type,s.diagnosticActive,s.scan.phase==SCAN_RUNNING||s.discoveryRunning,s.scan.phase==SCAN_FOUND)){
     jsonReply(409,"Device mode changed. Refresh status and retry","mode_changed");return;
   }
   Command c=input;c.id=acceptedCommand+1;if(!c.id)c.id=1;c.queuedAt=millis();c.modeRevision=s.modeRevision;
@@ -879,6 +938,10 @@ String hexFrame(const uint8_t *bytes,size_t length) {
   return String(out);
 }
 void webSetup() {
+  MeterLabHooks labHooks;labHooks.authorize=authorizePost;labHooks.read=readMeterLab;
+  labHooks.submit=[](const MeterLabRequest &request){Command command{};command.type=METER_LAB;command.lab=request;enqueueCommand(command);};
+  labHooks.stop=[](uint32_t run){const auto &view=readMeterLab();if(view.discovery.run!=run){jsonReply(409,"Discovery run changed","mode_changed");return;}meterLabStopRun.store(run,std::memory_order_relaxed);jsonReply(202,"Discovery stop queued","accepted");};
+  registerMeterLabWeb(server,labHooks);
   server.on("/",HTTP_GET,[]{serveAsset(WEB_INDEX_GZIP,WEB_INDEX_GZIP_LEN,"text/html; charset=utf-8");});
   server.on("/assets/app.js",HTTP_GET,[]{serveAsset(WEB_APP_GZIP,WEB_APP_GZIP_LEN,"application/javascript; charset=utf-8");});
   server.on("/assets/app.css",HTTP_GET,[]{serveAsset(WEB_STYLE_GZIP,WEB_STYLE_GZIP_LEN,"text/css; charset=utf-8");});
@@ -904,7 +967,7 @@ void webSetup() {
     network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
     network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":networkPolicy.fallback?"fallback":"connecting";
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
-    d["profile"]=profiles::get(s.config.profile).key;
+    d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
       info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
       info["energyScale"]=profile.energy.scale;info["ratios"]=profile.ratios;info["ratioWords"]=profile.ratioWords;info["wordOrder"]="high-first";
@@ -944,7 +1007,7 @@ void webSetup() {
   server.on("/api/system",HTTP_GET,[]{
     static CoreLoadSample samples;samples.update(millis());Snapshot s{};readSnapshot(s);JsonDocument d;
     d["uptime"]=millis()/1000;d["cpuMHz"]=getCpuFrequencyMhz();d["heapFree"]=ESP.getFreeHeap();d["heapMin"]=ESP.getMinFreeHeap();d["heapLargest"]=ESP.getMaxAllocHeap();d["heapTotal"]=ESP.getHeapSize();d["psramFree"]=ESP.getFreePsram();d["psramTotal"]=ESP.getPsramSize();d["taskCount"]=uxTaskGetNumberOfTasks();d["sampledAt"]=samples.sampledAt;
-    d["diagnosticActive"]=s.diagnosticActive;d["scanActive"]=s.scan.phase==SCAN_RUNNING;d["uiCycleMs"]=uiCycleMs;d["acquisitionCycleMs"]=s.acquisitionCycleMs;
+    d["diagnosticActive"]=s.diagnosticActive;d["scanActive"]=s.scan.phase==SCAN_RUNNING||s.discoveryRunning;d["uiCycleMs"]=uiCycleMs;d["acquisitionCycleMs"]=s.acquisitionCycleMs;
     d["commandQueue"]=uxQueueMessagesWaiting(commandQueue);d["diagnosticQueue"]=uxQueueMessagesWaiting(diagnosticInputQueue);
     JsonArray cores=d["cores"].to<JsonArray>();for(unsigned i=0;i<2;++i){JsonObject core=cores.add<JsonObject>();core["id"]=i;core["load"]=nullptr;if(samples.ready[i])core["load"]=samples.percent[i];core["method"]="sampled_non_idle_ticks";}
     JsonArray tasks=d["tasks"].to<JsonArray>();
@@ -962,7 +1025,7 @@ void webSetup() {
     uint8_t emitted=0;bool more=false;JsonArray rows=d["events"].to<JsonArray>();
     for(uint8_t i=0;i<s.flow.count;++i){const FlowEvent &e=s.flow.at(i);if(after&&int32_t(e.seq-after)<=0)continue;
       if(emitted++>=8){more=true;break;}
-      JsonObject row=rows.add<JsonObject>();row["profile"]=profiles::get(e.profile).key;row["dirPin"]=e.dirPin;row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
+      JsonObject row=rows.add<JsonObject>();row["stopBits"]=e.stopBits;row["profile"]=profiles::valid(e.profile)?profiles::get(e.profile).key:"unknown";row["dirPin"]=e.dirPin;row["rxPin"]=e.rxPin;row["txPin"]=e.txPin;row["seq"]=e.seq;row["atUs"]=e.atUs;row["kind"]=e.kind;row["baud"]=e.baud;row["parity"]=String(e.parity);row["slave"]=e.slave;row["address"]=e.address;row["words"]=e.words;row["diagnostic"]=e.diagnostic;row["overflow"]=e.overflow;row["result"]=traceResultName(e.result);row["bytes"]=hexFrame(e.bytes,e.size);
     }
     d["more"]=more;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
@@ -976,7 +1039,7 @@ void webSetup() {
     auto link=view.active?view.link:diagnosticLink(production.config);
     if(!view.active){const auto &p=profiles::get(production.config.profile);o.profile=p.id;o.probeAddress=p.current.address;o.probeWords=p.current.words;o.energyAddress=p.energy.address;o.ratioAddress=p.ratios;o.energyScale=p.energy.scale;o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
     JsonObject settings=d["settings"].to<JsonObject>();
-    settings["profile"]=profiles::get(o.profile).key;settings["slave"]=link.id;settings["baud"]=link.baud;settings["parity"]=String(link.parity);settings["rx"]=o.rx;settings["tx"]=o.tx;
+    settings["stopBits"]=link.stops;settings["profile"]=profiles::get(o.profile).key;settings["slave"]=link.id;settings["baud"]=link.baud;settings["parity"]=String(link.parity);settings["rx"]=o.rx;settings["tx"]=o.tx;
     settings["dir"]=o.dir;settings["direction"]=o.manualDirection?"manual":"auto";settings["timeout"]=o.responseMs;settings["gap"]=o.gapMs;settings["settle"]=o.settleUs;
     settings["probe"]=o.probeAddress;settings["words"]=o.probeWords;settings["status"]=view.active?view.status:production.modbusStatus;
     const auto &e=view.evidence;JsonObject counts=d["evidence"].to<JsonObject>();
@@ -990,7 +1053,7 @@ void webSetup() {
     if(line=="x"||line=="stop"||line=="resume"){
       DiagnosticStop stop;stop.action=line=="resume"?2:1;stop.generation=++diagnosticInputGeneration;xQueueOverwrite(diagnosticStopQueue,&stop);jsonReply(202,"Stop/resume queued","accepted");return;
     }
-    Snapshot s{};readSnapshot(s);if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel production scan first","scan_busy");return;}
+    Snapshot s{};readSnapshot(s);if((s.scan.phase==SCAN_RUNNING||s.discoveryRunning)&&line!="status"&&line!="report"&&line!="help"&&line!="discoveryreport"&&line!="plan show"&&line!="compare"){jsonReply(409,"Cancel active discovery or scan first","scan_busy");return;}
     DiagnosticInput input;input.generation=diagnosticInputGeneration;strlcpy(input.line,line.c_str(),sizeof(input.line));
     if(xQueueSend(diagnosticInputQueue,&input,0)==pdTRUE)jsonReply(202,"Diagnostic command queued. Recording will pause","accepted");else jsonReply(503,"Diagnostic queue full","queue_busy");
   });
@@ -1003,7 +1066,7 @@ void webSetup() {
       const TraceFrame &frame=s.trace.frames[i];JsonObject row=frames.add<JsonObject>();
       row["atMs"]=frame.atMs;row["baud"]=frame.baud;row["parity"]=String(frame.parity);
       row["slave"]=frame.slave;row["address"]=frame.address;row["words"]=frame.words;row["attempt"]=frame.attempt;
-      row["diagnostic"]=frame.diagnostic;row["incomplete"]=frame.incomplete;row["scan"]=frame.scan;row["overflow"]=frame.overflow;row["result"]=traceResultName(frame.result);
+      row["diagnostic"]=frame.diagnostic;row["incomplete"]=frame.incomplete;row["stopBits"]=frame.stopBits;row["discovery"]=frame.discovery;row["profile"]=profiles::valid(frame.profile)?profiles::get(frame.profile).key:"unknown";row["scan"]=frame.scan;row["overflow"]=frame.overflow;row["result"]=traceResultName(frame.result);
       row["tx"]=hexFrame(frame.tx,sizeof(frame.tx));row["rx"]=hexFrame(frame.rx,frame.size);
       row["rxBytes"]=frame.size;
     }
@@ -1158,7 +1221,7 @@ OledNetworkMenu networkMenu;NetworkSettings oledNetworkDraft;
 char oledNotice[24]={};uint32_t oledNoticeAt=0;
 void networkNotice(const char *message){strlcpy(oledNotice,message,sizeof(oledNotice));oledNoticeAt=millis();}
 bool saveOLEDNetwork(const NetworkSettings &settings,const Snapshot &snapshot){
-  if(snapshot.diagnosticActive||snapshot.scan.phase==SCAN_RUNNING||networkPending||networkAwaitingSave||wifiScan.running){networkNotice("Busy. Finish work first");return false;}
+  if(snapshot.discoveryRunning||snapshot.diagnosticActive||snapshot.scan.phase==SCAN_RUNNING||networkPending||networkAwaitingSave||wifiScan.running){networkNotice("Busy. Finish work first");return false;}
   if(settings.mode!=NETWORK_AP&&!settings.ssid[0]){networkNotice("Scan/select SSID first");return false;}
   if(!validNetwork(settings)){networkNotice("Check SSID/key/AP IP");return false;}
   Command c{};c.type=SET_NETWORK;c.network=settings;c.queuedAt=millis();c.modeRevision=snapshot.modeRevision;c.id=acceptedCommand+1;if(!c.id)c.id=1;
@@ -1263,9 +1326,9 @@ void setup() {
   uint32_t artworkStarted=showBootArtwork();
   i2cMutex=xSemaphoreCreateMutex();fsMutex=xSemaphoreCreateMutex();
   snapshotQueue=xQueueCreate(1,sizeof(Snapshot));commandQueue=xQueueCreate(6,sizeof(Command));networkQueue=xQueueCreate(1,sizeof(NetworkUpdate));
-  diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(DiagnosticStop));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));
+  diagnosticInputQueue=xQueueCreate(16,sizeof(DiagnosticInput));diagnosticStopQueue=xQueueCreate(1,sizeof(DiagnosticStop));diagnosticViewQueue=xQueueCreate(1,sizeof(DiagnosticView));meterLabQueue=xQueueCreate(1,sizeof(MeterLabSnapshot));
   state.flow.boot=esp_random();
-  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
+  if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue||!meterLabQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
   initLED();holdBootArtwork(artworkStarted);bootAnimation();
   // Never format existing data automatically. First installation: hold OK at boot.
   fsOK=LittleFS.begin(false);
@@ -1305,7 +1368,7 @@ void loop() {
     if(i==2&&event==2&&page==3){networkMenu.enter();continue;}
     if(i==2&&event==2){Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}
   }
-  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&!s.diagnosticActive&&now>20000&&(!s.rtc||!s.online||!s.storage);
+  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&!s.diagnosticActive&&!s.discoveryRunning&&now>20000&&(!s.rtc||!s.online||!s.storage);
   digitalWrite(PIN_BUZZER,alarm&&now%10000<120?HIGH:LOW);
   if(idle.sleeping)drawIdleFrame(now);
   else if(now-lastPaint>=300){lastPaint=now;drawOLED(s);}

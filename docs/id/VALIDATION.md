@@ -1,9 +1,19 @@
-# Catatan validasi / 28 Oktober 2026
+# Catatan validasi / 29 Oktober 2026
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.5.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **2.6.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
+
+## Discovery dan perangkat bernama pada 2.6.0
+
+Ketiga suite native lulus dengan source ModbusMaster bersama dan INO yang sebenarnya. Kasus tambahan memeriksa kelanjutan probe setelah alamat pertama diam, konfirmasi berulang untuk data maupun exception, batas rencana yang dapat diedit, pergantian UART ke dua stop bit, pembatalan, kapasitas empat temuan, tipe layout rasio serta migrasi konfigurasi tanpa mengubah definisi register Fort atau Acrel. Tes registry mencakup record CRC eksplisit, write gagal, pemulihan bank lama serta reservasi ID agar identitas tidak digunakan ulang setelah rollback. Checkpoint schema 3 menyimpan ID perangkat, sementara record schema 1 dan 2 tetap dapat dibaca.
+
+Regresi Microsoft Edge lengkap lulus pada byte generated, termasuk 27 aset vektor dan ukuran layar 320–2560 px. Suite discovery terpisah memeriksa validasi rencana, pemilihan temuan, request penyimpanan bernama, reload, aktivasi profil yang didukung, larangan menghapus perangkat aktif, unduhan JSON, pelestarian tampilan saat payload rusak, Stop prioritas, pergantian Inggris/Indonesia dan penghentian polling saat panel ditutup. Kontrol discovery dan kartu perangkat tersimpan diperiksa secara visual. API simulasi tidak membuktikan ketahanan flash, pemulihan putus daya fisik atau timing radio/UART.
+
+Registry memuat empat entri 700 byte dalam bank CRC eksplisit 2.818 byte, memakai dua bank bergantian serta reservasi ID terpisah enam byte dengan CRC. Setiap temuan menyimpan TX/RX yang diamati pada kedua percobaan, status respons dan durasi. Durasi mencakup pelayanan driver dan jeda, sehingga bukan pengukuran latensi kabel. Exception yang terkonfirmasi menunjukkan respons protokol sah, sedangkan bentuk register yang cocok hanya menjadi petunjuk peta. Identitas produsen dan skala energi tetap memerlukan perbandingan manual/LCD oleh operator seperti dijelaskan pada [Pencarian meter](METER_DISCOVERY.md).
+
+Enumerator, codec registry, adapter persistensi dan representasi HTTP dipisahkan menjadi modul. Core 1 tetap memiliki UART, Preferences serta state pengukuran, sementara core 0 membaca salinan snapshot dan mengantrekan perintah. Temuan asing dapat diberi nama dan diekspor untuk pengembangan tanpa dijadikan peta energi produksi yang belum terverifikasi. Penerimaan hardware di bagian berikut tetap berlaku untuk rilis ini.
 
 ## Profil meter pada 2.5.0
 
@@ -21,8 +31,8 @@ Kedua build lulus dengan espressif32 **6.10.0** dan Arduino ESP32 **2.0.17** unt
 
 | Build | RAM statis | Program |
 | --- | ---: | ---: |
-| Firmware utama `esp32s3` | 85.144 byte | 1.427.045 byte |
-| FortSerialDebug dengan library FortMeter | 30.284 byte | 337.785 byte |
+| Firmware utama `esp32s3` | 111.488 byte | 1.466.681 byte |
+| FortSerialDebug dengan library FortMeter | 33.300 byte | 343.269 byte |
 
 RAM statis bukan total alokasi runtime. Stack loop core 0 sebesar 16 KiB dan akuisisi sebesar 12 KiB, sedangkan sisa stack, heap dan alokasi driver perlu diperiksa pada perangkat melalui process monitor. INO mandiri kini memakai library FortMeter yang disertakan bersama source ModbusMaster. Build diuji melalui PlatformIO, sementara GUI Arduino IDE serta versi core lain belum dijalankan.
 
@@ -48,15 +58,15 @@ Tes browser tambahan mencakup simpan/reload mode AP/client/gabungan, pemakaian u
 
 Payload status, arsip, proses, trace dan event UART yang rusak tidak menjatuhkan UI. Data terakhir ditandai stale/unavailable, polling panel detail berhenti ketika ditutup, dan animasi UART hanya bergerak untuk event baru dengan dukungan reduced motion. Replay timestamp memiliki keterlambatan jaringan dan bukan hasil pengukuran propagasi A/B.
 
-Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **25 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
+Lebar 320–2560 px lulus tanpa overflow dokumen, error JavaScript atau request aset eksternal. Hash React Bits cocok dengan upstream dan seluruh **27 SVG** lolos render serta pemeriksaan batas teks. [Dashboard](../assets/ui-desktop.png), [tampilan HP](../assets/ui-mobile-id.png), [scanner](../assets/ui-scan-desktop.png) serta [diagnostik HP](../assets/ui-diagnostic-mobile.png) menggunakan data simulasi, sehingga bukan bukti penerimaan hardware.
 
 ## Provenance dan paket
 
-Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard, WakeSlider, Counter dan StarBorder serta Motion **14.7.1** menghasilkan total **138.037 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
+Node **24.22.1**, esbuild **0.28.2**, React/React DOM **19.3.1** bersama React Bits SpotlightCard, WakeSlider, Counter dan StarBorder serta Motion **14.7.1** menghasilkan total **145.203 byte gzip**, di bawah 160 KiB. Header dan manifest sinkron, guard hash Python lulus di dalam build firmware, dan build PlatformIO biasa tidak membutuhkan Node. Tidak ada font/CDN eksternal atau source map. Hash source ModbusMaster **2.0.1+fort.1** beserta patch service-hook juga lolos pemeriksaan provenance, dengan header lisensi upstream dipertahankan.
 
-Checker dokumentasi memeriksa 31 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
+Checker dokumentasi memeriksa 35 panduan Markdown dan link/anchor relatifnya, serta kesesuaian seluruh route web/firmware pada kedua bahasa. Pemeriksaan juga mencakup versi, GPIO, aset generated serta **31 koneksi manual terpasang**. Wiring terkonfirmasi adalah TX17 ke DI, RX18 dari RO dan DIR16 ke DE serta /RE, dengan Fort 58/A dan 59/B. Gambar halaman manual untuk register/skala terkait sudah diperiksa. Ketidakkonsistenan kolom panjang energi dan CRC contoh tercetak dijelaskan di [DESIGN](DESIGN.md).
 
-Packager membandingkan app dengan build terbaru, memeriksa komponen/offset factory, CRC ZIP dan SHA256 setiap file pada manifest. Source, panduan, tools, notice, manual Fort serta ZIP library Arduino ikut disertakan, tanpa cache build atau dependency terpasang. Offset mengikuti [FLASHING](FLASHING.md). CI remote harus diperiksa terhadap commit yang benar karena hasil lokal tidak otomatis menjadi bukti CI lulus.
+Packager membandingkan app dengan build terbaru, memeriksa komponen/offset factory, CRC ZIP dan SHA256 setiap file pada manifest. Source, panduan, tools, notice, manual Fort dan Acrel serta ZIP library Arduino ikut disertakan, tanpa cache build atau dependency terpasang. Offset mengikuti [FLASHING](FLASHING.md). CI remote harus diperiksa terhadap commit yang benar karena hasil lokal tidak otomatis menjadi bukti CI lulus.
 
 ## Penerimaan fisik yang tersisa
 

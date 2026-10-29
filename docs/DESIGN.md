@@ -2,9 +2,11 @@
 
 **English** · [Bahasa Indonesia](id/DESIGN.md)
 
+The shared discovery controller, named flash registry, immutable checkpoint source IDs and refactored settings codec are described in [Meter discovery](METER_DISCOVERY.md). The scanner remains FC03-only and does not infer a manufacturer from raw values.
+
 Meter-specific Fort examples below remain valid for Fort. For Acrel, select the saved model first and use [Meter profiles](METER_PROFILES.md) for its register map, terminals, conversion and diagnostic workflow.
 
-Version 2.5.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
+Version 2.6.0 is organized around a single FC03 transaction path in the local FortMeter library. Main polling, connection discovery and the standalone sketch call the same FortTransport implementation, which delegates wire transactions to ModbusMaster 2.0.1+fort.1. This replaces the v1 software-gap collector rather than retaining it as a second interpretation of the same bytes.
 
 ## Fort register reference
 

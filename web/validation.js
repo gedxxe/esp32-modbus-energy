@@ -19,7 +19,7 @@ const profileKey=value=>typeof value==="string"&&/^[a-z][a-z0-9-]{0,31}$/.test(v
 const profileInfo=value=>object(value)&&profileKey(value.key)&&typeof value.name==="string"&&typeof value.terminals==="string"&&uint(value.maxBaud,1000000)&&value.maxBaud>0&&Number.isFinite(value.energyScale)&&value.energyScale>0&&uint(value.ratios,65535)&&[2,3].includes(value.ratioWords)&&["currentA","voltageA","power","frequency","secondaryEnergy"].every(key=>object(value[key])&&uint(value[key].address,65535)&&[1,2].includes(value[key].words));
 export function validStatus(value) {
   return (
-    serial(value) && ["manual", "auto"].includes(value.direction) &&
+    serial(value) && ["manual", "auto"].includes(value.direction) && (value.discoveryRunning===undefined||typeof value.discoveryRunning==="boolean") &&
     (value.profile===undefined||(profileKey(value.profile)&&profileInfo(value.meter)&&value.meter.key===value.profile&&Array.isArray(value.meterProfiles)&&value.meterProfiles.length>=1&&value.meterProfiles.length<=16&&new Set(value.meterProfiles.map(p=>p?.key)).size===value.meterProfiles.length&&value.meterProfiles.every(profileInfo))) &&
     typeof value.token === "string" && value.token.length > 0 &&
     Array.isArray(value.slots) && value.slots.length === 9 &&
@@ -104,7 +104,7 @@ export function validCheckpoints(value){
     const target=value.day*86400+row.minute*60-25200;
     return Number.isFinite(row.kwh)&&row.kwh>=0&&uint(row.startedUTC)&&uint(row.capturedUTC)&&row.startedUTC>=target&&
       row.capturedUTC>=row.startedUTC&&row.capturedUTC-row.startedUTC<=2&&row.capturedUTC-target===row.delaySeconds&&uint(row.delaySeconds,5)&&
-      (row.profile===undefined||profileKey(row.profile))&&uint(row.raw)&&uint(row.slave,247)&&row.slave>0&&[row.ptNum,row.ptDen,row.ct].every(v=>uint(v,9999)&&v>0)&&
+      (row.meterId===undefined||uint(row.meterId,65535))&&(row.profile===undefined||profileKey(row.profile))&&uint(row.raw)&&uint(row.slave,247)&&row.slave>0&&[row.ptNum,row.ptDen,row.ct].every(v=>uint(v,9999)&&v>0)&&
       (row.difference===null||(i!==0&&i!==5&&Number.isFinite(row.difference)&&row.difference>=0));
   });
 }

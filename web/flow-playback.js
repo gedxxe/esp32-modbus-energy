@@ -27,7 +27,7 @@ export function flowLeg(phase,progress,direction) {
   const arrived=direction==="tx"?["gap","rx","rx-settle","hold","idle"].includes(phase):["hold","idle"].includes(phase);
   return { visible:false,position:arrived?1:0,opacity:0 };
 }
-const sameLink = (a,b) => ["profile","slave","baud","parity","address","words","rxPin","txPin","dirPin","diagnostic"].every(key => a[key] === b[key]);
+const sameLink = (a,b) => ["stopBits","profile","slave","baud","parity","address","words","rxPin","txPin","dirPin","diagnostic"].every(key => a[key] === b[key]);
 export class FrameAssembler {
   reset() { this.draft = null; this.last = null; }
   accept(event) {

@@ -1,0 +1,21 @@
+const assert=require("node:assert/strict");
+const path=require("node:path");
+module.exports=async function({page,origin,lab,calls,setMalformed,setHold,requests,root}){
+ await page.goto(origin+"/#setup");await page.waitForSelector("#meter-profile");await page.locator("#meter-lab > summary").click();await page.waitForSelector("#lab-start:not([disabled])");
+ await page.locator("#lab-plan").fill("FFFF:3");await page.locator("#lab-start").click();await page.waitForFunction(()=>document.querySelector("#message")?.textContent.includes("unique HEX"));
+ await page.locator("#lab-plan").fill("0000:1,0058:2,0064:1,0082:2,000A:2,002C:3,008D:2");await page.locator("#lab-start").click();await page.waitForSelector("#lab-findings .lab-save");assert.equal(await page.locator("#lab-findings .lab-device").count(),2);
+ const finding=page.locator("#lab-findings .lab-device").nth(1);await finding.getByLabel("Installation name").fill("Panel East");await finding.getByLabel("Operator supplied model").fill("Acrel ADL400");await finding.getByLabel("Production profile binding").selectOption("acrel-adl400");await finding.locator('input[type="checkbox"]').check();await finding.getByLabel("Development notes").fill("LCD and manual checked");await finding.getByRole("button",{name:"Save finding to flash"}).click();await page.waitForSelector("#lab-saved .lab-device");
+ assert.equal(lab.saved[0].name,"Panel East");assert(calls.some(call=>call.url==="/api/meter-lab"&&call.data.get("verified")==="1"));
+ await page.reload();await page.locator("#meter-lab > summary").click();await page.waitForSelector("#lab-saved .lab-device");assert((await page.locator("#lab-saved").innerText()).includes("Panel East"));await page.locator("#lab-saved").getByRole("button",{name:"Use for measurement"}).click();await page.waitForFunction(()=>document.getElementById("meter-profile")?.value==="acrel-adl400");
+ assert(await page.locator("#lab-saved").getByRole("button",{name:"Remove inactive record"}).isDisabled());
+ const download=page.waitForEvent("download");await page.locator("#lab-export").click();assert.equal((await download).suggestedFilename(),"meter-lab-report.json");
+ setMalformed(true);await page.waitForFunction(()=>document.querySelector("#meter-lab [role='status'].hint")?.textContent.includes("could not"));assert((await page.locator("#lab-saved").innerText()).includes("Panel East"));assert(await page.locator("#lab-start").isDisabled());setMalformed(false);await page.waitForSelector("#lab-start:not([disabled])");
+ await page.locator("#meter-lab").screenshot({path:path.join(root,"docs/assets/ui-meter-lab-desktop.png"),style:".main-nav{visibility:hidden}"});
+ await page.locator("#lab-start-form").screenshot({path:path.join(root,"output/previews/lab-form.png"),style:".main-nav{visibility:hidden}"});
+ await page.locator("#lab-saved .lab-device").first().screenshot({path:path.join(root,"output/previews/lab-saved.png"),style:".main-nav{visibility:hidden}"});
+ await page.setViewportSize({width:390,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.locator("#meter-lab").screenshot({path:path.join(root,"docs/assets/ui-meter-lab-mobile.png"),style:".main-nav{visibility:hidden}"});
+ setHold(true);await page.locator("#lab-start").click();await page.waitForSelector("#lab-stop:not([disabled])");assert(await page.locator("#config button").isDisabled());await page.locator("#lab-stop").click();await page.waitForFunction(()=>document.querySelector(".lab-progress strong")?.textContent.includes("stopped"));assert(lab.discovery.phase==="cancelled");setHold(false);
+ await page.locator("#language").selectOption("id");assert((await page.locator("#meter-lab > summary").innerText()).includes("Pencarian"));
+ await page.locator("#meter-lab > summary").click();await page.waitForTimeout(150);const count=requests();await page.waitForTimeout(1200);assert.equal(requests(),count,"Closed discovery panel must not poll");
+ console.log("PASS: shipped meter discovery plan validation, confirmed findings, named flash-save request, reload, profile activation, active-delete guard, report download, malformed-view retention, priority Stop, EN/ID, mobile layout and closed polling");
+};

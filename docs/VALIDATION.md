@@ -1,9 +1,19 @@
-# Validation record / 28 October 2026
+# Validation record / 29 October 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **2.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **2.6.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## Discovery and named devices in 2.6.0
+
+The three native suites passed with the actual shared ModbusMaster source and standalone INO. Added cases cover continuing a multi-address plan after silence, repeated data and exception evidence, editable plan bounds, two-stop-bit UART reconfiguration, cancellation, four-finding capacity, typed ratio layouts and configuration migration without changing the existing Fort or Acrel register definitions. Registry tests cover explicit CRC records, failed writes, recovery from the older bank and ID reservations that prevent reuse after rollback. Checkpoint schema 3 retains the saved-device ID, while schema 1 and 2 records remain readable.
+
+The full generated-byte Microsoft Edge regression passed, including all 27 vector assets and the existing 320–2560 px layouts. A separate discovery suite checks plan validation, finding selection, named-save requests, reload, supported-profile activation, the active-record deletion guard, JSON download, malformed-response retention, priority Stop, English/Indonesian switching and closed-panel polling. Representative discovery controls and saved-device cards were visually inspected. These tests use simulated APIs and do not establish flash endurance, physical power-cut recovery or radio/UART timing.
+
+The registry uses four 700-byte entries in a 2,818-byte explicit CRC bank, with two alternating banks and a separate six-byte CRC-protected ID reservation. Each finding retains both attempts' observed TX/RX, response status and duration. The duration includes driver service and spacing, so it is not a wire-latency measurement. A confirmed exception establishes a valid protocol response, while a matching register shape provides only a mapping hint. Manufacturer identity and energy scaling still require the operator's manual/LCD comparison, as explained in [Meter discovery](METER_DISCOVERY.md).
+
+The scanner, registry codecs, persistence adapter and HTTP representation are separate modules. Core 1 continues to own UART, Preferences and measurement state, and core 0 reads copied snapshots and queues commands. Unknown findings remain available for naming and report export without becoming an invented production energy map. The hardware acceptance items below still apply to this release.
 
 ## Meter profiles in 2.5.0
 
@@ -21,8 +31,8 @@ Both builds passed with the pinned espressif32 **6.10.0** and Arduino ESP32 **2.
 
 | Build | Static RAM / 327,680 bytes | Program / 6,553,600 bytes |
 | --- | ---: | ---: |
-| Main `esp32s3` environment | 85,144 | 1,427,045 |
-| Standalone FortSerialDebug | 30,284 | 337,785 |
+| Main `esp32s3` environment | 111,488 | 1,466,681 |
+| Standalone FortSerialDebug | 33,300 | 343,269 |
 
 Static RAM does not include every runtime heap, queue, stack or peripheral allocation. Core 0's loop stack is 16 KiB and the acquisition stack is 12 KiB, with actual headroom exposed by the process monitor for on-device inspection. The standalone sketch now uses the supplied FortMeter library, which contains the pinned ModbusMaster source. Both compile through PlatformIO, but the Arduino IDE GUI and other ESP32 core versions were not exercised.
 
@@ -50,7 +60,7 @@ The added browser cases cover AP/client/combined mode submission and reload, pas
 
 Malformed status, archive, process, trace and UART-event payloads retain the last usable data with a stale/unavailable state. Diagnostics, process metrics and raw trace polling stop when their panel closes. UART animation requires new events, honors reduced motion and does not turn idle time or pre-reboot history into live packets. Its readable replay uses presentation timing, while the unscaled device timestamps remain available.
 
-Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **25 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
+Layouts from 320 to 2560 px passed without document overflow, JavaScript page errors or external asset requests. The test verifies upstream React Bits blob hashes and renders all **27 SVGs**, checking text bounds against their viewBox. Representative images contain simulated data: [dashboard](assets/ui-desktop.png), [phone](assets/ui-mobile.png), [scanner](assets/ui-scan-desktop.png), [communication](assets/ui-flow-desktop.png), [process monitor](assets/ui-process-desktop.png) and [diagnostic console](assets/ui-diagnostic-mobile.png).
 
 ## Asset and source provenance
 
@@ -58,18 +68,18 @@ The browser build uses Node **24.22.1**, esbuild **0.28.2**, React/React DOM **1
 
 | Endpoint | Uncompressed bytes | Gzip bytes |
 | --- | ---: | ---: |
-| `/` | 1,030 | 527 |
-| `/assets/app.js` | 396,335 | 126,773 |
-| `/assets/app.css` | 37,944 | 9,198 |
+| `/` | 1,031 | 533 |
+| `/assets/app.js` | 420,328 | 133,692 |
+| `/assets/app.css` | 39,054 | 9,439 |
 | `/assets/third-party.txt` | 10,218 | 1,539 |
 
-The combined payload is **138,037 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
+The combined payload is **145,203 bytes gzip**, below 160 KiB, without source maps, remote fonts or CDN assets. Text input hashes normalize line endings and the gzip metadata is reproducible. ModbusMaster **2.0.1+fort.1** source hashes and its documented service-hook patch pass the separate provenance checker, with upstream license headers preserved.
 
-The documentation checker validates 31 Markdown guides and 234 relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
+The documentation checker validates 35 Markdown guides and their relative links/anchors and the complete web/firmware API route map in both languages. It also checks pinned versions, GPIO assignments, generated assets and all **31 installed manual-wiring connections**. The installed wiring is TX17 to DI, RX18 from RO and DIR16 to tied DE and /RE, with Fort terminals 58/A and 59/B. Relevant scanned manual page images were inspected for the current, voltage, power, frequency, ratio and energy definitions. The energy-length table inconsistency and printed example CRC error remain documented in [DESIGN](DESIGN.md#fort-register-reference).
 
 ## Packaging and remaining hardware work
 
-The packager verifies the copied app against the current build, compares every component at its merged factory offset, checks the ZIP CRC and verifies each archived manifest SHA256. The release includes source, documentation, tooling, notices, the original Fort manual and a separate Arduino FortMeter library ZIP, while excluding build caches and installed dependencies. Image offsets remain 0x0 / 0x8000 / 0xE000 / 0x10000 as described in [FLASHING](FLASHING.md). Remote CI must be read for the actual pushed commit, since local checks alone do not establish its result.
+The packager verifies the copied app against the current build, compares every component at its merged factory offset, checks the ZIP CRC and verifies each archived manifest SHA256. The release includes source, documentation, tooling, notices, the original Fort and Acrel manuals and a separate Arduino FortMeter library ZIP, while excluding build caches and installed dependencies. Image offsets remain 0x0 / 0x8000 / 0xE000 / 0x10000 as described in [FLASHING](FLASHING.md). Remote CI must be read for the actual pushed commit, since local checks alone do not establish its result.
 
 The physical AP/client/dual transitions, router-loss recovery, DHCP/subnet changes and the integrated Fort register/display comparison, RS485 turnaround and noise behavior, OLED/RTC and battery, buttons/buzzer, GPIO48 output, power-cut recovery and multiple AP clients still require physical acceptance. HTTP response writes are bounded, but the upstream request parser has not been replaced or certified against arbitrary hostile traffic. The transceiver exposes no presence or power-good input, so UART silence or local RX activity cannot identify a disconnected or defective component with certainty.
 

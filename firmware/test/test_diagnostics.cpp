@@ -4,9 +4,18 @@
 #undef assert
 #define assert(x) do { if(!(x)){std::cerr<<"FAIL line "<<__LINE__<<": "<<#x<<"\n";std::exit(1);} } while(0)
 #include "FortDiagnostics.h"
+#include "../include/meter_registry_store.h"
+#include <map>
 using namespace fort;
 static FortDiagnostics *stopTarget=nullptr;static int cooperateCount=0,lastObservedKind=0;static bool resumed=false;
 std::vector<uint8_t> response(std::initializer_list<uint8_t> bytes){std::vector<uint8_t> out(bytes);uint16_t crc=meterCRC(out.data(),out.size());out.push_back(uint8_t(crc));out.push_back(uint8_t(crc>>8));return out;}
+struct RegistryBackend {
+ std::map<std::string,std::vector<uint8_t>> values;bool failWrite=false,failRead=false;
+ bool isKey(const char *key){return values.count(key);}
+ size_t getBytesLength(const char *key){return values[key].size();}
+ size_t getBytes(const char *key,void *out,size_t n){if(failRead)return 0;auto &v=values[key];if(v.size()<n)return 0;memcpy(out,v.data(),n);return n;}
+ size_t putBytes(const char *key,const void *bytes,size_t n){if(failWrite)return 0;auto p=static_cast<const uint8_t*>(bytes);values[key]=std::vector<uint8_t>(p,p+n);return n;}
+};
 int main(){
  uint8_t out[6]={};
  {HardwareSerial port(1);FortDiagnostics engine(port);FortDiagnostics::Capture a,b;
@@ -66,7 +75,7 @@ int main(){
  // Acrel profile must use its own query width, ratio layout and kWh resolution.
  {HardwareSerial port(1);char log[4096];FortDiagnostics engine(port,log,sizeof(log));
   engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400);
-  assert(engine.options.probeAddress==0x64&&engine.options.probeWords==1&&engine.baudCount==5);
+  assert(engine.options.probeAddress==0x64&&engine.options.probeWords==1&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
   assert(engine.auditPlan[2].address==0x16A&&engine.auditPlan[3].address==0x77);
   port.replies.push_back(response({1,3,2,0,123}));assert(engine.probeLink(engine.current));
   assert(port.transmitted.back()[3]==0x64&&port.transmitted.back()[5]==1);
@@ -82,6 +91,37 @@ int main(){
  const uint8_t signedPower[]={0xFF,0xFF,0xD8,0xF0},voltage[]={0x08,0xFC};
  assert(fabs(profiles::decode(profiles::get(1).power,signedPower)+1.0)<1e-10);
  assert(fabs(profiles::decode(profiles::get(1).voltage,voltage)-230.0)<1e-10);
+ // The universal survey continues after a silent first probe and records exceptions separately.
+ {HardwareSerial port(1);FortDiagnostics engine(port);DiscoveryConfig config;config.first=1;config.last=1;config.responseMs=150;
+  assert(engine.discovery.begin(config,17,millis(),99));
+  port.onWrite=[&](){const auto &tx=port.transmitted.back();if(tx[3]==0x64)for(auto byte:response({1,0x83,2}))port.incoming.push_back(byte);};
+  while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185200);
+  assert(engine.discovery.phase==DISCOVERY_COMPLETE&&engine.discovery.count==1&&engine.discovery.tested==7);
+  const auto &device=engine.discovery.found[0];assert(device.confirmed()&&device.mapEvidence()==0&&device.probes[4].confirmed());assert(device.probes[0].status[0]==0xE2);
+  RegistryBackend backend;MeterRegistryStore storage;assert(storage.load(backend,true));MeterRegistry next=storage.registry;
+  next.count=1;next.nextId=2;next.entries[0].id=1;strcpy(next.entries[0].name,"Panel 4");strcpy(next.entries[0].model,"Unknown meter");next.entries[0].evidence=device;
+  assert(storage.commit(backend,next));MeterRegistryStore reboot;assert(reboot.load(backend,true)&&reboot.registry.entries[0].id==1);
+  Settings chosen;assert(!canActivateSaved(reboot.registry.entries[0],chosen));
+  auto saved=storage.registry;backend.failWrite=true;strcpy(next.entries[0].name,"Changed");assert(!storage.commit(backend,next));assert(!strcmp(storage.registry.entries[0].name,"Panel 4"));
+  backend.failWrite=false;assert(storage.commit(backend,next));assert(backend.values.size()==3);
+  backend.values["meters_b"][30]^=1;MeterRegistryStore recover;assert(recover.load(backend,true));assert(!strcmp(recover.registry.entries[0].name,"Panel 4"));
+  // A newer bank may be lost after its ID was reserved. Recovery must skip that ID.
+  auto third=recover.registry;third.entries[1]=third.entries[0];third.entries[1].id=third.nextId++;strcpy(third.entries[1].name,"Second");third.count=2;assert(recover.commit(backend,third));
+  backend.values["meters_b"][30]^=1;MeterRegistryStore older;assert(older.load(backend,true));assert(older.registry.nextId==3&&older.registry.count==1);
+  uint8_t bytes[METER_REGISTRY_BYTES];encodeMeterRegistry(saved,bytes);MeterRegistry decoded;assert(decodeMeterRegistry(bytes,sizeof(bytes),decoded));bytes[40]^=1;assert(!decodeMeterRegistry(bytes,sizeof(bytes),decoded));
+  Settings old;old.magic=0x46525433;old.profile=profiles::ACREL_ADL400;uint8_t legacy[16]={};memcpy(legacy,&old,12);meterPut16(legacy+12,crc16(legacy,12));uint16_t id=99;assert(decodeMeterConfig(legacy,16,chosen,id)&&chosen.profile==profiles::ACREL_ADL400&&id==0);
+  encodeMeterConfig(chosen,123,legacy);assert(decodeMeterConfig(legacy,16,chosen,id)&&id==123);legacy[12]^=1;assert(!decodeMeterConfig(legacy,16,chosen,id));
+ }
+ {HardwareSerial port(1);FortDiagnostics engine(port);engine.command("timeout 150");engine.command("range 1 1");engine.command("scanmode current");engine.command("discover");assert(engine.discovery.running());engine.command("stop");assert(!engine.discovery.running()&&engine.discovery.phase==DISCOVERY_CANCELLED);}
+ {HardwareSerial port(1);FortDiagnostics engine(port);auto link=engine.current;link.stops=2;engine.openLink(link);unsigned before=port.beginCalls;engine.openLink(link);assert(port.beginCalls==before);link.stops=1;engine.openLink(link);assert(port.beginCalls==before+1);}
+ {HardwareSerial port(1);FortDiagnostics engine(port);DiscoveryConfig config;config.first=1;config.last=5;config.responseMs=150;
+  port.onWrite=[&](){const auto &tx=port.transmitted.back();std::vector<uint8_t> bytes={tx[0],3,uint8_t(tx[5]*2)};bytes.resize(3+tx[5]*2,0);uint16_t crc=meterCRC(bytes.data(),bytes.size());bytes.push_back(uint8_t(crc));bytes.push_back(uint8_t(crc>>8));for(auto byte:bytes)port.incoming.push_back(byte);};
+  assert(engine.discovery.begin(config,2,millis(),50));while(engine.discovery.running())engine.discovery.step(engine,millis(),0);
+  assert(engine.discovery.phase==DISCOVERY_CAPACITY&&engine.discovery.count==4&&engine.discovery.tested==28);
+  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==3);SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(canActivateSaved(saved,settings));
+  saved.evidence.link.stops=2;assert(!canActivateSaved(saved,settings));
+  DiscoveryConfig plan;assert(parseDiscoveryPlan("FFFE:2,0000:1",plan)&&plan.count==2);auto previous=plan;assert(!parseDiscoveryPlan("FFFF:2",plan)&&plan.count==previous.count);assert(!parseDiscoveryPlan("0000:1,0000:1",plan));assert(!parseDiscoveryPlan("0000:1,",plan));
+ }
  assert(meter::signed32(0xFFFFFF9CUL)==-100);assert(meter::float32(0x3F80,0)==1.0f);assert(meter::float32(0,0x3F80)!=1.0f);
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";
 }

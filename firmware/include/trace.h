@@ -28,7 +28,7 @@ struct TraceFrame {
   uint32_t atMs = 0, baud = 0;
   uint16_t address = 0;
   uint8_t tx[8] = {}, rx[TRACE_RX_CAPACITY] = {};
-  uint8_t size = 0, slave = 0, words = 0, attempt = 0;
+  uint8_t size = 0, slave = 0, words = 0, attempt = 0,stopBits=1,profile=0;bool discovery=false;
   char parity = 'N';
   bool scan = false, diagnostic = false, incomplete = false, overflow = false;
   TraceResult result = TRACE_TIMEOUT;
@@ -43,9 +43,9 @@ struct TraceCapture {
   void stop() { active = false; }
   void append(const uint8_t *tx, const uint8_t *rx, size_t size, bool overflow,
               uint32_t atMs, uint32_t baud, char parity, uint8_t slave,
-              uint16_t address, uint8_t words, uint8_t attempt, bool scan, bool diagnostic=false, bool incomplete=false) {
+              uint16_t address, uint8_t words, uint8_t attempt, bool scan, bool diagnostic=false, bool incomplete=false,uint8_t stopBits=1,bool discovery=false,uint8_t profile=0) {
     if (!active || count >= TRACE_CAPACITY) return;
-    TraceFrame frame{};
+    TraceFrame frame{};frame.stopBits=stopBits;frame.discovery=discovery;frame.profile=profile;
     frame.atMs = atMs; frame.baud = baud; frame.parity = parity;
     frame.slave = slave; frame.address = address; frame.words = words;
     frame.attempt = attempt; frame.scan = scan;frame.diagnostic=diagnostic;frame.incomplete=incomplete;

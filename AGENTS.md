@@ -19,7 +19,10 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `web/flow-playback.js` and `web/components/FlowPlayback.jsx`: continuous observed-frame grouping, readable TX/RX replay and a one-active/one-newest-pending queue. Keep presentation duration separate from actual UART timestamps and never animate RX without captured bytes. Preserve the eased arrival and explicit TX/RX fade phases, retaining the arrived position until opacity reaches zero.
 - `web/request.js`: single API socket scheduling through complete body reception, active deadlines and priority Stop/Resume. Do not abort accepted POSTs to refresh telemetry.
 - `web/bundle.json` and `tools/build-web.cjs`: generated asset provenance, sizes and reproducible build.
-- `firmware/include/checkpoint_log.h`: primary ten-point daily cumulative kWh log, actual read timestamps, immutable captures, five-second admission window and explicit CRC serialization.
+- `firmware/lib/FortMeter/src/SerialSweep.h` and `MeterDiscovery.h`: bounded shared enumeration, editable FC03 plans, two-response evidence, one/two stop bits and cancellation. A response does not identify a manufacturer.
+- `firmware/include/meter_config.h`, `meter_registry.h`, `meter_registry_store.h` and `meter_lab.h`: explicit codecs, named inventory, two-bank recovery and CRC-protected ID reservations. Reserve IDs before committing a bank and never reuse them after rollback.
+- `firmware/src/meter_lab_web.cpp` and `web/components/MeterLab.jsx`: queue-only HTTP adapter and discovery/registry controls. Keep unknown findings separate from verified production profiles.
+- `firmware/include/checkpoint_log.h`: primary ten-point daily cumulative kWh log, actual read timestamps, immutable captures, five-second admission window and explicit CRC serialization. Schema 3 is 446 bytes with immutable saved IDs. Preserve schema 1/2 readers at 426 bytes.
 - `firmware/lib/FortMeter/src/MeterProfiles.h`: immutable meter profile IDs and typed register/ratio descriptors. Fort remains ID 0 for old settings and schema-1 captures. Acrel ADL400 follows the supplied V1.3 map. Never repurpose an archived profile ID for different scaling. Review docs/METER_PROFILES.md and the local PDF page images before changing it.
 - `firmware/include/energy.h`: retained legacy interval schedule, continuity/quality logic and CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.
@@ -85,6 +88,7 @@ Run checks appropriate to the change. Do not broaden/repeat them after they pass
 - Documentation, assets, versions and relative links: `python tools/check_docs.py`.
 - Firmware: from `firmware`, `pio run`. Use the installed PlatformIO Python module if `pio` is absent from PATH.
 - Standalone sketch: `pio run -d examples/FortSerialDebug` (same ESP32-S3 N16R8 target and local FortMeter library).
+- Discovery browser checks: `node tools/preview-test.cjs [playwright-module-path] [browser-channel] --meter-lab-only`.
 - Browser/UI and SVG visual checks: `node tools/preview-test.cjs [playwright-module-path] [browser-channel]`. The script uses a localhost mock, not real hardware.
 
 After changing firmware, rebuild before copying binaries. Update `docs/VALIDATION.md` with actual outcomes and limitations, rebuild the release package, verify its manifest and ZIP integrity. Include all documentation/assets/tools in the ZIP. Never package `.pio`, temporary files or dependency directories. Follow `output/firmware/FLASHING.md` for image offsets.

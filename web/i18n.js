@@ -1,5 +1,7 @@
+import { meterLabText } from "./meter-lab-i18n.js";
 export const catalog = {
   en: {
+    ...meterLabText.en,
     save_profile_first:"Save the selected meter model before scanning.",
     meter_profile:"Meter model",
     meter_profile_help:"Save the model before scanning. It selects the register map, decoding, transformer ratios and supported scan rates. Existing checkpoint readings keep their original meter identity.",
@@ -466,6 +468,7 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
+    ...meterLabText.id,
     save_profile_first:"Simpan model meter yang dipilih sebelum menjalankan scan.",
     meter_profile:"Model meter",
     meter_profile_help:"Simpan model sebelum memulai scan. Pilihan ini menentukan register, dekode, rasio trafo, dan baud rate scan. Checkpoint yang sudah tercatat tetap menyimpan identitas meter asalnya.",

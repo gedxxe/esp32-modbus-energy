@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.0
+
+Added bounded FC03 discovery with editable multi-address plans, serial framing trials, retained raw confirmations and four named flash records. Reserved IDs survive recovery to an older bank, while schema-3 checkpoints distinguish saved installations and read older records. Serial enumeration, codecs and the HTTP adapter are separated into testable modules. Fixed stale scan results after configuration changes, Acrel ratio bounds, Fort-only flow labels, stop-bit reporting and discovery cancellation. Added bilingual field/developer guidance and browser coverage.
+
 ## 2.5.0
 
 Added explicit Fort and Acrel ADL400 V1.3 profiles shared by acquisition, scanner, diagnostics and the web catalog. Transformer layouts, register widths/scales and terminal labels now follow the selected model. Settings migrate without changing installed Fort configurations, and checkpoint schema 2 retains each row’s model while reading schema 1 as Fort. Added bilingual commissioning, alternate full wiring and native/browser coverage.

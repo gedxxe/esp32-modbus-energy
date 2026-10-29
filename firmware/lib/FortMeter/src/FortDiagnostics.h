@@ -3,6 +3,7 @@
 #pragma once
 #include <Arduino.h>
 #include "FortTransport.h"
+#include "MeterDiscovery.h"
 #include <atomic>
 #include <math.h>
 #include <stdarg.h>
@@ -11,6 +12,8 @@
 namespace fort {
 class FortDiagnostics {
  public:
+  MeterDiscovery discovery;DiscoveryConfig discoveryOptions;
+  static uint32_t clockMs(){return millis();}
 // Defaults only: all diagnostic parameters below can be changed at runtime.
 struct DebugOptions {
   int rx=18,tx=17,dir=16;
@@ -111,6 +114,7 @@ char consoleQueue[CONSOLE_CAPACITY][CONSOLE_LINE]={},consoleLine[CONSOLE_LINE]={
 uint8_t consoleHead=0,consoleTail=0,consoleCount=0,consoleUsed=0;
 bool consoleDiscard=false;
 void emergencyStop() {
+  discovery.cancel();
   if(scanning||polling)evidence.aborted=true;
   abortRequested=true;scanning=false;polling=false;resumePending=false;
   consoleHead=consoleTail=consoleCount=consoleUsed=0;consoleDiscard=false;consoleLine[0]=0;
@@ -155,7 +159,7 @@ bool readRegisters(const Link &link,uint16_t address,uint8_t words,uint8_t *out)
     auto self=static_cast<FortDiagnostics*>(context);if(self->event)self->event(kind,request,reg,count,tx,rx,size,overflow);
   };
   uint16_t values[3]={};
-  LOG("\n[t=%lu ms] MODBUSMASTER ID=%u %lu 8%c1 FC03 0x%04X words=%u direction=%s DIR%d settle=%uus gap=%ums timeout=%lums\n",(unsigned long)millis(),link.id,(unsigned long)link.baud,link.parity,address,words,options.manualDirection?"manual":"auto",options.dir,options.settleUs,options.gapMs,(unsigned long)options.responseMs);
+  LOG("\n[t=%lu ms] MODBUSMASTER ID=%u %lu 8%c%u FC03 0x%04X words=%u direction=%s DIR%d settle=%uus gap=%ums timeout=%lums\n",(unsigned long)millis(),link.id,(unsigned long)link.baud,link.parity,link.stops,address,words,options.manualDirection?"manual":"auto",options.dir,options.settleUs,options.gapMs,(unsigned long)options.responseMs);
   lastStatus=transport.read(link,address,words,values);const Transaction &result=transport.last;
   if(result.txSize)++evidence.requests;
   evidence.staleBytes+=result.staleBytes;evidence.rxBytes+=result.rxSize;
@@ -294,7 +298,7 @@ void rxCheck() {
 }
 bool sameCaptureSettings(const Capture &a,const Capture &b){
   const DebugOptions &x=a.settings,&y=b.settings;
-  if(a.link.id!=b.link.id||a.link.baud!=b.link.baud||a.link.parity!=b.link.parity||a.count!=b.count)return false;
+  if(a.link.id!=b.link.id||a.link.baud!=b.link.baud||a.link.parity!=b.link.parity||a.link.stops!=b.link.stops||a.count!=b.count)return false;
   if(x.profile!=y.profile||x.rx!=y.rx||x.tx!=y.tx||x.dir!=y.dir||x.manualDirection!=y.manualDirection||x.gapMs!=y.gapMs||x.settleUs!=y.settleUs||x.responseMs!=y.responseMs||x.probeAddress!=y.probeAddress||x.probeWords!=y.probeWords||x.energyAddress!=y.energyAddress||x.ratioAddress!=y.ratioAddress||x.energyScale!=y.energyScale||x.swappedWords!=y.swappedWords||x.decodeEnergy!=y.decodeEnergy)return false;
   for(uint8_t i=0;i<a.count;++i)if(a.plan[i].address!=b.plan[i].address||a.plan[i].words!=b.plan[i].words)return false;
   return true;
@@ -323,9 +327,16 @@ uint16_t scanTotal(){return uint16_t(lastID-firstID+1)*(options.scanCurrent?1:ba
 bool validQuery(unsigned address,unsigned words){return address<=65535&&words>=1&&words<=3&&address+words<=65536UL;}
 bool allowedPin(unsigned pin){if(options.manualDirection&&pin==unsigned(options.dir))return false;return (pin>=10&&pin<=18)||pin==21||(pin>=39&&pin<=42)||pin==47;}
 void showPlan(){for(uint8_t i=0;i<auditCount;++i)LOG("[PLAN] %u address=0x%04X words=%u\n",i+1,auditPlan[i].address,auditPlan[i].words);}
+void showDiscovery(const MeterDiscovery *source=nullptr){
+  const auto &survey=source?*source:discovery;
+  LOG("[DISCOVERY_REPORT] run=%lu phase=%s tested=%lu/%lu devices=%u requests=%lu timeout=%lu crc=%lu rejected=%lu\n",(unsigned long)survey.run,discoveryName(survey.phase),(unsigned long)survey.tested,(unsigned long)survey.total,survey.count,(unsigned long)survey.requests,(unsigned long)survey.timeouts,(unsigned long)survey.crcErrors,(unsigned long)survey.rejected);
+  for(unsigned i=0;i<survey.count;++i){const auto &d=survey.found[i];LOG("[DEVICE %u] ID=%u baud=%lu 8%c%u map-address-evidence=%u (not identity)\n",i,d.link.slave,(unsigned long)d.link.baud,d.link.parity,d.link.stops,d.mapEvidence());
+    for(unsigned j=0;j<d.count;++j){const auto &p=d.probes[j];LOG("[PROBE] FC03 0x%04X words=%u status=%02X/%02X confirmed=%u\n",p.address,p.words,p.status[0],p.status[1],p.confirmed());for(unsigned k=0;k<p.attempts;++k){hexLog("TX",p.tx[k],p.txSize[k]);hexLog("RX",p.rx[k],p.rxSize[k]);}}
+  }
+}
 void showStatus(){
   LOG("[METER_PROFILE] %s (%s)\n",profiles::get(options.profile).name,profiles::get(options.profile).key);
-  LOG("[SETTINGS] ID=%u baud=%lu 8%c1 RX=%d TX=%d timeout=%lu poll=%lu probe=0x%04X/%u range=%u..%u mode=%s candidates=%u\n",current.id,(unsigned long)current.baud,current.parity,options.rx,options.tx,(unsigned long)options.responseMs,(unsigned long)options.pollMs,options.probeAddress,options.probeWords,firstID,lastID,options.scanCurrent?"current":"matrix",scanTotal());
+  LOG("[SETTINGS] ID=%u baud=%lu 8%c%u RX=%d TX=%d timeout=%lu poll=%lu probe=0x%04X/%u range=%u..%u mode=%s candidates=%u\n",current.id,(unsigned long)current.baud,current.parity,current.stops,options.rx,options.tx,(unsigned long)options.responseMs,(unsigned long)options.pollMs,options.probeAddress,options.probeWords,firstID,lastID,options.scanCurrent?"current":"matrix",scanTotal());
   LOG("[TRANSPORT] direction=%s DIR%d settle=%uus gap=%ums last_status=0x%02X %s\n",options.manualDirection?"manual":"auto",options.dir,options.settleUs,options.gapMs,lastStatus,statusName(lastStatus));
   LOG("[PROFILE] energy=0x%04X ratios=0x%04X scale=%.12g order=%s decode=%s. RAM only\n",options.energyAddress,options.ratioAddress,options.energyScale,options.swappedWords?"swap":"normal",options.decodeEnergy?"on":"off");
   LOG("[SCAN_BAUDS]");for(uint8_t i=0;i<baudCount;++i)LOG(" %lu",(unsigned long)BAUDS[i]);
@@ -333,8 +344,9 @@ void showStatus(){
   showPlan();uartStatus();
 }
 void help(){
+  LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
   LOG("PROFILE: profile fort | profile acrel-adl400. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nFort diagnostics 2.5.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nFort diagnostics 2.6.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");
@@ -351,9 +363,11 @@ void command(const char *line) {
   if(!strcmp(line,"resume")){if(onResume)onResume();return;}
   unsigned a=0,b=0; unsigned long baud=0; char parity=0, extra=0;double scalar=0;char token[16]={};
   if (!strcmp(line,"help") || !strcmp(line,"h")) { help(); return; }
-  if (!strcmp(line,"x") || !strcmp(line,"stop")) { abortRequested=true; scanning=false; polling=false; LOG("Stopped.\n"); return; }
+  if (!strcmp(line,"x") || !strcmp(line,"stop")) { emergencyStop(); return; }
   if (!strcmp(line,"status")) { showStatus(); return; }
+  if (!strcmp(line,"discoveryreport")){showDiscovery();return;}
   if (!strcmp(line,"report")) { reportEvidence(); return; }
+  if(discovery.running()){LOG("Discovery active. Use x or stop to cancel, or discoveryreport to inspect completed evidence\n");return;}
   if (scanning) { LOG("Scan active. Use x to abort.\n"); return; }
   if(!strcmp(line,"direction manual")||!strcmp(line,"direction auto")){
     bool manual=!strcmp(line,"direction manual");if(manual&&(options.rx==options.dir||options.tx==options.dir)){LOG("Direction pin overlaps UART. Restore separate RX/TX pins first\n");return;}
@@ -363,6 +377,9 @@ void command(const char *line) {
   if(sscanf(line,"gap %u %c",&a,&extra)==1&&a>=4&&a<=2000){options.gapMs=uint16_t(a);showStatus();return;}
   if(!strcmp(line,"primary")){abortRequested=false;polling=false;const auto &p=profiles::get(options.profile);if(p.primaryFloat)dumpRegisters(current,p.primaryFloat,2);else LOG("[UNSUPPORTED] This profile has no documented primary float energy register. Use read for integer energy with CT/PT\n");return;}
   if(sscanf(line,"profile %15s %c",token,&extra)==1){uint8_t id=0;if(profiles::parse(token,id)){polling=false;selectProfile(id);showStatus();return;}}
+  if(!strncmp(line,"discoverplan ",13)){if(parseDiscoveryPlan(line+13,discoveryOptions))LOG("Discovery plan updated in RAM\n");else LOG("Invalid discovery plan. Use HEX:WORDS pairs separated by commas, at most eight\n");return;}
+  if(!strcmp(line,"discover")){DiscoveryConfig c=discoveryOptions;c.first=firstID;c.last=lastID;c.preferred.baud=current.baud;c.preferred.slave=current.id;c.preferred.parity=current.parity;c.preferred.stops=current.stops;c.direction=options.manualDirection?0:1;c.matrix=!options.scanCurrent;c.responseMs=uint16_t(options.responseMs>3000?3000:options.responseMs<150?150:options.responseMs);abortRequested=false;polling=false;evidence=Evidence{};uint32_t nextRun=discovery.run+1;if(!nextRun)nextRun=1;discovery.begin(c,nextRun,millis(),0);LOG("[DISCOVERY] FC03 multi-address survey, %lu query slots. No manufacturer identification or energy acceptance\n",(unsigned long)discovery.total);return;}
+  if(sscanf(line,"stops %u %c",&a,&extra)==1&&(a==1||a==2)){polling=false;current.stops=uint8_t(a);activeBaud=0;openLink(current);showStatus();return;}
   if(!strcmp(line,"rxcheck")){rxCheck();return;}
   if(!strcmp(line,"check connected")){captureCheck(true);return;}
   if(!strcmp(line,"check isolated")){captureCheck(false);return;}
@@ -372,7 +389,7 @@ void command(const char *line) {
   if(sscanf(line,"interval %lu %c",&baud,&extra)==1&&baud>=100&&baud<=60000){polling=false;options.pollMs=baud;showStatus();return;}
   if(sscanf(line,"probe %x %u %c",&a,&b,&extra)==2&&validQuery(a,b)){polling=false;options.probeAddress=a;options.probeWords=b;showStatus();return;}
   if(sscanf(line,"energy %x %c",&a,&extra)==1&&validQuery(a,2)){polling=false;options.energyAddress=a;showStatus();return;}
-  if(sscanf(line,"ratios %x %c",&a,&extra)==1&&validQuery(a,3)){polling=false;options.ratioAddress=a;showStatus();return;}
+  if(sscanf(line,"ratios %x %c",&a,&extra)==1&&validQuery(a,profiles::get(options.profile).ratioWords)){polling=false;options.ratioAddress=a;showStatus();return;}
   if(sscanf(line,"scale %lf %c",&scalar,&extra)==1&&isfinite(scalar)&&scalar>=1e-12&&scalar<=1e6){polling=false;options.energyScale=scalar;showStatus();return;}
   if(sscanf(line,"order %15s %c",token,&extra)==1&&(!strcmp(token,"normal")||!strcmp(token,"swap"))){polling=false;options.swappedWords=!strcmp(token,"swap");showStatus();return;}
   if(sscanf(line,"decode %15s %c",token,&extra)==1&&(!strcmp(token,"on")||!strcmp(token,"off"))){polling=false;options.decodeEnergy=!strcmp(token,"on");showStatus();return;}
@@ -461,10 +478,11 @@ void serialInput(){
     if(consoleCount>=CONSOLE_CAPACITY)return false;
     strcpy(consoleQueue[consoleTail],line);consoleTail=(consoleTail+1)%CONSOLE_CAPACITY;++consoleCount;return true;
   }
-  bool busy()const{return executing||scanning||polling||consoleCount||resumePending;}
+  bool busy()const{return executing||discovery.running()||scanning||polling||consoleCount||resumePending;}
   void tick(){
   if(resumePending){resumePending=false;if(onResume)onResume();return;}
   serialInput();
+  if(discovery.running()){discovery.step(*this,millis(),0);if(!discovery.running())showDiscovery();return;}
   if (scanning) {
     checkAbort();
     if (abortRequested) { scanning=false; LOG("Scan aborted. Previous reader settings retained.\n"); }
@@ -474,7 +492,7 @@ void serialInput(){
       LOG("\nSCAN %u/%u\n",probe+1,scanTotal());
       bool found=probeLink(candidate); ++probe;
       if (abortRequested) { scanning=false; LOG("Scan aborted. Previous reader settings retained.\n"); }
-      else if (found) { current=candidate; scanning=false; LOG("[COMM_FOUND] ID=%u %lu 8%c1. Reader settings selected in RAM. Use deeper to check the selected profile registers before poll.\n",current.id,(unsigned long)current.baud,current.parity); }
+      else if (found) { current=candidate; scanning=false; LOG("[COMM_FOUND] ID=%u %lu 8%c%u. Reader settings selected in RAM. Use deeper to check the selected profile registers before poll.\n",current.id,(unsigned long)current.baud,current.parity,current.stops); }
       else if (probe>=scanTotal()) { scanning=false; LOG("[SCAN_FINISHED] no matching Modbus reply found. Settings retained. UART RX/errors/echo and register support are separate observations.\n"); }
     }
   } else if (polling && uint32_t(millis()-lastPoll)>=options.pollMs) {

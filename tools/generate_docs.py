@@ -313,4 +313,19 @@ for y,title,times in [(170,'MORNING',['06:00','06:30','07:00','07:30','08:00']),
 s.rect(45,555,1310,62);s.text(70,594,'DS3231 clock  →  validated FC03 read  →  NVS + LittleFS  →  phone / OLED / checkpoint CSV',19,BLUE,600)
 s.save('checkpoint-schedule.svg')
 
+# Bounded discovery and saved-device architecture, with no claim of automatic identity.
+s=SVG(1400,650,'Meter discovery and saved-device architecture','Software data flow. Communication evidence is distinct from operator identity and production-profile acceptance.')
+s.heading('Meter discovery · FC03 observations and named records','Core 1 owns UART, evidence and NVS. Core 0 serves queue copies through the local website.')
+for x,title,lines in [(40,'Editable probe plan',['HEX PDU offsets','1–3 words · up to 8 queries']),(375,'Serial sweep',['Saved format or matrix','IDs · baud · parity · stops']),(710,'Strict transport',['ModbusMaster + CRC','No writes or echo stripping']),(1045,'Observed evidence',['Two matching replies','Raw frames · errors · timing'])]:
+    s.rect(x,160,300,145);s.text(x+20,199,title,23,weight=700)
+    for i,line in enumerate(lines):s.text(x+20,239+i*27,line,16,MUTED)
+for x in (340,675,1010):s.wire([(x,230),(x+35,230)],BLUE,3)
+for x,title,lines in [(40,'Operator declaration',['Name and model supplied by operator','Supported map + LCD verification']),(500,'Flash registry / core 1',['4 entries · alternating CRC banks','Reserve IDs before writing a new bank']),(960,'Production reader',['Explicit verified profile selection','Checkpoint source ID · schema 3'])]:
+    s.rect(x,420,400,145);s.text(x+20,460,title,23,weight=700)
+    for i,line in enumerate(lines):s.text(x+20,500+i*27,line,16,MUTED)
+s.wire([(1195,305),(1195,355),(240,355),(240,420)],BLUE,3)
+s.wire([(440,492),(500,492)],BLUE,3);s.wire([(900,492),(960,492)],BLUE,3)
+s.text(45,622,'A valid reply confirms communication. Register meaning and manufacturer remain separate verification steps.',19,BLUE,600)
+s.save('meter-discovery.svg')
+
 print(f'Generated {len(list(ASSETS.rglob("*.svg")))} SVG assets for firmware {version}')

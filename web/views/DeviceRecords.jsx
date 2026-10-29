@@ -109,7 +109,7 @@ export default function DeviceRecords({ device }) {
             <button
               id="sync"
               className="button primary"
-              disabled={blocked || Boolean(s?.diagnosticActive)}
+              disabled={blocked || Boolean(s?.diagnosticActive||s?.discoveryRunning)}
               onClick={() =>
                 device.act("/api/time", {
                   epoch: Math.floor(Date.now() / 1000),

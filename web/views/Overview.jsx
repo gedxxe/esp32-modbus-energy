@@ -153,7 +153,7 @@ export default function Overview({ device }) {
                 : t("sample", { seconds: s.age })}
             </span>
             <span className="path-label">
-              {profile.name} / {String(s?.slave || 1).padStart(2, "0")}
+              {s?.meterName||profile.name} / {String(s?.slave || 1).padStart(2, "0")}
             </span>
           </div>
         </SpotlightCard>

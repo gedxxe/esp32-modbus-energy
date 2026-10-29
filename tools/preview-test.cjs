@@ -204,6 +204,15 @@ function appendFlow(outcome="valid") {
     });
   flowEvents = flowEvents.slice(-32);
 }
+function labEvidence(index=0){
+ const profile=meterCatalog[index],addresses=index?[100,10,141]:[88,130,44],widths=index?[1,2,2]:[2,2,3];
+ const probes=addresses.map((address,i)=>({address,words:widths[i],attempts:2,confirmed:true,data:true,tx:"01 03 00 58 00 02 45 D8",replies:[{status:0,accepted:true,truncated:false,attemptMs:221,rx:widths[i]===1?"01 03 02 13 88 B5 2F":widths[i]===2?"01 03 04 00 00 03 E8 FA 84":"01 03 06 00 01 00 01 00 50 00 00"},{status:0,accepted:true,truncated:false,attemptMs:221,rx:widths[i]===1?"01 03 02 13 88 B5 2F":widths[i]===2?"01 03 04 00 00 03 E8 FA 84":"01 03 06 00 01 00 01 00 50 00 00"}]}));
+ for(const probe of probes)for(const reply of probe.replies){reply.tx=probe.tx;reply.txBytes=8;}
+ return {slave:index+1,baud:9600,parity:"N",stopBits:1,direction:"manual",boot:99,run:1,utc:1793185200,elapsedMs:2000,requests:6,timeouts:0,crcErrors:0,rejected:0,exceptions:0,mapEvidence:index?2:1,mappingHints:[profile.key],confirmed:true,probes};
+}
+const defaultLabPlan=[{address:0,words:1},...meterCatalog.flatMap(p=>[p.currentA,p.secondaryEnergy,{address:p.ratios,words:p.ratioWords}])];
+const lab={schema:1,version,ready:true,storageOK:true,activeId:0,error:"",discovery:{plan:defaultLabPlan,phase:"idle",run:0,tested:0,total:0,elapsedMs:0,requests:0,timeouts:0,crcErrors:0,rejected:0,exceptions:0},current:{...labEvidence(),run:0,confirmed:false,probes:[]},findings:[],saved:[]};
+let labRequests=0,labHold=false,labMalformed=false,labNextId=1;
 const server = http.createServer((req, res) => {
   const asset = manifest.assets[req.url];
   if (asset) {
@@ -310,6 +319,10 @@ const server = http.createServer((req, res) => {
     );
     return;
   }
+  if(req.url.startsWith("/api/meter-lab")&&req.method==="GET"){
+    ++labRequests;if(req.url.includes("download=1"))res.setHeader("Content-Disposition","attachment; filename=meter-lab-report.json");
+    res.setHeader("Content-Type","application/json");res.end(JSON.stringify(labMalformed?{...lab,saved:[null]}:lab));return;
+  }
   if (req.url === "/api/status") {
     if (fail) {
       res.statusCode = 503;
@@ -400,6 +413,17 @@ const server = http.createServer((req, res) => {
           state.control.rejected = commandId;
           state.control.lastError = "scan_busy";
         } else {
+      if(req.url==="/api/meter-lab/stop"){lab.discovery.phase="cancelled";state.discoveryRunning=false;}
+      if(req.url==="/api/meter-lab"){
+        const action=data.get("action");
+        if(action==="start"){
+          const run=lab.discovery.run+1;lab.discovery={...lab.discovery,run,phase:"running",tested:0,total:7,elapsedMs:0,plan:data.get("plan").split(",").map(s=>({address:parseInt(s.split(":")[0],16),words:Number(s.split(":")[1])}))};lab.findings=[];state.discoveryRunning=true;
+          if(!labHold)setTimeout(()=>{lab.discovery.phase="complete";lab.discovery.tested=7;lab.findings=[0,1].map(index=>({...labEvidence(index),run,index}));lab.current=lab.findings[1];state.discoveryRunning=false;},200);
+        }
+        if(action==="save"){const evidence=lab.findings[Number(data.get("index"))];lab.saved.push({id:labNextId++,name:data.get("name"),model:data.get("model"),notes:data.get("notes"),profile:data.get("profile"),verified:data.get("verified")==="1",activatable:data.get("profile")!=="unknown"&&data.get("verified")==="1",evidence});}
+        if(action==="remove")lab.saved=lab.saved.filter(row=>row.id!==Number(data.get("id")));
+        if(action==="select"){const saved=lab.saved.find(row=>row.id===Number(data.get("id")));lab.activeId=saved.id;state.savedMeterId=saved.id;state.meterName=saved.name;state.profile=saved.profile;state.meter=meterCatalog.find(p=>p.key===saved.profile);state.slave=saved.evidence.slave;state.baud=saved.evidence.baud;state.parity=saved.evidence.parity;state.direction=saved.evidence.direction;}
+      }
       if (req.url === "/api/diagnostic") {
         const command = data.get("command");
         if (command === "resume") {
@@ -599,6 +623,11 @@ async function checkVectors(browser, out) {
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--meter-lab-only")){
+      const page=await browser.newPage({viewport:{width:1440,height:1100}});
+      await require("./test-meter-lab.cjs")({page,origin,lab,calls,setMalformed:value=>labMalformed=value,setHold:value=>labHold=value,requests:()=>labRequests,root});
+      return;
+    }
     if(process.argv.includes("--design-only")){
       const context=await browser.newContext({viewport:{width:1440,height:1100}});
       const page=await context.newPage();await page.goto(origin);await page.waitForFunction(()=>document.querySelectorAll("#checkpoint-rows tr").length===5);await page.waitForSelector(".flow-train.tx");await page.waitForTimeout(350);

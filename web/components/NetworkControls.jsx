@@ -19,7 +19,7 @@ export default function NetworkControls({ device }) {
     setOpen(Boolean(network.ssid) && !network.hasPassword);
   }, [network?.mode, network?.ssid, network?.hasPassword,network?.configuredAPIP]);
   const blocked = !network || !device.fresh || device.pending || network.pending ||
-    device.data?.diagnosticActive || device.data?.scan?.phase === "running";
+    device.data?.discoveryRunning || device.data?.diagnosticActive || device.data?.scan?.phase === "running";
   const formBlocked=blocked||scanBusy;
   const keep = !open && !password && network?.hasPassword && ssid === network.ssid;
   async function submit(event) {

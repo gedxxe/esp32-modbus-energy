@@ -2,9 +2,11 @@
 
 [English](../DESIGN.md) · **Bahasa Indonesia**
 
+Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta codec setting yang dipisahkan dijelaskan pada [Pencarian meter](METER_DISCOVERY.md). Scanner tetap hanya memakai FC03 dan tidak menebak produsen dari nilai mentah.
+
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel, simpan model yang dipilih terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) untuk register, terminal, konversi dan alur diagnostiknya.
 
-Versi 2.5.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
+Versi 2.6.0 memusatkan polling, discovery dan diagnostik mandiri pada library FortMeter yang sama. FortTransport menjalankan transaksi melalui ModbusMaster 2.0.1+fort.1, sehingga parser jeda software v1 tidak lagi menjadi jalur lain yang menafsirkan byte yang sama. Acuannya adalah sketch manual-direction yang dilaporkan berhasil oleh pengguna, dengan detail penerimaan rilis terintegrasi tetap dipisahkan pada [VALIDATION](VALIDATION.md).
 
 ## Sumber register Fort
 

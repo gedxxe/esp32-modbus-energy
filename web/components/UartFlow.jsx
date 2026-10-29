@@ -17,7 +17,7 @@ export default function UartFlow({ device }) {
   const [automatic, setAutomatic] = useState(false);
   const [active, setActive] = useState(false),
     [latest, setLatest] = useState(null);
-  const profile=meterProfiles(device?.data).find(p=>p.key===latest?.profile)||savedProfile;
+  const profile=latest?.profile==="unknown"?{name:"Modbus device",terminals:"A / B"}:meterProfiles(device?.data).find(p=>p.key===latest?.profile)||savedProfile;
   const [replay,setReplay] = useState(null);
   const assembler = useRef(new FrameAssembler());
   const cursor = useRef(0),
@@ -130,7 +130,7 @@ export default function UartFlow({ device }) {
         </span>
       </div>
       <div className="flow-instruments">
-        <div><span>{t("flow_link")}</span><strong>{latest ? `ID ${latest.slave} · ${latest.baud} / 8${latest.parity}1` : "—"}</strong></div>
+        <div><span>{t("flow_link")}</span><strong>{latest ? `ID ${latest.slave} · ${latest.baud} / 8${latest.parity}${latest.stopBits||1}` : "—"}</strong></div>
         <div><span>{t("flow_direction")}</span><strong id="flow-direction">{failed || !latest || [7,8].includes(kind) ? t("unknown") : dirPin < 0 ? t("flow_auto") : `DE = ${high ? 1 : 0} · /RE = ${high ? 1 : 0}`}</strong></div>
         <div><span>{t("flow_result")}</span><strong id="flow-result">{completed ? t(completed.kind === 8 ? "local_uart_error" : completed.kind === 5 ? "trace_result_short" : `trace_result_${completed.result}`) : t("flow_waiting")}</strong></div>
       </div>
@@ -141,7 +141,7 @@ export default function UartFlow({ device }) {
           {title:profile.name,detail:profile.terminals,box:"955 45 90 90",paths:["M970 55H1030V115H970ZM979 64H1021V84H979ZM979 98H1021M989 94V102M1000 94V102M1011 94V102","M984 75H989L993 68L999 80L1004 73H1016"]},
         ].map(node=><div className="flow-device" key={node.title}><svg className="flow-symbol" viewBox={node.box} aria-hidden="true">{node.paths.map(path=><path key={path} d={path}/>)}</svg><strong>{node.title}</strong><code>{node.detail}</code></div>)}
       </div>
-      <FlowPlayback item={replay} enabled={!failed} resetKey={boot.current} />
+      <FlowPlayback meterName={profile.name} profiles={meterProfiles(device?.data)} item={replay} enabled={!failed} resetKey={boot.current} />
       <h3 className="flow-observed-title">{t("flow_observed")}</h3>
       <ol className="flow-timeline" aria-label={t("flow_timeline")}>
         {steps.map((event,index) => <li key={index} className={event ? "observed" : ""}><span className="flow-step">0{index+1}</span><div><strong>{t(`flow_step_${index+1}`)}</strong><span>{event ? index === 0 ? `#${event.seq}` : elapsed(steps[0],event) : "—"}</span></div></li>)}

@@ -950,7 +950,8 @@ void syncEnterpriseClock(){
   if(revision!=lastRevision||uint32_t(now-anchored)>=300000){timeval reference{};reference.tv_sec=utc;if(settimeofday(&reference,nullptr)==0){anchored=now;lastRevision=revision;}}
 }
 void enqueueCommand(const Command &input) {
-  Snapshot s{};readSnapshot(s);
+  // Keep the full queue copy off loopTask's 16 KiB stack: HTTP handlers call this nested.
+  static Snapshot s{};readSnapshot(s);
   if(!commandModeAllowed(input.type,s.diagnosticActive,s.scan.phase==SCAN_RUNNING||s.discoveryRunning,s.scan.phase==SCAN_FOUND)){
     jsonReply(409,"Device mode changed. Refresh status and retry","mode_changed");return;
   }
@@ -1210,7 +1211,8 @@ void webSetup() {
     else if(c.caToken){xQueueReceive(networkCAQueue,&caStage,0);memset(&caStage,0,sizeof(caStage));}
   });
   server.on("/api/config",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    // The request handler runs inside server.handleClient() on loopTask.
+    if(!authorizePost())return;static Snapshot s{};readSnapshot(s);
     if(s.diagnosticActive){jsonReply(409,"Resume measurement before changing saved settings","diagnostic_busy");return;}
     if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel the scan before changing the connection","scan_busy");return;}
     uint32_t slave=0,baud=0;String parity=server.arg("parity");
@@ -1243,9 +1245,8 @@ void webSetup() {
     Command c{};c.type=APPLY_SCAN;enqueueCommand(c);
   });
   server.on("/api/time",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot active{};readSnapshot(active);if(active.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
+    if(!authorizePost())return;Snapshot s{};readSnapshot(s);if(s.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
     if(!parseNumber(server.arg("epoch"),epoch)||!validClockEpoch(epoch,LOCAL_OFFSET)){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
-    Snapshot s{};readSnapshot(s);
     if(!protectsRecordedDay(epoch,LOCAL_OFFSET,fmax(s.day.number,fmax(s.captures.number,s.capturePending.number)))){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);
   });
@@ -1433,7 +1434,9 @@ void setup() {
 }
 void loop() {
   static uint32_t previousCycle=millis();uiCycleMs=millis()-previousCycle;previousCycle=millis();
-  esp_task_wdt_reset();server.handleClient();tickNetwork();Snapshot s{};readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
+  // This long-lived UI buffer must not occupy the stack during nested HTTP callbacks.
+  static Snapshot s{};
+  esp_task_wdt_reset();server.handleClient();tickNetwork();readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
   uint8_t pressed=0;for(unsigned i=0;i<3;++i)if(digitalRead(buttons[i].pin)==LOW)pressed|=uint8_t(1<<i);
   IdleResult idle=idleScreen.poll(now,pressed,s.display.idleSeconds,oledOK&&!networkPending&&!networkAwaitingSave&&!wifiScan.running);
   if(idle.woke){page=0;networkMenu.screen=OledNetworkMenu::CLOSED;memset(networkMenu.key,0,sizeof(networkMenu.key));networkMenu.length=0;lastIdleFrame=0xffff;lastPaint=now-300;}

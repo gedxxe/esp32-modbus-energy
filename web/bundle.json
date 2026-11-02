@@ -1,7 +1,7 @@
 {
-  "version": "3.3.0",
+  "version": "3.3.1",
   "transport": "gzip",
-  "compressed_total": 151121,
+  "compressed_total": 151552,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 440334,
-      "gzip": 139375,
-      "sha256": "1f67bb7ea4d6fc9de4468f4341c1c4590e19c883514988aa77a91bf70bd40057"
+      "raw": 441744,
+      "gzip": 139806,
+      "sha256": "40d5d48ab9aad93c0a5e19f1d98394786f3362cdbfe9f8bc648134f0724da2ae"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "822a04d19478c47171d89079fa74f11d1eee82660e83e4599ac6dd4836841248",
-    "package.json": "5f6a7b80ecc3e915ddd63c9f29a7076d8e877d7476eda8d8539717dbf599179a",
+    "package-lock.json": "d2b61e7cc28cd7f154c7f406184a2359bd068bbe0f7fe97e14d0d2f62436f33e",
+    "package.json": "d3eecd8c9bb4af399eb543ed39115ad6a26ff6aeb01a96ec8bbd2fd4bcc2c033",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -56,15 +56,15 @@
     "web/components/MeterLab.jsx": "bb534614cf9ae08bff19eb0704b07defb80e3c31c2260c194ca2064e04fb35dd",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
-    "web/components/NetworkControls.jsx": "4578bb9fce06548285b28111a0881296aae85e9443954073ac85f3bb58dfef69",
+    "web/components/NetworkControls.jsx": "d05425b1ce295551e86e73578e258013cc838f304f04a0065167f4c663631df3",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
     "web/components/WifiPicker.jsx": "7d75572854681be4c43001b34bbee03d5728cdaba7fddebf5c8741c156034ab7",
     "web/device.js": "48c47f929f90b9b3a8296010061fb6b00263e474913f1c510455584aa4013036",
-    "web/enterprise-i18n.js": "505b72b95a885a893452eb5a9d53605d90d3176d5679004ead5df29766e5637b",
+    "web/enterprise-i18n.js": "2205a3bc6875f6dac7809cb128e8cacbe7e60fa3c26023ea295f9f334ba6bd21",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
-    "web/i18n.js": "c8daef1fb10d59175d4b168faafa65afdf0a283a78f8e6fe3c6d3147d6805579",
+    "web/i18n.js": "aa0028a8ee5f539c9c92167b45c74b37509029e9974e58c58d26ba2237932038",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
@@ -90,5 +90,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "8cdd5192aac58f143bfc73660c25966af132b2306fbd05251ba136c7125c9ea4"
+  "header_sha256": "30bf6c8b6f90862b44ce33c1420de55b8c62687ef07e763de22c868387a6019f"
 }

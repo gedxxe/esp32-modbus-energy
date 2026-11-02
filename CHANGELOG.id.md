@@ -1,5 +1,9 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.3.1 / 3 November 2026
+
+Login Enterprise kini dapat dikirim dengan username/password menggunakan bundle CA publik lengkap bawaan SDK tanpa mewajibkan unggahan sertifikat. Profil CA privat tetap terikat ke CA tersimpan dan tidak berpindah trust saat berkasnya hilang. Form melalui IP client menampilkan petunjuk AP di dekat Simpan sehingga tombol tidak terkunci tanpa alasan. SSID mengikuti hasil scan, sedangkan format record jaringan, register meter dan jadwal checkpoint tidak berubah.
+
 ## 3.3.0
 
 Memperbaiki akuisisi ADL400 ke total 0x0000 serta float ABCD hasil scan. Pilihan model tetap satu, sedangkan ID forward historis 1 dipertahankan secara internal. Menambahkan report adl400 dan regresi ID220/CT80 tanpa mengubah Fort atau Habuer.

@@ -2,8 +2,8 @@
 <text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">WPA2-Enterprise · trust before credentials</text>
 <text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Core 0 owns Wi-Fi/EAP. Core 1 persists configuration and continues RS485 acquisition.</text>
 <rect x="40" y="155" width="380" height="175" rx="16" fill="#ffffff" stroke="#cbdada"/>
-<text x="60" y="192" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">IT-approved configuration</text>
-<text x="60" y="230" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">PEM CA + optional DNS name</text>
+<text x="60" y="192" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Network login</text>
+<text x="60" y="230" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Public bundle or private PEM CA</text>
 <text x="60" y="259" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Username + password</text>
 <text x="60" y="288" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Valid UTC from the RTC</text>
 <rect x="510" y="155" width="380" height="175" rx="16" fill="#ffffff" stroke="#cbdada"/>

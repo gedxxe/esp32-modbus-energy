@@ -51,7 +51,7 @@ manifest = {
     "license": "GPL-3.0-only",
     "license_scope": "Original project code; third-party terms are recorded in NOTICE",
     "web": json.loads((root / "web/bundle.json").read_text(encoding="utf-8"))["compressed_total"],
-    "enterprise": {"method":"PEAP / EAP-MSCHAPv2","certificate_date_validation":True,"trusted_ca_required":True,"server_dns_name":"optional additional constraint","corporate_authentication_tested":False},
+    "enterprise": {"method":"PEAP / EAP-MSCHAPv2","certificate_date_validation":True,"server_validation_required":True,"default_trust":"SDK public CA bundle","private_ca_upload_optional":True,"server_dns_name":"optional additional constraint","corporate_authentication_tested":False},
     "hardware_tested": False,
     "reference_sketch_report": "User reports working Fort and Habuer reference sketches with manual DE-/RE on GPIO16; integrated release still needs field acceptance",
     "modbus_transport": "ModbusMaster 2.0.1+fort.1",

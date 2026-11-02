@@ -1,9 +1,17 @@
-# Validation record / 2 November 2026
+# Validation record / 3 November 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.3.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.3.1**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## Enterprise login repair in 3.3.1
+
+The ESP32-S3 application compiled successfully with the real IDF 5.5.5 EAP APIs and the full public certificate bundle. The standalone INO also compiled successfully, using 36,840 static RAM bytes and 373,456 program bytes. Main application static RAM is 146,396 bytes and program size is 1,856,539 bytes. The final dashboard occupies 151,552 gzip bytes, below 163,840. These are build sizes, not runtime heap measurements.
+
+All three native suites passed, including public-bundle and private-CA CRC record round trips, legacy settings and trust-target credential reuse checks. The generated-byte Enterprise Edge suite passed username/password submission with no uploaded certificate, public-profile reload without a fake custom CA fingerprint, explicit custom CA/name submission and reuse, clock/rejection diagnostics, protected AP access guidance, an inactive-hotspot explanation, both languages and phone layout. A separate regression verifies that unsaved EAP credentials are omitted when switching to a Personal request through client HTTP. The full dashboard regression and all 29 SVG renders also passed. The form uses an arbitrary Corporate test SSID and a changed recovery AP name/address, rather than depending on a Midea client SSID.
+
+Existing custom-CA profiles never fall back to public trust if their file is missing. Public trust does not need LittleFS, while all certificate date/key-usage checks and the optional DNS constraint remain enforced. The SSID, meter profiles, serial acquisition, checkpoint record format and schedules were not changed. The [Enterprise guide](ENTERPRISE_WIFI.md) gives the corrected steps and explains public versus private CA trust. UI images and API fixtures are simulated, and no physical RADIUS authentication, DHCP or certificate-negative test was performed here.
 
 ## ADL400 field-scan correction in 3.3.0
 

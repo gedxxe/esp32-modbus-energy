@@ -6,7 +6,7 @@ Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta
 
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel atau Habuer, simpan model terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) serta [referensi Habuer](HABUER.md) untuk peta, konversi dan alur diagnostiknya.
 
-Firmware 3.3.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 3.3.1 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Mengambil angka meter terjadwal
 
@@ -16,7 +16,7 @@ Ringkasan dimulai dari energi langsung serta **Checkpoint kWh terjadwal**. Lima 
 
 Pada instalasi baru, hubungkan HP ke **Midea Engineering AP** memakai **betahdijre12345**, kemudian buka **http://192.168.4.1**. Password AP mengikuti [board.h](../../firmware/include/board.h). Bahasa awal adalah English dan dapat diganti ke Indonesia melalui pemilih bahasa. Jika ESP32 menjadi client, gunakan IP DHCP dari router yang ditampilkan pada halaman jaringan OLED maupun panel Wi-Fi.
 
-Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, pilih SSID dari scan otomatis jaringan 2,4 GHz lalu isi password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Untuk WPA2-Enterprise, pilih profil PEAP / EAP-MSCHAPv2 secara eksplisit lalu ikuti [pengisian sertifikat](ENTERPRISE_WIFI.md). Form utama memakai username dan password. Pengaturan lanjutan menyimpan CA publik tepercaya, nama DNS server opsional dan identitas luar yang berbeda bila diperlukan.
+Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, pilih SSID dari scan otomatis jaringan 2,4 GHz lalu isi password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Untuk WPA2-Enterprise, pilih profil PEAP / EAP-MSCHAPv2 secara eksplisit lalu ikuti [pengisian sertifikat](ENTERPRISE_WIFI.md). Form utama memakai username dan password dengan kumpulan CA publik bawaan. Pengaturan lanjutan menyediakan CA privat bila dibutuhkan, nama DNS server opsional dan identitas luar. SSID mengikuti hasil scan tanpa pembatasan nama perusahaan. Bila halaman dibuka lewat IP client, petunjuk nama AP pemulihan dan tautan alamatnya muncul di dekat Simpan, sehingga tombol tidak terkunci tanpa penjelasan.
 
 | Mode | Jalur akses yang tersedia |
 | --- | --- |
@@ -77,7 +77,7 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 3.3.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 3.3.1, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 

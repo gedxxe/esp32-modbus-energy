@@ -501,7 +501,7 @@ const server = http.createServer((req, res) => {
         const mode=data.get("mode"),previous=state.network;
         state.network={...previous,configuredAPIP:data.get("apIP")||previous.configuredAPIP,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
         if(mode!=="ap"){state.network.ssid=data.get("ssid");state.network.auth=data.get("auth")||(data.get("open")==="1"?"open":"personal");state.network.hasPassword=state.network.auth==="personal";
-          state.network.hasEnterpriseCredentials=state.network.auth==="peap";if(state.network.auth!=="peap")state.network.hasCustomIdentity=false;else if(data.get("keepEnterprise")!=="1")state.network.hasCustomIdentity=data.get("autoIdentity")!=="1"&&Boolean(data.get("identity"));state.network.serverName=state.network.auth==="peap"?data.get("serverName"):"";state.network.caFingerprint=state.network.auth==="peap"?"ab".repeat(32):"";}
+          state.network.hasEnterpriseCredentials=state.network.auth==="peap";if(state.network.auth!=="peap")state.network.hasCustomIdentity=false;else if(data.get("keepEnterprise")!=="1")state.network.hasCustomIdentity=data.get("autoIdentity")!=="1"&&Boolean(data.get("identity"));state.network.serverName=state.network.auth==="peap"?data.get("serverName"):"";state.network.caFingerprint=state.network.auth!=="peap"?"":data.get("ca")?"ab".repeat(32):data.get("keepCA")==="1"?previous.caFingerprint:"";}
 
       }
       if (req.url === "/api/config"){

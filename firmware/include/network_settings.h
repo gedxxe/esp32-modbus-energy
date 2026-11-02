@@ -17,6 +17,9 @@ struct NetworkSettings {
   uint8_t caHash[32]={};
 };
 inline void clearEnterprise(NetworkSettings &s){memset(s.identity,0,sizeof(s.identity));memset(s.username,0,sizeof(s.username));memset(s.eapPassword,0,sizeof(s.eapPassword));memset(s.serverName,0,sizeof(s.serverName));memset(s.caHash,0,sizeof(s.caHash));}
+// An empty reference selects the SDK public trust bundle. A nonempty reference
+// pins a stored private CA and must never fall back when that file is missing.
+inline bool hasCustomNetworkCA(const NetworkSettings &s){for(uint8_t c:s.caHash)if(c)return true;return false;}
 inline bool networkText(const char *p,size_t capacity,bool required=true){
   const char *end=static_cast<const char*>(memchr(p,0,capacity));if(!end||(required&&end==p))return false;
   for(;p<end;++p)if(uint8_t(*p)<32||uint8_t(*p)==127)return false;
@@ -48,8 +51,7 @@ inline bool validNetwork(const NetworkSettings &s){
   for(size_t i=0;i<ssidSize;++i)if(uint8_t(s.ssid[i])<32||uint8_t(s.ssid[i])==127)return false;
   if(s.auth>NETWORK_PEAP)return false;
   if(s.auth==NETWORK_PEAP){
-    bool hash=false;for(uint8_t c:s.caHash)hash|=c!=0;
-    return !keySize&&hash&&networkText(s.identity,sizeof(s.identity),false)&&networkText(s.username,sizeof(s.username))&&networkText(s.eapPassword,sizeof(s.eapPassword))&&networkText(s.serverName,sizeof(s.serverName),false)&&(!s.serverName[0]||validRadiusName(s.serverName));
+    return !keySize&&networkText(s.identity,sizeof(s.identity),false)&&networkText(s.username,sizeof(s.username))&&networkText(s.eapPassword,sizeof(s.eapPassword))&&networkText(s.serverName,sizeof(s.serverName),false)&&(!s.serverName[0]||validRadiusName(s.serverName));
   }
   if(!networkText(s.identity,sizeof(s.identity),false)||!networkText(s.username,sizeof(s.username),false)||!networkText(s.eapPassword,sizeof(s.eapPassword),false)||!networkText(s.serverName,sizeof(s.serverName),false))return false;
   if(!keySize)return s.auth==NETWORK_OPEN||s.mode==NETWORK_AP; // Legacy records infer OPEN during decoding.

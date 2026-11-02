@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.1 / 3 November 2026
+
+Enterprise login now submits username/password with the full SDK public CA bundle by default, without requiring a certificate upload. Existing private CA profiles remain pinned and never fall back when their file is missing. The client-IP form now explains the protected AP route beside Save instead of silently disabling it. SSIDs remain scan-selected, and the stored network format, meter maps and checkpoint schedules are unchanged.
+
 ## 3.3.0
 
 Corrected active ADL400 acquisition to the owner-tested total counter 0x0000 and ABCD electrical floats. Kept the single visible model choice and retained historical forward ID 1 internally. Added the operator-triggered adl400 comparison report and ID220/CT80 regression cases without changing Fort or Habuer.

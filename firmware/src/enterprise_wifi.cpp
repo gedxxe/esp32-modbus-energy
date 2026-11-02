@@ -10,6 +10,9 @@
 #ifndef CONFIG_MBEDTLS_HAVE_TIME_DATE
 #error "Enterprise requires mbedTLS certificate date checks in the compiled SDK"
 #endif
+#if !defined(CONFIG_MBEDTLS_CERTIFICATE_BUNDLE) || !defined(CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL)
+#error "Enterprise requires the pinned SDK full public CA bundle"
+#endif
 #ifdef CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK
 #error "Enterprise requires certificate key-usage checks"
 #endif
@@ -57,7 +60,8 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   ++attempts;if(!reset())return false;auth=s.auth;
   if(s.auth!=NETWORK_PEAP){WiFi.setMinSecurity(s.auth==NETWORK_OPEN?WIFI_AUTH_OPEN:WIFI_AUTH_WPA_PSK);WiFi.begin(s.ssid,s.password[0]?s.password:nullptr);attempted=true;return true;}
   if(!clockValid||utc<1704067200UL||utc>4102444799UL){error="enterprise_clock_required";return false;}
-  uint8_t hash[32];if(!ca||!validateEnterpriseCA(ca,hash)||memcmp(hash,s.caHash,32)){error="enterprise_ca_missing";return false;}
+  const bool customCA=hasCustomNetworkCA(s);
+  uint8_t hash[32];if(customCA&&(!ca||!validateEnterpriseCA(ca,hash)||memcmp(hash,s.caHash,32))){error="enterprise_ca_missing";return false;}
   timeval value{};value.tv_sec=utc;if(settimeofday(&value,nullptr)){error="enterprise_clock_required";return false;}
   WiFi.setMinSecurity(WIFI_AUTH_WPA2_ENTERPRISE);WiFi.begin(s.ssid,nullptr,0,nullptr,false);
   wifi_config_t config{};
@@ -70,11 +74,9 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
      !checked(esp_eap_client_set_identity(reinterpret_cast<const uint8_t*>(s.identity[0]?s.identity:s.username),strlen(s.identity[0]?s.identity:s.username)))||
      !checked(esp_eap_client_set_username(reinterpret_cast<const uint8_t*>(s.username),strlen(s.username)))||
      !checked(esp_eap_client_set_password(reinterpret_cast<const uint8_t*>(s.eapPassword),strlen(s.eapPassword)))||
-     !checked(esp_eap_client_set_ca_cert(reinterpret_cast<const uint8_t*>(ca),strlen(ca)+1))||
      !checked(esp_eap_client_set_domain_name(s.serverName[0]?s.serverName:nullptr)))return false;
-#ifdef CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-  if(!checked(esp_eap_client_use_default_cert_bundle(false)))return false;
-#endif
+  if(!checked(esp_eap_client_use_default_cert_bundle(!customCA)))return false;
+  if(customCA&&!checked(esp_eap_client_set_ca_cert(reinterpret_cast<const uint8_t*>(ca),strlen(ca)+1)))return false;
   if(!checked(esp_wifi_sta_enterprise_enable()))return false;enabled=true;
   if(!checked(esp_wifi_connect())){if(esp_wifi_sta_enterprise_disable()==ESP_OK)enabled=false;return false;}
   attempted=true;return true;

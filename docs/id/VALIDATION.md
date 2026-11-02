@@ -1,9 +1,17 @@
-# Catatan validasi / 2 November 2026
+# Catatan validasi / 3 November 2026
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.3.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.3.1**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
+
+## Perbaikan login Enterprise pada 3.3.1
+
+Aplikasi ESP32-S3 berhasil dikompilasi memakai API EAP IDF 5.5.5 sebenarnya dan bundle CA publik lengkap. INO mandiri juga berhasil dikompilasi dengan RAM statis 36.840 byte dan program 373.456 byte. RAM statis aplikasi utama berjumlah 146.396 byte dan ukuran program 1.856.539 byte. Dashboard final berukuran 151.552 byte gzip, di bawah batas 163.840 byte. Angka build ini bukan pengukuran heap runtime.
+
+Ketiga suite native lulus, termasuk round trip record CRC bundle publik/CA privat, konfigurasi lama dan pembatasan penggunaan ulang kredensial saat target trust berubah. Suite Edge Enterprise pada byte gzip sebenarnya lulus untuk pengiriman username/password tanpa unggahan sertifikat, reload profil publik tanpa fingerprint CA privat palsu, unggahan/penggunaan ulang CA dan nama server eksplisit, diagnostik jam/penolakan, petunjuk akses AP terlindungi, penjelasan hotspot mati, dua bahasa dan layout HP. Regresi terpisah memastikan input EAP yang belum disimpan tidak ikut pada request Personal melalui HTTP client. Regresi dashboard lengkap serta render 29 SVG juga lulus. Fixture memakai SSID Corporate test serta nama/alamat AP pemulihan yang diubah agar tidak bergantung pada SSID client Midea.
+
+Profil CA privat tidak berpindah ke bundle publik ketika berkasnya hilang. Trust publik tidak membutuhkan LittleFS, sedangkan pemeriksaan tanggal/key usage sertifikat dan batasan DNS opsional tetap aktif. Register meter, akuisisi serial, format record checkpoint dan jadwal tidak diubah. [Panduan Enterprise](ENTERPRISE_WIFI.md) memuat langkah yang diperbaiki serta perbedaan CA publik dan privat. Gambar UI dan fixture API merupakan simulasi, bukan hasil autentikasi RADIUS, DHCP atau uji penolakan sertifikat pada perangkat fisik.
 
 ## Koreksi ADL400 berdasarkan scan pada 3.3.0
 

@@ -2,7 +2,7 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 3.3.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 3.3.1](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
 Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort, Habuer, Acrel ADL400, ACR10R-DxxTE atau APM800/801/810. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
 
@@ -10,7 +10,7 @@ Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.3
 
 ![Jadwal checkpoint harian](docs/assets/checkpoint-schedule.svg)
 
-WPA2-Enterprise PEAP / EAP-MSCHAPv2 tersedia melalui [panduan Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md). Form utama meminta username dan password, sedangkan pengaturan lanjutan memuat CA publik serta nama DNS server opsional. Validasi rantai CA dan tanggal sertifikat tetap aktif. CA berasal dari pengelola Wi-Fi atau penyimpanan sertifikat Windows yang sudah tersedia, dan izin perangkat mengikuti kebijakan jaringan. Profil Personal/open serta AP pemulihan tetap tersedia.
+WPA2-Enterprise PEAP / EAP-MSCHAPv2 tersedia melalui [panduan Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md). Pilih SSID Enterprise mana pun dari hasil scan, lalu isi username dan password. Kumpulan CA publik bawaan SDK dipakai secara default, sehingga unggahan sertifikat hanya diperlukan bila jaringan memakai CA privat. Pengaturan lanjutan tetap menyediakan nama DNS server dan identitas luar opsional. Validasi sertifikat tetap aktif, sedangkan akses bergantung pada penerimaan akun dan perangkat oleh jaringan. Profil Personal/open serta AP pemulihan tetap tersedia.
 
 
 Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` sekali lalu buka ulang terminal PlatformIO. Langkah ini memasang Core terkelola yang dipin untuk build turunan SDK.
@@ -79,7 +79,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.19 |
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 3.3.0 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 3.3.1 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -88,7 +88,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.3.0, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.3.1, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 

@@ -84,7 +84,9 @@ void testNetwork(){
     assert(!validRadiusName("*.example.org")&&!validRadiusName("example.org;other.org")&&!validRadiusName("-radius.example.org")&&!validRadiusName("radius..example.org")&&!validRadiusName("Midea Wireless Network"));
     bytes[410]^=1;assert(!decodeNetwork(bytes,sizeof(bytes),restored));
     changed=e;changed.serverName[0]=0;changed.identity[0]=0;assert(validNetwork(changed));
-    e.caHash[0]=0;assert(!validNetwork(e));e.caHash[0]=1;e.username[0]=0;assert(!validNetwork(e));strcpy(e.username,"device");strcpy(e.password,"personal-secret");assert(!validNetwork(e));e.password[0]=0;assert(validNetwork(e));
+    e.caHash[0]=0;assert(validNetwork(e)&&!hasCustomNetworkCA(e));encodeNetwork(e,bytes);assert(decodeNetwork(bytes,sizeof(bytes),restored)&&sameNetwork(e,restored));
+    changed=e;changed.caHash[0]=1;assert(!canReuseEnterprise(e,changed)&&hasCustomNetworkCA(changed));
+    e.caHash[0]=1;e.username[0]=0;assert(!validNetwork(e));strcpy(e.username,"device");strcpy(e.password,"personal-secret");assert(!validNetwork(e));e.password[0]=0;assert(validNetwork(e));
     uint8_t v2[108]={};encodeNetwork(s,bytes);memcpy(v2,bytes,106);v2[2]=2;uint16_t crc=networkCRC(v2,106);v2[106]=uint8_t(crc);v2[107]=uint8_t(crc>>8);assert(decodeNetwork(v2,sizeof(v2),restored)&&restored.auth==NETWORK_PERSONAL&&!strcmp(restored.password,s.password));
     NetworkPolicy ep;ep.begin(NETWORK_CLIENT,0,60000);assert(!ep.update(30000,false)&&ep.apWanted(30000));assert(ep.update(60000,false)&&ep.fallback);
     assert(!strcmp(networkDisconnectHint(202),"authentication_failed")&&!strcmp(networkDisconnectHint(201),"ssid_unavailable"));

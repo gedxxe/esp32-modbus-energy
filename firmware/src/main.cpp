@@ -95,7 +95,8 @@ void startStation(){
   if(activeNetwork.mode==NETWORK_AP)return;
   WiFi.disconnect(false,false);stationDriver.reset();
   bool certificate=true;
-  if(activeNetwork.auth==NETWORK_PEAP){certificate=false;if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){certificate=loadNetworkCA(LittleFS,activeNetwork.caHash,stationCA);xSemaphoreGive(fsMutex);}}
+  memset(stationCA,0,sizeof(stationCA));
+  if(activeNetwork.auth==NETWORK_PEAP&&hasCustomNetworkCA(activeNetwork)){certificate=false;if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){certificate=loadNetworkCA(LittleFS,activeNetwork.caHash,stationCA);xSemaphoreGive(fsMutex);}}
   uint32_t utc=0;bool clock=networkClock(utc);
   bool started=stationDriver.begin(activeNetwork,certificate?stationCA:nullptr,clock,utc);
   Serial.printf("[WiFi] attempt=%lu auth=%s result=%s code=%ld\n",(unsigned long)stationDriver.attempts,networkAuthName(activeNetwork.auth),started?"started":stationDriver.error,(long)stationDriver.apiCode);
@@ -709,7 +710,7 @@ void processCommands(){
         static NetworkCAInput caInput;memset(&caInput,0,sizeof(caInput));
         if(cmd.caToken&&(xQueueReceive(networkCAQueue,&caInput,0)!=pdTRUE||caInput.token!=cmd.caToken)){error="enterprise_ca_queue_failed";break;}
         if(!validNetwork(cmd.network)){error="invalid_network";break;}
-        if(cmd.network.mode!=NETWORK_AP&&cmd.network.auth==NETWORK_PEAP){
+        if(cmd.network.mode!=NETWORK_AP&&cmd.network.auth==NETWORK_PEAP&&hasCustomNetworkCA(cmd.network)){
           bool ready=false;
           if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))==pdTRUE){
             if(cmd.caToken)ready=fsOK&&storeNetworkCA(LittleFS,caInput.pem,cmd.network.caHash);
@@ -1020,7 +1021,7 @@ void webSetup() {
     network["configuredAPIP"]=ipv4Address(shownNetwork.apIP).toString();network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
     network["auth"]=networkAuthName(shownNetwork.auth);network["hasPassword"]=shownNetwork.password[0]!=0;
     network["hasCustomIdentity"]=shownNetwork.identity[0]!=0;network["hasEnterpriseCredentials"]=hasEnterpriseLogin(shownNetwork);network["serverName"]=shownNetwork.serverName;
-    char fingerprint[65];formatCAHash(shownNetwork.caHash,fingerprint);network["caFingerprint"]=shownNetwork.auth==NETWORK_PEAP?fingerprint:"";
+    char fingerprint[65];formatCAHash(shownNetwork.caHash,fingerprint);network["caFingerprint"]=shownNetwork.auth==NETWORK_PEAP&&hasCustomNetworkCA(shownNetwork)?fingerprint:"";
     network["error"]=stationDriver.error;network["disconnectReason"]=stationDriver.disconnectReason;network["apiCode"]=stationDriver.apiCode;network["attempts"]=stationDriver.attempts;
     network["enterpriseProvisioning"]=apOK&&server.client().localIP()==WiFi.softAPIP();network["flashEncrypted"]=esp_flash_encryption_enabled();network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
     bool station=stationReady(),associated=WiFi.status()==WL_CONNECTED&&WiFi.SSID()==activeNetwork.ssid;network["associated"]=associated;network["connected"]=station;network["rssi"]=associated?WiFi.RSSI():0;
@@ -1202,7 +1203,9 @@ void webSetup() {
         if(ca.length()){
           if(ca.length()>NETWORK_CA_MAX||strlen(ca.c_str())!=ca.length()||!validateEnterpriseCA(ca.c_str(),c.network.caHash)){jsonReply(400,"Upload a valid PEM CA certificate or chain up to 4096 bytes","invalid_enterprise_ca");return;}
           ++networkCAToken;if(!networkCAToken)++networkCAToken;c.caToken=networkCAToken;caStage.token=c.caToken;memcpy(caStage.pem,ca.c_str(),ca.length()+1);
-        }else if(server.arg("keepCA")!="1"||activeNetwork.auth!=NETWORK_PEAP){jsonReply(400,"A trusted CA certificate supplied by IT is required","invalid_enterprise_ca");return;}
+        }else if(server.arg("keepCA")=="1"){
+          if(activeNetwork.auth!=NETWORK_PEAP||ssid!=activeNetwork.ssid||!hasCustomNetworkCA(activeNetwork)){jsonReply(400,"There is no saved CA for this SSID","invalid_enterprise_ca");return;}
+        }else memset(c.network.caHash,0,sizeof(c.network.caHash)); // SDK public CA bundle.
       }else{
         clearEnterprise(c.network);
         if(c.network.auth==NETWORK_OPEN)memset(c.network.password,0,sizeof(c.network.password));
@@ -1367,7 +1370,7 @@ void drawOLED(const Snapshot &s) {
     oled.setTextSize(2);oled.setCursor(0,29);if(point.status==CAPTURE_RECORDED){String value=String(point.energy,3);if(value.length()>10)oled.setTextSize(1);oled.print(value);}else oled.print("--.---");
     oled.setTextSize(1);oled.setCursor(0,49);if(point.status==CAPTURE_RECORDED){oled.print(captureClock(point.capturedUTC));oled.print(s.captureDurable?" saved":" UNSAVED");oled.setCursor(0,57);oled.print(profiles::get(point.source.profile).name);}else oled.print(captureStatusCode(point.status));
   }else if(page==3){
-    oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":"Midea Engineering AP");
+    oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":AP_SSID);
     oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: network options");
   }else{
     if(s.diagnosticActive){oled.println("UART DIAGNOSTICS");oled.println("Recording paused");oled.println("Resume via web");oled.display();xSemaphoreGive(i2cMutex);return;}

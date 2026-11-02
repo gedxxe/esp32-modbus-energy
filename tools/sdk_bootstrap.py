@@ -55,6 +55,10 @@ def ensure_sdk(env,repository):
         if len(values)!=len(files):
             raise RuntimeError("Compiled SDK provenance files are missing")
         stamp.write_text(json.dumps(values,indent=2)+"\n",encoding="utf-8")
+    header=files[1].read_text()
+    required=["CONFIG_MBEDTLS_HAVE_TIME_DATE", "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE", "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL"]
+    if any("#define "+name+" 1" not in header for name in required) or "#define CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK 1" in header:
+        raise RuntimeError("Compiled SDK must validate dates/key usage and include the full public CA bundle")
     for name in ["sdkconfig.defaults","sdkconfig.esp32s3"]:
         shutil.copyfile(cache/name,project/name)
     print("PASS: verified custom SDK cache, certificate date checks and unchanged application source",flush=True)

@@ -334,7 +334,7 @@ s.save('meter-discovery.svg')
 
 s=SVG(1400,720,'WPA2-Enterprise trust and task ownership','Implementation diagram for PEAP with EAP-MSCHAPv2. Radio and RADIUS acceptance require authorized hardware tests.')
 s.heading('WPA2-Enterprise · trust before credentials','Core 0 owns Wi-Fi/EAP. Core 1 persists configuration and continues RS485 acquisition.')
-for x,title,lines in [(40,'IT-approved configuration',['PEM CA + optional DNS name','Username + password','Valid UTC from the RTC']),(510,'ESP32-S3 station',['CA/time + optional name check','PEAP tunnel / EAP-MSCHAPv2','No weaker authentication fallback']),(980,'Corporate access point',['2.4 GHz + WPA2-Enterprise','802.1X exchange to RADIUS','DHCP after authentication'])]:
+for x,title,lines in [(40,'Network login',['Public bundle or private PEM CA','Username + password','Valid UTC from the RTC']),(510,'ESP32-S3 station',['CA/time + optional name check','PEAP tunnel / EAP-MSCHAPv2','No weaker authentication fallback']),(980,'Corporate access point',['2.4 GHz + WPA2-Enterprise','802.1X exchange to RADIUS','DHCP after authentication'])]:
  s.rect(x,155,380,175);s.text(x+20,192,title,23,weight=700)
  for i,line in enumerate(lines):s.text(x+20,230+i*29,line,17,MUTED)
 s.wire([(420,245),(510,245)]);s.wire([(890,245),(980,245)])

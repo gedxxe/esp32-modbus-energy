@@ -6,7 +6,7 @@ The shared discovery controller, named flash registry, immutable checkpoint sour
 
 Meter-specific Fort examples below remain valid for Fort. For Acrel or Habuer, select the saved model first and use [Meter profiles](METER_PROFILES.md) and the [Habuer reference](HABUER.md) for the applicable map, conversion and diagnostic workflow.
 
-Firmware 3.3.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Firmware 3.3.1 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
 
 ## Retrieve scheduled meter readings
 
@@ -16,7 +16,7 @@ Overview begins with live energy and **Scheduled kWh checkpoints**. The five mor
 
 On a fresh installation, connect the phone to **Midea Engineering AP** using **betahdijre12345** and open **http://192.168.4.1**. The AP password is the compile-time setting in [board.h](../firmware/include/board.h). English is selected initially, with Indonesian available from the language selector. Once joined as a client, open the IP assigned by the router instead. The OLED network page and the Wi-Fi panel show the current addresses.
 
-Open **Device & records → Wi-Fi connection** to select a mode, choose an SSID from the automatic 2.4 GHz scan and enter its password, then choose **Save Wi-Fi settings**. The ESP32 uses DHCP for client addressing. A password must be 8–63 printable ASCII characters or a 64-digit hexadecimal WPA key. For an intentionally open network, select the explicit checkbox. Leaving the field blank retains a saved password only when the SSID is unchanged, and the saved password is never returned to the browser or put into browser storage. For WPA2-Enterprise, select the explicit PEAP / EAP-MSCHAPv2 profile and follow [certificate provisioning](ENTERPRISE_WIFI.md). The main form uses username and password. Advanced settings hold the trusted public CA, an optional server DNS name and a separate outer identity when needed.
+Open **Device & records → Wi-Fi connection** to select a mode, choose an SSID from the automatic 2.4 GHz scan and enter its password, then choose **Save Wi-Fi settings**. The ESP32 uses DHCP for client addressing. A password must be 8–63 printable ASCII characters or a 64-digit hexadecimal WPA key. For an intentionally open network, select the explicit checkbox. Leaving the field blank retains a saved password only when the SSID is unchanged, and the saved password is never returned to the browser or put into browser storage. For WPA2-Enterprise, select the explicit PEAP / EAP-MSCHAPv2 profile and follow [certificate provisioning](ENTERPRISE_WIFI.md). The main form uses username and password with the built-in public CA bundle. Advanced settings accept a private CA only when needed, an optional server DNS name and a separate outer identity. SSIDs come from the scan without a company-name restriction. If this page was opened through the client IP, the form shows the recovery AP name and link beside Save rather than leaving the button silently disabled.
 
 | Mode | What remains reachable |
 | --- | --- |
@@ -77,7 +77,7 @@ All these routes are registered by the production firmware. Ordinary controls us
 
 ## Verify the integrated installation
 
-After uploading 3.3.0, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
+After uploading 3.3.1, check the footer version, perform the manual 0x0058 read from the web console and compare the displayed register values with the meter. Exercise Stop during a timeout, Resume back to production, a narrow scan, trace download, process metrics, CSV and a Wi-Fi mode change. For client mode, also disconnect the router deliberately and confirm that the AP returns without interrupting acquisition. These physical checks complement the compiled/native/browser checks recorded in [VALIDATION](VALIDATION.md), which use simulated APIs for browser tests.
 
 The communication endpoint now sends at most eight events per page, with a backlog marker for catch-up. Browser polling targets 500 ms and retries failed requests after 1.2 seconds, retaining timestamped history and distinguishing timeout, invalid payload and endpoint failures. A failed HTTP event request does not establish whether a Modbus slave is present.
 

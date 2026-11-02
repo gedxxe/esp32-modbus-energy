@@ -25,6 +25,7 @@ export default function NetworkControls({ device }) {
   const blocked = !network || !device.fresh || device.pending || network.pending ||
     device.data?.discoveryRunning || device.data?.diagnosticActive || device.data?.scan?.phase === "running";
   const formBlocked=blocked||scanBusy;
+  const apAddress=validAPIP(network?.apIP)?network.apIP:null;
   const keep = auth!=="peap" && !open && !password && network?.hasPassword && ssid === network.ssid;
   async function submit(event) {
     event.preventDefault();
@@ -33,16 +34,20 @@ export default function NetworkControls({ device }) {
     if(mode!=="ap"&&auth==="peap"){
       const validText=value=>new TextEncoder().encode(value).length>0&&new TextEncoder().encode(value).length<=127&&!/[\x00-\x1f\x7f]/.test(value);
       if(!network?.enterpriseProvisioning){device.setNotice({key:"enterprise_ap_required"});return;}
-      if(!keepCA&&!ca){device.setNotice({key:"enterprise_profile_missing"});return;}
-      if(!ssid||(!keepEnterprise&&![username,eapPassword].every(validText))||serverName.length>253||(serverName&&!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(serverName))||(!keepCA&&!ca)||new TextEncoder().encode(ca).length>4096){device.setNotice({key:"invalid_enterprise"});return;}
+      if(!ssid||(!keepEnterprise&&(![username,eapPassword].every(validText)||(!autoIdentity&&!validText(identity))))||serverName.length>253||(serverName&&!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(serverName))||new TextEncoder().encode(ca).length>4096){device.setNotice({key:"invalid_enterprise"});return;}
     }
     if (mode !== "ap" && auth!=="peap" && (!ssid || new TextEncoder().encode(ssid).length > 32 ||
       /[\x00-\x1f\x7f]/.test(ssid) || (!open && !keep &&
         !(/^[ -~]{8,63}$/.test(password) || /^[0-9a-fA-F]{64}$/.test(password))))) {
       device.setNotice({ key: "invalid_network" }); return;
     }
-    const result = await device.act("/api/network", { mode, ssid, password, apIP, auth:auth==="peap"?"peap":open?"open":"personal", open: open ? 1 : 0, keep: keep ? 1 : 0, identity,autoIdentity:autoIdentity?1:0,username,eapPassword,serverName,ca,keepEnterprise:keepEnterprise?1:0,keepCA:keepCA?1:0 });
-    if (result?.ok) { setPassword("");setEapPassword("");setIdentity("");setUsername("");setCA("");if(auth==="peap"){setKeepEnterprise(true);setKeepCA(true);} device.setNotice({ key: "network_saved" }); }
+    const enterprise=mode!=="ap"&&auth==="peap";
+    const result = await device.act("/api/network", {
+      mode, ssid, password:enterprise?"":password, apIP,
+      auth:auth==="peap"?"peap":open?"open":"personal", open:open?1:0, keep:keep?1:0,
+      ...(enterprise?{identity,autoIdentity:autoIdentity?1:0,username,eapPassword,serverName,ca,keepEnterprise:keepEnterprise?1:0,keepCA:keepCA?1:0}:{})
+    });
+    if (result?.ok) { setPassword("");setEapPassword("");setIdentity("");setUsername("");setCA("");if(auth==="peap"){setKeepEnterprise(true);setKeepCA(Boolean(keepCA||ca));} device.setNotice({ key: "network_saved" }); }
   }
   return <section className="panel network-panel" id="network-panel" aria-labelledby="network-title">
     <h2 id="network-title">{t("network_title")}</h2>
@@ -71,14 +76,13 @@ export default function NetworkControls({ device }) {
         <select id="network-auth" value={auth} disabled={blocked} onChange={event=>{setAuth(event.target.value);setOpen(false);setPassword("");setKeepEnterprise(false);setKeepCA(false);}}><option value="personal">{t("enterprise_personal")}</option><option value="peap">{t("enterprise_company_login")}</option></select>
         {auth==="peap"?<div className="enterprise-fields">
 
-          {!network?.enterpriseProvisioning&&<p className="hint">{t("enterprise_ap_required")}</p>}
-          {!keepCA&&!ca&&<p className="hint">{t("enterprise_profile_missing")}</p>}
+          {!keepCA&&!ca&&<p id="enterprise-trust-note" className="small muted">{t("enterprise_public_trust")}</p>}
           {network?.hasEnterpriseCredentials&&ssid===network.ssid&&network.auth==="peap"&&<label className="checkbox-line"><input id="enterprise-keep" type="checkbox" checked={keepEnterprise} disabled={blocked} onChange={e=>setKeepEnterprise(e.target.checked)}/>{t("enterprise_keep_credentials")}</label>}
           <label htmlFor="enterprise-username">{t("enterprise_username")}</label><input id="enterprise-username" autoComplete="off" maxLength={127} value={username} required={!keepEnterprise} disabled={blocked||keepEnterprise} onChange={e=>setUsername(e.target.value)}/>
           <label htmlFor="enterprise-password">{t("network_password")}</label><input id="enterprise-password" type="password" autoComplete="new-password" maxLength={127} value={eapPassword} required={!keepEnterprise} disabled={blocked||keepEnterprise} onChange={e=>setEapPassword(e.target.value)}/>
           <details id="enterprise-advanced"><summary>{t("enterprise_advanced")}</summary><p className="small muted">{t("enterprise_method_note")}</p>
           <label className="checkbox-line"><input id="enterprise-auto-identity" type="checkbox" checked={autoIdentity} disabled={blocked} onChange={e=>{setAutoIdentity(e.target.checked);setKeepEnterprise(false);}}/>{t("enterprise_auto_identity")}</label>
-          <label htmlFor="enterprise-identity">{t("enterprise_identity")}</label><input id="enterprise-identity" autoComplete="off" maxLength={127} value={identity}  disabled={blocked||keepEnterprise||autoIdentity} onChange={e=>setIdentity(e.target.value)}/>
+          <label htmlFor="enterprise-identity">{t("enterprise_identity")}</label><input id="enterprise-identity" autoComplete="off" maxLength={127} value={identity} required={!keepEnterprise&&!autoIdentity} disabled={blocked||keepEnterprise||autoIdentity} onChange={e=>setIdentity(e.target.value)}/>
           <label htmlFor="enterprise-server">{t("enterprise_server")}</label><input id="enterprise-server" autoComplete="off" maxLength={253} value={serverName} disabled={blocked} onChange={e=>{setServerName(e.target.value);setKeepEnterprise(false);}}/>
           <p className="small muted">{t("enterprise_server_note")}</p>
           {network?.caFingerprint&&<><p className="small mono enterprise-fingerprint">CA SHA256 {network.caFingerprint}</p><label className="checkbox-line"><input id="enterprise-keep-ca" type="checkbox" checked={keepCA} disabled={blocked} onChange={e=>{setKeepCA(e.target.checked);setKeepEnterprise(false);setCA("");}}/>{t("enterprise_keep_ca")}</label></>}
@@ -95,8 +99,12 @@ export default function NetworkControls({ device }) {
       <label htmlFor="network-ap-ip">{t("ap_ip_label")}</label>
       <input id="network-ap-ip" value={apIP} onChange={(event)=>setAPIP(event.target.value)} maxLength={15} inputMode="decimal" required disabled={blocked} />
       <p className="small muted">{t("ap_ip_note")}</p>
-      <p className="small muted">{t(`network_note_${mode}`)}</p>
-      <div className="actions"><button id="network-save" className="button primary" disabled={formBlocked||(mode!=="ap"&&auth==="peap"&&!network?.enterpriseProvisioning)}>{t("network_save")}</button></div>
+      <p className="small muted">{t(`network_note_${mode}`,{ssid:network?.apSSID||""})}</p>
+      {mode!=="ap"&&auth==="peap"&&!network?.enterpriseProvisioning&&<div id="enterprise-access-help" className="hint" role="status">
+        <p>{t(apAddress?"enterprise_ap_access":"enterprise_ap_inactive",{ssid:network?.apSSID||"",address:apAddress||""})}</p>
+        {apAddress&&<a id="enterprise-ap-link" href={`http://${apAddress}/#device`}>{t("enterprise_open_ap")}</a>}
+      </div>}
+      <div className="actions"><button id="network-save" className="button primary" disabled={formBlocked}>{t("network_save")}</button></div>
     </form>
     <div className="hint">{t("network_transition")}</div>
   </section>;

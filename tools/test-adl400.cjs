@@ -17,6 +17,6 @@ module.exports=async({page,origin,state,calls})=>{
  assert(calls.some(c=>c.url==='/api/config'&&c.data.get('slave')==='220'));assert(calls.some(c=>c.url==='/api/diagnostic'&&c.data.get('command')==='adl400'));
  await page.locator('#language').selectOption('id');assert(await page.getByRole('button',{name:'Pembandingan energi ADL400',exact:true}).count());
  await page.setViewportSize({width:390,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- await page.reload();await page.waitForSelector('#meter-profile');assert.equal(await page.locator('#slave').inputValue(),'220');
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#slave')?.value==='220');assert.equal(await page.locator('#slave').inputValue(),'220');
  console.log('PASS: one ADL400 option, configurable ID220, scaled engineering values, total-energy plan, comparison command, EN/ID, mobile and reload');
 };

@@ -104,6 +104,7 @@ export default function MeterSetup({ device }) {
         <section className="panel" aria-labelledby="connection-title">
           <h2 id="connection-title">{t("manual_title")}</h2>
           <p>{t("manual_intro")}</p>
+          {profile.commissioningRequired&&<p className="hint">{t("commissioning_required")}</p>}
           <form
             id="config"
             onSubmit={(event) => {

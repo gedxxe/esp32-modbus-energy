@@ -1,7 +1,7 @@
 export const meterLabText={
   "en": {
     "lab_title": "Meter discovery and saved devices",
-    "lab_intro": "Survey FC03 devices without choosing a manufacturer first, then save a named record with serial settings and observed frames. Fort, Acrel and Habuer are available as explicit production profiles.",
+    "lab_intro": "Survey FC03 devices without choosing a manufacturer first, then save a named record with serial settings and observed frames. Fort, Habuer, Acrel ADL400, ACR and APM are available as explicit production profiles.",
     "lab_limits": "Current format uses the saved baud, parity and one stop bit. The matrix tests eight baud rates, N/E/O and one/two stop bits. A wide silent search can take hours. Recording pauses during discovery, and the run stops after four complete findings.",
     "lab_frames": "Inspect captured frames and numeric candidates",
     "lab_decode_note": "These numeric interpretations are unscaled candidates. A valid response confirms a responding slave, while register meanings, units and model still need the meter manual and LCD comparison. Attempt times include bus spacing and driver waits.",
@@ -14,7 +14,7 @@ export const meterLabText={
     "lab_binding": "Production profile binding",
     "lab_unknown": "Unknown / observation only",
     "lab_notes": "Development notes",
-    "lab_verified": "I checked the register map, transformer ratios and import kWh against the manual and meter LCD.",
+    "lab_verified": "I checked the register address, word order, kWh/kvarh units and transformer conversion against the installed meter LCD.",
     "lab_save_note": "Names use up to 31 ASCII characters, model 39 and notes 63. Saving retains evidence in flash without changing measurement. Only a verified supported profile with one stop bit can become the production reader.",
     "lab_save": "Save finding to flash",
     "lab_plan_error": "Use up to eight unique HEX:WORDS entries separated by commas, with 1–3 words and valid PDU bounds.",
@@ -47,7 +47,7 @@ export const meterLabText={
   },
   "id": {
     "lab_title": "Pencarian meter dan perangkat tersimpan",
-    "lab_intro": "Cari perangkat FC03 tanpa harus memilih merek lebih dahulu, lalu simpan nama instalasi beserta setting serial dan frame yang diamati. Fort, Acrel dan Habuer tersedia sebagai profil produksi yang eksplisit.",
+    "lab_intro": "Cari perangkat FC03 tanpa harus memilih merek lebih dahulu, lalu simpan nama instalasi beserta setting serial dan frame yang diamati. Fort, Habuer, Acrel ADL400, ACR dan APM tersedia sebagai profil produksi yang eksplisit.",
     "lab_limits": "Format tersimpan memakai baud, parity dan satu stop bit. Matrix menguji delapan baud rate, N/E/O serta satu/dua stop bit. Pencarian luas tanpa respons bisa memerlukan beberapa jam. Pencatatan berhenti sementara dan scan berakhir setelah empat temuan lengkap.",
     "lab_frames": "Periksa frame dan kandidat angka",
     "lab_decode_note": "Interpretasi angka berikut masih berupa kandidat tanpa skala. Respons sah membuktikan slave membalas, sedangkan arti register, satuan dan model perlu dicocokkan dengan manual serta LCD. Durasi percobaan mencakup jeda bus dan driver.",
@@ -60,7 +60,7 @@ export const meterLabText={
     "lab_binding": "Profil untuk pengukuran",
     "lab_unknown": "Belum diketahui / observasi saja",
     "lab_notes": "Catatan pengembangan",
-    "lab_verified": "Saya sudah mencocokkan peta register, rasio trafo dan kWh impor dengan manual serta LCD meter.",
+    "lab_verified": "Saya sudah mencocokkan alamat register, urutan word, unit kWh/kvarh serta konversi trafo dengan LCD meter terpasang.",
     "lab_save_note": "Nama maksimal 31 karakter ASCII, model 39 dan catatan 63. Penyimpanan mempertahankan bukti di flash tanpa mengganti pembacaan. Hanya profil yang didukung, diverifikasi dan memakai satu stop bit yang dapat dipakai untuk produksi.",
     "lab_save": "Simpan temuan ke flash",
     "lab_plan_error": "Gunakan maksimal delapan pasangan HEX:WORDS unik yang dipisahkan koma, dengan 1–3 word dan batas PDU yang sah.",

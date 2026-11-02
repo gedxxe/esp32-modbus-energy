@@ -146,6 +146,14 @@ void testMeterCheckpoints(){
 }
 
 int main(){
+  for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM)}){
+    CaptureSource source;source.profile=profile;source.meterId=42;source.slave=1;source.baud=9600;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
+    float value=589000.f;uint32_t raw;memcpy(&raw,&value,4);CaptureTracker captures;captures.newDay(20754);uint32_t at=captureTarget(20754,0);
+    assert(captures.sample(at,at+1,raw,source));near(captures.day.points[0].energy,profile==profiles::ACREL_APM?589.:589000.);
+    uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(captures.day,bytes);CaptureDay restored;assert(decodeCaptureDay(bytes,sizeof(bytes),restored)&&restored.points[0].raw==raw&&restored.points[0].source.profile==profile);
+    capturePut32(bytes+24+12,0x7FC00000UL);capturePut16(bytes+CAPTURE_RECORD_SIZE-2,crc16(bytes,CAPTURE_RECORD_SIZE-2));assert(!decodeCaptureDay(bytes,sizeof(bytes),restored));
+    assert(!captures.sample(at+2,at+2,0x7F800000UL,source));assert(!captures.sample(at+2,at+2,0x80000000UL,source));
+  }
   {CaptureSource source;source.profile=profiles::HABUER;source.meterId=77;source.baud=9600;source.slave=1;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
    assert(validCaptureSource(source));CaptureTracker log;const uint32_t day=20754;log.newDay(day);uint32_t at=captureTarget(day,0);
    assert(log.sample(at,at+1,123456,source));near(log.day.points[0].energy,12345.6);

@@ -224,7 +224,7 @@ struct Snapshot {
   bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
   uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=NAN,ratio=0,meterEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN,powerFactor=NAN,reactiveEnergy=NAN;
-  ReadingQuality readingQuality{};
+  ReadingQuality readingQuality{};bool profileReady=true;
   uint32_t lastContactMs=0,lastMeterMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false,discoveryRunning=false;uint16_t savedMeterId=0;char meterName[32]={};
   char error[64]="Waiting for a response";
@@ -559,7 +559,7 @@ void saveCheckpoint(bool archive) {
   if(archive)saveArchive();saveCaptures();lastSave=millis();
 }
 void publish() {
-  scanner.refresh(millis());state.scan=scanner.progress;
+  scanner.refresh(millis());state.scan=scanner.progress;state.profileReady=productionProfileReady(state.config,selectedMeterId,meterRegistry.registry);
   state.discoveryRunning=meterLabActive;state.savedMeterId=selectedMeterId;const auto *saved=meterRegistry.registry.find(selectedMeterId);strlcpy(state.meterName,saved?saved->name:"",sizeof(state.meterName));
   normalReader.discovery.refresh(millis());publishMeterLab();
   state.captures=captureLog.day;state.capturePending=capturePending;state.captureDurable=captureNVSOK||captureFSOK;state.captureArchiveOK=captureFSOK;state.captureBacklog=captureBacklog;
@@ -877,7 +877,9 @@ void acquisition(void *) {
       lastPoll=millis();uint8_t p[4];MeterReadings reading;
       // The UTC pair brackets the actual energy request, even in a multi-read snapshot.
       uint32_t beginUTC=0,endUTC=0,beginMono=millis();bool beginOK=false,endOK=false;
-      bool energyRead=readMeterReadings(profile,[&](const profiles::Register &reg,uint8_t *bytes){
+      bool commissioned=productionProfileReady(state.config,selectedMeterId,meterRegistry.registry);
+      if(!commissioned){state.readingQuality={};state.readingQuality.required=profile.requiredReadings;state.readingQuality.invalid=FIELD_ENERGY;}
+      bool energyRead=commissioned&&readMeterReadings(profile,[&](const profiles::Register &reg,uint8_t *bytes){
         bool energy=&reg==&profile.energy;if(energy)beginOK=rtcRead(beginUTC);
         bool ok=readWords(reg.address,reg.words,bytes);
         if(energy)endOK=rtcRead(endUTC);
@@ -885,6 +887,7 @@ void acquisition(void *) {
       },reading,&state.readingQuality);
       if(energyRead){state.meterEnergy=reading.meterEnergy;state.lastMeterMs=millis();state.lastContactMs=millis();
         if(profiles::coherentSnapshot(profile)){state.powerFactor=reading.powerFactor;state.frequency=reading.frequency;state.reactiveEnergy=reading.reactiveEnergy;}}
+      else if(!commissioned){interruptRecording();setError("Verify energy address, units and word order in saved devices before recording","commissioning_required");}
       else if(profiles::coherentSnapshot(profile)){interruptRecording();setError("Required meter snapshot incomplete or invalid. Inspect UART frames","snapshot_rejected");}
       bool energyOK=state.ratios&&energyRead;
       if(energyOK) {
@@ -896,8 +899,8 @@ void acquisition(void *) {
         double energy=profiles::primaryEnergy(profile.id,raw,ptNum,ptDen,ct);
         // Physical sanity limit: editable compile-time plant limit (100 MW).
         if(rawKnown&&raw>=previousRaw&&millis()!=previousMono) {
-          double maxDelta=100000.0*(millis()-previousMono)/3600000.0+2*profile.energy.scale*state.ratio;
-          if((raw-previousRaw)*profile.energy.scale*state.ratio>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
+          double maxDelta=100000.0*(millis()-previousMono)/3600000.0+2*profiles::energyResolution(profile,raw)*state.ratio;
+          if((profile.energy.encoding==profiles::F32?energy-profiles::primaryEnergy(profile.id,previousRaw,ptNum,ptDen,ct):(raw-previousRaw)*profile.energy.scale*state.ratio)>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
         }
         if(accepted) {
           state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
@@ -1021,17 +1024,18 @@ void webSetup() {
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
+      info["commissioningRequired"]=profile.commissioningRequired;info["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";
       info["primaryFloat"]=profile.primaryFloat;info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
       info["energyBasis"]=profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios";info["coherentSnapshot"]=profiles::coherentSnapshot(profile);info["requiredReadings"]=profile.requiredReadings;
       info["energyScale"]=profile.energy.scale;info["ratios"]=profile.ratios;info["ratioWords"]=profile.ratioWords;info["wordOrder"]="high-first";
       const char *names[]={"currentA","voltageA","power","frequency","secondaryEnergy","probe","powerFactor","reactiveEnergy"};
       const profiles::Register registers[]={profile.current,profile.voltage,profile.power,profile.frequency,profile.energy,profile.probe,profile.powerFactor,profile.reactiveEnergy};
-      for(unsigned i=0;i<8;++i){if(!profiles::available(registers[i])){info[names[i]]=nullptr;continue;}JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;reg["encoding"]=registers[i].encoding==profiles::F32?"float32":registers[i].encoding==profiles::I32?"int32":registers[i].encoding==profiles::U32?"uint32":"uint16";}
+      for(unsigned i=0;i<8;++i){if(!profiles::available(registers[i])){info[names[i]]=nullptr;continue;}JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;reg["function"]=3;reg["wordOrder"]=registers[i].words==2?"ABCD":"AB";reg["basis"]=profile.id==profiles::ACREL_APM?"primary":profile.id==profiles::ACREL_ACR?"candidate-primary":"profile-defined";const char *units[]={"A","V","kW","Hz","kWh","profile-probe","cos phi","kvarh"};reg["unit"]=units[i];reg["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";reg["encoding"]=registers[i].encoding==profiles::F32?"float32":registers[i].encoding==profiles::I32?"int32":registers[i].encoding==profiles::U32?"uint32":registers[i].encoding==profiles::I16?"int16":"uint16";}
       info["meterEnergy"]=info["secondaryEnergy"];
     };
     describeProfile(d["meter"].to<JsonObject>(),profiles::get(s.config.profile));
     JsonArray supported=d["meterProfiles"].to<JsonArray>();for(uint8_t id=0;id<profiles::COUNT;++id)describeProfile(supported.add<JsonObject>(),profiles::get(id));
-    d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
+    d["profileReady"]=s.profileReady;d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
     if(isfinite(s.meterEnergy)){d["secondaryEnergy"]=s.meterEnergy;d["secondaryAge"]=(millis()-s.lastMeterMs)/1000;}else d["secondaryEnergy"]=nullptr;
     d["meterEnergy"]=d["secondaryEnergy"];d["meterAge"]=d["secondaryAge"]; // v3.0 aliases remain readable.
     d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;d["powerFactor"]=nullptr;d["reactiveEnergy"]=nullptr;

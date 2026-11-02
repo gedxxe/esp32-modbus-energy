@@ -76,4 +76,11 @@ inline bool canActivateSaved(const SavedMeter &m,Settings &settings){
   if(!validSettings(s))return false;
   settings=s;return true;
 }
+// Reuse the existing verified named-device binding. No new credential/record format.
+inline bool productionProfileReady(const Settings &settings,uint16_t id,const MeterRegistry &registry){
+  if(!profiles::valid(settings.profile))return false;
+  if(!profiles::get(settings.profile).commissioningRequired)return true;
+  const auto *saved=registry.find(id);Settings expected;
+  return saved&&canActivateSaved(*saved,expected)&&sameMeterSettings(settings,expected);
+}
 } // namespace fort

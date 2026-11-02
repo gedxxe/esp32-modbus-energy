@@ -34,6 +34,8 @@ void selectProfile(uint8_t id){
   options.energyAddress=p.energy.address;options.energyScale=p.energy.scale;options.ratioAddress=p.ratios;
   options.swappedWords=false;options.decodeEnergy=true;
   auditCount=uint8_t(profiles::auditQueries(p,auditPlan,8));
+  discoveryOptions=DiscoveryConfig{};
+  if(p.commissioningRequired){discoveryOptions.count=uint8_t(profiles::discoveryQueries(p,discoveryOptions.plan,DISCOVERY_PROBES));}
   const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};baudCount=0;
   for(auto b:defaults)if(b<=p.maxBaud)BAUDS[baudCount++]=b;
 }
@@ -189,6 +191,7 @@ uint32_t bigEndian32(const uint8_t *p) {
 bool readEnergy(const Link &link) {
   if(!options.decodeEnergy){LOG("[DECODE_DISABLED] use reg/deeper for raw values. No kWh computed\n");return false;}
   auto profile=profiles::get(options.profile);profile.energy.address=options.energyAddress;profile.energy.scale=options.energyScale;
+  if(profile.commissioningRequired)LOG("[TRIAL_PROFILE] Candidate only. Verify address, ABCD word order and kWh/kvarh units against LCD before binding a saved device. No production authorization from this command\n");
   MeterReadings reading;ReadingQuality quality;
   bool valid=readMeterReadings(profile,[&](const profiles::Register &reg,uint8_t *bytes){
     if(!readRegisters(link,reg.address,reg.words,bytes))return false;
@@ -202,7 +205,7 @@ bool readEnergy(const Link &link) {
   LOG("[DECODE_SETTINGS] energy=0x%04X scale=%.12g order=%s basis=%s. Compare with meter display\n",options.energyAddress,options.energyScale,options.swappedWords?"swap":"normal",profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios");
   LOG("[ENERGY] raw=%lu meter=%.3f kWh PT=%u/%u CT=%u multiplier=%.6f\n",(unsigned long)reading.rawEnergy,reading.meterEnergy,ptNum,ptDen,ct,multiplier);
   if(profiles::coherentSnapshot(profile))LOG("[COHERENT_SNAPSHOT] PF=%.4f frequency=%.3f Hz reactive=%.1f kvarh. Required independent FC03 responses accepted\n",reading.powerFactor,reading.frequency,reading.reactiveEnergy);
-  ++evidence.energyOK;LOG("[%s] %.6f kWh\n",profiles::directEnergy(profile)?"METER_TOTAL":"PRIMARY_IMPORT",reading.meterEnergy*multiplier);
+  ++evidence.energyOK;LOG("[%s] %.6f kWh\n",profile.commissioningRequired?"TRIAL_TOTAL":profiles::directEnergy(profile)?"METER_TOTAL":"PRIMARY_IMPORT",reading.meterEnergy*multiplier);
   return true;
 }
 // Level 1: UART receive activity only. A slave may be completely silent without requests.
@@ -267,7 +270,7 @@ void reportEvidence() {
   else if(evidence.rxBytes||evidence.passiveBytes||evidence.staleBytes)LOG("[RX_UNVALIDATED] activity exists but no accepted reply. Inspect hex, UART events and serial settings\n");
   else if(evidence.requests)LOG("[NO_RX_UNRESOLVED] no reply. Module absent/unpowered/failed, open RX, silent meter, wrong serial/ID and unsupported silent registers remain indistinguishable\n");
   else LOG("[NO_REQUEST_EVIDENCE] no active request recorded. Passive silence is normal for an unpolled slave\n");
-  if(evidence.energyOK)LOG("[PROFILE_DECODED_UNVERIFIED] configured integer/scale/CTPT decoded. Confirm against the meter import-energy display before acceptance\n");
+  if(evidence.energyOK)LOG("[PROFILE_DECODED_UNVERIFIED] configured type/scale/conversion decoded. Verify address, word order and units against the meter display before acceptance\n");
   else LOG("[ENERGY_NOT_VERIFIED] do not interpret missing or rejected energy as zero\n");
   if(!evidence.data&&!evidence.exceptions)LOG("[NEXT_INPUT] In web Command input + Run command or Serial Monitor INPUT + Enter: status, then intermediate. Use rxcheck for a TTL observation. Paired captures require a real physical A/B change.\n");
   uartStatus();LOG("[REPORT_END] Copy OUTPUT from REPORT_BEGIN plus preceding TX/RX/settings when requesting support. Do not type log labels as commands.\n");
@@ -348,7 +351,7 @@ void showStatus(){
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
   LOG("PROFILE: profile fort | profile acrel-adl400 | profile habuer. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nMeter diagnostics 3.1.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nMeter diagnostics 3.2.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");

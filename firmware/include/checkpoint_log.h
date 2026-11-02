@@ -150,7 +150,7 @@ inline bool decodeCaptureDay(const uint8_t *bytes,size_t size,CaptureDay &out) {
     if(x.status==CAPTURE_RECORDED){
       if(!validCaptureSource(x.source))return false;
       uint32_t target=captureTarget(day.number,i);double expected=profiles::primaryEnergy(x.source.profile,x.raw,x.source.ptNum,x.source.ptDen,x.source.ct);
-      if(!validClockEpoch(x.startedUTC,CAPTURE_OFFSET)||!validClockEpoch(x.capturedUTC,CAPTURE_OFFSET)||!x.generation||!isfinite(x.energy)||x.energy<0||
+      if(!validClockEpoch(x.startedUTC,CAPTURE_OFFSET)||!validClockEpoch(x.capturedUTC,CAPTURE_OFFSET)||!x.generation||!isfinite(x.energy)||x.energy<0||!isfinite(expected)||expected<0||
          x.startedUTC<target||x.capturedUTC<x.startedUTC||x.capturedUTC>target+CAPTURE_WINDOW||x.capturedUTC-x.startedUTC>2||
          fabs(x.energy-expected)>16*DBL_EPSILON*fmax(1.0,expected))return false;
     }else{

@@ -74,3 +74,5 @@ Tes native memakai ModbusMaster serta INO aktual untuk probe awal diam, exceptio
 
 
 Rencana default versi 3.1 memuat delapan query kontak, energi dan rasio dari katalog Fort, Acrel serta Habuer. Habuer tidak memerlukan query rasio. Penerimaan penuh empat parameter Habuer tetap diperiksa saat akuisisi, terpisah dari bukti komunikasi pada discovery. Lihat [Integrasi Habuer](HABUER.md).
+
+ACR dan APM memakai plan awal khusus dua query pada web atau setelah perintah profil diagnostik yang sesuai. Default universal delapan query mempertahankan signature tiga profil sebelumnya. Lihat [commissioning ACR/APM](ACREL_ACR_APM.md).

@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.2.0
+
+Added ACR10R-DxxTE and APM800/801/810 profiles with explicit manual limitations and commissioning through existing saved-device verification. Added signed Int16 and raw Float32 energy decoding without changing checkpoint schemas, old profile conversions, schedules, Wi-Fi or the Modbus library. New profiles use primary energy without a second CT/PT multiplier.
+
 ## 3.1.0
 
 Added the Habuer field-reference profile with Float32 PF/frequency, direct cumulative kWh/kvarh and four independent required reads. Meter capabilities, contact probes, audit plans and discovery bindings now come from shared descriptors, with unsupported registers omitted from acquisition and UI. Existing profile IDs, historical conversion math and checkpoint layouts are preserved. Fixed saved Enterprise-login detection when the outer identity defaults to the username.

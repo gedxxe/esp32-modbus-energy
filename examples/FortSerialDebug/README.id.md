@@ -1,4 +1,4 @@
-# FortSerialDebug 3.1.0 / panduan diagnosis lapangan
+# FortSerialDebug 3.2.0 / panduan diagnosis lapangan
 
 Pilih Habuer dengan `profile habuer` pada **Arduino IDE Serial Monitor INPUT, 115200 baud, Newline, lalu Enter/Send**, atau **web Command input + Run command** setelah masuk diagnostik. Ketik `read` pada input yang sama untuk empat pembacaan wajib atau `deeper` untuk parameter mentah dan konversi. Habuer memakai total meter tanpa pengali CT/PT tambahan. [Panduan Habuer](../../docs/id/HABUER.md) menjelaskan peta serta aturan penolakannya.
 
@@ -8,11 +8,11 @@ Sketch ini juga mendukung Acrel ADL400 melalui `profile acrel-adl400`. Baca [Pro
 
 [English](README.md) · **Bahasa Indonesia**
 
-Sketch ini menjalankan source FortMeter/ModbusMaster yang sama dengan firmware 3.1.0 melalui USB Serial. Default mengikuti transceiver manual terkonfirmasi: TX17→DI, RX18←RO, DIR16→DE+/RE, settling 100 µs, jeda request 200 ms dan timeout dua detik. Seluruh request merupakan FC03 read dan konfigurasi uji hanya disimpan di RAM.
+Sketch ini menjalankan source FortMeter/ModbusMaster yang sama dengan firmware 3.2.0 melalui USB Serial. Default mengikuti transceiver manual terkonfirmasi: TX17→DI, RX18←RO, DIR16→DE+/RE, settling 100 µs, jeda request 200 ms dan timeout dua detik. Seluruh request merupakan FC03 read dan konfigurasi uji hanya disimpan di RAM.
 
 ## 1. Upload satu kali
 
-Pada Arduino IDE, pasang **FortMeter-library-v3.1.0.zip** melalui **Sketch → Include Library → Add .ZIP Library**, kemudian buka `FortSerialDebug.ino`. ZIP menyertakan ModbusMaster 2.0.1+fort.1 dengan hook layanan runtime. Memasang ModbusMaster stok saja belum menyediakan hook tersebut. Dari checkout source, salin seluruh [folder FortMeter](../../firmware/lib/FortMeter) ke folder `libraries` pada Sketchbook yang dipilih di Preferences.
+Pada Arduino IDE, pasang **FortMeter-library-v3.2.0.zip** melalui **Sketch → Include Library → Add .ZIP Library**, kemudian buka `FortSerialDebug.ino`. ZIP menyertakan ModbusMaster 2.0.1+fort.1 dengan hook layanan runtime. Memasang ModbusMaster stok saja belum menyediakan hook tersebut. Dari checkout source, salin seluruh [folder FortMeter](../../firmware/lib/FortMeter) ke folder `libraries` pada Sketchbook yang dipilih di Preferences.
 
 Pilih board ESP32-S3 dengan flash 16 MB, OPI PSRAM serta USB CDC aktif dan gunakan Arduino ESP32 3.3.11. Alternatif PlatformIO dijalankan dari **terminal komputer pada root repository** dengan `pio run -d examples/FortSerialDebug`, atau tambahkan `-t upload`. Library lokal ditemukan otomatis. Build React tidak diperlukan untuk menjalankan sketch ini.
 
@@ -73,3 +73,5 @@ UART diam tidak menentukan modul hilang, tanpa daya atau rusak. Saat A/B dilepas
 ## Batas dan verifikasi
 
 Suite host mengompilasi INO ini dengan source ModbusMaster yang disertakan serta menjalankan semua resep. PlatformIO juga mengompilasi library yang sama untuk N16R8. Tes tersebut memeriksa perilaku software, bukan level sinyal, waveform DE-/RE ataupun kesesuaian display meter. Catat penerimaan fisiknya melalui [COMMISSIONING](../../docs/id/COMMISSIONING.md).
+
+Untuk ACR/APM, ketik `profile acrel-acr` atau `profile acrel-apm` pada **Arduino IDE Serial Monitor INPUT, 115200 baud, Newline, lalu Enter/Send**. Hasil `read` adalah kandidat RAM. [Commissioning ACR/APM](../../docs/id/ACREL_ACR_APM.md) menjelaskan perbedaan manual dan verifikasi dari web firmware utama.

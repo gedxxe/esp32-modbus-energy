@@ -80,3 +80,5 @@ Core ownership, bounded retries, active-maintenance arbitration, Wi-Fi modes, RT
 ## Habuer and profile capabilities
 
 Habuer uses immutable ID 2 with a direct meter-total energy basis. Its required-reading mask, typed Float32 measurements and absent CT/PT registers are described in [Habuer integration](HABUER.md). The formula above applies to the Fort/Acrel secondary profiles. The runtime catalog marks unsupported registers as null, uses a dedicated contact probe and generates diagnostic/discovery plans from the same descriptors. Historical FortMeter API names and NVS keys remain for compatibility and do not restrict the selected manufacturer.
+
+[Acrel ACR/APM profiles and commissioning](ACREL_ACR_APM.md) describe the additive IDs, Float32 energy, manual conflicts and verified saved-device workflow.

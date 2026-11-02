@@ -17,12 +17,12 @@ const frame = (value) =>
 
 const profileKey=value=>typeof value==="string"&&/^[a-z][a-z0-9-]{0,31}$/.test(value);
 const registerInfo=value=>object(value)&&uint(value.address,65535)&&[1,2].includes(value.words);
-const profileInfo=value=>object(value)&&profileKey(value.key)&&typeof value.name==="string"&&typeof value.terminals==="string"&&uint(value.maxBaud,1000000)&&value.maxBaud>0&&Number.isFinite(value.energyScale)&&value.energyScale>0&&uint(value.ratios,65535)&&[0,2,3].includes(value.ratioWords)&&
+const profileInfo=value=>object(value)&&(value.commissioningRequired===undefined||typeof value.commissioningRequired==="boolean")&&profileKey(value.key)&&typeof value.name==="string"&&typeof value.terminals==="string"&&uint(value.maxBaud,1000000)&&value.maxBaud>0&&Number.isFinite(value.energyScale)&&value.energyScale>0&&uint(value.ratios,65535)&&[0,2,3].includes(value.ratioWords)&&
   (value.ratioWords!==0||value.energyBasis==="meter-total")&&registerInfo(value.meterEnergy||value.secondaryEnergy)&&registerInfo(value.probe||value.currentA)&&
   ["currentA","voltageA","power","frequency","powerFactor","reactiveEnergy"].every(key=>value[key]===undefined||value[key]===null||registerInfo(value[key]));
 export function validStatus(value) {
   return (
-    serial(value) && ["manual", "auto"].includes(value.direction) && (value.discoveryRunning===undefined||typeof value.discoveryRunning==="boolean") &&
+    serial(value) && (value.profileReady===undefined||typeof value.profileReady==="boolean") && ["manual", "auto"].includes(value.direction) && (value.discoveryRunning===undefined||typeof value.discoveryRunning==="boolean") &&
     (value.profile===undefined||(profileKey(value.profile)&&profileInfo(value.meter)&&value.meter.key===value.profile&&Array.isArray(value.meterProfiles)&&value.meterProfiles.length>=1&&value.meterProfiles.length<=16&&new Set(value.meterProfiles.map(p=>p?.key)).size===value.meterProfiles.length&&value.meterProfiles.every(profileInfo))) &&
     (value.readingQuality===undefined||(object(value.readingQuality)&&[value.readingQuality.required,value.readingQuality.transportFailed,value.readingQuality.invalid].every(v=>uint(v,255))&&typeof value.readingQuality.complete==="boolean"&&!(value.readingQuality.transportFailed&~value.readingQuality.required)&&!(value.readingQuality.invalid&~value.readingQuality.required))) &&
     typeof value.token === "string" && value.token.length > 0 &&

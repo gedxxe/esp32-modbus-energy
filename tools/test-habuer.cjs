@@ -1,7 +1,7 @@
 const assert=require("node:assert/strict"),path=require("node:path");
 module.exports=async({page,origin,state,calls,root})=>{
  await page.goto(origin+"/#setup");await page.waitForSelector("#meter-profile");
- assert.equal(await page.locator("#meter-profile option").count(),3);
+ assert.equal(await page.locator("#meter-profile option").count(),state.meterProfiles.length);
  await page.locator("#meter-profile").selectOption("habuer");await page.locator("#config button[type=submit], #config button").last().click();
  await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0030");
  assert(calls.some(c=>c.url==="/api/config"&&c.data.get("profile")==="habuer"));

@@ -12,6 +12,8 @@ std::vector<uint8_t> response(std::initializer_list<uint8_t> bytes){std::vector<
 void submit(const std::string &line){for(char c:line)Serial.input.push_back(c);Serial.input.push_back('\n');for(unsigned i=0;i<10000&&(Serial.available()||debug.busy());++i)loop();assert(!Serial.available()&&!debug.busy());for(unsigned i=0;i<80;++i)debug.drainSerial();}
 int main(){
  setup();assert(debug.options.manualDirection&&debug.options.probeAddress==0x58&&debug.options.probeWords==2);
+ submit("profile acrel-acr");assert(debug.options.profile==fort::profiles::ACREL_ACR&&debug.options.probeAddress==0x64&&debug.auditCount==7);
+ submit("profile acrel-apm");assert(debug.options.profile==fort::profiles::ACREL_APM&&debug.options.energyAddress==3000&&debug.options.probeAddress==252&&debug.auditCount==7);
  submit("profile habuer");assert(debug.options.probeAddress==0x30&&debug.auditCount==4);
  submit("profile acrel-adl400");assert(debug.options.probeAddress==0x64&&debug.options.probeWords==1);submit("profile fort");
  fortUART.replies.push_back(response({1,3,4,0,0,0xC3,0x17}));submit("intermediate");assert(debug.evidence.data==1&&fortUART.transmitted.back()[3]==0x58);

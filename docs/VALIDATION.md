@@ -2,8 +2,18 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.1.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.2.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## ACR/APM integration in 3.2.0
+
+The native suites pass with the actual shared ModbusMaster source. Added tests exercise both new profile commands, exact independent PF/frequency/active/reactive request addresses, signed Int16 power, Float32 Wh conversion, no additional CT/PT query, non-finite snapshot rejection and retained last values. Registry checks cover unverified, missing and mismatched saved bindings, and restoration of the older default discovery plan. Float32 captures round-trip through the unchanged 446-byte schema, while a CRC-valid record containing NaN raw bits is rejected. Fort, ADL400 and Habuer retain their existing IDs and arithmetic.
+
+The generated-byte ACR/APM browser suite passes selection of all five options, each new model's two-query discovery plan, the commissioning notice, explicit saved binding/activation, reload, live values, English/Indonesian text and 390px overflow checks. The full browser suite, older discovery suite and Habuer suite also passed, including all 29 SVG renders. The final generated payload is 150,749 gzip bytes, below 163,840. UI screenshots are simulated software fixtures, not hardware evidence.
+
+Both physical-target builds passed using the pinned pioarduino Core 6.1.19, platform 55.03.311, Arduino 3.3.11 and IDF 5.5.5. The local Core had advanced to 6.2.0 and was restored with the repository's setup helper rather than bypassing its build guard. The final application is rebuilt after the last generated-web change before release packaging. Original manuals remain included with their separate ownership.
+
+No ACR or APM meter was connected for these checks. ACR units/word order are a commissioning candidate, and APM table address 3000 conflicts with example address 3050. The existing verified named-device binding gates production for these two profiles. The [ACR/APM guide](ACREL_ACR_APM.md) records inspected PDF pages, all descriptor conversions, explicit command destinations and remaining LCD checks. A successful software build does not resolve those manual inconsistencies.
 
 ## Habuer integration and shared reading policy in 3.1.0
 

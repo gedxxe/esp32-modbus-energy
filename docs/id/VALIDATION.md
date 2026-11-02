@@ -2,8 +2,18 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.1.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.2.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
+
+## Integrasi ACR/APM pada 3.2.0
+
+Suite native lulus memakai source ModbusMaster bersama yang sebenarnya. Kasus tambahan memeriksa perintah kedua profil, alamat request PF/frekuensi/energi aktif/reaktif secara terpisah, daya Int16 negatif, konversi Float32 Wh, tidak adanya pengali CT/PT tambahan, penolakan snapshot non-finite serta retensi nilai sah. Verifikasi registry mencakup binding belum diverifikasi, ID hilang dan setting yang tidak cocok. Capture Float32 lolos round trip schema 446 byte yang tetap, sedangkan record ber-CRC sah dengan raw NaN ditolak. ID dan aritmetika Fort, ADL400 serta Habuer dipertahankan.
+
+Suite browser ACR/APM pada byte gzip sebenarnya lulus untuk lima pilihan model, plan dua query sesuai model, petunjuk commissioning, penyimpanan/aktivasi binding eksplisit, reload, nilai langsung, bahasa Inggris/Indonesia serta lebar HP 390px. Regresi browser lengkap, suite discovery lama dan Habuer juga lulus, termasuk render seluruh 29 SVG. Payload akhir berjumlah 150.749 byte gzip, di bawah batas 163.840. Screenshot merupakan fixture simulasi software, bukan bukti pengujian hardware.
+
+Kedua target fisik berhasil dikompilasi menggunakan Core pioarduino 6.1.19, platform 55.03.311, Arduino 3.3.11 serta IDF 5.5.5 yang terpin. Core lokal sempat berubah menjadi 6.2.0 lalu dikembalikan memakai helper repository, tanpa melewati guard build. Aplikasi akhir dibangun ulang setelah perubahan aset web terakhir sebelum pengemasan. Manual asli tetap disertakan dengan kepemilikan terpisah.
+
+Tidak ada meter ACR/APM fisik yang dihubungkan dalam pengujian ini. Unit/word order ACR masih kandidat commissioning, sedangkan alamat APM 3000 pada tabel berbeda dari 3050 pada contoh. Binding perangkat tersimpan yang sudah diverifikasi menjadi syarat produksi untuk kedua profil baru. [Panduan ACR/APM](ACREL_ACR_APM.md) mencatat halaman PDF yang diperiksa, konversi descriptor, tujuan perintah dan pemeriksaan LCD yang tersisa. Build software tidak menghilangkan perbedaan manual tersebut.
 
 ## Integrasi Habuer dan policy pembacaan bersama pada 3.1.0
 

@@ -118,7 +118,7 @@ int main(){
   port.onWrite=[&](){const auto &tx=port.transmitted.back();std::vector<uint8_t> bytes={tx[0],3,uint8_t(tx[5]*2)};bytes.resize(3+tx[5]*2,0);uint16_t crc=meterCRC(bytes.data(),bytes.size());bytes.push_back(uint8_t(crc));bytes.push_back(uint8_t(crc>>8));for(auto byte:bytes)port.incoming.push_back(byte);};
   assert(engine.discovery.begin(config,2,millis(),50));while(engine.discovery.running())engine.discovery.step(engine,millis(),0);
   assert(engine.discovery.phase==DISCOVERY_CAPACITY&&engine.discovery.count==4&&engine.discovery.tested==4*config.count);
-  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==uint8_t((1<<profiles::COUNT)-1));SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(canActivateSaved(saved,settings));
+  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==uint8_t(7));SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(canActivateSaved(saved,settings));
   saved.profile=profiles::HABUER;strcpy(saved.model,"Habuer reference");assert(canActivateSaved(saved,settings)&&settings.profile==profiles::HABUER);
   MeterRegistry registry;registry.generation=1;registry.nextId=10;registry.count=1;registry.entries[0]=saved;uint8_t encodedRegistry[METER_REGISTRY_BYTES];encodeMeterRegistry(registry,encodedRegistry);MeterRegistry restoredRegistry;assert(decodeMeterRegistry(encodedRegistry,sizeof(encodedRegistry),restoredRegistry)&&restoredRegistry.entries[0].profile==profiles::HABUER);
   saved.evidence.link.stops=2;assert(!canActivateSaved(saved,settings));
@@ -148,7 +148,32 @@ int main(){
   assert(!profiles::available(profile.current)&&!profiles::available(profile.voltage)&&!profiles::available(profile.power)&&profile.ratioWords==0);
   assert(!profiles::valid(255)&&!profiles::available(profiles::get(255).probe)&&std::isnan(profiles::primaryEnergy(255,123,1,1,1)));
   DiscoveryConfig defaults;assert(defaults.count==8&&validDiscoveryConfig(defaults));
-  for(uint8_t id=0;id<profiles::COUNT;++id){DiscoveryQuery probes[3];size_t count=profiles::discoveryQueries(profiles::get(id),probes,3);for(size_t i=0;i<count;++i){bool included=false;for(unsigned j=0;j<defaults.count;++j)included=included||(probes[i].address==defaults.plan[j].address&&probes[i].words==defaults.plan[j].words);assert(included);}}
+  for(uint8_t id=0;id<3;++id){DiscoveryQuery probes[3];size_t count=profiles::discoveryQueries(profiles::get(id),probes,3);for(size_t i=0;i<count;++i){bool included=false;for(unsigned j=0;j<defaults.count;++j)included=included||(probes[i].address==defaults.plan[j].address&&probes[i].words==defaults.plan[j].words);assert(included);}}
+ }
+ // Real transport tests for additive ACR/APM profiles and persisted commissioning.
+ for(uint8_t id: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM)}){
+  HardwareSerial port(1);FortDiagnostics engine(port);engine.selectProfile(id);const auto &p=profiles::get(id);
+  bool invalid=false;auto bits=[](float f){uint32_t raw;memcpy(&raw,&f,4);return raw;};
+  port.onWrite=[&](){const auto &tx=port.transmitted.back();uint16_t address=uint16_t(tx[2])<<8|tx[3];uint8_t n=tx[5];
+   uint32_t raw=address==p.powerFactor.address?(id==profiles::ACREL_ACR?95:950):address==p.frequency.address?5000:address==p.energy.address?(invalid?0x7FC00000UL:bits(id==profiles::ACREL_ACR?1234.5f:589000.f)):address==p.reactiveEnergy.address?bits(id==profiles::ACREL_ACR?22.5f:22500.f):123;
+   std::vector<uint8_t> reply={tx[0],3,uint8_t(n*2)};if(n==2){reply.push_back(raw>>24);reply.push_back(raw>>16);}reply.push_back(raw>>8);reply.push_back(raw);uint16_t checksum=crc16(reply.data(),reply.size());reply.push_back(checksum);reply.push_back(checksum>>8);for(auto b:reply)port.incoming.push_back(b);
+  };
+  assert(p.primaryFloat==p.energy.address);assert(engine.readEnergy(engine.current));assert(port.transmitted.size()==4);
+  const uint16_t order[]={p.powerFactor.address,p.frequency.address,p.energy.address,p.reactiveEnergy.address};
+  for(unsigned i=0;i<4;++i){const auto &tx=port.transmitted[i];assert(tx[1]==3&&(uint16_t(tx[2])<<8|tx[3])==order[i]);}
+  MeterReadings accepted;ReadingQuality q;auto read=[&](const profiles::Register &r,uint8_t *out){return engine.readRegisters(engine.current,r.address,r.words,out);};
+  assert(readMeterReadings(p,read,accepted,&q));assert(fabs(accepted.meterEnergy-(id==profiles::ACREL_ACR?1234.5:589))<1e-8);
+  invalid=true;assert(!readMeterReadings(p,read,accepted,&q)&&q.invalid==FIELD_ENERGY);invalid=false;
+  assert(engine.discoveryOptions.count==2);DiscoveryConfig cfg=engine.discoveryOptions;cfg.first=cfg.last=1;cfg.responseMs=150;
+  assert(engine.discovery.begin(cfg,88,millis(),9));while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185200);
+  MeterRegistry registry;registry.count=1;registry.entries[0].id=1;registry.entries[0].profile=id;registry.entries[0].evidence=engine.discovery.found[0];strcpy(registry.entries[0].name,"Panel");strcpy(registry.entries[0].model,p.key);
+  Settings settings;settings.profile=id;assert(!productionProfileReady(settings,1,registry));registry.entries[0].verified=true;
+  assert(productionProfileReady(settings,1,registry));assert(!productionProfileReady(settings,0,registry));settings.slave=2;assert(!productionProfileReady(settings,1,registry));
+  engine.selectProfile(profiles::FORT);assert(engine.discoveryOptions.count==8);
+ }
+ {uint8_t negative[]={0xFF,0x9C};assert(fabs(profiles::decode(profiles::get(profiles::ACREL_ACR).power,negative)+.1)<1e-12);
+  assert(std::isnan(profiles::primaryEnergy(profiles::ACREL_APM,0x7F800000,1,1,1)));
+  assert(profiles::get(profiles::ACREL_APM).energy.address==3000&&profiles::get(profiles::ACREL_APM).current.address==1100);
  }
  assert(meter::signed32(0xFFFFFF9CUL)==-100);assert(meter::float32(0x3F80,0)==1.0f);assert(meter::float32(0,0x3F80)!=1.0f);
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";

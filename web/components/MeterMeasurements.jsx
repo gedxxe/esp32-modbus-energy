@@ -6,6 +6,7 @@ export default function MeterMeasurements({profile,status,live}) {
   const fields=[["current_a","currentA","A"],["voltage_a","voltageA","V"],["power_factor","powerFactor","cos φ"],["frequency","frequency","Hz"],[directEnergy(profile)?"meter_active_energy":"secondary_energy","secondaryEnergy","kWh"],["reactive_energy","reactiveEnergy","kvarh"]];
   return <section className="panel register-summary" aria-labelledby="register-title">
     <div><h2 id="register-title">{t("register_title")}</h2><p>{t(directEnergy(profile)?"register_direct_intro":"register_intro")}</p></div>
+    {profile.commissioningRequired&&<p id="commissioning-note" className="hint" role="status">{t(status?.profileReady?"commissioning_verified":"commissioning_required")}</p>}
     <dl className="register-values">{fields.filter(([,key])=>profile[key]).map(([label,key,unit])=><div key={key}>
       <dt>{t(label)} <code>0x{addressHex(profile[key].address)}</code></dt>
       <dd id={`value-${key}`}>{live?number(key==="secondaryEnergy"?(status?.meterEnergy??status?.secondaryEnergy):status?.[key],key==="frequency"?2:3):"—"} <small>{unit}</small>

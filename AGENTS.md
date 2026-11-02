@@ -2,7 +2,7 @@
 
 ## Purpose and confirmed hardware
 
-Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a selected Fort, Acrel ADL400 or Habuer power meter over Modbus RTU and serves a local dashboard. The user's Fort RS485 port is unused: the ESP32 is the only master. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL. Treat these as established facts. Do not repeatedly question them or invent a PLC/BMS connection.
+Maintain firmware and documentation for an ESP32-S3 N16R8 that reads a selected Fort, Acrel ADL400 Habuer, Acrel ACR10R-DxxTE or Acrel APM800/801/810 power meter over Modbus RTU and serves a local dashboard. The user's Fort RS485 port is unused: the ESP32 is the only master. The purchased RS485 module is confirmed compatible with ESP32 3.3 V TTL. Treat these as established facts. Do not repeatedly question them or invent a PLC/BMS connection.
 
 The root Fort PDF is the primary meter reference. It is a scanned document. Verify the relevant page image before changing terminal assignments, registers, scaling, or protocol details. The documented meter communication terminals are 58/A and 59/B. Terminal 70/COM belongs to the switch inputs and is not an RS485 ground connection.
 
@@ -24,6 +24,7 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 - `firmware/src/meter_lab_web.cpp` and `web/components/MeterLab.jsx`: queue-only HTTP adapter and discovery/registry controls. Keep unknown findings separate from verified production profiles.
 - `firmware/include/checkpoint_log.h`: primary ten-point daily cumulative kWh log, actual read timestamps, immutable captures, five-second admission window and explicit CRC serialization. Schema 3 is 446 bytes with immutable saved IDs. Preserve schema 1/2 readers at 426 bytes.
 - `firmware/lib/FortMeter/src/MeterProfiles.h`: immutable meter profile IDs and typed register/ratio descriptors. Fort remains ID 0 for old settings and schema-1 captures. Acrel ADL400 follows the supplied V1.3 map. Habuer is ID 2 and follows the supplied field-reference sketch with four independent reads and direct meter totals. Never repurpose an archived profile ID for different scaling. Review docs/METER_PROFILES.md and the local PDF page images before changing it.
+- New immutable profiles: ACR ID 3 and APM ID 4 require an existing verified saved-device binding before production. Read docs/ACREL_ACR_APM.md and the supplied PDF page images. ACR ABCD/kWh is a commissioning candidate. APM uses decimal 3000 from the table, not 3050 from its conflicting example. Preserve IEEE754 payloads in the existing raw 32-bit checkpoint slot and reject non-finite reconstructed values.
 - `firmware/lib/FortMeter/src/MeterReadings.h`: shared required-reading policy, typed validation and atomic snapshot acceptance. Preserve Habuer starting addresses 0x0030/0x0032/0x0034/0x0035 as separate requests, and never manufacture unsupported current, voltage, power or CT/PT registers.
 - `firmware/include/energy.h`: retained legacy interval schedule, continuity/quality logic and CRC/frame validation.
 - `firmware/include/debounce.h`: button event timing.

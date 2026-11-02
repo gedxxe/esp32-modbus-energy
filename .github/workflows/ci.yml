@@ -79,6 +79,7 @@ jobs:
       - run: npm run test:meter-lab
       - run: npm run test:enterprise
       - run: npm run test:habuer
+      - run: npm run test:acrel
       - uses: actions/upload-artifact@v7
         if: always()
         with:

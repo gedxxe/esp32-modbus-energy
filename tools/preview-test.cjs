@@ -94,7 +94,10 @@ const calls = [],
 const meterCatalog=[
  {key:"fort",name:"Fort",primaryFloat:138,terminals:"58 / A · 59 / B",maxBaud:38400,energyScale:.001,ratios:44,ratioWords:3,currentA:{address:88,words:2},voltageA:{address:66,words:2},power:{address:106,words:2},frequency:{address:128,words:1},secondaryEnergy:{address:130,words:2}},
  {key:"acrel-adl400",name:"Acrel ADL400",terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:362,words:2},frequency:{address:119,words:1},secondaryEnergy:{address:10,words:2}},
- {key:"habuer",name:"Habuer",terminals:"A / B · use meter labels",maxBaud:38400,energyScale:.1,energyBasis:"meter-total",coherentSnapshot:true,ratios:0,ratioWords:0,probe:{address:48,words:2},currentA:null,voltageA:null,power:null,powerFactor:{address:48,words:2},frequency:{address:50,words:2},secondaryEnergy:{address:52,words:2},reactiveEnergy:{address:53,words:2}}
+ {key:"habuer",name:"Habuer",terminals:"A / B · use meter labels",maxBaud:38400,energyScale:.1,energyBasis:"meter-total",coherentSnapshot:true,ratios:0,ratioWords:0,probe:{address:48,words:2},currentA:null,voltageA:null,power:null,powerFactor:{address:48,words:2},frequency:{address:50,words:2},secondaryEnergy:{address:52,words:2},reactiveEnergy:{address:53,words:2}},
+ {key:"acrel-acr",primaryFloat:71,name:"Acrel ACR10R-DxxTE",terminals:"A / B labels",maxBaud:38400,energyScale:1,energyBasis:"meter-total",coherentSnapshot:true,commissioningRequired:true,ratios:0,ratioWords:0,probe:{address:100,words:1},currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:103,words:1},frequency:{address:119,words:1},powerFactor:{address:115,words:1},secondaryEnergy:{address:71,words:2},reactiveEnergy:{address:75,words:2}},
+ {key:"acrel-apm",primaryFloat:3000,name:"Acrel APM800/801/810",terminals:"A / B labels",maxBaud:38400,energyScale:.001,energyBasis:"meter-total",coherentSnapshot:true,commissioningRequired:true,ratios:0,ratioWords:0,probe:{address:252,words:1},currentA:{address:1100,words:2},voltageA:{address:1120,words:2},power:{address:1156,words:2},frequency:{address:252,words:1},powerFactor:{address:1183,words:1},secondaryEnergy:{address:3000,words:2},reactiveEnergy:{address:3004,words:2}}
+
 ];
 const state = {
   version,profile:"fort",meter:meterCatalog[0],meterProfiles:meterCatalog,
@@ -216,11 +219,12 @@ function labEvidence(index=0){
  const probes=queries.map(({address,words})=>{const tx=rtuHex([slave,3,address>>8,address&255,0,words]);
   let data=Array(words*2).fill(0);if(words===3)data=[0,1,0,1,0,80];else if(words===1)data=[0,123];else data=[0,0,3,232];
   if(profile.key==="habuer")data=address===48?[63,96,0,0]:[0,1,226,64];
+  if(index>=3){const bytes=Buffer.alloc(4);bytes.writeFloatBE(index===3?1234.5:589000);data=address===profile.secondaryEnergy.address?[...bytes]:words===1?[0x13,0x88]:[0,0,0,123];}
   const rx=rtuHex([slave,3,data.length,...data]);return {address,words,attempts:2,confirmed:true,data:true,tx,replies:[0,1].map(()=>({status:0,accepted:true,truncated:false,attemptMs:221,tx,txBytes:8,rx}))};});
  return {slave,baud:9600,parity:"N",stopBits:1,direction:"manual",boot:99,run:1,utc:1793185200,elapsedMs:2000,requests:2*probes.length,timeouts:0,crcErrors:0,rejected:0,exceptions:0,mapEvidence:1<<index,mappingHints:[profile.key],confirmed:true,probes};
 }
 
-const defaultLabPlan=meterCatalog.flatMap(p=>[p.probe||p.currentA,p.secondaryEnergy,...(p.ratioWords?[{address:p.ratios,words:p.ratioWords}]:[])]);
+const defaultLabPlan=meterCatalog.flatMap(p=>[p.probe||p.currentA,p.secondaryEnergy,...(p.ratioWords?[{address:p.ratios,words:p.ratioWords}]:[])]).slice(0,8);
 const lab={schema:1,version,ready:true,storageOK:true,activeId:0,error:"",discovery:{plan:defaultLabPlan,phase:"idle",run:0,tested:0,total:0,elapsedMs:0,requests:0,timeouts:0,crcErrors:0,rejected:0,exceptions:0},current:{...labEvidence(),run:0,confirmed:false,probes:[]},findings:[],saved:[]};
 let labRequests=0,labHold=false,labMalformed=false,labNextId=1;
 const server = http.createServer((req, res) => {
@@ -428,11 +432,11 @@ const server = http.createServer((req, res) => {
         const action=data.get("action");
         if(action==="start"){
           const run=lab.discovery.run+1;lab.discovery={...lab.discovery,run,phase:"running",tested:0,total:7,elapsedMs:0,plan:data.get("plan").split(",").map(s=>({address:parseInt(s.split(":")[0],16),words:Number(s.split(":")[1])}))};lab.findings=[];state.discoveryRunning=true;
-          if(!labHold)setTimeout(()=>{lab.discovery.phase="complete";lab.discovery.tested=7;lab.findings=(process.argv.includes("--habuer-only")?[2]:[0,1]).map((index,slot)=>({...labEvidence(index),run,index:slot}));lab.current=lab.findings[lab.findings.length-1];state.discoveryRunning=false;},200);
+          if(!labHold)setTimeout(()=>{lab.discovery.phase="complete";lab.discovery.tested=7;lab.findings=(process.argv.includes("--acrel-only")?[state.profile==="acrel-acr"?3:4]:process.argv.includes("--habuer-only")?[2]:[0,1]).map((index,slot)=>({...labEvidence(index),run,index:slot}));lab.current=lab.findings[lab.findings.length-1];state.discoveryRunning=false;},200);
         }
         if(action==="save"){const evidence=lab.findings[Number(data.get("index"))];lab.saved.push({id:labNextId++,name:data.get("name"),model:data.get("model"),notes:data.get("notes"),profile:data.get("profile"),verified:data.get("verified")==="1",activatable:data.get("profile")!=="unknown"&&data.get("verified")==="1",evidence});}
         if(action==="remove")lab.saved=lab.saved.filter(row=>row.id!==Number(data.get("id")));
-        if(action==="select"){const saved=lab.saved.find(row=>row.id===Number(data.get("id")));lab.activeId=saved.id;state.savedMeterId=saved.id;state.meterName=saved.name;state.profile=saved.profile;state.meter=meterCatalog.find(p=>p.key===saved.profile);state.slave=saved.evidence.slave;state.baud=saved.evidence.baud;state.parity=saved.evidence.parity;state.direction=saved.evidence.direction;}
+        if(action==="select"){const saved=lab.saved.find(row=>row.id===Number(data.get("id")));lab.activeId=saved.id;state.profileReady=true;state.savedMeterId=saved.id;state.meterName=saved.name;state.profile=saved.profile;state.meter=meterCatalog.find(p=>p.key===saved.profile);state.slave=saved.evidence.slave;state.baud=saved.evidence.baud;state.parity=saved.evidence.parity;state.direction=saved.evidence.direction;}
       }
       if (req.url === "/api/diagnostic") {
         const command = data.get("command");
@@ -507,7 +511,7 @@ const server = http.createServer((req, res) => {
           parity: data.get("parity"),
           direction: data.get("direction"),
         });
-        state.meter=meterCatalog.find(p=>p.key===state.profile);state.scan.address=(state.meter.probe||state.meter.currentA).address;state.scan.words=(state.meter.probe||state.meter.currentA).words;
+        state.meter=meterCatalog.find(p=>p.key===state.profile);state.profileReady=!state.meter.commissioningRequired;if(!state.profileReady){state.energy=null;state.haveEnergy=false;}state.scan.address=(state.meter.probe||state.meter.currentA).address;state.scan.words=(state.meter.probe||state.meter.currentA).words;
       }
       if (req.url === "/api/scan/start")
         state.scan = {
@@ -635,6 +639,7 @@ async function checkVectors(browser, out) {
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--acrel-only")){const page=await browser.newPage({viewport:{width:1440,height:1100}});await require("./test-acrel.cjs")({page,origin,state,calls,root});return;}
     if(process.argv.includes("--habuer-only")){
       const page=await browser.newPage({viewport:{width:1440,height:1100}});
       await require("./test-habuer.cjs")({page,origin,state,calls,root});return;

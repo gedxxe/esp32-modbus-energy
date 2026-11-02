@@ -474,6 +474,8 @@ export const catalog = {
     ratio_out_of_range: "CT/PT ratio outside the manual range",
     counter_reset: "Counter decreased. Continuity interrupted",
     energy_jump: "Energy increase exceeds the configured limit",
+    commissioning_required: "Before recording, compare the energy address, ABCD word order, active kWh and reactive kvarh with the installed meter LCD. In Meter discovery and saved devices, save a verified profile binding and choose Use for measurement. ACR units are not stated in its manual. APM uses decimal 3000 from the table, while the example says 3050. Do not confirm a mismatch.",
+    commissioning_verified: "Recording uses the saved profile binding confirmed against the meter LCD. Transformer ratios are already included in these primary energy registers.",
     acquisition_ok: "Reading valid",
   },
   id: {
@@ -965,6 +967,8 @@ export const catalog = {
     ratio_out_of_range: "Rasio CT/PT di luar batas manual",
     counter_reset: "Counter menurun. Kontinuitas terputus",
     energy_jump: "Kenaikan energi melebihi batas konfigurasi",
+    commissioning_required: "Sebelum mencatat, cocokkan alamat energi, urutan word ABCD, kWh aktif serta kvarh reaktif dengan LCD meter. Pada Pencarian meter dan perangkat tersimpan, simpan binding profil yang sudah diverifikasi lalu pilih Gunakan untuk pengukuran. Unit ACR tidak dijelaskan manual. APM memakai alamat desimal 3000 dari tabel, sedangkan contoh menyebut 3050. Jangan konfirmasi bila tidak cocok.",
+    commissioning_verified: "Pencatatan memakai binding profil tersimpan yang sudah dicocokkan dengan LCD meter. Rasio trafo sudah termasuk pada register energi primer ini.",
     acquisition_ok: "Pembacaan valid",
   },
 };

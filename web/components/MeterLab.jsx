@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useText } from "../ui.js";
 import { deviceFetch } from "../request.js";
-import { meterProfiles, addressHex } from "../meter-profile.js";
+import { meterProfiles, meterProfile, addressHex } from "../meter-profile.js";
 import { validMeterLab, parseProbePlan, wordCandidates } from "../meter-lab.js";
 
 function Evidence({ device }) {
@@ -29,7 +29,7 @@ function SaveFinding({ finding, run, device, disabled, onSaved }) {
 function MeterLabPanel({ device }) {
   const { t }=useText();const [view,setView]=useState(null),[failed,setFailed]=useState(false),[refresh,setRefresh]=useState(0);
   const [first,setFirst]=useState(1),[last,setLast]=useState(16),[mode,setMode]=useState("current"),[timeout,setTimeoutValue]=useState(350),[plan,setPlan]=useState(""),[planEdited,setPlanEdited]=useState(false);
-  useEffect(()=>{if(!planEdited&&view?.discovery?.plan)setPlan(view.discovery.plan.map(p=>`${addressHex(p.address)}:${p.words}`).join(","));},[view?.discovery?.run,Boolean(view),planEdited]);
+  useEffect(()=>{if(!planEdited&&view?.discovery?.plan){const selected=meterProfile(device.data);const queries=selected.commissioningRequired?[selected.probe,selected.meterEnergy||selected.secondaryEnergy]:view.discovery.plan;setPlan(queries.map(p=>`${addressHex(p.address)}:${p.words}`).join(","));}},[view?.discovery?.run,Boolean(view),planEdited,device.data?.profile]);
   useEffect(()=>{let alive=true,timer,abort;async function poll(){abort=new AbortController();try{const response=await deviceFetch("/api/meter-lab",{cache:"no-store",signal:abort.signal});const next=await response.json();if(!response.ok||!validMeterLab(next))throw new Error("schema");if(alive){setView(next);setFailed(false);}}catch{if(alive)setFailed(true);}finally{if(alive)timer=setTimeout(poll,1000);}}poll();return()=>{alive=false;clearTimeout(timer);abort?.abort();};},[refresh]);
   const scan=view?.discovery,running=scan?.phase==="running",blocked=device.pending||!device.fresh||failed||!view?.ready||device.data?.diagnosticActive||device.data?.scan?.phase==="running";
   const refreshNow=()=>setRefresh(v=>v+1);

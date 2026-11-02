@@ -1,5 +1,9 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.2.0
+
+Menambahkan profil ACR10R-DxxTE dan APM800/801/810 dengan batas referensi manual serta commissioning melalui verifikasi perangkat tersimpan. Dekode Int16 dan energi Float32 ditambahkan tanpa mengubah schema checkpoint, konversi profil lama, jadwal, Wi-Fi maupun library Modbus. Energi primer tidak dikalikan CT/PT lagi.
+
 ## 3.1.0
 
 Menambahkan profil referensi Habuer dengan PF/frekuensi Float32, kWh/kvarh kumulatif langsung serta empat pembacaan wajib terpisah. Kemampuan meter, probe kontak, audit plan dan binding discovery berasal dari descriptor bersama, sedangkan register yang belum terbukti tidak dibaca atau ditampilkan sebagai pengukuran. ID profil lama, matematika konversi historis dan layout checkpoint dipertahankan. Status login Enterprise juga diperbaiki saat identitas luar mengikuti username.

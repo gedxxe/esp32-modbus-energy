@@ -1,7 +1,7 @@
 {
-  "version": "3.1.0",
+  "version": "3.2.0",
   "transport": "gzip",
-  "compressed_total": 150174,
+  "compressed_total": 150749,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 437496,
-      "gzip": 138428,
-      "sha256": "39b486a182b7f016d5b9c5d3ce069d28efa497c40dc53357a2cf899041936413"
+      "raw": 439231,
+      "gzip": 139003,
+      "sha256": "aa5172ed2d9b262fb1556a0b888587966230a19346e401ce077e1bd24a401349"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "af9407ad3da4f3908c5b78f3ed68881df4101443e3974e6972192c7585e791e3",
-    "package.json": "5f698175a3f56cafbca7a747381680fca9abde9664075fc4022d52e4afd243f7",
+    "package-lock.json": "f1da01aaad8c627b11a5d9c338647504bdcacce7716400029c7e4a3aefec9e2a",
+    "package.json": "0de0e4d25637b88d703ba457b008d9d0fcc550169af7ed26d53634b30c030393",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -53,8 +53,8 @@
     "web/components/FlowPlayback.jsx": "f33ba001207024f3b9dc6d380222f54f841305b12c985ceb37223496a5fb6896",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/MeterLab.jsx": "4d8470e85ae5cf529a601d7272b8822a6926bbe4403455a16e999dc70a2e779b",
-    "web/components/MeterMeasurements.jsx": "12885ac209562a4b189bae3763f9409aaff88e084f8c40e6f49c76037fb8cd77",
+    "web/components/MeterLab.jsx": "bce995350984404611a0513f610fe32ad4fe50bd964a8b080c66cf035f9832a9",
+    "web/components/MeterMeasurements.jsx": "fec368f4d2adb5855acd190c3db835016a59fd0afd956c1615f3e2267933a1af",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
     "web/components/NetworkControls.jsx": "4578bb9fce06548285b28111a0881296aae85e9443954073ac85f3bb58dfef69",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
@@ -64,15 +64,15 @@
     "web/device.js": "48c47f929f90b9b3a8296010061fb6b00263e474913f1c510455584aa4013036",
     "web/enterprise-i18n.js": "505b72b95a885a893452eb5a9d53605d90d3176d5679004ead5df29766e5637b",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
-    "web/i18n.js": "85e28ee52429db5196e82977f0ca75bb1a8dd9ad632f26bf9920ee320e79e925",
+    "web/i18n.js": "d160b6c8e82630ce619d39e066c1d64ce7b47c926de9e46a0306080ae3c20ac6",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
-    "web/meter-lab-i18n.js": "0042f4a77c4b97278822ea59c336d37da51ad4ca672ee3bfe7e9ea898c58e84c",
+    "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
     "web/meter-profile.js": "a3e47eb7ade6d94cdc6c55362d09e1151f2be413ef96af1d1d016bc312798c0d",
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
     "web/styles.css": "449623d904d8851f9178bdf415627d9b0d2e064479cd152dada9fd852706e680",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
-    "web/validation.js": "cf509c397b8838f7d75005dc8787bd73512f9adb9e7087dd8764ef0b999cac02",
+    "web/validation.js": "951e8a9a99aefe9bb5325bbc4299b6f77322ba9cbc36c639cc2a716578601a71",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/Counter.css": "9f224c728e16bb2b4137cd0e5a3ff370043bc9c838450fa8aaed89e190a8a6f8",
     "web/vendor/react-bits/Counter.jsx": "25e98c26331ef7b6b4326c48b7540feb1a2208b09160c7f2b96e4fbf146522f8",
@@ -87,8 +87,8 @@
     "web/vendor/react-bits/WakeSlider.jsx": "f0184a8248b78ef359e088ae24a6565faf09e867bdacb96761d48f02b3badc32",
     "web/vendor/react-bits/upstream.json": "365e1a35fb29bbd42aa7fa5d39461bac789d67c533c274e3d52d5eb1596d517c",
     "web/views/DeviceRecords.jsx": "5492aea4da6dce3ad17f3745011028fa286ddf5b7e8abd4d74e6ae8c0c5e24fd",
-    "web/views/MeterSetup.jsx": "1758fbdab629538a47416f4fabce0701e8d5c01e7fa1c659f4438da896ff274e",
+    "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "0818b70ab1cd19eb39d6a6409dffd1bcd31f0bbadf9658f42371fe2b2e13099f"
   },
-  "header_sha256": "83491b22409231d3b0dd9eb51be2181e1f49eecbc0f9e703c54819553b14d7a0"
+  "header_sha256": "563efdfea628920168530b37d61316c5d674b16f15ebc9d1ed12eab9c72d5fab"
 }

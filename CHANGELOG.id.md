@@ -1,5 +1,9 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.3.0
+
+Memperbaiki akuisisi ADL400 ke total 0x0000 serta float ABCD hasil scan. Pilihan model tetap satu, sedangkan ID forward historis 1 dipertahankan secara internal. Menambahkan report adl400 dan regresi ID220/CT80 tanpa mengubah Fort atau Habuer.
+
 ## 3.2.0
 
 Menambahkan profil ACR10R-DxxTE dan APM800/801/810 dengan batas referensi manual serta commissioning melalui verifikasi perangkat tersimpan. Dekode Int16 dan energi Float32 ditambahkan tanpa mengubah schema checkpoint, konversi profil lama, jadwal, Wi-Fi maupun library Modbus. Energi primer tidak dikalikan CT/PT lagi.

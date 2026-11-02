@@ -5,6 +5,7 @@ import { useText } from "../ui.js";
 import { validDiagnostic } from "../validation.js";
 const recipes = [
   ["diagnose", "diagnose"],
+  ["adl400", "adl400"],
   ["basic", "basic"],
   ["probe", "intermediate"],
   ["map", "deeper"],
@@ -92,7 +93,7 @@ function ConsoleData({ device }) {
       <p>{t("diag_intro")}</p>
       <div className="hint">{t("diag_pause")}</div>
       <div className="diag-recipes">
-        {recipes.filter(([key])=>key!=="primary"||profile.primaryFloat).map(([label, line]) => (
+        {recipes.filter(([key])=>(key!=="primary"||profile.primaryFloat)&&(key!=="adl400"||profile.key==="acrel-adl400")).map(([label, line]) => (
           <button
             key={label}
             type="button"

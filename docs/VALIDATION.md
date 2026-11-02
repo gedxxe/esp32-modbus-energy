@@ -1,9 +1,17 @@
-# Validation record / 30 October 2026
+# Validation record / 2 November 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.2.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.3.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## ADL400 field-scan correction in 3.3.0
+
+Both ESP32-S3 builds passed: the main firmware and the actual standalone INO. The generated web payload is 151,121 bytes gzip. All three native suites passed, including valid DC-addressed (slave 220) frames through the actual ModbusMaster library, UInt32 9798 at 0x0000, PT 1/CT 80, 97.98 secondary and 7838.40 final kWh, ABCD voltage/frequency, the one-shot comparison report, reverse-zero/nonzero observations and changed-ratio rejection. A valid exception at total energy does not cause fallback to another counter. Native tests also cover a verified saved binding for the new total map, old configuration migration retaining slave 220 and legacy/new checkpoint source identity.
+
+The full generated-byte Edge regression and separate ADL400, discovery, Habuer and ACR/APM browser suites passed. The ADL400 case checks exactly one visible option, ID220 persistence, total 0x0000 and 0x53xx labels, base versus scaled engineering values, the comparison preset/command, both languages and mobile width. All 29 SVGs rendered. Test fixture values are software evidence, not an additional hardware acceptance claim.
+
+The owner's successful scan is the field reference. The integrated release has not been connected to that meter here. The LCD difference of 0.5 kWh is below the 0.8 kWh raw-count step for PT1/CT80 and is not compensated by a fitted factor. See [ADL400 correction](ADL400_FIX.md) for the source mapping, original mismatches, exact engineering units and explicit command destinations. Historical forward ID1 is preserved internally and hidden from selection, while current ADL400 uses total ID5. Fort and Habuer behavior, checkpoint schema and schedules remain covered by the existing regressions.
 
 ## ACR/APM integration in 3.2.0
 

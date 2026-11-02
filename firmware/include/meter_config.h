@@ -18,6 +18,8 @@ inline bool decodeMeterConfig(const uint8_t *p,size_t size,Settings &out,uint16_
   uint16_t id=0;
   if(s.magic==0x46525434){if(meterGet16(p+14)!=crc16(p,14)||!validSettings(s))return false;id=meterGet16(p+12);}
   else{if(meterGet16(p+12)!=crc16(p,12)||!migrateLegacySettings(s))return false;}
+  // Upgrade the active reader, never rewrite historical profile IDs or captures.
+  if(s.profile==profiles::ACREL_ADL400){s.profile=profiles::ACREL_ADL400_VERIFIED;id=0;}
   out=s;savedId=id;return true;
 }
 } // namespace fort

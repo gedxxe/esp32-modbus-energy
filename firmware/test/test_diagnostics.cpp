@@ -74,9 +74,9 @@ int main(){
   engine.tick();engine.tick();assert(!engine.consoleCount);}
  // Acrel profile must use its own query width, ratio layout and kWh resolution.
  {HardwareSerial port(1);char log[4096];FortDiagnostics engine(port,log,sizeof(log));
-  engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400);
+  engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400_VERIFIED);
   assert(engine.options.probeAddress==0x64&&engine.options.probeWords==1&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
-  assert(engine.auditPlan[2].address==0x16A&&engine.auditPlan[3].address==0x77);
+  assert(engine.auditPlan[2].address==0x5300&&engine.auditPlan[3].address==0x006A&&engine.auditPlan[5].address==0x5332);
   port.replies.push_back(response({1,3,2,0,123}));assert(engine.probeLink(engine.current));
   assert(port.transmitted.back()[3]==0x64&&port.transmitted.back()[5]==1);
   port.replies.push_back(response({1,3,4,0,1,0xE2,0x40})); // 123456 -> 1234.56 secondary kWh
@@ -91,6 +91,32 @@ int main(){
  const uint8_t signedPower[]={0xFF,0xFF,0xD8,0xF0},voltage[]={0x08,0xFC};
  assert(fabs(profiles::decode(profiles::get(1).power,signedPower)+1.0)<1e-10);
  assert(fabs(profiles::decode(profiles::get(1).voltage,voltage)-230.0)<1e-10);
+ // Reproduce the user's ADL400 scan through the actual shared ModbusMaster transport.
+ {HardwareSerial port(1);char log[8192];FortDiagnostics engine(port,log,sizeof(log));engine.command("profile acrel-adl400");engine.command("id 220");
+  const auto &p=profiles::get(engine.options.profile);assert(p.energy.address==0&&p.energy.words==2&&p.energy.encoding==profiles::U32);
+  bool reverse=false,changeRatio=false,failEnergy=false;unsigned ratios=0;
+  port.onWrite=[&](){const auto &tx=port.transmitted.back();assert(tx[0]==220&&tx[1]==3);uint16_t a=uint16_t(tx[2])<<8|tx[3];
+   if(failEnergy&&a==0){for(auto b:response({220,0x83,2}))port.incoming.push_back(b);return;}
+   uint32_t raw=a==0x64?10000:a==0?9798:a==0xA?9790:a==0x14?(reverse?1:0):a==0x1E?100:a==0x8D?(0x10000UL+(changeRatio&&++ratios>1?81:80)):a==0x5300?0x436B8CB0UL:a==0x5332?0x4247D70AUL:a==0x5330?0x3F733333UL:0x42C80000UL;
+   if(tx[5]==1){for(auto b:response({220,3,2,uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(b);}
+   else for(auto b:response({220,3,4,uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(b);
+  };
+  assert(engine.readEnergy(engine.current));assert(port.transmitted.size()==2&&port.transmitted[0][2]==0&&port.transmitted[0][3]==0&&port.transmitted[0][5]==2&&port.transmitted[1][3]==0x8D);
+  char copy[8193];engine.copyLog(copy,sizeof(copy));assert(std::string(copy).find("7838.400000 kWh")!=std::string::npos);
+  uint8_t voltage[]={0x43,0x6B,0x8C,0xB0},hz[]={0x42,0x47,0xD7,0x0A};assert(fabs(profiles::decode(p.voltage,voltage)-235.54956)<.0001&&fabs(profiles::decode(p.frequency,hz)-49.96)<.0001);
+  assert(fabs(profiles::primaryEnergy(p.id,9798,1,1,80)-7838.4)<1e-8);assert(fabs(7838.9-7838.4)<.01*80);
+  engine.clearLog();engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(engine.evidence.requests==13);
+  std::string report(copy);assert(report.find("[ADL400_BEGIN] ID=220")!=std::string::npos&&report.find("address=0x0000 energy=7838.400000")!=std::string::npos&&report.find("[ADL400_REVERSE] zero")!=std::string::npos&&report.find("complete=1")!=std::string::npos);
+  engine.clearLog();reverse=true;engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(std::string(copy).find("[ADL400_REVERSE] nonzero")!=std::string::npos);
+  engine.clearLog();changeRatio=true;ratios=0;engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(std::string(copy).find("valid_stable=0")!=std::string::npos&&std::string(copy).find("[ADL400_SCALED]")==std::string::npos);
+  changeRatio=false;assert(engine.discoveryOptions.count==3);auto cfg=engine.discoveryOptions;cfg.preferred.slave=220;cfg.first=cfg.last=220;cfg.responseMs=150;
+  assert(engine.discovery.begin(cfg,333,millis(),1));while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185200);
+  assert(engine.discovery.found[0].mapEvidence()&(1<<profiles::ACREL_ADL400_VERIFIED));SavedMeter savedMeter;savedMeter.id=8;savedMeter.profile=profiles::ACREL_ADL400_VERIFIED;savedMeter.verified=true;savedMeter.evidence=engine.discovery.found[0];strcpy(savedMeter.name,"ADL panel");strcpy(savedMeter.model,"ADL400");Settings bound;assert(canActivateSaved(savedMeter,bound)&&bound.slave==220);
+  failEnergy=true;const size_t before=port.transmitted.size();assert(!engine.readEnergy(engine.current));assert(port.transmitted.size()==before+1); // Never fall back to forward energy.
+  uint8_t oldBytes[METER_CONFIG_BYTES];Settings old;old.profile=profiles::ACREL_ADL400;old.slave=220;encodeMeterConfig(old,37,oldBytes);Settings upgraded;uint16_t saved=37;
+  assert(decodeMeterConfig(oldBytes,sizeof(oldBytes),upgraded,saved)&&upgraded.profile==profiles::ACREL_ADL400_VERIFIED&&upgraded.slave==220&&saved==0);
+  assert(!profiles::selectable(profiles::ACREL_ADL400));uint8_t id=0;assert(!profiles::parse("adl400-legacy",id)&&profiles::parse("acrel-adl400",id)&&id==profiles::ACREL_ADL400_VERIFIED);
+ }
  // The universal survey continues after a silent first probe and records exceptions separately.
  {HardwareSerial port(1);FortDiagnostics engine(port);DiscoveryConfig config;config.first=1;config.last=1;config.responseMs=150;
   assert(engine.discovery.begin(config,17,millis(),99));
@@ -109,7 +135,7 @@ int main(){
   auto third=recover.registry;third.entries[1]=third.entries[0];third.entries[1].id=third.nextId++;strcpy(third.entries[1].name,"Second");third.count=2;assert(recover.commit(backend,third));
   backend.values["meters_b"][30]^=1;MeterRegistryStore older;assert(older.load(backend,true));assert(older.registry.nextId==3&&older.registry.count==1);
   uint8_t bytes[METER_REGISTRY_BYTES];encodeMeterRegistry(saved,bytes);MeterRegistry decoded;assert(decodeMeterRegistry(bytes,sizeof(bytes),decoded));bytes[40]^=1;assert(!decodeMeterRegistry(bytes,sizeof(bytes),decoded));
-  Settings old;old.magic=0x46525433;old.profile=profiles::ACREL_ADL400;uint8_t legacy[16]={};memcpy(legacy,&old,12);meterPut16(legacy+12,crc16(legacy,12));uint16_t id=99;assert(decodeMeterConfig(legacy,16,chosen,id)&&chosen.profile==profiles::ACREL_ADL400&&id==0);
+  Settings old;old.magic=0x46525433;old.profile=profiles::ACREL_ADL400;uint8_t legacy[16]={};memcpy(legacy,&old,12);meterPut16(legacy+12,crc16(legacy,12));uint16_t id=99;assert(decodeMeterConfig(legacy,16,chosen,id)&&chosen.profile==profiles::ACREL_ADL400_VERIFIED&&id==0);
   encodeMeterConfig(chosen,123,legacy);assert(decodeMeterConfig(legacy,16,chosen,id)&&id==123);legacy[12]^=1;assert(!decodeMeterConfig(legacy,16,chosen,id));
  }
  {HardwareSerial port(1);FortDiagnostics engine(port);engine.command("timeout 150");engine.command("range 1 1");engine.command("scanmode current");engine.command("discover");assert(engine.discovery.running());engine.command("stop");assert(!engine.discovery.running()&&engine.discovery.phase==DISCOVERY_CANCELLED);}
@@ -118,7 +144,7 @@ int main(){
   port.onWrite=[&](){const auto &tx=port.transmitted.back();std::vector<uint8_t> bytes={tx[0],3,uint8_t(tx[5]*2)};bytes.resize(3+tx[5]*2,0);uint16_t crc=meterCRC(bytes.data(),bytes.size());bytes.push_back(uint8_t(crc));bytes.push_back(uint8_t(crc>>8));for(auto byte:bytes)port.incoming.push_back(byte);};
   assert(engine.discovery.begin(config,2,millis(),50));while(engine.discovery.running())engine.discovery.step(engine,millis(),0);
   assert(engine.discovery.phase==DISCOVERY_CAPACITY&&engine.discovery.count==4&&engine.discovery.tested==4*config.count);
-  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==uint8_t(7));SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(canActivateSaved(saved,settings));
+  auto &found=engine.discovery.found[0];assert(found.mapEvidence()==uint8_t(7));SavedMeter saved;saved.id=9;saved.profile=profiles::ACREL_ADL400;saved.verified=true;strcpy(saved.name,"Panel");strcpy(saved.model,"ADL400");saved.evidence=found;Settings settings;assert(validSavedMeter(saved)&&!canActivateSaved(saved,settings));
   saved.profile=profiles::HABUER;strcpy(saved.model,"Habuer reference");assert(canActivateSaved(saved,settings)&&settings.profile==profiles::HABUER);
   MeterRegistry registry;registry.generation=1;registry.nextId=10;registry.count=1;registry.entries[0]=saved;uint8_t encodedRegistry[METER_REGISTRY_BYTES];encodeMeterRegistry(registry,encodedRegistry);MeterRegistry restoredRegistry;assert(decodeMeterRegistry(encodedRegistry,sizeof(encodedRegistry),restoredRegistry)&&restoredRegistry.entries[0].profile==profiles::HABUER);
   saved.evidence.link.stops=2;assert(!canActivateSaved(saved,settings));

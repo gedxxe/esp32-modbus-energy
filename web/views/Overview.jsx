@@ -137,7 +137,7 @@ export default function Overview({ device }) {
           }}
         >
           <div className="summary-top">
-            <span className="label">{t("energy")}</span>
+            <span className="label">{t(profile.adl400?"adl400_total_energy":"energy")}</span>
             <span className="live-stamp">
               <span className="dot" />
               {energyFresh ? "MODBUS RTU" : t("counter")}

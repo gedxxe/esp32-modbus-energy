@@ -154,6 +154,10 @@ int main(){
     capturePut32(bytes+24+12,0x7FC00000UL);capturePut16(bytes+CAPTURE_RECORD_SIZE-2,crc16(bytes,CAPTURE_RECORD_SIZE-2));assert(!decodeCaptureDay(bytes,sizeof(bytes),restored));
     assert(!captures.sample(at+2,at+2,0x7F800000UL,source));assert(!captures.sample(at+2,at+2,0x80000000UL,source));
   }
+  {CaptureSource src;src.profile=profiles::ACREL_ADL400_VERIFIED;src.slave=220;src.baud=9600;src.parity='N';src.ptNum=src.ptDen=1;src.ct=80;CaptureTracker tracker;tracker.newDay(20754);uint32_t at=captureTarget(20754,0);
+   assert(tracker.sample(at,at+1,9798,src));near(tracker.day.points[0].energy,7838.4);uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(tracker.day,bytes);CaptureDay restored;assert(decodeCaptureDay(bytes,sizeof(bytes),restored)&&restored.points[0].source.profile==profiles::ACREL_ADL400_VERIFIED);near(restored.points[0].energy,7838.4);
+   auto legacy=src;legacy.profile=profiles::ACREL_ADL400;assert(!sameCaptureSource(src,legacy));
+  }
   {CaptureSource source;source.profile=profiles::HABUER;source.meterId=77;source.baud=9600;source.slave=1;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
    assert(validCaptureSource(source));CaptureTracker log;const uint32_t day=20754;log.newDay(day);uint32_t at=captureTarget(day,0);
    assert(log.sample(at,at+1,123456,source));near(log.day.points[0].energy,12345.6);

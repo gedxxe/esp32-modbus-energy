@@ -6,11 +6,13 @@ One station reads one configured meter through the shared FC03 transport. Select
 
 ![Representative model selector with simulated device data](assets/ui-meter-profile.png)
 
+ADL400 production now follows the owner's field scan at total energy `0x0000`, with verified ABCD electrical floats. [ADL400 correction](ADL400_FIX.md) documents the single visible profile, migration and exact mapping. Historical ID 1 retains its earlier forward-counter meaning for archived records only.
+
 ## Sources and supported revisions
 
 The Fort profile preserves the validated map from the root [Fort manual](../Fort%20Power%20Meter_User%20Manual_compressed.pdf). The Acrel profile follows the supplied [ADL400 installation and operation instruction V1.3](../Acrel%20ADL400%20Manual.pdf), a 27-page document. PDF page numbers below count the cover as page 1. Its printed page numbers are four lower.
 
-The Acrel table has ambiguous typography: the merged note on PDF page 16 labels active and reactive energy together as kVarh, while the quantity names distinguish active from reactive energy. A later [manufacturer ADL400 T1.4 manual](https://www.acrel.ng/uploads/file/20240819/adl400-installation-and-operation-instruction.pdf), table 8, explicitly identifies the low-address active-energy block as UINT32, 0.01 kWh, with PT×CT applied once. That later document corroborates the conversion but does not replace the supplied revision. In particular, later ADL400/MID documents give different power resolutions and floating-point maps. This implementation uses the supplied V1.3 extended power scale and does not claim compatibility with every ADL400 revision, MID variant, ADL400-D or ADL400W.
+The Acrel table has ambiguous typography: the merged note on PDF page 16 labels active and reactive energy together as kVarh, while the quantity names distinguish active from reactive energy. A later [manufacturer ADL400 T1.4 manual](https://www.acrel.ng/uploads/file/20240819/adl400-installation-and-operation-instruction.pdf), table 8, explicitly identifies the low-address active-energy block as UINT32, 0.01 kWh, with PT×CT applied once. That later document corroborates the conversion but does not replace the supplied revision. In particular, later ADL400/MID documents give different power resolutions and floating-point maps. The historical implementation used the supplied V1.3 extended power scale and does not claim compatibility with every ADL400 revision, MID variant, ADL400-D or ADL400W.
 
 Production reads assume the high word comes first for the two-register integer values, with big-endian bytes inside each Modbus register. The supplied manual does not explicitly settle the two-word ordering. Diagnostics retain the raw words and an explicit `order normal` / `order swap` comparison. Do not select an order just because one candidate looks plausible. Compare the import-energy result with the meter LCD, and stop acceptance if the words or scaling disagree. Trial diagnostic overrides never silently change the production map.
 
@@ -20,17 +22,18 @@ Addresses are hexadecimal PDU offsets. No 40001 offset or automatic subtraction 
 
 | Reading | Fort | Acrel ADL400 V1.3 | Acrel PDF page |
 | --- | --- | --- | --- |
-| Phase-A current / default contact probe | `0x0058`, 2 words, UINT32 × 0.0001 A | `0x0064`, 1 word, UINT16 × 0.01 A | 17 |
-| Phase-A voltage | `0x0042`, 2 words, UINT32 × 0.0001 V | `0x0061`, 1 word, UINT16 × 0.1 V | 17 |
-| Total active power | `0x006A`, 2 words, INT32 × 0.0001 kW | `0x016A`, 2 words, INT32 × 0.0001 kW | 19 |
-| Frequency | `0x0080`, 1 word, UINT16 × 0.01 Hz | `0x0077`, 1 word, UINT16 × 0.01 Hz | 17 |
-| Forward/import active energy | `0x0082`, 2 words, UINT32 × 0.001 kWh | `0x000A`, 2 words, UINT32 × 0.01 kWh | 16 |
+| Default contact probe | `0x0058`, 2 words, UINT32 × 0.0001 A | `0x0064`, 1 word, UINT16 × 0.01 A | 17 |
+| Phase-A current | `0x0058`, 2 words, UINT32 × 0.0001 A | `0x530C`, 2 words, Float32 ABCD A | 22 |
+| Phase-A voltage | `0x0042`, 2 words, UINT32 × 0.0001 V | `0x5300`, 2 words, Float32 ABCD V | 22 |
+| Total active power | `0x006A`, 2 words, INT32 × 0.0001 kW | `0x006A`, 1 word, INT16 × 0.001 kW | 17 |
+| Frequency | `0x0080`, 1 word, UINT16 × 0.01 Hz | `0x5332`, 2 words, Float32 ABCD Hz | 23 |
+| Cumulative active energy | `0x0082`, 2 words, UINT32 × 0.001 kWh | `0x0000`, 2 words, UINT32 × 0.01 kWh | 16 |
 | Transformer settings | `0x002C`, 3 words: PT numerator, PT denominator, CT | `0x008D`, 2 words: PT, CT. Denominator is 1 | 18 |
 | Optional primary float energy | `0x008A`, diagnostic candidates only | No primary float energy in this supplied map | 22–23 |
 
 The energy formula is `raw × profile.energy.scale × PT numerator / PT denominator × CT`. It uses `double`, and no cumulative value is accepted until ratios are in 1–9999. For example, Acrel raw 123456, PT 2 and CT 40 produces `123456 × 0.01 × 2 × 40 = 98764.8 kWh`. The raw secondary register value remains available before ratio acceptance. Current, voltage and power in the register panel are decoded register values without an extra transformer multiplication.
 
-The station deliberately reads the forward counter `0x000A`, rather than combined total `0x0000` or reverse `0x0014`. The meter's optional frozen-history registers are separate from the ESP32 checkpoint log and are not imported or reconfigured. Only FC03 requests are issued, even though the meter manual also describes write functions.
+Production reads total `0x0000` from the field scan. Historical ID 1 used forward `0x000A`. Forward and reverse `0x0014` are now compared only in the `adl400` diagnostic report. The meter's optional frozen-history registers are separate from the ESP32 checkpoint log and are not imported or reconfigured. Only FC03 requests are issued, even though the meter manual also describes write functions.
 
 ## Wiring
 

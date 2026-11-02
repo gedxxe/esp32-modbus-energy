@@ -93,7 +93,7 @@ const calls = [],
   assetRequests = new Set();
 const meterCatalog=[
  {key:"fort",name:"Fort",primaryFloat:138,terminals:"58 / A · 59 / B",maxBaud:38400,energyScale:.001,ratios:44,ratioWords:3,currentA:{address:88,words:2},voltageA:{address:66,words:2},power:{address:106,words:2},frequency:{address:128,words:1},secondaryEnergy:{address:130,words:2}},
- {key:"acrel-adl400",name:"Acrel ADL400",terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:362,words:2},frequency:{address:119,words:1},secondaryEnergy:{address:10,words:2}},
+ {key:"acrel-adl400",name:"Acrel ADL400",adl400:true,terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,probe:{address:100,words:1},currentA:{address:21260,words:2},voltageA:{address:21248,words:2},power:{address:106,words:1},powerFactor:{address:21296,words:2},frequency:{address:21298,words:2},secondaryEnergy:{address:0,words:2}},
  {key:"habuer",name:"Habuer",terminals:"A / B · use meter labels",maxBaud:38400,energyScale:.1,energyBasis:"meter-total",coherentSnapshot:true,ratios:0,ratioWords:0,probe:{address:48,words:2},currentA:null,voltageA:null,power:null,powerFactor:{address:48,words:2},frequency:{address:50,words:2},secondaryEnergy:{address:52,words:2},reactiveEnergy:{address:53,words:2}},
  {key:"acrel-acr",primaryFloat:71,name:"Acrel ACR10R-DxxTE",terminals:"A / B labels",maxBaud:38400,energyScale:1,energyBasis:"meter-total",coherentSnapshot:true,commissioningRequired:true,ratios:0,ratioWords:0,probe:{address:100,words:1},currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:103,words:1},frequency:{address:119,words:1},powerFactor:{address:115,words:1},secondaryEnergy:{address:71,words:2},reactiveEnergy:{address:75,words:2}},
  {key:"acrel-apm",primaryFloat:3000,name:"Acrel APM800/801/810",terminals:"A / B labels",maxBaud:38400,energyScale:.001,energyBasis:"meter-total",coherentSnapshot:true,commissioningRequired:true,ratios:0,ratioWords:0,probe:{address:252,words:1},currentA:{address:1100,words:2},voltageA:{address:1120,words:2},power:{address:1156,words:2},frequency:{address:252,words:1},powerFactor:{address:1183,words:1},secondaryEnergy:{address:3000,words:2},reactiveEnergy:{address:3004,words:2}}
@@ -186,7 +186,7 @@ const diagnostic = {
 function appendFlow(outcome="valid") {
   const profile=state.meter,reg=profile.secondaryEnergy,slave=state.slave;
   const tx=rtuHex([slave,3,reg.address>>8,reg.address&255,0,reg.words]);
-  const data=profile.key==="habuer"?[0,1,226,64]:[0,0,3,232];
+  const data=profile.key==="habuer"?[0,1,226,64]:profile.key==="acrel-adl400"?[0,0,0x26,0x46]:[0,0,3,232];
   const rx=rtuHex([slave,3,data.length,...data]);
   const now = Math.floor((Date.now() % 1000000) * 1000);
   for (const [kind, offset, result] of [
@@ -224,7 +224,7 @@ function labEvidence(index=0){
  return {slave,baud:9600,parity:"N",stopBits:1,direction:"manual",boot:99,run:1,utc:1793185200,elapsedMs:2000,requests:2*probes.length,timeouts:0,crcErrors:0,rejected:0,exceptions:0,mapEvidence:1<<index,mappingHints:[profile.key],confirmed:true,probes};
 }
 
-const defaultLabPlan=meterCatalog.flatMap(p=>[p.probe||p.currentA,p.secondaryEnergy,...(p.ratioWords?[{address:p.ratios,words:p.ratioWords}]:[])]).slice(0,8);
+const defaultLabPlan=meterCatalog.map(p=>p.key==="acrel-adl400"?{...p,secondaryEnergy:{address:10,words:2}}:p).flatMap(p=>[p.probe||p.currentA,p.secondaryEnergy,...(p.ratioWords?[{address:p.ratios,words:p.ratioWords}]:[])]).slice(0,8);
 const lab={schema:1,version,ready:true,storageOK:true,activeId:0,error:"",discovery:{plan:defaultLabPlan,phase:"idle",run:0,tested:0,total:0,elapsedMs:0,requests:0,timeouts:0,crcErrors:0,rejected:0,exceptions:0},current:{...labEvidence(),run:0,confirmed:false,probes:[]},findings:[],saved:[]};
 let labRequests=0,labHold=false,labMalformed=false,labNextId=1;
 const server = http.createServer((req, res) => {
@@ -455,6 +455,7 @@ const server = http.createServer((req, res) => {
           if (key==="direction") diagnostic.settings.direction=arg;
           if (key==="parity") diagnostic.settings.parity=arg;
           diagnostic.log += `[COMMAND_INPUT] ${command}\n`;
+          if(command==="adl400")diagnostic.log+="[ADL400_BEGIN] ID=220 baud=9600 parity=N\n[ADL400_COUNTER] address=0x0000 raw=9798 base=97.98 kWh\n[ADL400_SCALED] address=0x0000 energy=7838.400000 kWh step=0.800000\n[ADL400_END] complete=1\n";
           if (command === "diagnose") {
             diagnostic.evidence={requests:8,rxBytes:0,data:0,exceptions:0,timeouts:8};
             diagnostic.log +=
@@ -639,6 +640,7 @@ async function checkVectors(browser, out) {
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--adl400-only")){const page=await browser.newPage({viewport:{width:1440,height:1100}});await require("./test-adl400.cjs")({page,origin,state,calls,root});return;}
     if(process.argv.includes("--acrel-only")){const page=await browser.newPage({viewport:{width:1440,height:1100}});await require("./test-acrel.cjs")({page,origin,state,calls,root});return;}
     if(process.argv.includes("--habuer-only")){
       const page=await browser.newPage({viewport:{width:1440,height:1100}});

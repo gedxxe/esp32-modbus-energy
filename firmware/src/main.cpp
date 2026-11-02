@@ -761,7 +761,7 @@ void acquisition(void *) {
   if(nvsOK&&prefs.isKey("config")) {
     uint8_t bytes[METER_CONFIG_BYTES]={};size_t size=prefs.getBytesLength("config");
     if(size==sizeof(bytes)&&prefs.getBytes("config",bytes,size)==size&&decodeMeterConfig(bytes,size,config,selectedMeterId)){
-      if(meterGet32(bytes)!=config.magic){encodeMeterConfig(config,selectedMeterId,bytes);configOK=prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes);}
+      if(meterGet32(bytes)!=config.magic||bytes[11]!=config.profile||meterGet16(bytes+12)!=selectedMeterId){encodeMeterConfig(config,selectedMeterId,bytes);configOK=prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes);}
     }else{config=Settings{};configOK=false;setError("Stored configuration invalid. Defaults loaded","config_corrupt");}
   }
   meterRegistry.load(prefs,nvsOK);
@@ -924,6 +924,12 @@ void acquisition(void *) {
       state.currentA=profiles::available(profile.current)&&readWordsFor(state.config,profile.current.address,profile.current.words,raw,1,true)?profiles::decode(profile.current,raw):NAN;
       state.voltageA=profiles::available(profile.voltage)&&readWordsFor(state.config,profile.voltage.address,profile.voltage.words,raw,1,true)?profiles::decode(profile.voltage,raw):NAN;
       if(!profiles::coherentSnapshot(profile))state.frequency=profiles::available(profile.frequency)&&readWordsFor(state.config,profile.frequency.address,profile.frequency.words,raw,1,true)?profiles::decode(profile.frequency,raw):NAN;
+      if(!profiles::coherentSnapshot(profile)&&profiles::available(profile.powerFactor)){
+        state.powerFactor=readWordsFor(state.config,profile.powerFactor.address,profile.powerFactor.words,raw,1,true)?profiles::decode(profile.powerFactor,raw):NAN;
+        if(!isfinite(state.powerFactor)||fabs(state.powerFactor)>1.05)state.powerFactor=NAN;
+      }
+      if(profiles::isAdl400(profile.id)&&(!isfinite(state.frequency)||state.frequency<40||state.frequency>70))state.frequency=NAN;
+
     }
     if(millis()-lastSave>=300000)saveCheckpoint(true);
     publish();vTaskDelay(pdMS_TO_TICKS(100));
@@ -1025,7 +1031,7 @@ void webSetup() {
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
       info["commissioningRequired"]=profile.commissioningRequired;info["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";
-      info["primaryFloat"]=profile.primaryFloat;info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
+      info["adl400"]=profiles::isAdl400(profile.id);info["primaryFloat"]=profile.primaryFloat;info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
       info["energyBasis"]=profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios";info["coherentSnapshot"]=profiles::coherentSnapshot(profile);info["requiredReadings"]=profile.requiredReadings;
       info["energyScale"]=profile.energy.scale;info["ratios"]=profile.ratios;info["ratioWords"]=profile.ratioWords;info["wordOrder"]="high-first";
       const char *names[]={"currentA","voltageA","power","frequency","secondaryEnergy","probe","powerFactor","reactiveEnergy"};
@@ -1034,7 +1040,7 @@ void webSetup() {
       info["meterEnergy"]=info["secondaryEnergy"];
     };
     describeProfile(d["meter"].to<JsonObject>(),profiles::get(s.config.profile));
-    JsonArray supported=d["meterProfiles"].to<JsonArray>();for(uint8_t id=0;id<profiles::COUNT;++id)describeProfile(supported.add<JsonObject>(),profiles::get(id));
+    JsonArray supported=d["meterProfiles"].to<JsonArray>();for(uint8_t id=0;id<profiles::COUNT;++id)if(profiles::selectable(id))describeProfile(supported.add<JsonObject>(),profiles::get(id));
     d["profileReady"]=s.profileReady;d["transport"]="ModbusMaster 2.0.1+fort.1";d["direction"]=s.config.direction==DIRECTION_MANUAL?"manual":"auto";d["directionPin"]=PIN_RS485_DE;d["settleUs"]=100;d["modbusStatus"]=s.modbusStatus;
     if(isfinite(s.meterEnergy)){d["secondaryEnergy"]=s.meterEnergy;d["secondaryAge"]=(millis()-s.lastMeterMs)/1000;}else d["secondaryEnergy"]=nullptr;
     d["meterEnergy"]=d["secondaryEnergy"];d["meterAge"]=d["secondaryAge"]; // v3.0 aliases remain readable.

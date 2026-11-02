@@ -35,7 +35,7 @@ void selectProfile(uint8_t id){
   options.swappedWords=false;options.decodeEnergy=true;
   auditCount=uint8_t(profiles::auditQueries(p,auditPlan,8));
   discoveryOptions=DiscoveryConfig{};
-  if(p.commissioningRequired){discoveryOptions.count=uint8_t(profiles::discoveryQueries(p,discoveryOptions.plan,DISCOVERY_PROBES));}
+  if(p.commissioningRequired||p.id==profiles::ACREL_ADL400_VERIFIED){discoveryOptions.count=uint8_t(profiles::discoveryQueries(p,discoveryOptions.plan,DISCOVERY_PROBES));}
   const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};baudCount=0;
   for(auto b:defaults)if(b<=p.maxBaud)BAUDS[baudCount++]=b;
 }
@@ -208,6 +208,35 @@ bool readEnergy(const Link &link) {
   ++evidence.energyOK;LOG("[%s] %.6f kWh\n",profile.commissioningRequired?"TRIAL_TOTAL":profiles::directEnergy(profile)?"METER_TOTAL":"PRIMARY_IMPORT",reading.meterEnergy*multiplier);
   return true;
 }
+// One operator-triggered comparison. Values are never copied into production state.
+void compareAdl400(){
+  if(!profiles::isAdl400(options.profile)){LOG("[ADL400_ONLY] Select profile acrel-adl400 first\n");return;}
+  polling=false;abortRequested=false;evidence=Evidence{};const uint32_t started=millis();
+  LOG("[ADL400_BEGIN] ID=%u baud=%lu parity=%c. Sequential reads, not simultaneous LCD sampling. Energy is UInt32 ABCD, never Float32\n",current.id,(unsigned long)current.baud,current.parity);
+  uint8_t bytes[4];uint16_t pt=0,den=0,ct=0,ptAfter=0,denAfter=0,ctAfter=0;
+  const auto &p=profiles::get(options.profile);
+  bool ratioOK=readRegisters(current,0x008D,2,bytes)&&profiles::ratios(p,bytes,pt,den,ct);
+  const uint16_t addresses[]={0x0000,0x000A,0x0014,0x001E};uint32_t raw[4]={};bool valid[4]={};uint32_t sampled[4]={};
+  for(unsigned i=0;i<4&&!abortRequested;++i){valid[i]=readRegisters(current,addresses[i],2,bytes);sampled[i]=millis();if(valid[i])raw[i]=profiles::raw32(bytes);}
+  if(!abortRequested)ratioOK=readRegisters(current,0x008D,2,bytes)&&profiles::ratios(p,bytes,ptAfter,denAfter,ctAfter)&&ratioOK&&pt==ptAfter&&ct==ctAfter;
+  if(abortRequested){LOG("[ADL400_INCOMPLETE] Interrupted. Do not compare this run\n");return;}
+  LOG("[ADL400_RATIO] valid_stable=%u PT=%u CT=%u. Applied once to energy only\n",ratioOK,pt,ct);
+  for(unsigned i=0;i<4;++i){
+    if(!valid[i]){LOG("[ADL400_COUNTER] address=0x%04X unavailable, not zero\n",addresses[i]);continue;}
+    LOG("[ADL400_COUNTER] address=0x%04X at_ms=%lu raw=%lu base=%.2f %s\n",addresses[i],(unsigned long)sampled[i],(unsigned long)raw[i],double(raw[i])*.01,i==3?"kvarh":"kWh");
+    if(ratioOK)LOG("[ADL400_SCALED] address=0x%04X energy=%.6f %s step=%.6f\n",addresses[i],double(raw[i])*.01*pt*ct,i==3?"kvarh":"kWh",.01*pt*ct);
+  }
+  if(valid[2])LOG("[ADL400_REVERSE] %s. Do not assume total equals forward\n",raw[2]?"nonzero":"zero");
+  if(valid[0]&&valid[1]&&ratioOK)LOG("[ADL400_TOTAL_MINUS_FORWARD] %.6f kWh. Compare the matching LCD page and read timestamps\n",(double(raw[0])-double(raw[1]))*.01*pt*ct);
+  const uint16_t floats[]={0x5300,0x530C,0x5318,0x5320,0x5328,0x5330,0x5332};
+  for(auto address:floats){
+    if(abortRequested)break;
+    if(!readRegisters(current,address,2,bytes)){LOG("[ADL400_FLOAT] address=0x%04X unavailable\n",address);continue;}
+    uint16_t high=profiles::word(bytes),low=profiles::word(bytes+2);
+    LOG("[ADL400_FLOAT] address=0x%04X words=%04X/%04X ABCD=%.9g CDAB=%.9g. Power float units require LCD/manual comparison, no CT/PT applied\n",address,high,low,double(meter::float32(high,low)),double(meter::float32(low,high)));
+  }
+  LOG("[ADL400_END] complete=%u elapsed_ms=%lu. Production uses total 0x0000. Forward/reverse are diagnostic comparisons only. No correction offset\n",!abortRequested,(unsigned long)(millis()-started));
+}
 // Level 1: UART receive activity only. A slave may be completely silent without requests.
 void listenOnly(uint32_t seconds) {
   polling=false; abortRequested=false; openLink(current);
@@ -351,11 +380,12 @@ void showStatus(){
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
   LOG("PROFILE: profile fort | profile acrel-adl400 | profile habuer. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nMeter diagnostics 3.2.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nMeter diagnostics 3.3.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
+  LOG("ADL400: adl400 compares total/forward/reverse/reactive counters, stable PT/CT and ABCD/CDAB float samples in one read-only run\n");
   LOG("EVIDENCE: primary | report | rxcheck | check connected | check isolated | compare (connection labels are user supplied)\n");
-  LOG("LAYERS: basic | listen 1..30 | intermediate | deeper | diagnose | read | poll | status | help\n");
+  LOG("LAYERS: basic | listen 1..30 | intermediate | deeper | diagnose | read | poll | adl400 | status | help\n");
   LOG("RUNTIME: id 1 | baud 9600 | parity N | pins 18 17 (RX TX) | timeout 2000 | interval 2000\n");
   LOG("PROBES: probe HEX WORDS | reg HEX WORDS. HEX PDU address, 1..3 words, no offset added. Status shows the selected probe\n");
   LOG("SCAN: range 1 16 | scanmode current or matrix | bauds 9600 19200 | parities NEO | scan\n");
@@ -380,6 +410,7 @@ void command(const char *line) {
   }
   if(sscanf(line,"settle %u %c",&a,&extra)==1&&a>=20&&a<=1000){options.settleUs=uint16_t(a);showStatus();return;}
   if(sscanf(line,"gap %u %c",&a,&extra)==1&&a>=4&&a<=2000){options.gapMs=uint16_t(a);showStatus();return;}
+  if(!strcmp(line,"adl400")){compareAdl400();return;}
   if(!strcmp(line,"primary")){abortRequested=false;polling=false;const auto &p=profiles::get(options.profile);if(p.primaryFloat)dumpRegisters(current,p.primaryFloat,2);else LOG("[UNSUPPORTED] This profile has no documented primary float energy register. Use read for the selected profile energy conversion\n");return;}
   if(sscanf(line,"profile %15s %c",token,&extra)==1){uint8_t id=0;if(profiles::parse(token,id)){polling=false;selectProfile(id);showStatus();return;}}
   if(!strncmp(line,"discoverplan ",13)){if(parseDiscoveryPlan(line+13,discoveryOptions))LOG("Discovery plan updated in RAM\n");else LOG("Invalid discovery plan. Use HEX:WORDS pairs separated by commas, at most eight\n");return;}

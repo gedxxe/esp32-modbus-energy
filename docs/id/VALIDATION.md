@@ -1,9 +1,17 @@
-# Catatan validasi / 30 Oktober 2026
+# Catatan validasi / 2 November 2026
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.2.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.3.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
+
+## Koreksi ADL400 berdasarkan scan pada 3.3.0
+
+Firmware utama ESP32-S3 dan INO mandiri sebenarnya berhasil dikompilasi. Payload web berjumlah 151.121 byte gzip. Ketiga suite native lulus, termasuk frame valid untuk slave 220 melalui ModbusMaster sebenarnya, UInt32 9798 pada 0x0000, PT1/CT80, nilai sekunder 97,98 dan hasil akhir 7838,40 kWh, voltage/frequency ABCD, report sekali jalan, reverse nol/nonzero serta rasio yang berubah. Exception sah pada total energi tidak menyebabkan fallback ke counter lain. Binding tersimpan untuk map total, migrasi konfigurasi yang mempertahankan ID220 serta pemisahan identitas checkpoint lama/baru juga diuji.
+
+Regresi Edge lengkap pada byte gzip sebenarnya serta suite ADL400, discovery, Habuer dan ACR/APM lulus. Kasus ADL400 memastikan satu pilihan model, ID220 tersimpan, label total 0x0000/0x53xx, nilai dasar dan hasil scaling, preset/perintah pembandingan, dua bahasa serta lebar HP. Seluruh 29 SVG dirender. Angka fixture merupakan bukti software, bukan klaim pengujian hardware tambahan.
+
+Scan pengguna yang berhasil diterima sebagai referensi lapangan. Firmware terpadu belum dihubungkan ke meter tersebut dalam pengujian lokal. Selisih LCD 0,5 kWh lebih kecil dari langkah raw 0,8 kWh pada PT1/CT80 dan tidak dipaksa cocok memakai faktor tambahan. [Perbaikan ADL400](ADL400_FIX.md) mencatat mapping, perbedaan reader lama, unit dan tujuan input perintah. ID forward historis 1 dipertahankan secara internal tanpa opsi pilihan, sedangkan ADL400 saat ini memakai total ID5. Perilaku Fort/Habuer, schema checkpoint serta jadwal tetap diperiksa melalui regresi yang ada.
 
 ## Integrasi ACR/APM pada 3.2.0
 

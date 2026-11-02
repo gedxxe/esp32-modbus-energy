@@ -6,6 +6,8 @@ Satu station membaca satu meter yang dipilih melalui transport FC03 bersama. Pil
 
 ![Pemilih model representatif dengan data perangkat simulasi](../assets/ui-meter-profile.png)
 
+Produksi ADL400 kini mengikuti scan pengguna pada total energi `0x0000` dan float listrik ABCD. [Perbaikan ADL400](ADL400_FIX.md) menjelaskan satu profil yang terlihat, migrasi dan mapping lengkap. ID historis 1 mempertahankan arti forward pada arsip saja.
+
 ## Referensi dan batas revisi
 
 Fort tetap memakai peta yang sudah digunakan dari [manual Fort](../../Fort%20Power%20Meter_User%20Manual_compressed.pdf). Profil Acrel mengikuti [manual ADL400 V1.3 yang disediakan](../../Acrel%20ADL400%20Manual.pdf), sebanyak 27 halaman. Nomor halaman PDF dihitung dari cover sebagai halaman 1 dan berbeda empat halaman dari nomor cetak.
@@ -20,17 +22,18 @@ Alamat berikut merupakan offset PDU heksadesimal tanpa penambahan 40001 atau pen
 
 | Pembacaan | Fort | Acrel ADL400 V1.3 | Halaman PDF Acrel |
 | --- | --- | --- | --- |
-| Arus fasa A / probe awal | `0x0058`, 2 word, UINT32 × 0,0001 A | `0x0064`, 1 word, UINT16 × 0,01 A | 17 |
-| Tegangan fasa A | `0x0042`, 2 word, UINT32 × 0,0001 V | `0x0061`, 1 word, UINT16 × 0,1 V | 17 |
-| Daya aktif total | `0x006A`, 2 word, INT32 × 0,0001 kW | `0x016A`, 2 word, INT32 × 0,0001 kW | 19 |
-| Frekuensi | `0x0080`, 1 word, UINT16 × 0,01 Hz | `0x0077`, 1 word, UINT16 × 0,01 Hz | 17 |
-| Energi aktif forward/impor | `0x0082`, 2 word, UINT32 × 0,001 kWh | `0x000A`, 2 word, UINT32 × 0,01 kWh | 16 |
+| Probe awal | `0x0058`, 2 word, UINT32 × 0,0001 A | `0x0064`, 1 word, UINT16 × 0,01 A | 17 |
+| Arus fasa A | `0x0058`, 2 word, UINT32 × 0,0001 A | `0x530C`, 2 word, Float32 ABCD A | 22 |
+| Tegangan fasa A | `0x0042`, 2 word, UINT32 × 0,0001 V | `0x5300`, 2 word, Float32 ABCD V | 22 |
+| Daya aktif total | `0x006A`, 2 word, INT32 × 0,0001 kW | `0x006A`, 1 word, INT16 × 0,001 kW | 17 |
+| Frekuensi | `0x0080`, 1 word, UINT16 × 0,01 Hz | `0x5332`, 2 word, Float32 ABCD Hz | 23 |
+| Energi aktif kumulatif | `0x0082`, 2 word, UINT32 × 0,001 kWh | `0x0000`, 2 word, UINT32 × 0,01 kWh | 16 |
 | Rasio trafo | `0x002C`, 3 word: pembilang PT, penyebut PT, CT | `0x008D`, 2 word: PT, CT. Penyebut 1 | 18 |
 | Float energi primer opsional | `0x008A`, kandidat diagnostik | Tidak tersedia pada peta yang diberikan | 22–23 |
 
 Rumus energi adalah `raw × skala profil × pembilang PT / penyebut PT × CT`, menggunakan `double`. Rasio harus berada dalam 1–9999 sebelum energi kumulatif diterima. Contohnya, raw Acrel 123456, PT 2 dan CT 40 menghasilkan `123456 × 0,01 × 2 × 40 = 98764,8 kWh`. Counter sekunder tetap terlihat sebelum rasio diterima. Panel register menampilkan arus, tegangan dan daya hasil dekode register tanpa perkalian trafo tambahan.
 
-Counter yang dipilih adalah energi forward `0x000A`, bukan total gabungan `0x0000` atau reverse `0x0014`. Register frozen history opsional milik meter berbeda dari checkpoint ESP32 dan belum diimpor atau diubah konfigurasinya. Seluruh request tetap FC03 meskipun manual meter juga menjelaskan fungsi tulis.
+Produksi memakai total `0x0000` hasil scan. ID historis 1 memakai forward `0x000A`, sedangkan forward dan reverse `0x0014` kini hanya dibandingkan melalui report `adl400`. Register frozen history opsional milik meter berbeda dari checkpoint ESP32 dan belum diimpor atau diubah konfigurasinya. Seluruh request tetap FC03 meskipun manual meter juga menjelaskan fungsi tulis.
 
 ## Wiring
 

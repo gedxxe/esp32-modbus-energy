@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.0
+
+Corrected active ADL400 acquisition to the owner-tested total counter 0x0000 and ABCD electrical floats. Kept the single visible model choice and retained historical forward ID 1 internally. Added the operator-triggered adl400 comparison report and ID220/CT80 regression cases without changing Fort or Habuer.
+
 ## 3.2.0
 
 Added ACR10R-DxxTE and APM800/801/810 profiles with explicit manual limitations and commissioning through existing saved-device verification. Added signed Int16 and raw Float32 energy decoding without changing checkpoint schemas, old profile conversions, schedules, Wi-Fi or the Modbus library. New profiles use primary energy without a second CT/PT multiplier.

@@ -476,6 +476,10 @@ export const catalog = {
     energy_jump: "Energy increase exceeds the configured limit",
     commissioning_required: "Before recording, compare the energy address, ABCD word order, active kWh and reactive kvarh with the installed meter LCD. In Meter discovery and saved devices, save a verified profile binding and choose Use for measurement. ACR units are not stated in its manual. APM uses decimal 3000 from the table, while the example says 3050. Do not confirm a mismatch.",
     commissioning_verified: "Recording uses the saved profile binding confirmed against the meter LCD. Transformer ratios are already included in these primary energy registers.",
+    diag_adl400: "ADL400 energy comparison",
+    adl400_total_energy: "Total active energy",
+    adl400_secondary_energy: "Secondary total active counter",
+    adl400_register_note: "Total active energy comes from 0x0000 as UInt32 / 100, with PT and CT applied once to the main counter. Electrical Float32 values use ABCD without this multiplier. Forward and reverse counters are diagnostic comparisons only.",
     acquisition_ok: "Reading valid",
   },
   id: {
@@ -969,6 +973,10 @@ export const catalog = {
     energy_jump: "Kenaikan energi melebihi batas konfigurasi",
     commissioning_required: "Sebelum mencatat, cocokkan alamat energi, urutan word ABCD, kWh aktif serta kvarh reaktif dengan LCD meter. Pada Pencarian meter dan perangkat tersimpan, simpan binding profil yang sudah diverifikasi lalu pilih Gunakan untuk pengukuran. Unit ACR tidak dijelaskan manual. APM memakai alamat desimal 3000 dari tabel, sedangkan contoh menyebut 3050. Jangan konfirmasi bila tidak cocok.",
     commissioning_verified: "Pencatatan memakai binding profil tersimpan yang sudah dicocokkan dengan LCD meter. Rasio trafo sudah termasuk pada register energi primer ini.",
+    diag_adl400: "Pembandingan energi ADL400",
+    adl400_total_energy: "Total energi aktif",
+    adl400_secondary_energy: "Counter total aktif sekunder",
+    adl400_register_note: "Total energi aktif dibaca dari 0x0000 sebagai UInt32 / 100, lalu PT dan CT diterapkan sekali pada counter utama. Nilai listrik Float32 memakai ABCD tanpa pengali ini. Counter forward dan reverse hanya menjadi pembanding diagnostik.",
     acquisition_ok: "Pembacaan valid",
   },
 };

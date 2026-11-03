@@ -1,6 +1,6 @@
 {
   "name": "midea-fort-development-tools",
-  "version": "3.3.1",
+  "version": "3.4.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "Build and test the offline React dashboard served by ESP32-S3",
@@ -12,7 +12,8 @@
     "test:enterprise": "node tools/preview-test.cjs playwright chromium --enterprise-only",
     "test:adl400": "node tools/preview-test.cjs playwright chromium --adl400-only",
     "test:acrel": "node tools/preview-test.cjs playwright chromium --acrel-only",
-    "test:habuer": "node tools/preview-test.cjs playwright chromium --habuer-only"
+    "test:habuer": "node tools/preview-test.cjs playwright chromium --habuer-only",
+    "test:lora": "node tools/preview-test.cjs playwright chromium --lora-only"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

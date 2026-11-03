@@ -6,7 +6,7 @@ Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta
 
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel atau Habuer, simpan model terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) serta [referensi Habuer](HABUER.md) untuk peta, konversi dan alur diagnostiknya.
 
-Firmware 3.3.1 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 3.4.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Mengambil angka meter terjadwal
 
@@ -60,6 +60,7 @@ Perintah lain tetap dapat diketik satu baris pada **Input perintah**, lalu klik 
 
 | Fitur web | Jalur HTTP | Pemilik dan hasil |
 | --- | --- | --- |
+| Parameter node SX1262 dan kontrol pairing | `/api/lora/config`, `/api/lora/control` | Generasi setting core 1 terverifikasi, antrean radio core 0 terbatas |
 | Pengukuran, kualitas, koneksi tersimpan dan Wi-Fi | `/api/status` | Snapshot akuisisi dan status jaringan core 0 |
 | Koneksi meter dan scanner | `/api/config`, `/api/scan/start`, `/api/scan/cancel`, `/api/scan/apply` | Eksekusi core 1 melalui pembaca FC03 bersama |
 | Setting uji, raw read, float dan resep diagnostik | `/api/diagnostic` GET/POST | FortDiagnostics core 1, FortTransport sama dengan produksi dan INO |
@@ -77,7 +78,7 @@ Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diteri
 
 ## Memeriksa instalasi terpadu
 
-Setelah upload 3.3.1, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
+Setelah upload 3.4.0, periksa versi footer, lakukan pembacaan manual 0x0058 dari konsol web dan cocokkan register dengan display meter. Uji Hentikan saat timeout, Lanjutkan ke produksi, scan sempit, unduh trace, process monitor, CSV serta pergantian mode Wi-Fi. Pada mode client, putuskan router secara sengaja untuk memastikan AP kembali sementara akuisisi tetap berjalan. Ini melengkapi pengujian software pada [VALIDATION](VALIDATION.md), yang memakai API simulasi untuk tes browser.
 
 Endpoint komunikasi mengirim maksimal delapan event per halaman dengan penanda backlog. Polling browser menargetkan 500 ms dan mencoba kembali permintaan gagal setelah 1,2 detik, sambil mempertahankan riwayat serta membedakan timeout, payload invalid dan endpoint tidak terjangkau. Kegagalan HTTP event tidak membuktikan ada atau tidaknya slave Modbus.
 

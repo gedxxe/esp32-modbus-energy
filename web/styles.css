@@ -1475,3 +1475,6 @@ input,select{background:rgba(255,255,255,.85);border-color:#bdcce8;border-radius
 .enterprise-fields details>label:not(.checkbox-line){display:block;margin:16px 0 6px}
 .enterprise-fields details>.checkbox-line{margin:16px 0}
 .enterprise-fields details>.small{margin:6px 0 14px}
+
+/* Radio form stays within the existing device column on small screens. */
+.lora-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}.lora-grid label{min-width:0}#lora-key{font-family:var(--font-mono,monospace);font-size:.78rem}#lora-panel details{margin:20px 0}#lora-panel summary{cursor:pointer;margin-bottom:16px}

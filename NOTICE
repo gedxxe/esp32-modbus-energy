@@ -63,3 +63,9 @@ The bitmap adaptation and boot-stage integration code are GPL-3.0-only.
 
 Motion 14.7.1 and its imported framer-motion, motion-dom and motion-utils
 dependencies retain their MIT licenses. Their notices are bundled offline.
+
+RadioLib 7.8.1
+--------------
+The optional SX1262 driver links RadioLib 7.8.1 by Jan Gromes under MIT.
+Its original notice is retained in docs/licenses/RadioLib-MIT.txt and the
+pinned dependency source. This does not relicense RadioLib as GPL.

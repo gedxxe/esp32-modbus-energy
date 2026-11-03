@@ -112,3 +112,6 @@ export function validCheckpoints(value){
       (row.difference===null||(i!==0&&i!==5&&Number.isFinite(row.difference)&&row.difference>=0));
   });
 }
+
+export const validLoRaView=v=>object(v)&&uint(v.revision)&&[v.ready,v.enabled,v.stored,v.available,v.paired,v.hasKey].every(x=>typeof x==="boolean")&&uint(v.phase,6)&&Number.isInteger(v.code)&&uint(v.frequencyHz,930000000)&&v.frequencyHz>=803000000&&[125,250,500].includes(v.bandwidthKHz)&&uint(v.sf,12)&&v.sf>=7&&uint(v.cr,8)&&v.cr>=5&&uint(v.powerDbm,22)&&uint(v.preamble,64)&&v.preamble>=8&&uint(v.syncWord,255)&&uint(v.nodeId,65534)&&v.nodeId>0&&uint(v.gatewayId,65534)&&v.gatewayId>0&&v.nodeId!==v.gatewayId&&uint(v.networkId,65535)&&v.networkId>0&&uint(v.intervalMs,3600000)&&v.intervalMs>=30000&&uint(v.ackMs,60000)&&v.ackMs>=1000&&uint(v.retries,4)&&["authErrors","addressErrors","replayErrors","lastTxSequence","lastRxSequence","tx","rx","acks","timeouts","rejected","crcErrors","drops","lastRxAgeMs","waitMs","airtimeMs"].every(k=>uint(v[k]))&&Number.isFinite(v.rssi)&&Number.isFinite(v.snr);
+export const validRecoveryView=v=>object(v)&&uint(v.resetCode,32)&&["none","nvs","filesystem","staging","previous-day"].includes(v.source)&&[v.nvsVerified,v.fsVerified,v.durable,v.backlog].every(x=>typeof x==="boolean");

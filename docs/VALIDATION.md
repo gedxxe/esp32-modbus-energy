@@ -2,8 +2,20 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.3.1**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.4.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+
+## Power-loss hardening and SX1262 node in 3.4.0
+
+The physical ESP32-S3 application and standalone diagnostic compiled successfully. The application uses 149,100 bytes of static RAM and 1,915,618 program bytes. The INO uses 36,840 and 373,572 bytes. The final offline dashboard is 156,104 gzip bytes, below the 163,840-byte budget. RadioLib 7.8.1 is pinned and its MIT notice is preserved. Its generic USB-CDC/sleep build warning remains visible, while this application does not enter ESP32 deep sleep.
+
+All four native suites and the independent Python HMAC vector check passed. New fault models cover every truncated 80-byte radio bank and 446-byte capture record, corrupt inactive-bank fallback, false successful writes, bad readback, valid/corrupt archive promotion failures, a rejected final readback with its valid backup preserved, recovery-generation ordering and legacy semantic rejection. Radio cases cover default 915 MHz/off, field bounds, exact little-endian frame bytes, ACK/session/address rejection, pacing through millis rollover and the shared-library reservation hook in the actual standalone INO. These tests do not emulate the electrical behavior of flash or RF hardware.
+
+The generated-byte LoRa browser suite passed editable carrier/IDs, key generation/redaction/reuse, duplicate-ID rejection, explicit unconfirmed pairing, simulated ACK status, AP-only key provisioning, absent/malformed radio behavior, recovery status, both languages and mobile width. The full dashboard regression passed with all 33 SVGs rendered, including the new wiring, radio topology and storage recovery diagrams. The optional radio netlist has 12 connections in addition to the existing installed wiring. UI screenshots are simulated. Local Chromium cache attempts were unavailable/incompatible, so working Edge was used. Both final Edge runs exited successfully. The unsuccessful Chromium launch attempts were not counted as passing tests.
+
+The primary five-second capture rules, stored formats, immutable profile IDs, Fort/ADL400/Habuer/ACR/APM mappings and partition layout are preserved. Corrupt or missing meter settings beside retained data now stop production until a verified setting is saved. The brownout build guard, NVS/file verification and bounded radio BUSY/reset path were checked in the real target build. Radio archives are queued through core 1 and do not trigger maintenance mode or change the meter.
+
+No physical power-cut, brownout transient, SPI/DIO measurement, antenna/RF-power check, range test or C6 gateway exchange was performed here. The gateway firmware remains a separate development. Pairing requires a matching authenticated ACK and cannot be inferred from successful initialization. See [power-loss audit](POWER_LOSS.md), [radio wiring/configuration](LORA.md) and [protocol v1](LORA_PROTOCOL.md) for failure limits and bench procedures.
 
 ## Enterprise login repair in 3.3.1
 

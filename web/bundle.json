@@ -1,7 +1,7 @@
 {
-  "version": "3.3.1",
+  "version": "3.4.0",
   "transport": "gzip",
-  "compressed_total": 151552,
+  "compressed_total": 156104,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,16 +20,16 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 441744,
-      "gzip": 139806,
-      "sha256": "40d5d48ab9aad93c0a5e19f1d98394786f3362cdbfe9f8bc648134f0724da2ae"
+      "raw": 457427,
+      "gzip": 144294,
+      "sha256": "ddbad47f1df3d3f23c8bdf37bd6b42cf6c849bd4176c7b80d63f5d6efff6a511"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 40035,
-      "gzip": 9674,
-      "sha256": "01165d54fe02b413e5a359cd0d1c296427edfc52dc6e69a0716961609b9a4d0b"
+      "raw": 40308,
+      "gzip": 9738,
+      "sha256": "74cc87ac06ad07798452c1bbaccac2b6a67852fc2446ac51608eb8506b79bb26"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "d2b61e7cc28cd7f154c7f406184a2359bd068bbe0f7fe97e14d0d2f62436f33e",
-    "package.json": "d3eecd8c9bb4af399eb543ed39115ad6a26ff6aeb01a96ec8bbd2fd4bcc2c033",
+    "package-lock.json": "68fe8a81aae9e8bbe3052c203ef5dd8e635ee8162456bb562bf029d234379cde",
+    "package.json": "e21ef00e119042b8edc091c1edb26e695799c03c7d0bb0f452def7d2f37dca1b",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -53,6 +53,7 @@
     "web/components/FlowPlayback.jsx": "f33ba001207024f3b9dc6d380222f54f841305b12c985ceb37223496a5fb6896",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
+    "web/components/LoRaControls.jsx": "c937cfdc2d55660dd1f0e2e3a38f1c817c6fa1e09874219a2fab5e35e1203020",
     "web/components/MeterLab.jsx": "bb534614cf9ae08bff19eb0704b07defb80e3c31c2260c194ca2064e04fb35dd",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
@@ -64,15 +65,16 @@
     "web/device.js": "48c47f929f90b9b3a8296010061fb6b00263e474913f1c510455584aa4013036",
     "web/enterprise-i18n.js": "2205a3bc6875f6dac7809cb128e8cacbe7e60fa3c26023ea295f9f334ba6bd21",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
-    "web/i18n.js": "aa0028a8ee5f539c9c92167b45c74b37509029e9974e58c58d26ba2237932038",
+    "web/i18n.js": "829330bdbad4aaf6dd0006351d658d39de41bbf3d25e33c1129b52a4c9cc839f",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
+    "web/lora-i18n.js": "07fc6e8a33eb86b219242d8dd6f466332dce70828e2fb88c263eee27a76b3ee4",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
     "web/meter-profile.js": "95fdf72684f51ffd1961e11ed39e2714ceecc9af77df5b42be78db57c23a286f",
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
-    "web/styles.css": "449623d904d8851f9178bdf415627d9b0d2e064479cd152dada9fd852706e680",
+    "web/styles.css": "a7c89df3868a53183429adec8008d604153ad3648df7a6ae956f8d29ce7eb5a7",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
-    "web/validation.js": "951e8a9a99aefe9bb5325bbc4299b6f77322ba9cbc36c639cc2a716578601a71",
+    "web/validation.js": "cca2c05667d626d60e440e164b7edfe79fd315a84b8f583b020ed4082d5d021a",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/Counter.css": "9f224c728e16bb2b4137cd0e5a3ff370043bc9c838450fa8aaed89e190a8a6f8",
     "web/vendor/react-bits/Counter.jsx": "25e98c26331ef7b6b4326c48b7540feb1a2208b09160c7f2b96e4fbf146522f8",
@@ -86,9 +88,9 @@
     "web/vendor/react-bits/WakeSlider.css": "2b8153f1bc069ef6974e0ba6cd5bba6e88641097562f28f0e21317d1c31106e4",
     "web/vendor/react-bits/WakeSlider.jsx": "f0184a8248b78ef359e088ae24a6565faf09e867bdacb96761d48f02b3badc32",
     "web/vendor/react-bits/upstream.json": "365e1a35fb29bbd42aa7fa5d39461bac789d67c533c274e3d52d5eb1596d517c",
-    "web/views/DeviceRecords.jsx": "5492aea4da6dce3ad17f3745011028fa286ddf5b7e8abd4d74e6ae8c0c5e24fd",
+    "web/views/DeviceRecords.jsx": "be13c094a95d51b3e98c8cc8c54f7cf2ef509e257e3050d550a24db4aa01a3e4",
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "30bf6c8b6f90862b44ce33c1420de55b8c62687ef07e763de22c868387a6019f"
+  "header_sha256": "35a96b37fe6b2560d420ba752c5e85eaedaf43a20d51229cad99c6b8dd0c7238"
 }

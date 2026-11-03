@@ -1,5 +1,11 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.4.0 / 3 November 2026
+
+Menambahkan node Ai-Thinker Ra-01SH SX1262 opsional dengan default915 MHz yang dapat diubah, SPI milik task core0, pengaturan radio/ID/key melalui web, pairing dan ACK/retry terautentikasi, telemetry dengan batas kesegaran serta retrieval hari checkpoint ber-ACK. Kontrak gateway v1, test vector dan wiring/netlist tersedia untuk pengembangan ESP32-C6 terpisah. Radio mulai nonaktif dan penerimaan RF fisik masih diperlukan.
+
+Memperkuat simpan checkpoint melalui baca ulang NVS, promosi staging terlindungi, validasi sebelum penggantian backup dan recovery berdasarkan generation. Konfigurasi meter invalid kini menghentikan produksi sampai konfigurasi benar disimpan. Ditambahkan validasi semantik record lama, verifikasi setting, status reset/recovery dan reservasi pin radio pada diagnostik produksi. Register, ID profil, partisi dan jadwal capture tidak berubah.
+
 ## 3.3.1 / 3 November 2026
 
 Login Enterprise kini dapat dikirim dengan username/password menggunakan bundle CA publik lengkap bawaan SDK tanpa mewajibkan unggahan sertifikat. Profil CA privat tetap terikat ke CA tersimpan dan tidak berpindah trust saat berkasnya hilang. Form melalui IP client menampilkan petunjuk AP di dekat Simpan sehingga tombol tidak terkunci tanpa alasan. SSID mengikuti hasil scan, sedangkan format record jaringan, register meter dan jadwal checkpoint tidak berubah.

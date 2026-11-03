@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="690" viewBox="0 0 1400 690" role="img" aria-labelledby="title desc"><title id="title">Half-duplex node and future gateway protocol</title><desc id="desc">Protocol diagram. The separate ESP32-C6 gateway is not implemented or hardware-tested by this firmware.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Energy Station v1 · one node, one configured gateway</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Raw LoRa with addressed HMAC-SHA256 frames. Each direction waits for the radio to release the channel.</text>
+<rect x="70" y="155" width="450" height="390" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="100" y="200" fill="#183438" font-family="Arial, sans-serif" font-size="26" font-weight="700" text-anchor="start">ESP32-S3 meter node</text>
+<text x="100" y="245" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">UART → verified meter sample</text>
+<text x="100" y="290" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Core 1 → NVS + checkpoint files</text>
+<text x="100" y="335" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Core 0 → SX1262 link task</text>
+<text x="100" y="380" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Node ID + gateway ID + network ID</text>
+<text x="100" y="425" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Local log survives a gateway outage</text>
+<rect x="890" y="155" width="440" height="390" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="920" y="200" fill="#183438" font-family="Arial, sans-serif" font-size="26" font-weight="700" text-anchor="start">Future ESP32-C6 gateway</text>
+<text x="920" y="245" fill="#183438" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Same RF parameters and pairing key</text>
+<text x="920" y="290" fill="#183438" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Authenticate → ACK / read-only poll</text>
+<text x="920" y="335" fill="#183438" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Reassemble + CRC-check checkpoints</text>
+<text x="920" y="380" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Deduplicate before database storage</text>
+<text x="920" y="425" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Separate firmware development</text>
+<polyline points="520,260 890,260" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="705" y="240" fill="#087e82" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle">HELLO / sample / fragment →</text>
+<polyline points="890,365 520,365" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="705" y="345" fill="#28755e" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle">← ACK / live or archive poll</text>
+<text x="70" y="605" fill="#587176" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">Retry retains the exact sequence and bytes. Only a matching authenticated ACK confirms the transmission.</text>
+<text x="70" y="638" fill="#587176" font-family="Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">Checkpoint transfer never deletes the local record. Missing readings remain missing across a restart.</text>
+</svg>

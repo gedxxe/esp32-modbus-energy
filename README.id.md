@@ -2,7 +2,7 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 3.3.1](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 3.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
 Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort, Habuer, Acrel ADL400, ACR10R-DxxTE atau APM800/801/810. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
 
@@ -16,6 +16,15 @@ WPA2-Enterprise PEAP / EAP-MSCHAPv2 tersedia melalui [panduan Wi-Fi Enterprise](
 Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` sekali lalu buka ulang terminal PlatformIO. Langkah ini memasang Core terkelola yang dipin untuk build turunan SDK.
 
 ADL400 mengikuti hasil scan: total energi 0x0000, UInt32 / 100 × PT × CT dan float listrik ABCD. Pilihan ADL400 tetap satu tanpa submenu sumber energi. [ADL400](docs/id/ADL400_FIX.md).
+
+## Listrik terputus dan LoRa opsional
+
+[Audit mati listrik](docs/id/POWER_LOSS.md) menjelaskan verifikasi tulis, recovery NVS/berkas/staging, rollover terlindungi dan batas hardware yang tersisa. Konfigurasi meter tersimpan yang rusak kini menghentikan produksi, sehingga profil default tidak dipilih diam-diam. Capture selesai tetap immutable dan jadwal saat perangkat mati tidak diisi dengan pembacaan terlambat.
+
+[Panduan node SX1262](docs/id/LORA.md) memuat wiring GPIO dan konfigurasi melalui web. Radio mulai nonaktif dengan default **915 MHz** yang dapat diubah. Fitur mencakup pairing beralamat, ACK/retry terautentikasi, telemetry dan pengambilan hari checkpoint tersimpan. Gateway ESP32-C6 mendatang mengikuti [kontrak Energy Station v1](docs/id/LORA_PROTOCOL.md) melalui proyek firmware terpisah.
+
+![Wiring SX1262 opsional, diagram logis](docs/assets/wiring-lora.svg)
+
 
 ## Profil meter
 
@@ -79,7 +88,8 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | PlatformIO Core | 6.1.19 |
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
-| FortMeter / ModbusMaster | 3.3.1 / 2.0.1+fort.1, source lokal |
+| RadioLib | 7.8.1, MIT, raw LoRa SX1262 |
+| FortMeter / ModbusMaster | 3.4.0 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -88,7 +98,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.3.1, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.4.0, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 

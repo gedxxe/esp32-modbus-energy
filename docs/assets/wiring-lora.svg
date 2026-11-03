@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title desc"><title id="title">ESP32-S3 to Ai-Thinker Ra-01SH SX1262 wiring</title><desc id="desc">Logical wiring, not a board photograph. Connect a suitable antenna and a regulated 3.3 V supply before enabling TX.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Optional SX1262 · dedicated SPI wiring</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Default 915 MHz is editable in the local dashboard. Existing UART, I2C, buttons, buzzer and RGB pins stay assigned.</text>
+<rect x="70" y="180" width="460" height="680" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="100" y="225" fill="#183438" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="start">ESP32-S3 N16R8</text>
+<rect x="850" y="180" width="500" height="680" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="880" y="225" fill="#183438" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="start">Ai-Thinker Ra-01SH</text>
+<text x="880" y="260" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">SX1262 · module pad labels</text>
+<circle cx="530" cy="330" r="5" fill="#b5534a"/>
+<text x="516" y="336" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">3V3 regulated</text>
+<circle cx="850" cy="330" r="5" fill="#b5534a"/>
+<text x="864" y="336" fill="#b5534a" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">3.3V / pad 3</text>
+<polyline points="530,330 850,330" fill="none" stroke="#b5534a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="390" r="5" fill="#5d6f76"/>
+<text x="516" y="396" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GND</text>
+<circle cx="850" cy="390" r="5" fill="#5d6f76"/>
+<text x="864" y="396" fill="#5d6f76" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">GND / pads 2, 9, 16</text>
+<polyline points="530,390 850,390" fill="none" stroke="#5d6f76" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="450" r="5" fill="#6d5897"/>
+<text x="516" y="456" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO10 / NSS</text>
+<circle cx="850" cy="450" r="5" fill="#6d5897"/>
+<text x="864" y="456" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">NSS / pad 15</text>
+<polyline points="530,450 850,450" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="500" r="5" fill="#087e82"/>
+<text x="516" y="506" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO12 / SCK</text>
+<circle cx="850" cy="500" r="5" fill="#087e82"/>
+<text x="864" y="506" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">SCK / pad 12</text>
+<polyline points="530,500 850,500" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="550" r="5" fill="#28755e"/>
+<text x="516" y="556" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO11 / MOSI</text>
+<circle cx="850" cy="550" r="5" fill="#28755e"/>
+<text x="864" y="556" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">MOSI / pad 14</text>
+<polyline points="530,550 850,550" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="600" r="5" fill="#906121"/>
+<text x="516" y="606" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO13 / MISO</text>
+<circle cx="850" cy="600" r="5" fill="#906121"/>
+<text x="864" y="606" fill="#906121" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">MISO / pad 13</text>
+<polyline points="530,600 850,600" fill="none" stroke="#906121" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="650" r="5" fill="#6d5897"/>
+<text x="516" y="656" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO14 / RESET</text>
+<circle cx="850" cy="650" r="5" fill="#6d5897"/>
+<text x="864" y="656" fill="#6d5897" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">RESET / pad 4</text>
+<polyline points="530,650 850,650" fill="none" stroke="#6d5897" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="700" r="5" fill="#087e82"/>
+<text x="516" y="706" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO15 / BUSY</text>
+<circle cx="850" cy="700" r="5" fill="#087e82"/>
+<text x="864" y="706" fill="#087e82" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">BUSY / pad 10</text>
+<polyline points="530,700 850,700" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="530" cy="750" r="5" fill="#28755e"/>
+<text x="516" y="756" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="end">GPIO21 / DIO1</text>
+<circle cx="850" cy="750" r="5" fill="#28755e"/>
+<text x="864" y="756" fill="#28755e" font-family="Consolas, monospace" font-size="17" font-weight="400" text-anchor="start">DIO1 / pad 6</text>
+<polyline points="530,750 850,750" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="100" y="810" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">UART17/18 + DIR16 remain dedicated to RS485.</text>
+<text x="880" y="810" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DIO2 controls the internal RF switch.</text>
+<text x="880" y="838" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">DIO3 is unused with the onboard crystal.</text>
+<rect x="70" y="890" width="1280" height="105" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="95" y="925" fill="#183438" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="start">Supply and antenna</text>
+<text x="95" y="956" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">3.3 V only. Reserve &gt;200 mA for the radio branch, with 100 nF + 10 uF close to its supply pads.</text>
+<text x="95" y="982" fill="#587176" font-family="Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">ANT / pad 1 to a matched antenna. TXEN / pad 5 and RXEN / pad 11 stay unconnected for the reviewed V1.1 circuit.</text>
+</svg>

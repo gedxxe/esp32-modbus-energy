@@ -20,6 +20,7 @@ int main(){
  assert(Serial.output.find("VALID_RESPONSE")!=std::string::npos);
  submit("timeout 150");submit("range 1 1");submit("scanmode current");submit("discoverplan 0000:1,0064:1");submit("discover");assert(debug.discovery.phase==fort::DISCOVERY_COMPLETE&&debug.discovery.tested==2);
  submit("timeout 60");submit("direction auto");assert(!debug.options.manualDirection);submit("direction manual");assert(debug.options.manualDirection);
+ debug.pinReserved=[](unsigned pin){return pin>=10&&pin<=15;};submit("pins 10 11");assert(debug.options.rx==18&&debug.options.tx==17);debug.pinReserved=nullptr;
  submit("pins 16 17");assert(debug.options.rx==18);submit("pins 17 18");assert(debug.options.rx==17);submit("pins 18 17");
  submit("reg FFFF 3");assert(debug.options.rx==18);
  submit("probe 0080 1");submit("gap 20");submit("settle 120");assert(debug.options.probeAddress==0x80&&debug.options.gapMs==20&&debug.options.settleUs==120);

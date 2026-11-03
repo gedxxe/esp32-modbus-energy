@@ -9,6 +9,9 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
+#ifndef CONFIG_ESP_BROWNOUT_DET
+#error "Brownout detection must remain enabled for the physical logger"
+#endif
 #include <esp_flash_encrypt.h>
 #include <esp_wifi.h>
 #include <lwip/sockets.h>
@@ -22,6 +25,9 @@
 #include "web_ui.h"
 #include "version.h"
 #include "recovery.h"
+#include "verified_record.h"
+#include "lora_service.h"
+#include "lora_web.h"
 #include "scan.h"
 #include "meter_config.h"
 #include "meter_registry_store.h"
@@ -212,7 +218,7 @@ void tickWiFiScan(){
 }
 String preferredAddress(){return stationReady()?WiFi.localIP().toString():apOK?WiFi.softAPIP().toString():String();}
 
-struct Command { uint32_t caToken=0;MeterLabRequest lab{};CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
+struct Command { uint32_t caToken=0,radioRevision=0;MeterLabRequest lab{};CommandType type; uint32_t epoch=0,id=0,queuedAt=0,modeRevision=0; Settings config{}; LedSettings led{}; NetworkSettings network{}; lora::Settings radio{}; DisplaySettings display{}; uint8_t first=1,last=247; uint16_t address=meter::CURRENT_A;uint8_t words=2;bool currentOnly=false; };
 struct CommandResult { uint32_t id=0;char error[80]={}; };
 constexpr uint8_t COMMAND_RESULTS=8;
 uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
@@ -220,6 +226,7 @@ struct Snapshot {
   uint32_t modeRevision=0,completedCommand=0,rejectedCommand=0;
   char commandError[80]={};
   CommandResult commandResults[COMMAND_RESULTS]={};uint8_t commandResultNext=0;
+  char captureRecovery[16]="none";bool captureNVSVerified=false;
   CaptureDay captures{},capturePending{};bool captureDurable=false,captureArchiveOK=false,captureBacklog=false;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
@@ -286,6 +293,7 @@ Tracker tracker;
 CaptureTracker captureLog;
 CaptureDay capturePending{};
 bool captureNVSOK=false,captureFSOK=false,captureBacklog=false;
+const char *captureRecoverySource="none";
 uint32_t lastCaptureSave=0,lastCaptureAdvanceTry=0,blockedCaptureDay=0;
 uint32_t captureNVSDate=0,captureNVSRevision=0,captureNVSGeneration=0;
 uint32_t captureFSDate=0,captureFSRevision=0,captureFSGeneration=0;
@@ -293,6 +301,7 @@ void interruptRecording(){tracker.interrupt();captureLog.interrupt();}
 uint32_t retainedDay(){return fmax(tracker.day.number,fmax(captureLog.day.number,capturePending.number));}
 ScanController scanner;
 Preferences prefs;
+lora::SettingsStore radioSettingsStore;
 bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=true;
 uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0,lastRatioTry=0,lastContactTry=0;
 bool haveSample=false,muted=false;
@@ -436,28 +445,44 @@ void saveArchive() {
 String capturePath(uint32_t day){return "/c"+String(day)+".bin";}
 bool readCaptureFile(uint32_t day,CaptureDay &out){
   if(!fsOK||!day||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))!=pdTRUE)return false;
-  uint8_t bytes[CAPTURE_RECORD_SIZE];bool ok=false;
-  for(unsigned attempt=0;attempt<2&&!ok;++attempt){
+  uint8_t bytes[CAPTURE_RECORD_SIZE];bool ok=false;CaptureDay candidate;
+  for(unsigned attempt=0;attempt<2;++attempt){
     String path=capturePath(day)+(attempt?".bak":"");File f=LittleFS.open(path,"r");
-    if(f&&captureRecordSize(f.size())){size_t size=f.size();if(f.read(bytes,size)==size)ok=decodeCaptureDay(bytes,size,out)&&out.number==day;}
+    if(f&&captureRecordSize(f.size())){size_t size=f.size();if(f.read(bytes,size)==size&&decodeCaptureDay(bytes,size,candidate)&&candidate.number==day&&(!ok||newerCaptureDay(candidate,out))){out=candidate;ok=true;}}
     if(f)f.close();
   }
   xSemaphoreGive(fsMutex);return ok;
 }
+// Caller owns fsMutex. This validator also rejects a valid record for another day.
+bool validCapturePath(const String &path,uint32_t expected=0){
+  File f=LittleFS.open(path,"r");uint8_t bytes[CAPTURE_RECORD_SIZE];CaptureDay day;
+  size_t size=f?f.size():0;bool ok=f&&captureRecordSize(size)&&f.read(bytes,size)==size&&decodeCaptureDay(bytes,size,day)&&(!expected||day.number==expected);
+  if(f)f.close();return ok;
+}
 bool writeCaptureFile(const CaptureDay &day){
   if(!fsOK||!day.number||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(200))!=pdTRUE)return false;
+  // Rescue a fully flushed staging record before opening that name with truncation.
+  File pending=LittleFS.open("/capture.pending","r");CaptureDay staged;uint8_t recovered[CAPTURE_RECORD_SIZE];
+  size_t stagedSize=pending?pending.size():0;
+  bool stagedOK=pending&&captureRecordSize(stagedSize)&&pending.read(recovered,stagedSize)==stagedSize&&decodeCaptureDay(recovered,stagedSize,staged);
+  if(pending)pending.close();
+  if(stagedOK){
+    if(newerCaptureDay(staged,day)){xSemaphoreGive(fsMutex);return false;}
+    String target=capturePath(staged.number),backup=target+".bak";
+    if(!installVerifiedArchive(LittleFS,String("/capture.pending"),target,backup,[&](const String &p){return validCapturePath(p,staged.number);})){xSemaphoreGive(fsMutex);return false;}
+  }
   uint8_t bytes[CAPTURE_RECORD_SIZE],verify[CAPTURE_RECORD_SIZE];encodeCaptureDay(day,bytes);
   String path=capturePath(day.number),temp="/capture.pending",backup=path+".bak";File f=LittleFS.open(temp,"w");bool ok=bool(f);
   if(ok){ok=f.write(bytes,sizeof(bytes))==sizeof(bytes);f.flush();f.close();}
   if(ok){f=LittleFS.open(temp,"r");ok=f&&f.size()==sizeof(bytes)&&f.read(verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));if(f)f.close();}
-  if(ok)ok=installArchive(LittleFS,temp,path,backup);
+  if(ok)ok=installVerifiedArchive(LittleFS,temp,path,backup,[&](const String &p){return validCapturePath(p,day.number);});
   if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("c")){uint32_t n=name.substring(1).toInt();if(n>0&&n+31<=day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
   xSemaphoreGive(fsMutex);return ok;
 }
 bool writeCaptureNVS(const char *key,const CaptureDay &day){
   if(!nvsOK||!day.number)return false;
-  uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(day,bytes);
-  return prefs.putBytes(key,bytes,sizeof(bytes))==sizeof(bytes);
+  uint8_t bytes[CAPTURE_RECORD_SIZE],verify[CAPTURE_RECORD_SIZE];encodeCaptureDay(day,bytes);
+  return verifiedPut(prefs,key,bytes,verify,sizeof(bytes));
 }
 bool readCaptureNVS(const char *key,CaptureDay &day){
   if(!nvsOK||!prefs.isKey(key))return false;size_t size=prefs.getBytesLength(key);if(!captureRecordSize(size))return false;
@@ -480,7 +505,7 @@ void saveCaptures(){
   lastCaptureSave=millis();
 }
 void loadCaptures(){
-  CaptureDay saved;bool found=readCaptureNVS("captures",saved);captureNVSOK=found;
+  CaptureDay saved;bool found=readCaptureNVS("captures",saved);captureNVSOK=found;captureRecoverySource=found?"nvs":"none";
   // Also recover the latest complete on-flash record if NVS lagged or was damaged.
   if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
     uint32_t candidates[32]={};unsigned count=0,inspected=0;
@@ -498,7 +523,7 @@ void loadCaptures(){
     }
     if(item)item.close();xSemaphoreGive(fsMutex);
     for(unsigned i=0;i<count;++i){CaptureDay archived;if(readCaptureFile(candidates[i],archived)){
-      if(!found||newerCaptureDay(archived,saved)){saved=archived;found=true;}break;
+      if(!found||newerCaptureDay(archived,saved)){saved=archived;found=true;captureRecoverySource="filesystem";}break;
     }}
   }
   // A flushed temporary record can survive power loss before its final rename.
@@ -506,10 +531,10 @@ void loadCaptures(){
     uint8_t bytes[CAPTURE_RECORD_SIZE];CaptureDay pendingFile;File f=LittleFS.open("/capture.pending","r");
     size_t size=f?f.size():0;bool recovered=f&&captureRecordSize(size)&&f.read(bytes,size)==size&&decodeCaptureDay(bytes,size,pendingFile);if(f)f.close();
     xSemaphoreGive(fsMutex);
-    if(recovered&&(!found||newerCaptureDay(pendingFile,saved))){saved=pendingFile;found=true;}
+    if(recovered&&(!found||newerCaptureDay(pendingFile,saved))){saved=pendingFile;found=true;captureRecoverySource="staging";}
   }
   bool hasPending=readCaptureNVS("capture_prev",capturePending);
-  if(hasPending&&(!found||newerCaptureDay(capturePending,saved))){saved=capturePending;found=true;}
+  if(hasPending&&(!found||newerCaptureDay(capturePending,saved))){saved=capturePending;found=true;captureRecoverySource="previous-day";}
   if(found)captureLog.restore(saved);
   if(hasPending)retryCaptureBacklog();
 }
@@ -555,14 +580,16 @@ String csvCaptures(const CaptureDay &day){
 void saveCheckpoint(bool archive) {
   if(tracker.day.number&&nvsOK) {
     Checkpoint c{};c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
-    checkpointOK=prefs.putBytes("day",&c,sizeof(c))==sizeof(c);
+    Checkpoint verify{};checkpointOK=verifiedPut(prefs,"day",&c,&verify,sizeof(c));
   }else checkpointOK=false;
   if(archive)saveArchive();saveCaptures();lastSave=millis();
 }
 void publish() {
-  scanner.refresh(millis());state.scan=scanner.progress;state.profileReady=productionProfileReady(state.config,selectedMeterId,meterRegistry.registry);
+  scanner.refresh(millis());state.scan=scanner.progress;state.profileReady=configOK&&productionProfileReady(state.config,selectedMeterId,meterRegistry.registry);
   state.discoveryRunning=meterLabActive;state.savedMeterId=selectedMeterId;const auto *saved=meterRegistry.registry.find(selectedMeterId);strlcpy(state.meterName,saved?saved->name:"",sizeof(state.meterName));
   normalReader.discovery.refresh(millis());publishMeterLab();
+  strlcpy(state.captureRecovery,captureRecoverySource,sizeof(state.captureRecovery));state.captureNVSVerified=captureNVSOK;
+  static uint32_t lastRadioSample=0;if(uint32_t(millis()-lastRadioSample)>=1000){lastRadioSample=millis();LoRaTelemetry packet;packet.utc=state.rtc?state.utc:0;packet.ageMs=state.lastGoodMs?uint32_t(millis()-state.lastGoodMs):UINT32_MAX;packet.kwh=state.energy;packet.meterId=selectedMeterId;packet.profile=state.config.profile;packet.day=captureLog.day.number;packet.revision=captureLog.day.revision;packet.flags=(haveSample&&isfinite(state.energy)&&packet.ageMs<=15000?1:0)|(state.rtc?2:0)|((captureNVSOK||captureFSOK)?4:0)|(state.online?8:0)|((diagnosticActive||meterLabActive||scanner.progress.phase==SCAN_RUNNING)?16:0);publishLoRaTelemetry(packet);}
   state.captures=captureLog.day;state.capturePending=capturePending;state.captureDurable=captureNVSOK||captureFSOK;state.captureArchiveOK=captureFSOK;state.captureBacklog=captureBacklog;
   state.diagnosticManual=diagnostic.options.manualDirection;state.day=tracker.day;state.muted=muted;state.storage=fsOK&&nvsOK&&archiveOK&&checkpointOK&&configOK&&(!captureLog.day.number||(state.captureDurable&&!captureBacklog));
   state.lastGoodMs=lastGood;state.haveEnergy=haveSample;
@@ -697,14 +724,22 @@ void processCommands(){
       case SET_LED:{
         if(!RGB_LED_ENABLED||!validLed(cmd.led)){error="Invalid or unavailable LED configuration";break;}
         state.led=cmd.led;uint8_t bytes[LED_RECORD_SIZE];encodeLed(state.led,bytes);
-        state.ledStored=nvsOK&&prefs.putBytes("led",bytes,sizeof(bytes))==sizeof(bytes);state.ledStorageOK=state.ledStored;
+        uint8_t verify[LED_RECORD_SIZE];state.ledStored=nvsOK&&verifiedPut(prefs,"led",bytes,verify,sizeof(bytes));state.ledStorageOK=state.ledStored;
         if(!state.ledStored)error="LED changed in RAM. Saving settings failed";break;
       }
       case SET_DISPLAY:{
         if(!validDisplay(cmd.display)){error="invalid_display";break;}
         uint8_t bytes[DISPLAY_RECORD_SIZE];encodeDisplay(cmd.display,bytes);
-        if(!nvsOK||prefs.putBytes("display",bytes,sizeof(bytes))!=sizeof(bytes)){error="display_storage_failed";break;}
+        uint8_t verify[DISPLAY_RECORD_SIZE];if(!nvsOK||!verifiedPut(prefs,"display",bytes,verify,sizeof(bytes))){error="display_storage_failed";break;}
         state.display=cmd.display;state.displayStored=true;state.displayStorageOK=true;break;
+      }
+      case SET_LORA:{
+        if(cmd.radioRevision!=radioSettingsStore.generation){error="lora_settings_changed";break;}
+        if(!valid(cmd.radio)){error="invalid_lora";break;}
+        if(!canQueueLoRaSettings()){error="lora_queue_busy";break;}
+        if(!nvsOK||!radioSettingsStore.save(prefs,cmd.radio)){error="lora_storage_failed";break;}
+        if(!updateLoRaSettings(cmd.radio,true,radioSettingsStore.generation))error="lora_queue_busy";
+        break;
       }
       case SET_NETWORK:{
         static NetworkCAInput caInput;memset(&caInput,0,sizeof(caInput));
@@ -758,14 +793,16 @@ void processCommands(){
 
 void acquisition(void *) {
   esp_task_wdt_add(nullptr);
-  nvsOK=prefs.begin("fort",false);Settings config{};
-  if(nvsOK&&prefs.isKey("config")) {
+  nvsOK=prefs.begin("fort",false);configOK=nvsOK;Settings config{};
+  const bool configPresent=nvsOK&&prefs.isKey("config");
+  if(configPresent) {
     uint8_t bytes[METER_CONFIG_BYTES]={};size_t size=prefs.getBytesLength("config");
     if(size==sizeof(bytes)&&prefs.getBytes("config",bytes,size)==size&&decodeMeterConfig(bytes,size,config,selectedMeterId)){
-      if(meterGet32(bytes)!=config.magic||bytes[11]!=config.profile||meterGet16(bytes+12)!=selectedMeterId){encodeMeterConfig(config,selectedMeterId,bytes);configOK=prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes);}
-    }else{config=Settings{};configOK=false;setError("Stored configuration invalid. Defaults loaded","config_corrupt");}
+      if(meterGet32(bytes)!=config.magic||bytes[11]!=config.profile||meterGet16(bytes+12)!=selectedMeterId){encodeMeterConfig(config,selectedMeterId,bytes);uint8_t verify[sizeof(bytes)];configOK=verifiedPut(prefs,"config",bytes,verify,sizeof(bytes));}
+    }else{config=Settings{};configOK=false;setError("Stored configuration invalid. Save verified meter settings to resume","config_corrupt");}
   }
   meterRegistry.load(prefs,nvsOK);
+  bool radioValid=nvsOK&&radioSettingsStore.load(prefs);bool radioStored=radioValid&&radioSettingsStore.bank>=0;updateLoRaSettings(radioSettingsStore.settings,radioStored,radioSettingsStore.generation);
   if(selectedMeterId){const auto *saved=meterRegistry.registry.find(selectedMeterId);Settings expected;if(!saved||!canActivateSaved(*saved,expected)||!sameMeterSettings(config,expected)){selectedMeterId=0;configOK=false;}}
 
   NetworkUpdate networkBoot;networkBoot.stored=nvsOK;
@@ -786,15 +823,26 @@ void acquisition(void *) {
     state.ledStored=prefs.getBytesLength("led")==sizeof(bytes)&&prefs.getBytes("led",bytes,sizeof(bytes))==sizeof(bytes)&&decodeLed(bytes,sizeof(bytes),state.led);
     state.ledStorageOK=state.ledStored;
   }
+  if(nvsOK&&prefs.isKey("day")&&prefs.getBytesLength("day")!=sizeof(Checkpoint))checkpointOK=false;
   if(nvsOK&&prefs.isKey("day")&&prefs.getBytesLength("day")==sizeof(Checkpoint)) {
-    Checkpoint c{};prefs.getBytes("day",&c,sizeof(c));
-    if(c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))) {tracker.day=c.day;interruptRecording();}
+    Checkpoint c{};size_t read=prefs.getBytes("day",&c,sizeof(c));
+    if(read==sizeof(c)&&c.magic==0x46524432&&c.crc==crc16(reinterpret_cast<uint8_t*>(&c),offsetof(Checkpoint,crc))&&validLegacyDay(c.day)) {tracker.day=c.day;interruptRecording();}
     else checkpointOK=false;
   }
   loadCaptures();
+  if(!configPresent&&retainedDay()){configOK=false;setError("Saved meter settings missing. Existing records retained","config_corrupt");}
+  diagnostic.pinReserved=[](unsigned pin){return (pin==LORA_NSS||pin==LORA_MOSI||pin==LORA_MISO||pin==LORA_SCK||pin==LORA_RESET||pin==LORA_BUSY||pin==LORA_DIO1)||(!RS485_AUTO_DIRECTION&&pin==PIN_RS485_DE);};
   normalReader.service=serviceDiagnostic;normalReader.event=uartEvent;diagnostic.service=serviceDiagnostic;diagnostic.event=uartEvent;diagnostic.directionPinReserved=!RS485_AUTO_DIRECTION;diagnostic.onResume=[](){resumeRequested=true;diagnostic.emergencyStop();};
   startBus();publishDiagnostic();uint32_t previousCycle=millis();lastRatioTry=0;lastContactTry=millis()-3000;bool previousRTC=false;
   while(true) {
+    LoRaArchiveQuery query;
+    if(!(state.rtc&&captureLog.urgent(state.utc))&&takeLoRaArchiveQuery(query)){
+      LoRaArchiveReply reply;reply.request=query.request;reply.session=query.session;CaptureDay requested;uint32_t requestedDay=query.day?query.day:captureLog.day.number;
+      if(requestedDay==captureLog.day.number&&(captureNVSOK||captureFSOK)){requested=captureLog.day;reply.found=true;}
+      else if(requestedDay==capturePending.number&&capturePending.number){requested=capturePending;reply.found=true;}
+      else reply.found=readCaptureFile(requestedDay,requested);
+      if(reply.found){reply.day=requested.number;encodeCaptureDay(requested,reply.bytes);}replyLoRaArchive(reply);
+    }
     state.acquisitionCycleMs=millis()-previousCycle;previousCycle=millis();
     esp_task_wdt_reset();pollDebugEntry();
     serviceDiagnostic();
@@ -855,6 +903,7 @@ void acquisition(void *) {
     if(scanner.running()) {
       scanStep();publish();vTaskDelay(pdMS_TO_TICKS(10));continue;
     }
+    if(!configOK){haveSample=false;rawKnown=false;interruptRecording();setError("Save verified meter settings before production resumes","config_corrupt");publish();vTaskDelay(pdMS_TO_TICKS(100));continue;}
     if(!captureUrgent&&(!state.lastContactMs||uint32_t(millis()-state.lastContactMs)>15000)){
       if(uint32_t(millis()-lastContactTry)<3000){publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       lastContactTry=millis();uint8_t handshake[4];
@@ -943,8 +992,8 @@ void jsonReply(int code,const String &msg,const char *messageCode) {
 bool authorizePost() {
   if(server.arg("token")!=apiToken){jsonReply(403,"Session expired. Reload this page.","invalid_token");return false;}
   size_t argumentBytes=0;for(int i=0;i<server.args();++i)argumentBytes+=server.argName(i).length()+server.arg(i).length();
-  size_t limit=server.uri()=="/api/network"?6144:512;
-  if(server.args()>(limit==6144?18:12)||argumentBytes>limit||server.arg("plain").length()>limit){jsonReply(413,"Request is too large","request_too_large");return false;}
+  bool radioConfig=server.uri()=="/api/lora/config";size_t limit=server.uri()=="/api/network"?6144:radioConfig?1024:512;
+  if(server.args()>(limit==6144?18:radioConfig?20:12)||argumentBytes>limit||server.arg("plain").length()>limit){jsonReply(413,"Request is too large","request_too_large");return false;}
   return true;
 }
 bool parseNumber(const String &s,uint32_t &value) {
@@ -996,6 +1045,7 @@ String hexFrame(const uint8_t *bytes,size_t length) {
   return String(out);
 }
 void webSetup() {
+  setupLoRaWeb(server,authorizePost,[](const lora::Settings &settings,uint32_t revision){Command c{};c.type=SET_LORA;c.radio=settings;c.radioRevision=revision;enqueueCommand(c);});
   MeterLabHooks labHooks;labHooks.authorize=authorizePost;labHooks.read=readMeterLab;
   labHooks.submit=[](const MeterLabRequest &request){Command command{};command.type=METER_LAB;command.lab=request;enqueueCommand(command);};
   labHooks.stop=[](uint32_t run){const auto &view=readMeterLab();if(view.discovery.run!=run){jsonReply(409,"Discovery run changed","mode_changed");return;}meterLabStopRun.store(run,std::memory_order_relaxed);jsonReply(202,"Discovery stop queued","accepted");};
@@ -1028,6 +1078,8 @@ void webSetup() {
     network["clientIP"]=station?WiFi.localIP().toString():String();network["apIP"]=apOK?WiFi.softAPIP().toString():String();
     network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
     network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":associated?"addressing":networkPolicy.fallback?"fallback":"connecting";
+    addLoRaJSON(d["lora"].to<JsonObject>());d["lora"]["provisioning"]=apOK&&server.client().localIP()==WiFi.softAPIP();
+    JsonObject recovery=d["recovery"].to<JsonObject>();recovery["resetCode"]=uint32_t(esp_reset_reason());recovery["source"]=s.captureRecovery;recovery["nvsVerified"]=s.captureNVSVerified;recovery["fsVerified"]=s.captureArchiveOK;recovery["durable"]=s.captureDurable;recovery["backlog"]=s.captureBacklog;
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
@@ -1079,8 +1131,8 @@ void webSetup() {
     d["commandQueue"]=uxQueueMessagesWaiting(commandQueue);d["diagnosticQueue"]=uxQueueMessagesWaiting(diagnosticInputQueue);
     JsonArray cores=d["cores"].to<JsonArray>();for(unsigned i=0;i<2;++i){JsonObject core=cores.add<JsonObject>();core["id"]=i;core["load"]=nullptr;if(samples.ready[i])core["load"]=samples.percent[i];core["method"]="sampled_non_idle_ticks";}
     JsonArray tasks=d["tasks"].to<JsonArray>();
-    TaskHandle_t handles[]={uiTask,acquisitionTask,idleHandles[0],idleHandles[1]};const char *names[]={"loopTask / HTTP + UI","fort-acquisition / UART","IDLE0","IDLE1"};const uint8_t pinned[]={0,1,0,1};const char *states[]={"running","ready","blocked","suspended","deleted","invalid"};
-    for(unsigned i=0;i<4;++i)if(handles[i]){JsonObject task=tasks.add<JsonObject>();task["name"]=names[i];task["core"]=pinned[i];task["priority"]=uxTaskPriorityGet(handles[i]);task["stackFreeMin"]=uxTaskGetStackHighWaterMark(handles[i])*sizeof(StackType_t);unsigned state=unsigned(eTaskGetState(handles[i]));task["state"]=states[state<6?state:5];}
+    TaskHandle_t handles[]={uiTask,acquisitionTask,idleHandles[0],idleHandles[1],loRaTaskHandle()};const char *names[]={"loopTask / HTTP + UI","fort-acquisition / UART","IDLE0","IDLE1","sx1262-link / SPI"};const uint8_t pinned[]={0,1,0,1,0};const char *states[]={"running","ready","blocked","suspended","deleted","invalid"};
+    for(unsigned i=0;i<5;++i)if(handles[i]){JsonObject task=tasks.add<JsonObject>();task["name"]=names[i];task["core"]=pinned[i];task["priority"]=uxTaskPriorityGet(handles[i]);task["stackFreeMin"]=uxTaskGetStackHighWaterMark(handles[i])*sizeof(StackType_t);unsigned state=unsigned(eTaskGetState(handles[i]));task["state"]=states[state<6?state:5];}
     d["taskListScope"]="owned_and_idle";
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
@@ -1442,7 +1494,9 @@ void setup() {
   char token[33];snprintf(token,sizeof(token),"%08lx%08lx%08lx%08lx",(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random(),(unsigned long)esp_random());apiToken=token;
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
   initProcessMonitor();webSetup();esp_task_wdt_config_t wdt{};wdt.timeout_ms=8000;wdt.idle_core_mask=3;wdt.trigger_panic=true;if(esp_task_wdt_status(nullptr)==ESP_ERR_INVALID_STATE)esp_task_wdt_init(&wdt);else esp_task_wdt_reconfigure(&wdt);esp_task_wdt_add(nullptr);
+  if(!initLoRaService())Serial.println("[LoRa] optional service allocation failed");
   if(xTaskCreatePinnedToCore(acquisition,"meter-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
+  Serial.printf("[Boot] reset reason=%u (brownout=%u)\n",unsigned(esp_reset_reason()),unsigned(ESP_RST_BROWNOUT));
   Serial.printf("Midea Energy Station ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }
 void loop() {

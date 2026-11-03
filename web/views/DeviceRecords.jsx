@@ -1,3 +1,4 @@
+import LoRaControls from "../components/LoRaControls.jsx";
 import { deviceFetch } from "../request.js";
 import DeviceClock from "../components/DeviceClock.jsx";
 import { useEffect, useState } from "react";
@@ -7,7 +8,7 @@ import NetworkControls from "../components/NetworkControls.jsx";
 import LedControls from "../components/LedControls.jsx";
 import Icon from "../components/Icon.jsx";
 import { useText } from "../ui.js";
-import { validHistory } from "../validation.js";
+import { validHistory, validRecoveryView } from "../validation.js";
 
 export default function DeviceRecords({ device }) {
   const { t, number } = useText();
@@ -76,6 +77,7 @@ export default function DeviceRecords({ device }) {
             </div>
           ))}
         </dl>
+        {validRecoveryView(s?.recovery)&&<div className="hint"><h3>{t("recovery_title")}</h3><p>{t("recovery_summary",{code:s.recovery.resetCode,source:s.recovery.source,nvs:t(s.recovery.nvsVerified?"recovery_yes":"recovery_no"),fs:t(s.recovery.fsVerified?"recovery_yes":"recovery_no")})}</p></div>}
         <div className="error-detail">
           {t("last_error")}
           <code>{s?.error_code ? t(s.error_code) : s?.error || "—"}</code>
@@ -97,6 +99,7 @@ export default function DeviceRecords({ device }) {
       </section>
       <div className="device-right">
         <NetworkControls device={device} />
+        <LoRaControls device={device} />
         <DisplayControls device={device} />
         <LedControls device={device} />
         <section className="panel">

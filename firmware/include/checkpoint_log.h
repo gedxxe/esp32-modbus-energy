@@ -46,7 +46,7 @@ inline uint32_t captureTarget(uint32_t day,unsigned index) {
   return day*86400+uint32_t(CAPTURE_MINUTES[index])*60-CAPTURE_OFFSET;
 }
 inline bool newerCaptureDay(const CaptureDay &candidate,const CaptureDay &current) {
-  return candidate.number>current.number||(candidate.number==current.number&&candidate.revision>current.revision);
+  return candidate.number>current.number||(candidate.number==current.number&&(candidate.revision>current.revision||(candidate.revision==current.revision&&int32_t(candidate.generation-current.generation)>0)));
 }
 inline bool validCaptureDayNumber(uint32_t day) {
   return day>=CLOCK_MIN_UTC/86400&&day<=CLOCK_MAX_UTC/86400;

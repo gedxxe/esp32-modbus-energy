@@ -7,11 +7,11 @@ namespace fort {
 // A mode revision prevents an old command from applying in a later normal session.
 enum CommandType : uint8_t {
   SET_TIME,SET_CONFIG,TOGGLE_MUTE,START_SCAN,CANCEL_SCAN,APPLY_SCAN,
-  SET_LED,START_TRACE,STOP_TRACE,SET_NETWORK,SET_DISPLAY,METER_LAB
+  SET_LED,START_TRACE,STOP_TRACE,SET_NETWORK,SET_DISPLAY,METER_LAB,SET_LORA
 };
 constexpr uint32_t COMMAND_MAX_AGE_MS=10000;
 inline bool safeDuringMaintenance(CommandType type) {
-  return type==TOGGLE_MUTE||type==SET_LED||type==START_TRACE||type==STOP_TRACE||type==SET_DISPLAY;
+  return type==TOGGLE_MUTE||type==SET_LED||type==START_TRACE||type==STOP_TRACE||type==SET_DISPLAY||type==SET_LORA;
 }
 inline bool commandModeAllowed(CommandType type,bool diagnostic,bool scanRunning,bool scanFound) {
   if(safeDuringMaintenance(type))return true;

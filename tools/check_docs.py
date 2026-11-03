@@ -96,6 +96,12 @@ for library,ver in re.findall(r'^\s+([^\n]+)@([\d.]+)\s*$',(ROOT/'firmware/platf
 pins={k:int(v) for k,v in re.findall(r'(PIN_[A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text(encoding='utf-8'))}
 expected={'PIN_SDA':8,'PIN_SCL':9,'PIN_RX':18,'PIN_TX':17,'PIN_RS485_DE':16,'PIN_PREV':4,'PIN_NEXT':5,'PIN_OK':6,'PIN_BUZZER':7}
 need(pins==expected,'GPIO assignment changed: update schematic routes and expected pin map together')
+lora_pins={k:int(v) for k,v in re.findall(r'LORA_([A-Z0-9_]+)\s*=\s*(\d+)',(ROOT/'firmware/include/board.h').read_text())}
+need(lora_pins=={'NSS':10,'MOSI':11,'SCK':12,'MISO':13,'RESET':14,'BUSY':15,'DIO1':21},'Radio GPIO assignment differs from the documented netlist')
+with (ROOT/'docs/wiring-lora.csv').open(encoding='utf-8') as f:lora_nets=list(csv.DictReader(f))
+for pin in lora_pins.values():need(any('ESP32.GPIO'+str(pin)==r['from'] for r in lora_nets),'Radio GPIO absent from netlist: '+str(pin))
+need(not set(lora_pins.values())&set(pins.values()),'Radio pin overlaps an installed peripheral')
+
 with (ROOT/'docs/wiring-netlist.csv').open(newline='',encoding='utf-8') as f:rows=list(csv.DictReader(f))
 all_endpoints={r[k] for r in rows for k in ['from','to']}
 for pin in pins.values():need('ESP32.GPIO'+str(pin) in all_endpoints,f'GPIO{pin} absent from netlist')

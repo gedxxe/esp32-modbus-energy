@@ -1,8 +1,9 @@
+import { loraText } from "./lora-i18n.js";
 import { enterpriseText } from "./enterprise-i18n.js";
 import { meterLabText } from "./meter-lab-i18n.js";
 export const catalog = {
   en: {
-    ...enterpriseText.en, ...meterLabText.en,
+    ...loraText.en, ...enterpriseText.en, ...meterLabText.en,
     save_profile_first:"Save the selected meter model before scanning.",
     meter_profile:"Meter model",
     meter_profile_help:"Save the model before scanning. It selects the register map, decoding, transformer ratios and supported scan rates. Existing checkpoint readings keep their original meter identity.",
@@ -469,7 +470,7 @@ export const catalog = {
     scan_result_pending: "Scan finished. Result not applied",
     scan_was_cancelled: "Scan cancelled. Previous settings restored",
     scan_no_meter: "Scan finished without a match",
-    config_corrupt: "Stored configuration invalid. Defaults loaded",
+    config_corrupt: "Stored meter settings are invalid or missing. Save verified meter settings to resume production.",
     rtc_write_failed: "RTC write or verification failed",
     ratio_out_of_range: "CT/PT ratio outside the manual range",
     counter_reset: "Counter decreased. Continuity interrupted",
@@ -483,7 +484,7 @@ export const catalog = {
     acquisition_ok: "Reading valid",
   },
   id: {
-    ...enterpriseText.id, ...meterLabText.id,
+    ...loraText.id, ...enterpriseText.id, ...meterLabText.id,
     save_profile_first:"Simpan model meter yang dipilih sebelum menjalankan scan.",
     meter_profile:"Model meter",
     meter_profile_help:"Simpan model sebelum memulai scan. Pilihan ini menentukan register, dekode, rasio trafo, dan baud rate scan. Checkpoint yang sudah tercatat tetap menyimpan identitas meter asalnya.",
@@ -966,7 +967,7 @@ export const catalog = {
     scan_result_pending: "Scan selesai. Hasil belum diterapkan",
     scan_was_cancelled: "Scan dibatalkan. Setting lama dipulihkan",
     scan_no_meter: "Scan selesai tanpa hasil",
-    config_corrupt: "Konfigurasi tersimpan tidak valid. Default dipakai",
+    config_corrupt: "Konfigurasi meter tersimpan invalid atau hilang. Simpan konfigurasi meter yang benar untuk melanjutkan produksi.",
     rtc_write_failed: "Penulisan atau verifikasi RTC gagal",
     ratio_out_of_range: "Rasio CT/PT di luar batas manual",
     counter_reset: "Counter menurun. Kontinuitas terputus",

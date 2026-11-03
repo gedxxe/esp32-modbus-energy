@@ -24,3 +24,7 @@ static_assert(RGB_LED_DEFAULT_PERIOD_MS>=500&&RGB_LED_DEFAULT_PERIOD_MS<=30000,"
 // Confirmed installation: manual module, GPIO16 drives tied DE and /RE.
 // Connection settings can explicitly select the automatic-module alternative.
 constexpr bool RS485_AUTO_DIRECTION = false;
+
+// Dedicated FSPI for optional Ai-Thinker Ra-01SH (SX1262). Pads are module labels.
+constexpr int LORA_NSS=10,LORA_MOSI=11,LORA_SCK=12,LORA_MISO=13;
+constexpr int LORA_RESET=14,LORA_BUSY=15,LORA_DIO1=21;

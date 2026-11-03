@@ -103,6 +103,8 @@ const state = {
   version,profile:"fort",meter:meterCatalog[0],meterProfiles:meterCatalog,
   token: "test-session",
   display:{available:true,idleSeconds:60,stored:false,storageOK:true,sleeping:false},
+  lora:{revision:0,ready:true,enabled:false,stored:false,available:false,paired:false,phase:0,code:0,frequencyHz:915000000,bandwidthKHz:125,sf:7,cr:5,powerDbm:14,preamble:8,syncWord:18,nodeId:2,gatewayId:1,networkId:1,intervalMs:60000,ackMs:10000,retries:2,hasKey:false,authErrors:0,addressErrors:0,replayErrors:0,lastTxSequence:0,lastRxSequence:0,tx:0,rx:0,acks:0,timeouts:0,rejected:0,crcErrors:0,drops:0,lastRxAgeMs:0,rssi:0,snr:0,waitMs:0,airtimeMs:0},
+  recovery:{resetCode:9,source:"staging",nvsVerified:true,fsVerified:true,durable:true,backlog:false},
   network: {auth:"personal",hasEnterpriseCredentials:false,hasCustomIdentity:false,serverName:"",caFingerprint:"",error:"",disconnectReason:0,apiCode:0,attempts:0,enterpriseProvisioning:true,flashEncrypted:false,configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
   control: { accepted: 0, completed: 0, rejected: 0, lastError: "", pending: 0, results: [] },
   rtc: true,
@@ -415,7 +417,7 @@ const server = http.createServer((req, res) => {
         );
         return;
       }
-      const normalControl = req.url !== "/api/diagnostic";
+      const normalControl = req.url !== "/api/diagnostic" && req.url !== "/api/lora/control";
       const commandId = normalControl ? ++state.control.accepted : null;
       const reject = normalControl && rejectNextControl;
       if (normalControl) {
@@ -497,6 +499,12 @@ const server = http.createServer((req, res) => {
       }
       if (req.url === "/api/trace/stop") trace.active = false;
       if(req.url==="/api/display"){state.display.idleSeconds=Number(data.get("idleSeconds"));state.display.stored=true;}
+      if(req.url==="/api/lora/config"){
+        ++state.lora.revision;
+        for(const k of ["frequencyHz","bandwidthKHz","sf","cr","powerDbm","preamble","syncWord","nodeId","gatewayId","networkId","intervalMs","ackMs","retries"])state.lora[k]=Number(data.get(k));
+        Object.assign(state.lora,{enabled:data.get("enabled")==="1",stored:true,available:data.get("enabled")==="1",paired:false,phase:data.get("enabled")==="1"?2:0,hasKey:data.get("key")?true:data.get("keepKey")==="1"&&state.lora.hasKey});
+      }
+      if(req.url==="/api/lora/control"){state.lora.phase=4;state.lora.paired=false;++state.lora.tx;}
       if (req.url === "/api/network") {
         const mode=data.get("mode"),previous=state.network;
         state.network={...previous,configuredAPIP:data.get("apIP")||previous.configuredAPIP,mode,activeMode:mode,stored:true,pending:false,connected:mode!=="ap",phase:mode==="ap"?"ap":"online",rssi:mode==="ap"?0:-53,clientIP:mode==="ap"?"":"192.168.1.84",apActive:mode!=="client",apIP:mode==="client"?"":"192.168.4.1",address:mode==="ap"?"192.168.4.1":"192.168.1.84"};
@@ -640,6 +648,7 @@ async function checkVectors(browser, out) {
       headless: true,
       ...(process.argv[3] ? { channel: process.argv[3] } : {}),
     });
+    if(process.argv.includes("--lora-only")){const page=await browser.newPage({viewport:{width:1440,height:1100}});await require("./test-lora.cjs")({page,origin,state,calls,root});return;}
     if(process.argv.includes("--adl400-only")){const page=await browser.newPage({viewport:{width:1440,height:1100}});await require("./test-adl400.cjs")({page,origin,state,calls,root});return;}
     if(process.argv.includes("--acrel-only")){const page=await browser.newPage({viewport:{width:1440,height:1100}});await require("./test-acrel.cjs")({page,origin,state,calls,root});return;}
     if(process.argv.includes("--habuer-only")){

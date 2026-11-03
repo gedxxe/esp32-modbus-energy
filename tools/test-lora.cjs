@@ -1,0 +1,24 @@
+const assert=require("node:assert/strict"),path=require("node:path");
+module.exports=async({page,origin,state,calls,root})=>{
+ await page.goto(origin+"/#device");await page.waitForFunction(()=>document.querySelector("#lora-save")&&!document.querySelector("#lora-save").disabled);
+ assert.equal(await page.locator("#lora-frequency").inputValue(),"915");assert(!(await page.locator("#lora-enabled").isChecked()));
+ assert((await page.locator("body").innerText()).includes("Checkpoints restored from staging"));
+ await page.locator("#lora-enabled").check();await page.locator("#lora-nodeId").fill("1");await page.locator("#lora-generate").click();
+ const key=await page.locator("#lora-key").inputValue();assert(/^[0-9a-f]{64}$/.test(key));
+ const before=calls.filter(x=>x.url==="/api/lora/config").length;await page.locator("#lora-save").click();assert.equal(calls.filter(x=>x.url==="/api/lora/config").length,before);
+ await page.locator("#lora-nodeId").fill("41");await page.locator("#lora-networkId").fill("7");await page.locator("#lora-save").click();await page.waitForSelector("#lora-keep-key:checked");
+ let command=calls.filter(x=>x.url==="/api/lora/config").at(-1).data;assert.equal(command.get("key"),key);assert.equal(command.get("frequencyHz"),"915000000");assert.equal(command.get("nodeId"),"41");assert(!JSON.stringify(state).includes(key));assert.equal(await page.locator("#lora-key").count(),0);
+ await page.reload();await page.waitForSelector("#lora-keep-key:checked");assert.equal(await page.locator("#lora-nodeId").inputValue(),"41");
+ await page.locator("#lora-frequency").fill("921.4");await page.locator("#lora-save").click();await page.waitForFunction(()=>!document.querySelector("#lora-save").disabled);
+ command=calls.filter(x=>x.url==="/api/lora/config").at(-1).data;assert.equal(command.get("frequencyHz"),"921400000");assert.equal(command.get("keepKey"),"1");assert.equal(command.get("key"),"");
+ await page.locator("#lora-pair").click();await page.waitForFunction(()=>document.querySelector("#lora-status")?.innerText.includes("ACK"));assert(!state.lora.paired,"Queuing HELLO is not evidence of pairing");
+ Object.assign(state.lora,{paired:true,phase:2,rx:1,acks:1,lastRxAgeMs:350,rssi:-82,snr:8.5});await page.waitForFunction(()=>document.querySelector("#lora-panel")?.innerText.includes("Session paired"));
+ await page.locator("#lora-panel").screenshot({path:path.join(root,"docs/assets/ui-lora-desktop.png"),style:".main-nav{visibility:hidden}"});
+ await page.locator("#language").selectOption("id");assert((await page.locator("#lora-panel").innerText()).includes("Sesi sudah dipasangkan"));
+ await page.setViewportSize({width:390,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.locator("#lora-panel").screenshot({path:path.join(root,"docs/assets/ui-lora-mobile.png"),style:".main-nav{visibility:hidden}"});
+ state.network.enterpriseProvisioning=false;await page.waitForTimeout(2300);await page.locator("#lora-keep-key").uncheck();await page.locator("#lora-generate").click();const beforeKey=calls.filter(x=>x.url==="/api/lora/config").length;await page.locator("#lora-save").click();assert.equal(calls.filter(x=>x.url==="/api/lora/config").length,beforeKey);
+ Object.assign(state.lora,{available:false,paired:false,phase:6,code:-2});await page.waitForSelector("#lora-error");assert(await page.locator("#lora-pair").isDisabled());assert(!(await page.locator("#lora-save").isDisabled()),"An absent module must not lock configuration");
+ state.lora.frequencyHz="invalid";await page.waitForFunction(()=>document.querySelector("#lora-save")?.disabled);
+ assert(!(await page.evaluate(()=>JSON.stringify({...localStorage}))).includes(key));
+ console.log("PASS: shipped LoRa 915 default/off, editable RF/IDs, key generation/redaction/reuse, duplicate-ID guard, explicit unconfirmed pairing, simulated ACK status, AP key protection, absent/malformed radio handling, recovery status, EN/ID and mobile layout");
+};

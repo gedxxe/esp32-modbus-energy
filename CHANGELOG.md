@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.0 / 3 November 2026
+
+Added an optional Ai-Thinker Ra-01SH SX1262 node with editable 915 MHz default, dedicated core-0 SPI ownership, web radio/ID/key controls, authenticated pairing and ACK/retry, freshness-aware live telemetry and acknowledged retrieval of saved checkpoint days. Published the binary v1 gateway contract, test vector and wiring/netlist for separate ESP32-C6 development. Radio starts disabled and physical RF acceptance remains pending.
+
+Hardened primary checkpoint writes with NVS readback, protected staging promotion, validation before backup replacement and generation-aware recovery. Invalid saved meter settings now pause production rather than selecting defaults beside retained data. Added legacy record semantic checks, verified setting writes, reset/recovery status and radio pin reservations in production diagnostics. Meter maps, profile IDs, partitions and capture schedules remain unchanged.
+
 ## 3.3.1 / 3 November 2026
 
 Enterprise login now submits username/password with the full SDK public CA bundle by default, without requiring a certificate upload. Existing private CA profiles remain pinned and never fall back when their file is missing. The client-IP form now explains the protected AP route beside Save instead of silently disabling it. SSIDs remain scan-selected, and the stored network format, meter maps and checkpoint schedules are unchanged.

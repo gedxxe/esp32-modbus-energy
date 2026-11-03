@@ -26,6 +26,9 @@ jobs:
           ./tmp/fort-debug-test
           g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/test/arduino_stub -Ifirmware/include -Ifirmware/lib/FortMeter/src firmware/test/test_diagnostics.cpp firmware/lib/FortMeter/src/ModbusMaster.cpp -o tmp/fort-main-debug-test
           ./tmp/fort-main-debug-test
+          g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_power_lora.cpp -o tmp/power-lora-test
+          ./tmp/power-lora-test
+          python tools/check_lora.py
       - name: Check generated assets and documentation
         run: |
           python tools/generate_docs.py
@@ -78,6 +81,7 @@ jobs:
       - run: npm run test:ui
       - run: npm run test:meter-lab
       - run: npm run test:enterprise
+      - run: npm run test:lora
       - run: npm run test:habuer
       - run: npm run test:acrel
       - run: npm run test:adl400

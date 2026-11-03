@@ -359,7 +359,7 @@ void captureCheck(bool connected){
 
 uint16_t scanTotal(){return uint16_t(lastID-firstID+1)*(options.scanCurrent?1:baudCount*parityCount);}
 bool validQuery(unsigned address,unsigned words){return address<=65535&&words>=1&&words<=3&&address+words<=65536UL;}
-bool allowedPin(unsigned pin){if(options.manualDirection&&pin==unsigned(options.dir))return false;return (pin>=10&&pin<=18)||pin==21||(pin>=39&&pin<=42)||pin==47;}
+bool allowedPin(unsigned pin){if(pinReserved&&pinReserved(pin))return false;if(options.manualDirection&&pin==unsigned(options.dir))return false;return (pin>=10&&pin<=18)||pin==21||(pin>=39&&pin<=42)||pin==47;}
 void showPlan(){for(uint8_t i=0;i<auditCount;++i)LOG("[PLAN] %u address=0x%04X words=%u\n",i+1,auditPlan[i].address,auditPlan[i].words);}
 void showDiscovery(const MeterDiscovery *source=nullptr){
   const auto &survey=source?*source:discovery;
@@ -380,7 +380,7 @@ void showStatus(){
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
   LOG("PROFILE: profile fort | profile acrel-adl400 | profile habuer. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nMeter diagnostics 3.3.1 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nMeter diagnostics 3.4.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("ADL400: adl400 compares total/forward/reverse/reactive counters, stable PT/CT and ABCD/CDAB float samples in one read-only run\n");
@@ -420,7 +420,7 @@ void command(const char *line) {
   if(!strcmp(line,"check connected")){captureCheck(true);return;}
   if(!strcmp(line,"check isolated")){captureCheck(false);return;}
   if(!strcmp(line,"compare")){compareCaptures();return;}
-  if(sscanf(line,"pins %u %u %c",&a,&b,&extra)==2&&a!=b&&allowedPin(a)&&allowedPin(b)){polling=false;options.rx=a;options.tx=b;openLink(current);showStatus();return;}
+  if(sscanf(line,"pins %u %u %c",&a,&b,&extra)==2){if(a==b||!allowedPin(a)||!allowedPin(b)){LOG("[PIN_REJECTED] UART pins must be distinct, supported and free of other peripheral reservations\n");return;}polling=false;options.rx=a;options.tx=b;openLink(current);showStatus();return;}
   if(sscanf(line,"timeout %lu %c",&baud,&extra)==1&&baud>=50&&baud<=5000){polling=false;options.responseMs=baud;showStatus();return;}
   if(sscanf(line,"interval %lu %c",&baud,&extra)==1&&baud>=100&&baud<=60000){polling=false;options.pollMs=baud;showStatus();return;}
   if(sscanf(line,"probe %x %u %c",&a,&b,&extra)==2&&validQuery(a,b)){polling=false;options.probeAddress=a;options.probeWords=b;showStatus();return;}
@@ -480,6 +480,7 @@ void serialInput(){
   void (*service)()=nullptr;
   void (*event)(uint8_t,const Link &,uint16_t,uint8_t,const uint8_t *,const uint8_t *,size_t,bool)=nullptr;
   void (*onResume)()=nullptr;
+  bool (*pinReserved)(unsigned)=nullptr;
   bool serialInputEnabled=false,serialOutput=false,executing=false,directionPinReserved=false;
   char *logStorage=nullptr;size_t logCapacity=0,logStart=0,logUsed=0;
   uint32_t logDiscarded=0,serialOffset=0;

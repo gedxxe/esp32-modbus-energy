@@ -13,4 +13,10 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & g++ -std=c++11 -Wall -Wextra -Werror -I (Join-Path $taskRoot 'firmware/test/arduino_stub') -I (Join-Path $taskRoot 'firmware/lib/FortMeter/src') -I (Join-Path $taskRoot 'firmware/include') (Join-Path $taskRoot 'firmware/test/test_diagnostics.cpp') (Join-Path $taskRoot 'firmware/lib/FortMeter/src/ModbusMaster.cpp') -o (Join-Path $testOut 'test_diagnostics.exe')
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & (Join-Path $testOut 'test_diagnostics.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& g++ -std=c++11 -Wall -Wextra -Werror -I (Join-Path $taskRoot 'firmware/include') (Join-Path $taskRoot 'firmware/test/test_power_lora.cpp') -o (Join-Path $testOut 'test_power_lora.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& (Join-Path $testOut 'test_power_lora.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& python (Join-Path $taskRoot 'tools/check_lora.py')
 exit $LASTEXITCODE

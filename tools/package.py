@@ -52,6 +52,8 @@ manifest = {
     "license_scope": "Original project code; third-party terms are recorded in NOTICE",
     "web": json.loads((root / "web/bundle.json").read_text(encoding="utf-8"))["compressed_total"],
     "enterprise": {"method":"PEAP / EAP-MSCHAPv2","certificate_date_validation":True,"server_validation_required":True,"default_trust":"SDK public CA bundle","private_ca_upload_optional":True,"server_dns_name":"optional additional constraint","corporate_authentication_tested":False},
+    "lora": {"module":"Ai-Thinker Ra-01SH SX1262","library":"RadioLib 7.8.1","default_frequency_hz":915000000,"enabled_by_default":False,"gateway_protocol":"Energy Station v1","rf_hardware_tested":False,"gateway_firmware_included":False},
+    "power_loss": {"verified_record_readback":True,"physical_power_cut_tested":False},
     "hardware_tested": False,
     "reference_sketch_report": "User reports working Fort and Habuer reference sketches with manual DE-/RE on GPIO16; integrated release still needs field acceptance",
     "modbus_transport": "ModbusMaster 2.0.1+fort.1",

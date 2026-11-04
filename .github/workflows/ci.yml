@@ -14,9 +14,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+      - name: Source audit
+        run: |
+          python tools/security_audit.py --self-test
+          python tools/security_audit.py --current --history
       - name: Native regression tests
         run: |
           g++ --version

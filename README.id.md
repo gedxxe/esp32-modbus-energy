@@ -25,7 +25,7 @@ ADL400 mengikuti hasil scan: total energi 0x0000, UInt32 / 100 × PT × CT dan f
 
 [Audit mati listrik](docs/id/POWER_LOSS.md) menjelaskan verifikasi tulis, recovery NVS/berkas/staging, rollover terlindungi dan batas hardware yang tersisa. Konfigurasi meter tersimpan yang rusak kini menghentikan produksi, sehingga profil default tidak dipilih diam-diam. Capture selesai tetap immutable dan jadwal saat perangkat mati tidak diisi dengan pembacaan terlambat.
 
-[Panduan node SX1262](docs/id/LORA.md) memuat wiring GPIO dan konfigurasi melalui web. Radio mulai nonaktif dengan default **915 MHz** yang dapat diubah. Fitur mencakup pairing beralamat, ACK/retry terautentikasi, telemetry dan pengambilan hari checkpoint tersimpan. Gateway ESP32-C6 mendatang mengikuti [kontrak Energy Station v1](docs/id/LORA_PROTOCOL.md) melalui proyek firmware terpisah.
+[Panduan node SX1262](docs/id/LORA.md) memuat wiring GPIO dan konfigurasi melalui web. Radio mulai nonaktif dengan default **915 MHz** yang dapat diubah. Fitur mencakup pairing beralamat, ACK/retry terautentikasi, telemetry dan pengambilan hari checkpoint tersimpan. Gateway ESP32-C3 mendatang mengikuti [kontrak Energy Station v1](docs/id/LORA_PROTOCOL.md) melalui proyek firmware terpisah.
 
 Untuk beberapa panel, ikuti [setup PTMP](docs/id/LORA_PTMP.md) yang menjelaskan ID node, gateway, jaringan serta pembagian waktu radio. [Prompt pengembangan gateway](docs/id/GATEWAY_PROMPT.md) siap ditempel ke chat terpisah pada project gateway dengan source ini sebagai referensi.
 

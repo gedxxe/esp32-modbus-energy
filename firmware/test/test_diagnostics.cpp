@@ -91,6 +91,27 @@ int main(){
  const uint8_t signedPower[]={0xFF,0xFF,0xD8,0xF0},voltage[]={0x08,0xFC};
  assert(fabs(profiles::decode(profiles::get(1).power,signedPower)+1.0)<1e-10);
  assert(fabs(profiles::decode(profiles::get(1).voltage,voltage)-230.0)<1e-10);
+ // Raw ADL400 FC03 compatibility: accept a CRC-valid response preceded by noise,
+ // but never accept wrong CRC, a loopback echo, or the wrong slave ID.
+ {HardwareSerial port(1);FortDiagnostics engine(port);engine.command("profile acrel-adl400");engine.command("id 220");engine.options.responseMs=100;
+  uint8_t values[4]={};
+  port.onWrite=[&](){port.incoming.push_back(0x55);port.incoming.push_back(0xAA);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);};
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798);
+  assert(engine.transport.last.frameOffset==2&&engine.transport.last.frameSize==9);
+  assert(engine.transport.last.status==0);
+  port.onWrite=[&](){auto reply=response({220,3,4,0,0,0x26,0x46});reply.back()^=0x01;
+    for(auto b:reply)port.incoming.push_back(b);};
+  assert(!engine.readRegisters(engine.current,0,2,values));
+  assert(engine.lastStatus==0xE3);
+  port.onWrite=[&](){for(auto b:port.transmitted.back())port.incoming.push_back(b);};
+  assert(!engine.readRegisters(engine.current,0,2,values));
+  assert(engine.lastStatus==0xE6&&engine.transport.last.echo);
+  port.onWrite=[&](){for(auto b:response({219,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);};
+  assert(!engine.readRegisters(engine.current,0,2,values));
+  assert(engine.lastStatus==0xE6);
+ }
  // Reproduce the user's ADL400 scan through the actual shared ModbusMaster transport.
  {HardwareSerial port(1);char log[8192];FortDiagnostics engine(port,log,sizeof(log));engine.command("profile acrel-adl400");engine.command("id 220");
   const auto &p=profiles::get(engine.options.profile);assert(p.energy.address==0&&p.energy.words==2&&p.energy.encoding==profiles::U32);

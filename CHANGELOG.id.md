@@ -1,5 +1,9 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## Belum dirilis (perbaikan audit · 5 November 2026)
+
+Dashboard Wi-Fi menerima SSID manual/tersembunyi, mengelompokkan opsi scan menurut keluarga keamanan, dan mempertahankan login serta CA Enterprise ketika SSID tersimpan yang sama dipilih ulang. SSID berbeda tidak boleh memakai ulang login sebelumnya. Perpindahan ke mode AP-only membersihkan sesi Enterprise sebelum radio station dimatikan. Regresi native/Playwright menutup batas pemakaian ulang kredensial. Dokumentasi dan diagram kini konsisten memakai gateway ESP32-C3 di proyek terpisah. Pengujian RADIUS perusahaan, RF fisik dan power-cut tetap memerlukan perangkat asli.
+
 ## 3.5.0
 
 Identitas fleet memakai factory MAC lengkap untuk nama AP, hostname dan status unit lokal. Instalasi baru memerlukan save konfigurasi meter secara eksplisit. Pengaturan meter/Wi-Fi memakai bank generation terverifikasi dengan impor legacy serta peringatan salinan bermasalah. Promosi arsip menolak staging lama atau konflik, penerimaan event Wi-Fi mematuhi deadline, dan uptime tidak kembali nol saat millis rollover. Profil meter, schema checkpoint dan versi wire radio tetap sama.

@@ -145,9 +145,14 @@ class FortTransport {
         if(last.overflow){last.status=0xE7;break;}
       }
       if(last.overflow)break;
-      // Reject a local TX echo rather than silently stripping it.
-      if(last.rxSize>=8&&!memcmp(last.rx,planned,8)){last.echo=true;last.status=0xE6;break;}
+      // A full TX echo is not a response. Continue searching for a separate,
+      // CRC-valid FC03 reply: a transceiver may deliver echo *and* meter data.
+      // The known-good standalone scanner likewise searches within RX bytes.
+      if(last.rxSize>=8&&!memcmp(last.rx,planned,8))last.echo=true;
       for(size_t pos=0;pos+5<=last.rxSize;++pos){
+        // Never interpret any part of a captured eight-byte request echo as
+        // response data; an actual reply must start after that prefix.
+        if(last.echo&&pos<8)continue;
         if(last.rx[pos]!=link.id)continue;
         bool exception=last.rx[pos+1]==0x83;
         if(!exception&&last.rx[pos+1]!=0x03)continue;
@@ -170,8 +175,8 @@ class FortTransport {
       if(last.frameSize)break;
       delay(1);
     }
-    if(!last.frameSize&&!last.aborted&&!last.overflow&&!last.echo){
-      last.status=badCRC?0xE3:last.rxSize?0xE6:0xE2;
+    if(!last.frameSize&&!last.aborted&&!last.overflow){
+      last.status=badCRC?0xE3:last.echo?0xE6:last.rxSize?0xE6:0xE2;
     }
     last.libraryStatus=last.status;
     if(last.txSize){

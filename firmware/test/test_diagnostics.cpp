@@ -77,6 +77,8 @@ int main(){
   engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400_VERIFIED);
   assert(engine.options.probeAddress==0&&engine.options.probeWords==2&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
   assert(engine.auditPlan[2].address==0x5300&&engine.auditPlan[3].address==0x006A&&engine.auditPlan[5].address==0x5332);
+  assert(engine.auditCount==8&&engine.auditPlan[6].address==0x008D&&engine.auditPlan[6].words==1
+         &&engine.auditPlan[7].address==0x008E&&engine.auditPlan[7].words==1);
   port.replies.push_back(response({1,3,4,0,0,0,123}));assert(engine.probeLink(engine.current));
   assert(port.transmitted.back()[3]==0x00&&port.transmitted.back()[5]==2);
   port.replies.push_back(response({1,3,4,0,1,0xE2,0x40})); // 123456 -> 1234.56 secondary kWh
@@ -102,6 +104,23 @@ int main(){
   assert(profiles::raw32(values)==9798);
   assert(engine.transport.last.frameOffset==2&&engine.transport.last.frameSize==9);
   assert(engine.transport.last.status==0);
+  // Real transceivers can return local TX echo followed by the valid meter
+  // response. Echo alone must still fail, but the later reply must be read.
+  port.onWrite=[&](){
+    for(auto b:port.transmitted.back())port.incoming.push_back(b);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);
+  };
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798&&engine.transport.last.echo
+         &&engine.transport.last.frameOffset==8&&engine.transport.last.frameSize==9);
+  // A corrupt candidate must not mask a later valid response.
+  port.onWrite=[&](){
+    auto corrupt=response({220,3,4,0,0,0x26,0x46});corrupt.back()^=0x01;
+    for(auto b:corrupt)port.incoming.push_back(b);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);
+  };
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798&&engine.transport.last.frameOffset==9);
   port.onWrite=[&](){auto reply=response({220,3,4,0,0,0x26,0x46});reply.back()^=0x01;
     for(auto b:reply)port.incoming.push_back(b);};
   assert(!engine.readRegisters(engine.current,0,2,values));
@@ -138,6 +157,25 @@ int main(){
   uint8_t oldBytes[METER_CONFIG_BYTES];Settings old;old.profile=profiles::ACREL_ADL400;old.slave=220;encodeMeterConfig(old,37,oldBytes);Settings upgraded;uint16_t saved=37;
   assert(decodeMeterConfig(oldBytes,sizeof(oldBytes),upgraded,saved)&&upgraded.profile==profiles::ACREL_ADL400_VERIFIED&&upgraded.slave==220&&saved==0);
   assert(!profiles::selectable(profiles::ACREL_ADL400));uint8_t id=0;assert(!profiles::parse("adl400-legacy",id)&&profiles::parse("acrel-adl400",id)&&id==profiles::ACREL_ADL400_VERIFIED);
+  // Discovery must persist only CRC-valid response spans when each reply
+  // follows a local TX echo; captured raw UART bytes remain in diagnostics.
+  port.onWrite=[&](){
+    const auto &tx=port.transmitted.back();uint16_t address=uint16_t(tx[2])<<8|tx[3];
+    for(auto byte:tx)port.incoming.push_back(byte);
+    uint32_t raw=address==0?9798:address==0x008D?1:80;
+    if(tx[5]==1){for(auto byte:response({220,3,2,uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(byte);}
+    else{for(auto byte:response({220,3,4,uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(byte);}
+  };
+  assert(engine.discovery.begin(cfg,334,millis(),2));
+  while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185201);
+  assert(engine.discovery.count==1&&engine.discovery.found[0].mapEvidence()&(1<<profiles::ACREL_ADL400_VERIFIED));
+  SavedMeter fromEcho;strcpy(fromEcho.name,"ADL echo");strcpy(fromEcho.model,"ADL400");fromEcho.id=10;
+  fromEcho.profile=profiles::ACREL_ADL400_VERIFIED;fromEcho.verified=true;fromEcho.evidence=engine.discovery.found[0];
+  assert(validSavedMeter(fromEcho)&&canActivateSaved(fromEcho,bound));
+  for(unsigned i=0;i<fromEcho.evidence.count;++i){
+    const auto &probe=fromEcho.evidence.probes[i];
+    assert(probe.rxSize[0]<=9&&probe.rxSize[1]<=9&&probe.flags==0);
+  }
  }
  // The universal survey continues after a silent first probe and records exceptions separately.
  {HardwareSerial port(1);FortDiagnostics engine(port);DiscoveryConfig config;config.first=1;config.last=1;config.responseMs=150;

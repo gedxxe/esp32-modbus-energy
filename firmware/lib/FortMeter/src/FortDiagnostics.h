@@ -170,8 +170,8 @@ bool readRegisters(const Link &link,uint16_t address,uint8_t words,uint8_t *out)
   LOG("[MODBUS_RESULT] 0x%02X %s. Library=0x%02X\n",lastStatus,statusName(lastStatus),result.libraryStatus);
   if(result.frameSize){LOG("[VALID_FRAME] offset=%u bytes=%u; ignored RX prefix=%u\n",result.frameOffset,result.frameSize,result.frameOffset);}
   if(result.rxSize>=5){const uint8_t *frame=result.frameSize?result.rx+result.frameOffset:result.rx;size_t length=result.frameSize?result.frameSize:result.rxSize;uint16_t calculated=modbusCRC(frame,length-2),received=uint16_t(frame[length-2])|(uint16_t(frame[length-1])<<8);LOG("CRC calculated=0x%04X received=0x%04X %s\n",calculated,received,calculated==received?"OK":"MISMATCH");}
-  if(result.echo){++evidence.echoes;LOG("[EXACT_TX_ECHO] request returned. Rejected as meter data, no bytes stripped\n");}
-  if(result.rxSize>8&&!memcmp(result.tx,result.rx,8)){++evidence.echoPrefixes;LOG("[TX_PREFIX_WITH_TRAILING_RX] rejected. Nothing stripped\n");}
+  if(result.echo){++evidence.echoes;LOG("[EXACT_TX_ECHO] request echo ignored as data; any subsequent CRC-valid reply checked independently\n");}
+  if(result.rxSize>8&&!memcmp(result.tx,result.rx,8)){++evidence.echoPrefixes;LOG("[TX_PREFIX_WITH_TRAILING_RX] echo ignored; subsequent CRC-valid response may be accepted\n");}
   if(lastStatus==0){
     ++evidence.data;lastReply=REPLY_DATA;
     for(uint8_t i=0;i<words;++i){out[i*2]=uint8_t(values[i]>>8);out[i*2+1]=uint8_t(values[i]);}

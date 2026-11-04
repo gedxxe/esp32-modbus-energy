@@ -71,3 +71,11 @@ ID internal historis 1 mempertahankan arti energi forward dan konversi lama untu
 Mapping Fort dan Habuer tetap, tanpa parser Modbus baru, perubahan Wi-Fi, jadwal checkpoint atau schema flash. Tes host mereplay frame valid untuk ID 220 melalui library ModbusMaster sebenarnya dan memeriksa 7838,40 kWh, dekode float, rasio berubah, reverse nol/nonzero, gagal tanpa fallback, migrasi konfigurasi serta round trip checkpoint. Tes web menggunakan byte gzip sebenarnya dan memastikan hanya satu pilihan ADL400.
 
 Hasil scan fisik pengguna diterima sebagai referensi. Firmware terintegrasi ini belum dihubungkan ke meter tersebut dalam pengujian lokal. Penerimaan hardware yang tersisa adalah menjalankan firmware baru dan membandingkan halaman LCD yang sama pada waktu berdekatan, termasuk total, forward dan reverse. Ini tidak meminta pengulangan investigasi wiring atau perubahan terhadap finding scan.
+
+## Audit tambahan sesudah merge
+
+- Preset diagnosis mendalam ADL400 sekarang membaca PT `0x008D/1` dan CT `0x008E/1` melalui dua permintaan FC03 terpisah. Ini sama dengan sketch referensi dan jalur produksi, bukan `0x008D/2` sekaligus.
+- Echo delapan byte dari TX tetap **tidak dianggap respons meter**. Parser ADL400 kini tetap menunggu respons terpisah yang lolos ID, function, panjang data, dan CRC setelah echo. Uji sintetis mencakup echo saja (gagal), echo lalu respons valid (berhasil), CRC salah (gagal), dan frame CRC salah lalu respons valid (berhasil).
+- Perubahan ini tidak membuktikan komunikasi dengan meter fisik. ID 220 adalah pengaturan meter yang pernah dites, bukan nilai default semua ADL400. Jalur ModbusMaster Fort/Habuer tidak berubah.
+
+- Discovery menyimpan frame respons yang lolos CRC, bukan seluruh burst dengan noise/echo di depan. RX mentah tetap terlihat pada diagnostik. Tes sintetis ID 220 memverifikasi bukti meter tersimpan tetap valid ketika setiap respons didahului echo delapan byte.

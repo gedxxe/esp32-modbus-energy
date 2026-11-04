@@ -73,3 +73,11 @@ Historical profile ID 1 retains the earlier forward-energy meaning and conversio
 Fort and Habuer descriptors and their transaction behavior remain unchanged. No packet parser, Wi-Fi settings, checkpoint schedule or flash-record schema was replaced. Host tests replay valid frames addressed to 220 through the real ModbusMaster source and verify 7838.40 kWh, float decoding, PT/CT stability, reverse-zero/nonzero cases, unavailable energy without fallback, config migration and checkpoint round trips. Browser tests exercise the actual generated gzip assets and verify that only one ADL400 option is offered.
 
 The owner's successful physical scan is accepted as the reference evidence. The integrated release has not been connected to that physical meter here. Remaining acceptance is a new firmware run compared with the same LCD page at matching times, including observing total, forward and reverse together. It is not a request to repeat the wiring investigation or to change the verified scan findings.
+
+## Additional diagnostic and UART parser hardening (post-merge audit)
+
+- The ADL400 `deeper` audit now issues two independent FC03 requests for PT `0x008D/1` and CT `0x008E/1`, just like the verified standalone energy sketch and production ratio path. It no longer requests `0x008D/2` in this profile.
+- A captured eight-byte request echo remains **invalid as meter data**. The ADL400 raw-FC03 receiver now continues waiting for a *separate* matching ID/function/length/CRC response **after** that echo. Echo only, bad CRC only and wrong-slave-only cases are still rejected; valid replies following noise, echo or a bad candidate are tested in the host UART simulator.
+- This is a parser/diagnostic correction, not evidence of a new physical-meter test. The installed meter's address remains configurable (the field installation used 220). Fort/Habuer still use their existing ModbusMaster transport path.
+
+- Discovery persists the matching CRC-validated frame rather than a noise/echo-prefixed burst when accepting ADL400 replies. Raw UART evidence remains in trace diagnostics. Synthetic ID-220 discovery verifies saved-meter evidence remains valid when every reply follows an eight-byte local echo.

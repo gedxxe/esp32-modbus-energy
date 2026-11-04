@@ -157,6 +157,25 @@ int main(){
   uint8_t oldBytes[METER_CONFIG_BYTES];Settings old;old.profile=profiles::ACREL_ADL400;old.slave=220;encodeMeterConfig(old,37,oldBytes);Settings upgraded;uint16_t saved=37;
   assert(decodeMeterConfig(oldBytes,sizeof(oldBytes),upgraded,saved)&&upgraded.profile==profiles::ACREL_ADL400_VERIFIED&&upgraded.slave==220&&saved==0);
   assert(!profiles::selectable(profiles::ACREL_ADL400));uint8_t id=0;assert(!profiles::parse("adl400-legacy",id)&&profiles::parse("acrel-adl400",id)&&id==profiles::ACREL_ADL400_VERIFIED);
+  // Discovery must persist only CRC-valid response spans when each reply
+  // follows a local TX echo; captured raw UART bytes remain in diagnostics.
+  port.onWrite=[&](){
+    const auto &tx=port.transmitted.back();uint16_t address=uint16_t(tx[2])<<8|tx[3];
+    for(auto byte:tx)port.incoming.push_back(byte);
+    uint32_t raw=address==0?9798:address==0x008D?1:80;
+    if(tx[5]==1){for(auto byte:response({220,3,2,uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(byte);}
+    else{for(auto byte:response({220,3,4,uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(byte);}
+  };
+  assert(engine.discovery.begin(cfg,334,millis(),2));
+  while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185201);
+  assert(engine.discovery.count==1&&engine.discovery.found[0].mapEvidence()&(1<<profiles::ACREL_ADL400_VERIFIED));
+  SavedMeter fromEcho;strcpy(fromEcho.name,"ADL echo");strcpy(fromEcho.model,"ADL400");fromEcho.id=10;
+  fromEcho.profile=profiles::ACREL_ADL400_VERIFIED;fromEcho.verified=true;fromEcho.evidence=engine.discovery.found[0];
+  assert(validSavedMeter(fromEcho)&&canActivateSaved(fromEcho,bound));
+  for(unsigned i=0;i<fromEcho.evidence.count;++i){
+    const auto &probe=fromEcho.evidence.probes[i];
+    assert(probe.rxSize[0]<=9&&probe.rxSize[1]<=9&&probe.flags==0);
+  }
  }
  // The universal survey continues after a silent first probe and records exceptions separately.
  {HardwareSerial port(1);FortDiagnostics engine(port);DiscoveryConfig config;config.first=1;config.last=1;config.responseMs=150;

@@ -85,8 +85,17 @@ class MeterDiscovery {
       uint8_t data[6]={};uint32_t before=reader.clockMs();bool accepted=reader.readRegisters(link,probe.address,probe.words,data);
       const auto &frame=reader.transport.last;probe.durationMs[attempt]=uint16_t(reader.clockMs()-before);probe.status[attempt]=reader.lastStatus;probe.attempts=attempt+1;
       probe.txSize[attempt]=frame.txSize>8?8:frame.txSize;memcpy(probe.tx[attempt],frame.tx,probe.txSize[attempt]);
-      if(frame.overflow||frame.rxSize>16)probe.flags|=uint8_t(1<<attempt);
-      probe.rxSize[attempt]=frame.rxSize>16?16:frame.rxSize;memcpy(probe.rx[attempt],frame.rx,probe.rxSize[attempt]);
+      // Persist the validated response span, not a noise/echo prefix.
+      // The unmodified RX is still available in UART trace diagnostics.
+      const uint8_t *evidenceRx=frame.rx;
+      size_t evidenceSize=frame.rxSize;
+      if((accepted||frame.exception)&&frame.frameSize&&size_t(frame.frameOffset)+frame.frameSize<=frame.rxSize){
+        evidenceRx=frame.rx+frame.frameOffset;
+        evidenceSize=frame.frameSize;
+      }
+      if(frame.overflow||evidenceSize>16)probe.flags|=uint8_t(1<<attempt);
+      probe.rxSize[attempt]=evidenceSize>16?16:uint8_t(evidenceSize);
+      memcpy(probe.rx[attempt],evidenceRx,probe.rxSize[attempt]);
       ++requests;++current.requests;
       if(accepted||frame.exception){probe.validMask|=uint8_t(1<<attempt);if(frame.exception){++exceptions;++current.exceptions;}}
       else if(frame.status==0xE2){++timeouts;++current.timeouts;}

@@ -2,7 +2,7 @@
 
 [English](../LORA_PROTOCOL.md) · **Bahasa Indonesia** · [Konfigurasi dan wiring](LORA.md) · [PTMP dan gateway](LORA_PTMP.md)
 
-Spesifikasi ini merupakan kontrak antara node S3 dan gateway ESP32-C6 yang dikembangkan terpisah. Transport memakai raw LoRa, explicit header, IQ normal, CRC fisik dan key bersama 32 byte. Ini bukan LoRaWAN. Gateway harus membaca format biner tersebut, bukan menganggap paket sebagai JSON atau teks.
+Spesifikasi ini merupakan kontrak antara node S3 dan gateway ESP32-C3 pada repository terpisah. Transport memakai raw LoRa, explicit header, IQ normal, CRC fisik dan key bersama 32 byte. Ini bukan LoRaWAN. Gateway harus membaca format biner tersebut, bukan menganggap paket sebagai JSON atau teks.
 
 ## Representasi dan parameter default
 

@@ -4,7 +4,7 @@
 
 Salin prompt di bawah ke **INPUT chat coding-agent baru yang dibuka pada repository gateway terpisah**. Isinya permintaan pengembangan, bukan perintah Serial Monitor maupun Command input pada web S3. Beri chat tersebut akses baca ke repository station ini atau ZIP source-nya. Repository node tetap menjadi referensi dan tidak ditimpa menjadi build receiver.
 
-Kontrak ini mengikuti station 3.4.3 dengan wire version Energy Station v1, tetap cocok dengan 3.4.0. Periksa source sebenarnya dan test vector ketika mengerjakan gateway. Teks firmware `3.4.0` pada fixture HELLO publik lama sengaja dipertahankan dan tidak mengubah versi protokol.
+Kontrak ini mengikuti station 3.5.0 dengan wire version Energy Station v1, tetap cocok dengan 3.4.0. Periksa source sebenarnya dan test vector ketika mengerjakan gateway. Teks firmware `3.4.0` pada fixture HELLO publik lama sengaja dipertahankan dan tidak mengubah versi protokol.
 
 ## Prompt untuk disalin
 

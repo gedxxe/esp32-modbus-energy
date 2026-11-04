@@ -52,7 +52,7 @@ inline const Profile &get(uint8_t id){
     {ACREL_ADL400_VERIFIED,"acrel-adl400","Acrel ADL400","21 / A1 · 22 / B1","ADL400 V1.3 total energy / user field comparison",
       {0x530C,2,F32,1},{0x5300,2,F32,1},{0x006A,1,I16,.001},
       {0x5332,2,F32,1},{0x0000,2,U32,.01},0x008D,0,2,PT_CT,19200,
-      {0x0064,1,U16,.01},{0x5330,2,F32,1},{0,0,U16,0},FIELD_ENERGY,false}
+      {0x0000,2,U32,.01},{0x5330,2,F32,1},{0,0,U16,0},FIELD_ENERGY,false}
   };
   static_assert(sizeof(table)/sizeof(table[0])==COUNT,"Every profile ID needs a descriptor");
   static const Profile unknown={255,"unknown","Unconfigured meter","A / B","No verified register profile",
@@ -77,6 +77,15 @@ inline bool ratios(const Profile &profile,const uint8_t *p,uint16_t &num,uint16_
   num=word(p);den=profile.ratioLayout==PT_FRACTION_CT?word(p+2):1;ct=word(p+(profile.ratioLayout==PT_FRACTION_CT?4:2));
   return num>=1&&num<=9999&&den>=1&&den<=9999&&ct>=1&&ct<=9999;
 }
+// PT_CT meters are read as independent PT and CT requests, matching the field reference.
+template<class Reader> inline bool readRatioData(const Profile &profile,uint16_t address,Reader read,uint8_t *out){
+  if(!profile.ratioWords)return true;
+  if(profile.ratioLayout==PT_CT&&profile.ratioWords==2){
+    if(address==65535)return false;
+    return read(address,1,out)&&read(uint16_t(address+1),1,out+2);
+  }
+  return read(address,profile.ratioWords,out);
+}
 inline double primaryEnergy(uint8_t id,uint32_t raw,uint16_t num,uint16_t den,uint16_t ct){if(!valid(id))return NAN;const auto &p=get(id);if(p.energy.encoding==F32){uint8_t bytes[]={uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)};double value=decode(p.energy,bytes);return !(raw&0x80000000UL)&&isfinite(value)?value:NAN;}
 if(directEnergy(p)){return double(raw)*p.energy.scale;}return double(raw)*p.energy.scale*double(num)/den*ct;}
 // Float32 counters retain their IEEE754 payload in the existing raw 32-bit slot.
@@ -93,7 +102,7 @@ template<class Query> inline bool appendQuery(Query *out,size_t &count,size_t ca
   out[count].address=address;out[count++].words=words;return true;
 }
 template<class Query> inline size_t discoveryQueries(const Profile &p,Query *out,size_t capacity){
-  size_t n=0;appendQuery(out,n,capacity,p.probe.address,p.probe.words);appendQuery(out,n,capacity,p.energy.address,p.energy.words);appendQuery(out,n,capacity,p.ratios,p.ratioWords);return n;
+  size_t n=0;appendQuery(out,n,capacity,p.probe.address,p.probe.words);appendQuery(out,n,capacity,p.energy.address,p.energy.words);if(p.ratioLayout==PT_CT&&p.ratioWords==2){appendQuery(out,n,capacity,p.ratios,1);appendQuery(out,n,capacity,uint16_t(p.ratios+1),1);}else appendQuery(out,n,capacity,p.ratios,p.ratioWords);return n;
 }
 template<class Query> inline size_t auditQueries(const Profile &p,Query *out,size_t capacity){
   size_t n=0;const Register registers[]={p.probe,p.current,p.voltage,p.power,p.powerFactor,p.frequency,p.energy,p.reactiveEnergy};

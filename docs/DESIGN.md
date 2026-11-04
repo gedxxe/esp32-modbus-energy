@@ -94,7 +94,7 @@ The root scanned Fort manual supplies the register map, the user's reported work
 
 ## Wi-Fi state and persistence
 
-The Wi-Fi driver runs on core 0, while core 1 validates and stores the 779-byte v3 credential record under the `wifi` Preferences key. The record explicitly encodes mode, SSID, Personal/EAP credential fields, optional server constraint, CA hash, AP IPv4 preference and CRC16, avoiding structure-padding dependencies. Legacy 104/108-byte records remain readable. CRC detects a damaged record and does not encrypt credentials. WiFi.persistent(false) prevents the driver from maintaining a second persistent configuration outside the application's core 1 ownership.
+The Wi-Fi driver runs on core 0, while core 1 validates and stores the 779-byte v3 credential payload in alternating 793-byte `wifi_a`/`wifi_b` Preferences envelopes. The record explicitly encodes mode, SSID, Personal/EAP credential fields, optional server constraint, CA hash, AP IPv4 preference and CRC16, avoiding structure-padding dependencies. Legacy 104/108-byte records remain readable. CRC detects a damaged record and does not encrypt credentials. WiFi.persistent(false) prevents the driver from maintaining a second persistent configuration outside the application's core 1 ownership.
 
 An accepted network command must pass normal-mode/revision/age guards and save successfully before a one-entry queue hands it to core 0. The eight-second deferred application preserves time for its HTTP execution result. A failed save keeps the current driver configuration, and a corrupt boot record leaves the default AP available. Switching to AP retains client credentials without exposing the saved password through GET endpoints.
 
@@ -104,7 +104,7 @@ The diagnostic HTTP view now carries actual session settings and evidence counts
 
 ## Network UI and clock changes in 2.2
 
-Network settings now use an explicit 108-byte v2 record, with a four-byte preferred AP IPv4 address before its CRC. The old 104-byte v1 record remains readable and supplies 192.168.4.1. Serialization never depends on struct padding. The AP keeps a /24 network, prefers the configured address and still avoids an overlapping client subnet.
+The active version-3 payload retains the explicit preferred AP IPv4 field. Legacy 104-byte v1 and 108-byte v2 records are imported before any bank exists, with v1 supplying 192.168.4.1. Serialization never depends on struct padding. The AP keeps a /24 network, prefers the configured address and still avoids an overlapping client subnet.
 
 SSID scan is asynchronous through the core 0 driver and shares a bounded 16-row cache between web and OLED. Saved credentials remain with core 1, and both input surfaces create the same SET_NETWORK command. The pure OledNetworkMenu state machine handles mode, network selection, masked ASCII entry and IP tools without touching GPIO or NVS, allowing host transition tests. Physical button repeat starts after 450 ms and steps at 80 ms, with a suppressed release event to avoid an extra character.
 

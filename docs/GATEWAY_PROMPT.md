@@ -4,7 +4,7 @@
 
 Copy the prompt below into the **INPUT of a new coding-agent chat opened in the separate gateway repository**. It is a development request, not a Serial Monitor command and not a command for the S3 web console. Give that chat read access to this station repository or its source ZIP. Keep the node repository available as a reference rather than overwriting it with receiver firmware.
 
-The prompt targets the station contract shipped in 3.4.3. Its wire version remains Energy Station v1, compatible with 3.4.0. Read the actual source and public vector when implementing the gateway. The older public HELLO fixture deliberately contains firmware text `3.4.0`, which does not change its protocol version.
+The prompt targets the station contract shipped in 3.5.0. Its wire version remains Energy Station v1, compatible with 3.4.0. Read the actual source and public vector when implementing the gateway. The older public HELLO fixture deliberately contains firmware text `3.4.0`, which does not change its protocol version.
 
 ## Prompt to copy
 

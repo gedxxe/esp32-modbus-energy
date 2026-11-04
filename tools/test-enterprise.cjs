@@ -101,5 +101,8 @@ module.exports=async({page,origin,state,calls,root})=>{
   assert.equal(calls.filter(c=>c.url==="/api/network").length,beforePersonal+1);
   const personal=calls.filter(c=>c.url==="/api/network").at(-1).data;
   for(const key of ["identity","username","eapPassword","ca","keepCA","serverName"])assert(!personal.has(key),`Personal request leaked ${key}`);
+  Object.assign(state.network,{mode:"ap",activeMode:"ap",connected:false,associated:false,pending:false,apActive:false,apIP:"",clientIP:"",address:"",phase:"ap_unavailable",error:""});
+  await page.waitForFunction(()=>document.querySelector("#network-result-stage")?.innerText.includes("retrying")||document.querySelector("#network-result-stage")?.innerText.includes("mencoba kembali"));
+  assert(!(await page.locator("#network-status").innerText()).includes("Client connected"));
   console.log("PASS: shipped Enterprise scan classification, username-first PEAP form, optional DNS/default identity, public-bundle login/reload without CA upload, exact-name guard, credentials and CA submission, reuse/reload without secret echo, clock diagnostics, visible connection progress/timeout/history, replacement credentials, secret-free client retry, actionable AP-only provisioning, EN/ID and mobile layout");
 };

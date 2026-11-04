@@ -2,7 +2,12 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.4.3**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+
+## 3.5.0 fleet audit and urgent ADL400 patch
+
+The fleet changes previously passed the native suites and generated-byte dashboard checks. The final owner-supplied ADL400 reference then required a further patch: FC03 `0x0000/2` is the contact/energy probe, with independent PT `0x008D/1` and CT `0x008E/1`. UInt32 ABCD /100 and PT × CT once remain unchanged. Production and shared standalone diagnostics use the same ratio helper. No additional native, browser or hardware tests were run after that patch, as explicitly requested by the owner. Both the ESP32-S3 main firmware and standalone INO compiled successfully after this ADL400 patch. Native/browser/RF tests were not rerun. GitHub CI is skipped for this urgent patch at the owner request. A full release package and field acceptance must not be inferred from earlier pre-patch results.
+
 
 ## Connection lifecycle and local commissioning in 3.4.3
 

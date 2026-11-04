@@ -20,9 +20,12 @@ const registerInfo=value=>object(value)&&uint(value.address,65535)&&[1,2].includ
 const profileInfo=value=>object(value)&&(value.commissioningRequired===undefined||typeof value.commissioningRequired==="boolean")&&profileKey(value.key)&&typeof value.name==="string"&&typeof value.terminals==="string"&&uint(value.maxBaud,1000000)&&value.maxBaud>0&&Number.isFinite(value.energyScale)&&value.energyScale>0&&uint(value.ratios,65535)&&[0,2,3].includes(value.ratioWords)&&
   (value.ratioWords!==0||value.energyBasis==="meter-total")&&registerInfo(value.meterEnergy||value.secondaryEnergy)&&registerInfo(value.probe||value.currentA)&&
   ["currentA","voltageA","power","frequency","powerFactor","reactiveEnergy"].every(key=>value[key]===undefined||value[key]===null||registerInfo(value[key]));
+export const validUnitView=v=>object(v)&&[v.identityValid,v.uniqueAP,v.meterConfigured,v.meterSettingsDegraded,v.networkSettingsDegraded].every(x=>typeof x==="boolean")&&
+  typeof v.id==="string"&&(v.identityValid?/^[0-9A-F]{12}$/.test(v.id):v.id==="")&&
+  typeof v.hostname==="string"&&/^[a-z0-9-]{1,23}$/.test(v.hostname)&&[v.meterConfigGeneration,v.networkConfigGeneration].every(x=>uint(x));
 export function validStatus(value) {
   return (
-    serial(value) && (value.profileReady===undefined||typeof value.profileReady==="boolean") && ["manual", "auto"].includes(value.direction) && (value.discoveryRunning===undefined||typeof value.discoveryRunning==="boolean") &&
+    serial(value) && (value.unit===undefined||validUnitView(value.unit)) && (value.profileReady===undefined||typeof value.profileReady==="boolean") && ["manual", "auto"].includes(value.direction) && (value.discoveryRunning===undefined||typeof value.discoveryRunning==="boolean") &&
     (value.profile===undefined||(profileKey(value.profile)&&profileInfo(value.meter)&&value.meter.key===value.profile&&Array.isArray(value.meterProfiles)&&value.meterProfiles.length>=1&&value.meterProfiles.length<=16&&new Set(value.meterProfiles.map(p=>p?.key)).size===value.meterProfiles.length&&value.meterProfiles.every(profileInfo))) &&
     (value.readingQuality===undefined||(object(value.readingQuality)&&[value.readingQuality.required,value.readingQuality.transportFailed,value.readingQuality.invalid].every(v=>uint(v,255))&&typeof value.readingQuality.complete==="boolean"&&!(value.readingQuality.transportFailed&~value.readingQuality.required)&&!(value.readingQuality.invalid&~value.readingQuality.required))) &&
     typeof value.token === "string" && value.token.length > 0 &&
@@ -77,7 +80,7 @@ export function validNetworkView(value) {
     Number.isInteger(value.attempt.lastApiCode)&&typeof value.attempt.lastError==="string"&&value.attempt.lastError.length<=64&&
     typeof value.attempt.apiStep==="string"&&value.attempt.apiStep.length<=64)) && [value.hasCustomIdentity,value.associated].every(v=>v===undefined||typeof v==="boolean") && (value.auth===undefined||([value.hasEnterpriseCredentials,value.enterpriseProvisioning,value.flashEncrypted].every(v=>typeof v==="boolean")&&uint(value.disconnectReason,65535)&&Number.isInteger(value.apiCode)&&uint(value.attempts))) && (value.auth===undefined||["personal","open","peap"].includes(value.auth)) && (value.error===undefined||["","enterprise_clock_required","enterprise_ca_missing","enterprise_api_failed","station_config_failed","enterprise_authentication_rejected","authentication_failed","ssid_unavailable","handshake_timeout","beacon_timeout","association_failed","link_lost","connection_timeout","dhcp_timeout","station_disconnect_timeout","network_event_overflow"].includes(value.error)) && (value.caFingerprint===undefined||value.caFingerprint===""||/^[a-f0-9]{64}$/.test(value.caFingerprint)) && (value.serverName===undefined||(typeof value.serverName==="string"&&value.serverName.length<=253)) && ["ap", "client", "dual"].includes(value.mode) &&
     ["ap", "client", "dual"].includes(value.activeMode) &&
-    ["applying", "ap", "online", "fallback", "connecting", "addressing", "failed", "preparing"].includes(value.phase) &&
+    ["applying", "ap", "online", "fallback", "connecting", "addressing", "failed", "preparing", "ap_unavailable"].includes(value.phase) &&
     [value.pending, value.connected, value.apActive, value.hasPassword, value.stored].every((v) => typeof v === "boolean") &&
     validAPIP(value.configuredAPIP) && typeof value.ssid === "string" && value.ssid.length <= 32 &&
     typeof value.apSSID === "string" && value.apSSID.length <= 32 &&

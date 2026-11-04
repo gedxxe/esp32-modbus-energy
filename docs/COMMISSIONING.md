@@ -14,7 +14,7 @@ After exporting a test day's records, perform a planned power-cycle test and ver
 
 ## Bench checks
 
-Before going to the meter, verify that the board boots without a Serial Monitor, exposes Midea Engineering AP at 192.168.4.1 and shows Firmware 3.0.0. Check the OLED's installed 180° orientation, all three debounced buttons, the optional buzzer and RGB settings across a restart. OLED absence must not prevent the AP from starting, and a failed filesystem must require the physical five-second OK confirmation before formatting.
+Before going to the meter, verify that the board boots without a Serial Monitor, exposes Midea Engineering-XXXXXXXXXXXX at 192.168.4.1 and shows Firmware 3.0.0. Check the OLED's installed 180° orientation, all three debounced buttons, the optional buzzer and RGB settings across a restart. OLED absence must not prevent the AP from starting, and a failed filesystem must require the physical five-second OK confirmation before formatting.
 
 With A/B disconnected, run a bounded diagnostic and retain its output. Any RX in this condition is local circuitry activity, not a Fort response. A temporary UART-only loopback, with module TTL leads removed and GPIO17 joined to GPIO18, should produce an exact TX echo that the validator rejects as energy. Remove the jumper and restore the manual module before the meter test.
 

@@ -1,5 +1,10 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.5.0
+
+Identitas fleet memakai factory MAC lengkap untuk nama AP, hostname dan status unit lokal. Instalasi baru memerlukan save konfigurasi meter secara eksplisit. Pengaturan meter/Wi-Fi memakai bank generation terverifikasi dengan impor legacy serta peringatan salinan bermasalah. Promosi arsip menolak staging lama atau konflik, penerimaan event Wi-Fi mematuhi deadline, dan uptime tidak kembali nol saat millis rollover. Profil meter, schema checkpoint dan versi wire radio tetap sama.
+
+
 ## 3.4.3
 
 Wi-Fi melacak persiapan asinkron, autentikasi dan DHCP dengan batas waktu per percobaan, menampilkan operasi SDK yang gagal serta mempertahankan kegagalan terakhir. Kolom login Enterprise menjelaskan kebutuhan AP sebelum pengisian, isian pengganti mematikan pemakaian ulang kredensial, dan login tersimpan dapat dicoba ulang melalui IP client. Key LoRa dapat dipasang lewat kedua antarmuka lokal terotorisasi. Test regresi mengompilasi adapter Enterprise produksi dan menguji aset browser yang dikemas.

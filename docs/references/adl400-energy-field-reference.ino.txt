@@ -1,0 +1,563 @@
+/*
+  ACREL ADL400 - ENERGY REGISTER DIAGNOSTIC
+  ESP32-S3 + MAX485
+  Raw Modbus RTU - No external Modbus library
+
+  WIRING:
+  GPIO17 -> MAX485 DI
+  GPIO18 <- MAX485 RO
+  GPIO16 -> MAX485 DE + /RE
+  GND    -> MAX485 GND
+
+  VERIFIED COMMUNICATION:
+  Slave ID : 220
+  Baud     : 9600
+  Format   : 8N1
+  FC       : 03
+
+  REGISTERS:
+  0x0000 : Current total active energy
+  0x000A : Current forward active total energy
+  0x0014 : Current reversing active total energy
+  0x001E : Current total reactive energy
+  0x008D : PT
+  0x008E : CT
+
+  All requests are READ ONLY.
+*/
+
+#include <Arduino.h>
+#include <string.h>
+
+// ================= CONFIGURATION =================
+
+#define RS485_TX   17
+#define RS485_RX   18
+#define RS485_DIR  16
+
+#define SLAVE_ID   220
+#define MODBUS_BAUD 9600
+
+#define TIMEOUT_MS 500
+
+HardwareSerial RS485(1);
+
+// ================= GLOBAL DATA =================
+
+uint8_t rxBuffer[64];
+uint8_t rxLength = 0;
+
+uint16_t responseWords[8];
+
+uint8_t responseStatus = 0;
+uint8_t exceptionCode = 0;
+uint8_t responseCount = 0;
+
+uint16_t ptRatio = 0;
+uint16_t ctRatio = 0;
+
+bool ptValid = false;
+bool ctValid = false;
+
+// ================= FUNCTION PROTOTYPES =================
+
+uint16_t crc16(const uint8_t* data, size_t length);
+bool checkCRC(const uint8_t* data, size_t length);
+
+void directionTX();
+void directionRX();
+
+bool parseResponse(uint8_t quantity);
+
+uint8_t readRegisters(
+  uint16_t address,
+  uint8_t quantity
+);
+
+bool readSingleRegister(
+  uint16_t address,
+  const char* label,
+  uint16_t &value
+);
+
+void readEnergy(
+  uint16_t address,
+  const char* label,
+  bool applyRatio
+);
+
+void readAll();
+void printHelp();
+
+// ================= CRC16 MODBUS =================
+
+uint16_t crc16(const uint8_t* data, size_t length) {
+
+  uint16_t crc = 0xFFFF;
+
+  for (size_t i = 0; i < length; i++) {
+
+    crc ^= data[i];
+
+    for (int j = 0; j < 8; j++) {
+
+      if (crc & 1) {
+        crc >>= 1;
+        crc ^= 0xA001;
+      }
+      else {
+        crc >>= 1;
+      }
+    }
+  }
+
+  return crc;
+}
+
+bool checkCRC(const uint8_t* data, size_t length) {
+
+  if (length < 5) return false;
+
+  uint16_t crc = crc16(data, length - 2);
+
+  return (
+    data[length - 2] == (uint8_t)(crc & 0xFF) &&
+    data[length - 1] == (uint8_t)(crc >> 8)
+  );
+}
+
+// ================= RS485 DIRECTION =================
+
+void directionTX() {
+
+  digitalWrite(RS485_DIR, HIGH);
+
+  delayMicroseconds(120);
+}
+
+void directionRX() {
+
+  digitalWrite(RS485_DIR, LOW);
+}
+
+// ================= RESPONSE PARSER =================
+
+bool parseResponse(uint8_t quantity) {
+
+  for (size_t i = 0; i + 5 <= rxLength; i++) {
+
+    if (rxBuffer[i] != SLAVE_ID) continue;
+
+    // Modbus exception
+    if (rxBuffer[i + 1] == 0x83) {
+
+      if (i + 5 <= rxLength &&
+          checkCRC(&rxBuffer[i], 5)) {
+
+        exceptionCode = rxBuffer[i + 2];
+        responseStatus = 2;
+
+        return true;
+      }
+    }
+
+    // Normal FC03 response
+    if (rxBuffer[i + 1] != 0x03) continue;
+
+    uint8_t byteCount = rxBuffer[i + 2];
+
+    if (byteCount != quantity * 2) continue;
+
+    size_t frameLength = 5 + byteCount;
+
+    if (i + frameLength > rxLength) continue;
+
+    if (!checkCRC(&rxBuffer[i], frameLength)) continue;
+
+    responseCount = quantity;
+
+    for (uint8_t j = 0; j < quantity; j++) {
+
+      uint8_t high = rxBuffer[i + 3 + j * 2];
+      uint8_t low  = rxBuffer[i + 4 + j * 2];
+
+      responseWords[j] =
+        ((uint16_t)high << 8) | low;
+    }
+
+    responseStatus = 1;
+
+    return true;
+  }
+
+  return false;
+}
+
+// ================= MODBUS FC03 READ =================
+
+uint8_t readRegisters(
+  uint16_t address,
+  uint8_t quantity
+) {
+
+  responseStatus = 0;
+  responseCount = 0;
+  rxLength = 0;
+  exceptionCode = 0;
+
+  memset(responseWords, 0, sizeof(responseWords));
+
+  if (quantity == 0 || quantity > 4) {
+    return 3;
+  }
+
+  uint8_t request[8] = {
+
+    SLAVE_ID,
+    0x03,
+
+    (uint8_t)(address >> 8),
+    (uint8_t)(address & 0xFF),
+
+    0x00,
+    quantity,
+
+    0x00,
+    0x00
+  };
+
+  uint16_t crc = crc16(request, 6);
+
+  request[6] = crc & 0xFF;
+  request[7] = crc >> 8;
+
+  while (RS485.available()) {
+    RS485.read();
+  }
+
+  directionTX();
+
+  RS485.write(request, sizeof(request));
+  RS485.flush();
+
+  delayMicroseconds(150);
+
+  directionRX();
+
+  uint32_t start = millis();
+
+  while (millis() - start < TIMEOUT_MS) {
+
+    while (RS485.available()) {
+
+      int data = RS485.read();
+
+      if (data >= 0 && rxLength < sizeof(rxBuffer)) {
+
+        rxBuffer[rxLength++] = (uint8_t)data;
+      }
+    }
+
+    if (parseResponse(quantity)) {
+      return responseStatus;
+    }
+
+    delay(1);
+  }
+
+  if (rxLength > 0) {
+    responseStatus = 3;
+  }
+
+  return responseStatus;
+}
+
+// ================= SINGLE REGISTER =================
+
+bool readSingleRegister(
+  uint16_t address,
+  const char* label,
+  uint16_t &value
+) {
+
+  uint8_t result = readRegisters(address, 1);
+
+  Serial.printf(
+    "\nFC03 0x%04X | %s : ",
+    address,
+    label
+  );
+
+  if (result == 1) {
+
+    value = responseWords[0];
+
+    Serial.printf(
+      "[CRC OK] Raw = %u (0x%04X)\n",
+      value,
+      value
+    );
+
+    return true;
+  }
+
+  if (result == 2) {
+
+    Serial.printf(
+      "[EXCEPTION] Code = 0x%02X\n",
+      exceptionCode
+    );
+  }
+  else {
+
+    Serial.println(
+      result == 0 ?
+      "[TIMEOUT]" :
+      "[INVALID FRAME]"
+    );
+  }
+
+  return false;
+}
+
+// ================= ENERGY REGISTER =================
+
+void readEnergy(
+  uint16_t address,
+  const char* label,
+  bool applyRatio
+) {
+
+  uint8_t result = readRegisters(address, 2);
+
+  Serial.println();
+  Serial.println("----------------------------------------");
+
+  Serial.printf(
+    "%s | Address: 0x%04X\n",
+    label,
+    address
+  );
+
+  if (result != 1) {
+
+    if (result == 2) {
+      Serial.printf(
+        "MODBUS EXCEPTION: 0x%02X\n",
+        exceptionCode
+      );
+    }
+    else {
+      Serial.println("READ FAILED");
+    }
+
+    return;
+  }
+
+  uint16_t highWord = responseWords[0];
+  uint16_t lowWord  = responseWords[1];
+
+  uint32_t rawABCD =
+    ((uint32_t)highWord << 16) |
+    lowWord;
+
+  uint32_t rawCDAB =
+    ((uint32_t)lowWord << 16) |
+    highWord;
+
+  Serial.println("[CRC OK]");
+
+  Serial.printf(
+    "Register High : 0x%04X (%u)\n",
+    highWord,
+    highWord
+  );
+
+  Serial.printf(
+    "Register Low  : 0x%04X (%u)\n",
+    lowWord,
+    lowWord
+  );
+
+  Serial.printf(
+    "Raw ABCD      : %lu\n",
+    (unsigned long)rawABCD
+  );
+
+  Serial.printf(
+    "Raw CDAB      : %lu\n",
+    (unsigned long)rawCDAB
+  );
+
+  // Manual indicates energy integer data
+  // with two decimal places.
+  float baseValue = rawABCD / 100.0f;
+
+  Serial.printf(
+    "Candidate /100 : %.2f\n",
+    baseValue
+  );
+
+  if (applyRatio && ctValid) {
+
+    Serial.printf(
+      "Candidate x CT: %.2f\n",
+      baseValue * ctRatio
+    );
+  }
+
+  if (applyRatio && ctValid && ptValid) {
+
+    Serial.printf(
+      "Candidate x CT x PT: %.2f\n",
+      baseValue * ctRatio * ptRatio
+    );
+  }
+
+  Serial.println(
+    "NOTE: Scaling candidates only; not yet validated."
+  );
+}
+
+// ================= READ ALL =================
+
+void readAll() {
+
+  Serial.println();
+  Serial.println("========================================");
+  Serial.println("       ACREL ADL400 ENERGY TEST");
+  Serial.println("========================================");
+
+  Serial.printf("Slave ID : %d\n", SLAVE_ID);
+  Serial.printf("Baud     : %d\n", MODBUS_BAUD);
+  Serial.println("Format   : 8N1");
+  Serial.println("Function : FC03");
+  Serial.println();
+
+  // 1. Read PT ratio
+  ptValid = readSingleRegister(
+    0x008D,
+    "PT Ratio",
+    ptRatio
+  );
+
+  // 2. Read CT ratio
+  ctValid = readSingleRegister(
+    0x008E,
+    "CT Ratio",
+    ctRatio
+  );
+
+  Serial.println();
+  Serial.println("========== ENERGY MEASUREMENTS ==========");
+
+  // 3. Total active energy
+  readEnergy(
+    0x0000,
+    "TOTAL ACTIVE ENERGY",
+    true
+  );
+
+  // 4. Forward active energy
+  readEnergy(
+    0x000A,
+    "FORWARD ACTIVE ENERGY",
+    true
+  );
+
+  // 5. Reverse active energy
+  readEnergy(
+    0x0014,
+    "REVERSE ACTIVE ENERGY",
+    true
+  );
+
+  // 6. Total reactive energy
+  readEnergy(
+    0x001E,
+    "TOTAL REACTIVE ENERGY",
+    false
+  );
+
+  Serial.println();
+  Serial.println("========================================");
+  Serial.println("           TEST COMPLETED");
+  Serial.println("========================================");
+
+  Serial.println(
+    "Compare energy values with ADL400 LCD."
+  );
+
+  Serial.println(
+    "No meter settings have been changed."
+  );
+}
+
+// ================= HELP =================
+
+void printHelp() {
+
+  Serial.println();
+  Serial.println("===== ADL400 ENERGY DIAGNOSTIC =====");
+  Serial.println("r : Read all energy registers");
+  Serial.println("h : Show help");
+  Serial.println("-----------------------------------");
+  Serial.println("Slave ID : 220");
+  Serial.println("Baud     : 9600");
+  Serial.println("Format   : 8N1");
+  Serial.println("Read only: FC03");
+  Serial.println("===================================");
+}
+
+// ================= SETUP =================
+
+void setup() {
+
+  Serial.begin(115200);
+
+  delay(1000);
+
+  pinMode(RS485_DIR, OUTPUT);
+
+  directionRX();
+
+  RS485.begin(
+    MODBUS_BAUD,
+    SERIAL_8N1,
+    RS485_RX,
+    RS485_TX
+  );
+
+  printHelp();
+
+  // Automatic first test
+  readAll();
+}
+
+// ================= LOOP =================
+
+void loop() {
+
+  if (Serial.available()) {
+
+    char command = Serial.read();
+
+    switch (command) {
+
+      case 'r':
+      case 'R':
+        readAll();
+        break;
+
+      case 'h':
+      case 'H':
+        printHelp();
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  delay(10);
+}

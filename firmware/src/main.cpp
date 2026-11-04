@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
+#include <esp_mac.h>
 #ifndef CONFIG_ESP_BROWNOUT_DET
 #error "Brownout detection must remain enabled for the physical logger"
 #endif
@@ -20,6 +21,7 @@
 #include <atomic>
 #include "rgb_driver.h"
 #include "board.h"
+#include "device_identity.h"
 #include "energy.h"
 #include "checkpoint_log.h"
 #include "debounce.h"
@@ -27,6 +29,9 @@
 #include "version.h"
 #include "recovery.h"
 #include "verified_record.h"
+#include "settings_bank.h"
+#include "capture_archive.h"
+#include <esp_timer.h>
 #include "lora_service.h"
 #include "lora_web.h"
 #include "scan.h"
@@ -82,6 +87,7 @@ BoundedWebServer server(80);
 SemaphoreHandle_t i2cMutex,fsMutex;
 QueueHandle_t snapshotQueue,commandQueue,networkQueue;
 bool oledOK=false,apOK=false;
+DeviceIdentity unitIdentity;
 String apiToken;
 IdleScreen idleScreen;uint16_t lastIdleFrame=0xffff;
 
@@ -128,14 +134,14 @@ bool startAP(uint32_t address){
   lastAPTry=millis();if(!address)return false;
   if(!WiFi.enableAP(true))return false;
   IPAddress ip=ipv4Address(address),mask(255,255,255,0);
-  bool ready=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(AP_SSID,AP_PASSWORD,6,false,4);
-  if(ready)apAddress=address;return ready;
+  bool ready=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(unitIdentity.apSSID,AP_PASSWORD,6,false,4);
+  if(ready)apAddress=address;else Serial.println("[WiFi] AP start failed. Retrying without stopping acquisition");return ready;
 }
 void applyNetwork(const NetworkSettings &settings){
   networkAttempt.idle();activeNetwork=settings;networkPolicy.begin(settings.mode,millis(),settings.auth==NETWORK_PEAP?60000:NETWORK_RETRY_MS);
   WiFi.setAutoReconnect(false);if(WiFi.getMode()&WIFI_MODE_STA)WiFi.disconnectAsync(false,false);
   WiFi.mode(settings.mode==NETWORK_AP?WIFI_AP:WIFI_AP_STA);WiFi.setSleep(false);
-  WiFi.setHostname("fort-energy");apOK=startAP(settings.apIP);
+  WiFi.setHostname(unitIdentity.hostname);apOK=startAP(settings.apIP);
   if(settings.mode!=NETWORK_AP)startStation();else stationDriver.reset();
 }
 void networkNotice(const char *message);
@@ -177,7 +183,7 @@ void tickNetwork(){
   if(uint32_t(now-lastNetworkTick)<250)return;
   lastNetworkTick=now;bool ready=stationReady();
   bool retry=networkPolicy.update(now,ready,networkAttempt.retryAllowed(now));
-  uint32_t usableUTC=0;if(activeNetwork.auth==NETWORK_PEAP&&!ready&&!wifiScanRunning()&&!networkPending&&strcmp(stationDriver.error,"enterprise_clock_required")==0&&networkClock(usableUTC))retry=true;
+  uint32_t usableUTC=0;if(activeNetwork.auth==NETWORK_PEAP&&!ready&&!wifiScanRunning()&&!networkPending&&!networkAttempt.active()&&strcmp(networkAttempt.error,"enterprise_clock_required")==0&&networkClock(usableUTC))retry=true;
   if(networkPolicy.apWanted(now)){
     uint32_t address=ready?chooseAPAddress(ipv4(WiFi.localIP()),ipv4(WiFi.subnetMask()),activeNetwork.apIP):apAddress;
     if((!apOK||address!=apAddress)&&uint32_t(now-lastAPTry)>=3000)apOK=startAP(address);
@@ -254,6 +260,7 @@ struct CommandResult { uint32_t id=0;char error[80]={}; };
 constexpr uint8_t COMMAND_RESULTS=8;
 uint32_t acceptedCommand=0; // Core 0 only. Results are core 1 queue copies.
 struct Snapshot {
+  bool meterConfigured=false,meterSettingsDegraded=false,networkSettingsDegraded=false;uint32_t meterConfigGeneration=0,networkConfigGeneration=0;
   uint32_t modeRevision=0,completedCommand=0,rejectedCommand=0;
   char commandError[80]={};
   CommandResult commandResults[COMMAND_RESULTS]={};uint8_t commandResultNext=0;
@@ -333,7 +340,10 @@ uint32_t retainedDay(){return fmax(tracker.day.number,fmax(captureLog.day.number
 ScanController scanner;
 Preferences prefs;
 lora::SettingsStore radioSettingsStore;
-bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=true;
+SettingsBank<METER_CONFIG_BYTES> meterSettingsBank;
+SettingsBank<NETWORK_RECORD_SIZE> networkSettingsBank;
+bool configMissing=true;
+bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=false;
 uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0,lastRatioTry=0,lastContactTry=0;
 bool haveSample=false,muted=false;
 uint32_t previousRaw=0,previousMono=0;
@@ -485,9 +495,9 @@ bool readCaptureFile(uint32_t day,CaptureDay &out){
   xSemaphoreGive(fsMutex);return ok;
 }
 // Caller owns fsMutex. This validator also rejects a valid record for another day.
-bool validCapturePath(const String &path,uint32_t expected=0){
-  File f=LittleFS.open(path,"r");uint8_t bytes[CAPTURE_RECORD_SIZE];CaptureDay day;
-  size_t size=f?f.size():0;bool ok=f&&captureRecordSize(size)&&f.read(bytes,size)==size&&decodeCaptureDay(bytes,size,day)&&(!expected||day.number==expected);
+bool readCapturePathLocked(const String &path,CaptureDay &day){
+  File f=LittleFS.open(path,"r");uint8_t bytes[CAPTURE_RECORD_SIZE];size_t size=f?f.size():0;
+  bool ok=f&&captureRecordSize(size)&&f.read(bytes,size)==size&&decodeCaptureDay(bytes,size,day);
   if(f)f.close();return ok;
 }
 bool writeCaptureFile(const CaptureDay &day){
@@ -500,13 +510,13 @@ bool writeCaptureFile(const CaptureDay &day){
   if(stagedOK){
     if(newerCaptureDay(staged,day)){xSemaphoreGive(fsMutex);return false;}
     String target=capturePath(staged.number),backup=target+".bak";
-    if(!installVerifiedArchive(LittleFS,String("/capture.pending"),target,backup,[&](const String &p){return validCapturePath(p,staged.number);})){xSemaphoreGive(fsMutex);return false;}
+    if(!promoteCapture(LittleFS,String("/capture.pending"),target,backup,staged,readCapturePathLocked)){xSemaphoreGive(fsMutex);return false;}
   }
   uint8_t bytes[CAPTURE_RECORD_SIZE],verify[CAPTURE_RECORD_SIZE];encodeCaptureDay(day,bytes);
   String path=capturePath(day.number),temp="/capture.pending",backup=path+".bak";File f=LittleFS.open(temp,"w");bool ok=bool(f);
   if(ok){ok=f.write(bytes,sizeof(bytes))==sizeof(bytes);f.flush();f.close();}
   if(ok){f=LittleFS.open(temp,"r");ok=f&&f.size()==sizeof(bytes)&&f.read(verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));if(f)f.close();}
-  if(ok)ok=installVerifiedArchive(LittleFS,temp,path,backup,[&](const String &p){return validCapturePath(p,day.number);});
+  if(ok)ok=promoteCapture(LittleFS,temp,path,backup,day,readCapturePathLocked);
   if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("c")){uint32_t n=name.substring(1).toInt();if(n>0&&n+31<=day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
   xSemaphoreGive(fsMutex);return ok;
 }
@@ -616,11 +626,14 @@ void saveCheckpoint(bool archive) {
   if(archive)saveArchive();saveCaptures();lastSave=millis();
 }
 void publish() {
+  state.meterConfigured=configOK&&meterSettingsBank.bank>=0;state.meterSettingsDegraded=meterSettingsBank.degraded;state.networkSettingsDegraded=networkSettingsBank.degraded;
+  state.meterConfigGeneration=meterSettingsBank.generation;state.networkConfigGeneration=networkSettingsBank.generation;
   scanner.refresh(millis());state.scan=scanner.progress;state.profileReady=configOK&&productionProfileReady(state.config,selectedMeterId,meterRegistry.registry);
   state.discoveryRunning=meterLabActive;state.savedMeterId=selectedMeterId;const auto *saved=meterRegistry.registry.find(selectedMeterId);strlcpy(state.meterName,saved?saved->name:"",sizeof(state.meterName));
   normalReader.discovery.refresh(millis());publishMeterLab();
   strlcpy(state.captureRecovery,captureRecoverySource,sizeof(state.captureRecovery));state.captureNVSVerified=captureNVSOK;
-  static uint32_t lastRadioSample=0;if(uint32_t(millis()-lastRadioSample)>=1000){lastRadioSample=millis();LoRaTelemetry packet;packet.utc=state.rtc?state.utc:0;packet.ageMs=state.lastGoodMs?uint32_t(millis()-state.lastGoodMs):UINT32_MAX;packet.kwh=state.energy;packet.meterId=selectedMeterId;packet.profile=state.config.profile;packet.day=captureLog.day.number;packet.revision=captureLog.day.revision;packet.flags=(haveSample&&isfinite(state.energy)&&packet.ageMs<=15000?1:0)|(state.rtc?2:0)|((captureNVSOK||captureFSOK)?4:0)|(state.online?8:0)|((diagnosticActive||meterLabActive||scanner.progress.phase==SCAN_RUNNING)?16:0);publishLoRaTelemetry(packet);}
+  state.lastGoodMs=lastGood;state.haveEnergy=haveSample;state.online=state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<=15000;
+  static uint32_t lastRadioSample=0;if(uint32_t(millis()-lastRadioSample)>=1000){lastRadioSample=millis();LoRaTelemetry packet;packet.utc=state.rtc?state.utc:0;packet.ageMs=haveSample?uint32_t(millis()-lastGood):UINT32_MAX;packet.kwh=state.energy;packet.meterId=selectedMeterId;packet.profile=state.config.profile;packet.day=captureLog.day.number;packet.revision=captureLog.day.revision;packet.flags=(haveSample&&isfinite(state.energy)&&packet.ageMs<=15000?1:0)|(state.rtc?2:0)|((captureNVSOK||captureFSOK)?4:0)|(state.online?8:0)|((diagnosticActive||meterLabActive||scanner.progress.phase==SCAN_RUNNING)?16:0);publishLoRaTelemetry(packet);}
   state.captures=captureLog.day;state.capturePending=capturePending;state.captureDurable=captureNVSOK||captureFSOK;state.captureArchiveOK=captureFSOK;state.captureBacklog=captureBacklog;
   state.diagnosticManual=diagnostic.options.manualDirection;state.day=tracker.day;state.muted=muted;state.storage=fsOK&&nvsOK&&archiveOK&&checkpointOK&&configOK&&(!captureLog.day.number||(state.captureDurable&&!captureBacklog));
   state.lastGoodMs=lastGood;state.haveEnergy=haveSample;
@@ -700,9 +713,9 @@ void resetMeterMeasurements(){
   ct=ptNum=ptDen=0;lastRatio=lastPoll=lastRatioTry=0;lastContactTry=millis()-3000;normalReader.activeBaud=0;
 }
 bool applyMeterSettings(const Settings &settings,uint16_t id,bool clearScan){
-  uint8_t bytes[METER_CONFIG_BYTES],verify[METER_CONFIG_BYTES];encodeMeterConfig(settings,id,bytes);
-  configOK=nvsOK&&prefs.putBytes("config",bytes,sizeof(bytes))==sizeof(bytes)&&prefs.getBytesLength("config")==sizeof(bytes)&&prefs.getBytes("config",verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));
-  if(!configOK)return false;
+  uint8_t bytes[METER_CONFIG_BYTES];encodeMeterConfig(settings,id,bytes);
+  if(!nvsOK||!meterSettingsBank.save(prefs,"config_a","config_b",bytes))return false;
+  configOK=true;configMissing=false;
   ++state.modeRevision;interruptRecording();state.config=settings;selectedMeterId=id;resetMeterMeasurements();if(clearScan)scanner.reset();
   state.scanAddress=profiles::get(settings.profile).probe.address;state.scanWords=profiles::get(settings.profile).probe.words;
   saveCheckpoint(true);startBus();publishDiagnostic();return true;
@@ -788,8 +801,7 @@ void processCommands(){
         }
         if(!uxQueueSpacesAvailable(networkQueue)){error="network_queue_busy";break;}
         uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(cmd.network,bytes);
-        if(!nvsOK||prefs.putBytes("wifi",bytes,sizeof(bytes))!=sizeof(bytes)){error="network_storage_failed";break;}
-        uint8_t verify[NETWORK_RECORD_SIZE];if(prefs.getBytesLength("wifi")!=sizeof(verify)||prefs.getBytes("wifi",verify,sizeof(verify))!=sizeof(verify)||memcmp(bytes,verify,sizeof(bytes))){error="network_storage_failed";break;}
+        if(!nvsOK||!networkSettingsBank.save(prefs,"wifi_a","wifi_b",bytes)){error="network_storage_failed";break;}
         NetworkUpdate update;update.settings=cmd.network;update.stored=true;update.deferred=true;
         if(xQueueSend(networkQueue,&update,0)!=pdTRUE)error="network_queue_busy";
         break;
@@ -824,23 +836,36 @@ void processCommands(){
 
 void acquisition(void *) {
   esp_task_wdt_add(nullptr);
-  nvsOK=prefs.begin("fort",false);configOK=nvsOK;Settings config{};
-  const bool configPresent=nvsOK&&prefs.isKey("config");
-  if(configPresent) {
+  nvsOK=prefs.begin("fort",false);configOK=false;Settings config{};
+  const bool meterBankOK=nvsOK&&meterSettingsBank.load(prefs,"config_a","config_b",[](const uint8_t *bytes,size_t size){Settings parsed;uint16_t id=0;return decodeMeterConfig(bytes,size,parsed,id);});
+  const bool legacyConfig=nvsOK&&prefs.isKey("config");
+  configMissing=!meterSettingsBank.present&&!legacyConfig;
+  if(meterBankOK&&meterSettingsBank.bank>=0){
+    configOK=decodeMeterConfig(meterSettingsBank.payload(),METER_CONFIG_BYTES,config,selectedMeterId);
+  }else if(nvsOK&&!meterSettingsBank.present&&legacyConfig){
     uint8_t bytes[METER_CONFIG_BYTES]={};size_t size=prefs.getBytesLength("config");
     if(size==sizeof(bytes)&&prefs.getBytes("config",bytes,size)==size&&decodeMeterConfig(bytes,size,config,selectedMeterId)){
-      if(meterGet32(bytes)!=config.magic||bytes[11]!=config.profile||meterGet16(bytes+12)!=selectedMeterId){encodeMeterConfig(config,selectedMeterId,bytes);uint8_t verify[sizeof(bytes)];configOK=verifiedPut(prefs,"config",bytes,verify,sizeof(bytes));}
-    }else{config=Settings{};configOK=false;setError("Stored configuration invalid. Save verified meter settings to resume","config_corrupt");}
+      encodeMeterConfig(config,selectedMeterId,bytes);
+      configOK=meterSettingsBank.save(prefs,"config_a","config_b",bytes);
+    }
   }
+  if(!configOK)setError(configMissing?"Select the installed meter and save its settings before recording":"Stored configuration invalid. Save verified meter settings to resume",configMissing?"config_required":"config_corrupt");
   meterRegistry.load(prefs,nvsOK);
   bool radioValid=nvsOK&&radioSettingsStore.load(prefs);bool radioStored=radioValid&&radioSettingsStore.bank>=0;updateLoRaSettings(radioSettingsStore.settings,radioStored,radioSettingsStore.generation);
   if(selectedMeterId){const auto *saved=meterRegistry.registry.find(selectedMeterId);Settings expected;if(!saved||!canActivateSaved(*saved,expected)||!sameMeterSettings(config,expected)){selectedMeterId=0;configOK=false;}}
 
   NetworkUpdate networkBoot;networkBoot.stored=nvsOK;
-  if(nvsOK&&prefs.isKey("wifi")){
-    uint8_t bytes[NETWORK_RECORD_SIZE]={};
-    size_t size=prefs.getBytesLength("wifi");networkBoot.stored=(size==104||size==108||size==sizeof(bytes))&&prefs.getBytes("wifi",bytes,size)==size&&decodeNetwork(bytes,size,networkBoot.settings);
+  if(nvsOK){
+    const bool bankOK=networkSettingsBank.load(prefs,"wifi_a","wifi_b",[](const uint8_t *bytes,size_t size){NetworkSettings parsed;return decodeNetwork(bytes,size,parsed);});
+    if(networkSettingsBank.present){networkBoot.stored=bankOK&&networkSettingsBank.bank>=0&&decodeNetwork(networkSettingsBank.payload(),NETWORK_RECORD_SIZE,networkBoot.settings);}
+    else if(prefs.isKey("wifi")){
+      uint8_t bytes[NETWORK_RECORD_SIZE]={};size_t size=prefs.getBytesLength("wifi");
+      networkBoot.stored=(size==104||size==108||size==sizeof(bytes))&&prefs.getBytes("wifi",bytes,size)==size&&decodeNetwork(bytes,size,networkBoot.settings);
+      if(networkBoot.stored){encodeNetwork(networkBoot.settings,bytes);networkBoot.stored=networkSettingsBank.save(prefs,"wifi_a","wifi_b",bytes);}
+    }
   }
+  // Invalid settings must not apply a partially decoded client profile.
+  if(!networkBoot.stored)networkBoot.settings=NetworkSettings{};
   xQueueSend(networkQueue,&networkBoot,pdMS_TO_TICKS(100));
   state.displayStorageOK=nvsOK;
   if(nvsOK&&prefs.isKey("display")){
@@ -861,7 +886,6 @@ void acquisition(void *) {
     else checkpointOK=false;
   }
   loadCaptures();
-  if(!configPresent&&retainedDay()){configOK=false;setError("Saved meter settings missing. Existing records retained","config_corrupt");}
   diagnostic.pinReserved=[](unsigned pin){return (pin==LORA_NSS||pin==LORA_MOSI||pin==LORA_MISO||pin==LORA_SCK||pin==LORA_RESET||pin==LORA_BUSY||pin==LORA_DIO1)||(!RS485_AUTO_DIRECTION&&pin==PIN_RS485_DE);};
   normalReader.service=serviceDiagnostic;normalReader.event=uartEvent;diagnostic.service=serviceDiagnostic;diagnostic.event=uartEvent;diagnostic.directionPinReserved=!RS485_AUTO_DIRECTION;diagnostic.onResume=[](){resumeRequested=true;diagnostic.emergencyStop();};
   startBus();publishDiagnostic();uint32_t previousCycle=millis();lastRatioTry=0;lastContactTry=millis()-3000;bool previousRTC=false;
@@ -934,7 +958,7 @@ void acquisition(void *) {
     if(scanner.running()) {
       scanStep();publish();vTaskDelay(pdMS_TO_TICKS(10));continue;
     }
-    if(!configOK){haveSample=false;rawKnown=false;interruptRecording();setError("Save verified meter settings before production resumes","config_corrupt");publish();vTaskDelay(pdMS_TO_TICKS(100));continue;}
+    if(!configOK){haveSample=false;rawKnown=false;interruptRecording();setError(configMissing?"Select the installed meter and save its settings before recording":"Save verified meter settings before production resumes",configMissing?"config_required":"config_corrupt");publish();vTaskDelay(pdMS_TO_TICKS(100));continue;}
     if(!captureUrgent&&(!state.lastContactMs||uint32_t(millis()-state.lastContactMs)>15000)){
       if(uint32_t(millis()-lastContactTry)<3000){publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       lastContactTry=millis();uint8_t handshake[4];
@@ -945,7 +969,7 @@ void acquisition(void *) {
     if(profiles::directEnergy(profile)){ptNum=ptDen=ct=1;state.ratio=1;state.ratios=true;}
     if(profile.ratioWords&&(!captureUrgent||!state.ratios)&&ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
         lastRatioTry=millis();uint8_t p[6];
-        if(readWords(profile.ratios,profile.ratioWords,p)) {
+        if(profiles::readRatioData(profile,profile.ratios,[](uint16_t address,uint8_t count,uint8_t *out){return readWords(address,count,out);},p)) {
           uint16_t a=0,b=0,c=0;
           if(profiles::ratios(profile,p,a,b,c)) {
             double ratio=double(a)/b*c;
@@ -1109,8 +1133,8 @@ void webSetup() {
     network["enterpriseProvisioning"]=apOK&&server.client().localIP()==WiFi.softAPIP();network["flashEncrypted"]=esp_flash_encryption_enabled();network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
     bool station=stationReady(),associated=WiFi.status()==WL_CONNECTED&&WiFi.SSID()==activeNetwork.ssid;network["associated"]=associated;network["connected"]=station;network["rssi"]=associated?WiFi.RSSI():0;
     network["clientIP"]=station?WiFi.localIP().toString():String();network["apIP"]=apOK?WiFi.softAPIP().toString():String();
-    network["apSSID"]=AP_SSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
-    network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?"ap":station?"online":networkAttempt.stage==NetworkAttempt::FAILED?"failed":networkAttempt.stage==NetworkAttempt::PREPARING?"preparing":associated?"addressing":networkPolicy.fallback?"fallback":"connecting";
+    network["apSSID"]=unitIdentity.apSSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
+    network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?(apOK?"ap":"ap_unavailable"):station?"online":networkAttempt.stage==NetworkAttempt::FAILED?"failed":networkAttempt.stage==NetworkAttempt::PREPARING?"preparing":associated?"addressing":networkPolicy.fallback?"fallback":"connecting";
     addLoRaJSON(d["lora"].to<JsonObject>());
     JsonObject recovery=d["recovery"].to<JsonObject>();recovery["resetCode"]=uint32_t(esp_reset_reason());recovery["source"]=s.captureRecovery;recovery["nvsVerified"]=s.captureNVSVerified;recovery["fsVerified"]=s.captureArchiveOK;recovery["durable"]=s.captureDurable;recovery["backlog"]=s.captureBacklog;
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
@@ -1136,6 +1160,8 @@ void webSetup() {
     if(isfinite(s.currentA))d["currentA"]=s.currentA;if(isfinite(s.voltageA))d["voltageA"]=s.voltageA;if(isfinite(s.frequency))d["frequency"]=s.frequency;
     if(s.lastContactMs)d["contactAge"]=(millis()-s.lastContactMs)/1000;else d["contactAge"]=nullptr;
     d["diagnosticActive"]=s.diagnosticActive;d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
+    JsonObject unit=d["unit"].to<JsonObject>();unit["id"]=unitIdentity.id;unit["hostname"]=unitIdentity.hostname;unit["identityValid"]=unitIdentity.valid;unit["uniqueAP"]=unitIdentity.uniqueAP;
+    unit["meterConfigured"]=s.meterConfigured;unit["meterSettingsDegraded"]=s.meterSettingsDegraded;unit["networkSettingsDegraded"]=s.networkSettingsDegraded;unit["meterConfigGeneration"]=s.meterConfigGeneration;unit["networkConfigGeneration"]=s.networkConfigGeneration;
     bool online=s.online&&uint32_t(millis()-s.lastContactMs)<=15000;
     d["online"]=online;d["energy"]=nullptr;d["power"]=nullptr;d["age"]=nullptr;
     if(s.haveEnergy){d["energy"]=s.energy;d["age"]=(millis()-s.lastGoodMs)/1000;}
@@ -1148,7 +1174,7 @@ void webSetup() {
     scan["slave"]=s.scan.candidate.slave;scan["baud"]=s.scan.candidate.baud;scan["parity"]=String(s.scan.candidate.parity);
     scan["busBusy"]=s.scan.busBusy;scan["exceptions"]=s.scan.exceptions;scan["timeouts"]=s.scan.timeouts;scan["crcErrors"]=s.scan.crcErrors;scan["rejected"]=s.scan.rejected;
     if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["profile"]=profiles::get(s.scan.result.profile).key;result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);result["direction"]=s.scan.result.direction==DIRECTION_MANUAL?"manual":"auto";}
-    d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=millis()/1000;d["error"]=s.error;d["error_code"]=s.errorCode;
+    d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=uint64_t(esp_timer_get_time())/1000000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){d["clockEpoch"]=s.utc;d["clockSampleAgeMs"]=uint32_t(millis()-s.utcSampleMs);d["clockRevision"]=s.clockRevision;DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
     JsonDocument captures;addCaptureJSON(captures,s.captures,s.captureDurable,s.captureArchiveOK,s.captureBacklog);d["checkpoints"]=captures.as<JsonObject>();
@@ -1159,7 +1185,7 @@ void webSetup() {
   // Short event pages preserve order and make loss explicit. No UART reads here.
   server.on("/api/system",HTTP_GET,[]{
     static CoreLoadSample samples;samples.update(millis());Snapshot s{};readSnapshot(s);JsonDocument d;
-    d["uptime"]=millis()/1000;d["cpuMHz"]=getCpuFrequencyMhz();d["heapFree"]=ESP.getFreeHeap();d["heapMin"]=ESP.getMinFreeHeap();d["heapLargest"]=ESP.getMaxAllocHeap();d["heapTotal"]=ESP.getHeapSize();d["psramFree"]=ESP.getFreePsram();d["psramTotal"]=ESP.getPsramSize();d["taskCount"]=uxTaskGetNumberOfTasks();d["sampledAt"]=samples.sampledAt;
+    d["uptime"]=uint64_t(esp_timer_get_time())/1000000;d["cpuMHz"]=getCpuFrequencyMhz();d["heapFree"]=ESP.getFreeHeap();d["heapMin"]=ESP.getMinFreeHeap();d["heapLargest"]=ESP.getMaxAllocHeap();d["heapTotal"]=ESP.getHeapSize();d["psramFree"]=ESP.getFreePsram();d["psramTotal"]=ESP.getPsramSize();d["taskCount"]=uxTaskGetNumberOfTasks();d["sampledAt"]=samples.sampledAt;
     d["diagnosticActive"]=s.diagnosticActive;d["scanActive"]=s.scan.phase==SCAN_RUNNING||s.discoveryRunning;d["uiCycleMs"]=uiCycleMs;d["acquisitionCycleMs"]=s.acquisitionCycleMs;
     d["commandQueue"]=uxQueueMessagesWaiting(commandQueue);d["diagnosticQueue"]=uxQueueMessagesWaiting(diagnosticInputQueue);
     JsonArray cores=d["cores"].to<JsonArray>();for(unsigned i=0;i<2;++i){JsonObject core=cores.add<JsonObject>();core["id"]=i;core["load"]=nullptr;if(samples.ready[i])core["load"]=samples.percent[i];core["method"]="sampled_non_idle_ticks";}
@@ -1437,7 +1463,7 @@ void drawNetworkMenu(){
   else if(networkMenu.screen==Menu::KEY_TOOLS){const char *items[]={"Save and connect","Delete last","Clear password","Cancel"};oled.println(items[networkMenu.selected]);oled.println("PREV/NEXT to choose");}
   else if(networkMenu.screen==Menu::IP){oled.println(ipv4Address(networkMenu.address()).toString());oled.printf("Edit octet %u / 4\n",networkMenu.octet+1);oled.println("OK:next Hold:save");}
   else if(networkMenu.screen==Menu::IP_TOOLS){const char *items[]={"Save AP address","Reset 192.168.4.1","Cancel"};oled.println(items[networkMenu.selected]);oled.println("Private IPv4 /24");}
-  else if(networkMenu.screen==Menu::AP_PASSWORD){oled.println(AP_SSID);oled.println(AP_PASSWORD);}
+  else if(networkMenu.screen==Menu::AP_PASSWORD){oled.println(unitIdentity.apSSID);oled.println(AP_PASSWORD);}
   oled.setCursor(0,56);if(oledNotice[0]&&uint32_t(millis()-oledNoticeAt)<5000)oled.print(String(oledNotice).substring(0,21));else oled.print("Hold OK: tools/back");
 }
 uint8_t page=0,slotPage=0;uint32_t lastPaint=0;
@@ -1457,7 +1483,7 @@ void drawOLED(const Snapshot &s) {
     oled.setTextSize(2);oled.setCursor(0,29);if(point.status==CAPTURE_RECORDED){String value=String(point.energy,3);if(value.length()>10)oled.setTextSize(1);oled.print(value);}else oled.print("--.---");
     oled.setTextSize(1);oled.setCursor(0,49);if(point.status==CAPTURE_RECORDED){oled.print(captureClock(point.capturedUTC));oled.print(s.captureDurable?" saved":" UNSAVED");oled.setCursor(0,57);oled.print(profiles::get(point.source.profile).name);}else oled.print(captureStatusCode(point.status));
   }else if(page==3){
-    oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":AP_SSID);
+    oled.println(networkModeName(activeNetwork.mode));oled.println(stationReady()?String(activeNetwork.ssid).substring(0,21):networkPolicy.fallback?"AP fallback":unitIdentity.apSSID);
     oled.setCursor(0,42);oled.println(preferredAddress().length()?preferredAddress():"WIFI CONNECTING");oled.println("OK: network options");
   }else{
     if(s.diagnosticActive){oled.println("UART DIAGNOSTICS");oled.println("Recording paused");oled.println("Resume via web");oled.display();xSemaphoreGive(i2cMutex);return;}
@@ -1500,6 +1526,10 @@ void bootAnimation() {
 }
 void setup() {
   Serial.begin(115200); // Native USB: never block waiting for a PC.
+  uint8_t factoryMAC[6]={};esp_err_t identityResult=esp_efuse_mac_get_default(factoryMAC);
+  if(identityResult!=ESP_OK)memset(factoryMAC,0,sizeof(factoryMAC));
+  unitIdentity.initialize(factoryMAC,AP_FLEET_PREFIX,AP_SSID,AP_UNIQUE_NAME);
+  if(identityResult!=ESP_OK||!unitIdentity.valid)Serial.println("[Boot] Factory identity unavailable. Verify unit identity before deployment");
   pinMode(PIN_RS485_DE,OUTPUT);digitalWrite(PIN_RS485_DE,LOW);
   pinMode(PIN_BUZZER,OUTPUT);digitalWrite(PIN_BUZZER,LOW);
   for(auto &b:buttons)pinMode(b.pin,INPUT_PULLUP);
@@ -1538,7 +1568,7 @@ void setup() {
   if(!initLoRaService())Serial.println("[LoRa] optional service allocation failed");
   if(xTaskCreatePinnedToCore(acquisition,"meter-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
   Serial.printf("[Boot] reset reason=%u (brownout=%u)\n",unsigned(esp_reset_reason()),unsigned(ESP_RST_BROWNOUT));
-  Serial.printf("Midea Energy Station ready. AP: %s, IP: %s, UI core: %d\n",AP_SSID,WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
+  Serial.printf("Midea Energy Station initialized. Unit: %s, AP: %s (%s), IP: %s, UI core: %d\n",unitIdentity.id,unitIdentity.apSSID,apOK?"ready":"retrying",WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
 }
 void loop() {
   static uint32_t previousCycle=millis();uiCycleMs=millis()-previousCycle;previousCycle=millis();
@@ -1563,7 +1593,7 @@ void loop() {
     if(i==2&&event==2&&page==3){networkMenu.enter();continue;}
     if(i==2&&event==2){Command c{};c.type=TOGGLE_MUTE;xQueueSend(commandQueue,&c,0);}
   }
-  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&!s.diagnosticActive&&!s.discoveryRunning&&now>20000&&(!s.rtc||!s.online||!s.storage);
+  bool alarm=!s.muted&&s.scan.phase!=SCAN_RUNNING&&!s.diagnosticActive&&!s.discoveryRunning&&esp_timer_get_time()>20000000&&(!s.rtc||!s.online||!s.storage);
   digitalWrite(PIN_BUZZER,alarm&&now%10000<120?HIGH:LOW);
   if(idle.sleeping)drawIdleFrame(now);
   else if(now-lastPaint>=300){lastPaint=now;drawOLED(s);}

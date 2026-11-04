@@ -1,7 +1,7 @@
 {
-  "version": "3.4.3",
+  "version": "3.5.0",
   "transport": "gzip",
-  "compressed_total": 159324,
+  "compressed_total": 160012,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 467513,
-      "gzip": 147232,
-      "sha256": "514548b8ce0da0c0af4224913349093a6066dcaf78147fa0fab46f8ae196c714"
+      "raw": 470363,
+      "gzip": 147920,
+      "sha256": "d75a35d275ea03abdc1a3264616648740f4dcb645542b8ebe65d5ddc917dbd6e"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "4fe569a10ca50a107be99ef833d16ca61371120716134afd7ba0e3a4fe89c6d5",
-    "package.json": "842b405a7cd585f44d4eb06aa15ae7e48b87fe629526514913eef8e72aa3810b",
+    "package-lock.json": "8adc7a60f47372b97317279f883e5c404f8c62ae119836e437701cb9ad97465f",
+    "package.json": "59b1ace760dccaedb9ac51bbe298b9bb81dd6ddf351d574f703dc066b565be4b",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -58,16 +58,16 @@
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
     "web/components/NetworkControls.jsx": "c6c546b41265e251b06dae09fdb223c1edb6cc1996cb5a9fcb2a343bfe2743a8",
-    "web/components/NetworkResult.jsx": "35a7d5f417d57aa455836280c4cd521932b9e1fc87f0945c40b90c012095721e",
+    "web/components/NetworkResult.jsx": "61057fb689ae799b83094e4b38962b3ed0cf5d182aee36ff3319f1d6f8ed86fa",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
     "web/components/WifiPicker.jsx": "7d75572854681be4c43001b34bbee03d5728cdaba7fddebf5c8741c156034ab7",
     "web/device.js": "c1c1fbec85f1321026635b7c4c97f2fe0289bed16dccb92b3cf8e963b6ba99ce",
-    "web/enterprise-i18n.js": "2fb21250c627c0a5f64e3743e38b5f03a9c2caf1e5414778d1e669d3e8c1294f",
+    "web/enterprise-i18n.js": "4d43e469bba54cada09c6a85ef160ff089f9ec9c68a89922ecc43832af61afa8",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
     "web/form-validation.js": "7609ddbadd3a0a712c9f3a2dc281e55a581384a576bc9b8d1fed0a1d4dcf8c54",
-    "web/i18n.js": "829330bdbad4aaf6dd0006351d658d39de41bbf3d25e33c1129b52a4c9cc839f",
+    "web/i18n.js": "46fa3e6d94563bbef5e7d5c57e53edea8591d5d63d9927457d8d5befbf7444b6",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
     "web/lora-i18n.js": "81652b45c0c463c3e1149bb4ad680daf94bb481e6868f2453cd597b14b34f977",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
@@ -76,7 +76,7 @@
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
     "web/styles.css": "7fc288519c0f3828f343e041a00c758c84655518e8cc667152a99ae8216f7f99",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
-    "web/validation.js": "81e664398d4eeb5f3fe2076ca92b96cfe980fc1d72b4944e8e6e1bf5f11bc38c",
+    "web/validation.js": "7d1d3105864b4c25edf9bbd6bfc62033f340df99164be978b7cabfc0c53bfd7e",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
     "web/vendor/react-bits/Counter.css": "9f224c728e16bb2b4137cd0e5a3ff370043bc9c838450fa8aaed89e190a8a6f8",
     "web/vendor/react-bits/Counter.jsx": "25e98c26331ef7b6b4326c48b7540feb1a2208b09160c7f2b96e4fbf146522f8",
@@ -90,9 +90,9 @@
     "web/vendor/react-bits/WakeSlider.css": "2b8153f1bc069ef6974e0ba6cd5bba6e88641097562f28f0e21317d1c31106e4",
     "web/vendor/react-bits/WakeSlider.jsx": "f0184a8248b78ef359e088ae24a6565faf09e867bdacb96761d48f02b3badc32",
     "web/vendor/react-bits/upstream.json": "365e1a35fb29bbd42aa7fa5d39461bac789d67c533c274e3d52d5eb1596d517c",
-    "web/views/DeviceRecords.jsx": "be13c094a95d51b3e98c8cc8c54f7cf2ef509e257e3050d550a24db4aa01a3e4",
+    "web/views/DeviceRecords.jsx": "251b6e347a199a57fb11a4fcfdfb9e7c1641f658d50552bc979e0f4f48e6173f",
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "bbb71f359452aff286e84c3365e13b059529074c43bd5504b7fdb0858140cf02"
+  "header_sha256": "6ac985264788022ae34298255e59192a45011c455c58e91393b29192c5c4f165"
 }

@@ -8,7 +8,7 @@ import NetworkControls from "../components/NetworkControls.jsx";
 import LedControls from "../components/LedControls.jsx";
 import Icon from "../components/Icon.jsx";
 import { useText } from "../ui.js";
-import { validHistory, validRecoveryView } from "../validation.js";
+import { validHistory, validRecoveryView, validUnitView } from "../validation.js";
 
 export default function DeviceRecords({ device }) {
   const { t, number } = useText();
@@ -69,6 +69,11 @@ export default function DeviceRecords({ device }) {
     <div className="device-columns">
       <section className="panel">
         <h2>{t("diagnostics")}</h2>
+        {validUnitView(s?.unit)&&<div id="unit-info" className="hint"><h3>{t("unit_title")}</h3>
+          <dl className="metrics"><div><dt>{t("unit_id")}</dt><dd className="mono">{s.unit.id||t("unit_unavailable")}</dd></div><div><dt>{t("unit_hostname")}</dt><dd>{s.unit.hostname}</dd></div></dl>
+          {(s.unit.meterSettingsDegraded||s.unit.networkSettingsDegraded)&&<p id="unit-settings-warning">{t("unit_settings_degraded")}</p>}
+          <p>{t(s.unit.meterConfigured?"unit_config_saved":"config_required")}</p><p className="small mono">{t("unit_generations",{meter:s.unit.meterConfigGeneration,network:s.unit.networkConfigGeneration})}</p>
+        </div>}
         <dl className="metrics">
           {stats.map(([key, value]) => (
             <div key={key}>

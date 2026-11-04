@@ -61,8 +61,10 @@ export const enterpriseText = {
     "network_error_dhcp_timeout": "Wi-Fi could not obtain or retain an IP address. Check DHCP and device access policy on the network.",
     "network_error_station_disconnect_timeout": "The previous connection did not release within two seconds. The new attempt was stopped instead of using its old connection state.",
     "network_error_network_event_overflow": "The Wi-Fi event queue overflowed. The connection was stopped because its result could not be tracked reliably. Save again to retry.",
-    "network_phase_failed": "Connection failed, recovery AP available",
-    "network_phase_preparing": "Preparing the selected connection"
+    "network_phase_failed": "Connection attempt failed",
+    "network_phase_preparing": "Preparing the selected connection",
+    "network_phase_ap_unavailable": "The access point could not start. The device will retry automatically.",
+    "network_attempt_ap_unavailable": "The access point could not start. The device will retry automatically."
   },
   "id": {
     "network_saving": "Sedang menyimpan pengaturan Wi-Fi. Biarkan halaman terbuka sampai perangkat mengonfirmasi hasilnya.",
@@ -125,7 +127,9 @@ export const enterpriseText = {
     "network_error_dhcp_timeout": "Wi-Fi tidak mendapat atau kehilangan alamat IP. Periksa DHCP dan kebijakan akses perangkat pada jaringan.",
     "network_error_station_disconnect_timeout": "Koneksi sebelumnya belum terlepas dalam dua detik. Percobaan baru dihentikan agar status koneksi lama tidak dipakai.",
     "network_error_network_event_overflow": "Antrean event Wi-Fi penuh. Koneksi dihentikan karena hasilnya tidak dapat dilacak secara andal. Simpan kembali untuk mencoba lagi.",
-    "network_phase_failed": "Koneksi gagal, AP pemulihan tersedia",
-    "network_phase_preparing": "Menyiapkan koneksi yang dipilih"
+    "network_phase_failed": "Percobaan koneksi gagal",
+    "network_phase_preparing": "Menyiapkan koneksi yang dipilih",
+    "network_phase_ap_unavailable": "Access point belum berhasil dimulai. Perangkat akan mencoba kembali secara otomatis.",
+    "network_attempt_ap_unavailable": "Access point belum berhasil dimulai. Perangkat akan mencoba kembali secara otomatis."
   }
 };

@@ -34,9 +34,9 @@
 <rect x="515" y="420" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>
 <text x="530" y="445" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">NETWORK / WIFI</text>
 <text x="530" y="468" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">ap</text>
-<text x="530" y="491" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Midea Engineering AP</text>
-<text x="530" y="514" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">192.168.4.1</text>
-<text x="530" y="537" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">OK: network options</text>
+<text x="530" y="491" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">Midea Engineering-</text>
+<text x="530" y="514" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">020000123456</text>
+<text x="530" y="537" fill="#e2f4f0" font-family="Consolas, monospace" font-size="16" font-weight="400" text-anchor="start">IP 192.168.4.1</text>
 <rect x="945" y="375" width="410" height="205" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="965" y="405" fill="#087e82" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="start">DIAGNOSTICS</text>
 <rect x="965" y="420" width="370" height="140" rx="7" fill="#030b13" stroke="#cbdada"/>

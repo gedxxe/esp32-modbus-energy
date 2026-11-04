@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.5.0
+
+Fleet identity now uses the complete factory MAC for AP names, hostnames and local unit status. Fresh installations require an explicit meter configuration save. Meter and Wi-Fi settings use verified generation banks with legacy import and degraded-copy reporting. Archive promotion rejects stale or conflicting staging records, Wi-Fi event admission honors deadlines, and uptime no longer wraps at the millis boundary. Meter profiles, checkpoint schema and radio wire version are unchanged.
+
+
 ## 3.4.3
 
 Wi-Fi now tracks each connection through asynchronous preparation, authentication and DHCP deadlines, reports the SDK operation that failed and retains the last failed attempt. New Enterprise login fields explain the AP requirement before entry, replacement input stops credential reuse, and unchanged saved logins can be retried through the client interface. LoRa key installation now works through either authorized local interface. Regression coverage compiles the production Enterprise adapter and exercises shipped browser assets.

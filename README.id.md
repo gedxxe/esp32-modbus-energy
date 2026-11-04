@@ -2,7 +2,9 @@
 
 [English](README.md) · **Bahasa Indonesia**
 
-![Firmware 3.4.3](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+![Firmware 3.5.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
+
+Untuk banyak unit, baca [deployment dan kesiapan firmware](docs/id/FLEET_READINESS.md). Suffix AP `XXXXXXXXXXXX` di bawah berarti Device ID dua belas karakter yang ditampilkan unit tersebut. Unit baru menunggu konfigurasi meter disimpan sebelum mencatat.
 
 Hasil koneksi Wi-Fi tampil di dekat Simpan, termasuk nomor percobaan, batas autentikasi/DHCP dan kegagalan terakhir. Kredensial Enterprise baru diisi melalui AP pemulihan, sedangkan login tersimpan yang tidak berubah dapat dicoba ulang lewat kedua alamat. Pengaturan dan pairing key LoRa bisa disimpan lewat kedua antarmuka lokal. Lihat [hasil koneksi Enterprise](docs/id/ENTERPRISE_WIFI.md) dan [commissioning LoRa](docs/id/LORA.md).
 
@@ -95,7 +97,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
 | RadioLib | 7.8.1, MIT, raw LoRa SX1262 |
-| FortMeter / ModbusMaster | 3.4.3 / 2.0.1+fort.1, source lokal |
+| FortMeter / ModbusMaster | 3.5.0 / 2.0.1+fort.1, source lokal |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -104,7 +106,7 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering AP** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.4.3, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering-XXXXXXXXXXXX** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.5.0, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 

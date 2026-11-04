@@ -82,8 +82,9 @@ int main(){
   assert(!attempt.expired(0xFFFFFF00u+1999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFF00u+2000u),"station_disconnect_timeout"));
   attempt.connecting(0xFFFFFFF0u);assert(!attempt.accepts(0xFFFFFFEFu));assert(attempt.accepts(16));
   assert(!attempt.expired(0xFFFFFFF0u+59999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFFF0u+60000u),"connection_timeout"));
+  assert(!attempt.accepts(0xFFFFFFF0u+60000u));
   attempt.associated(100);assert(attempt.stage==NetworkAttempt::ADDRESSING);
-  assert(!attempt.expired(15099)[0]);assert(!strcmp(attempt.expired(15100),"dhcp_timeout"));
+  assert(!attempt.expired(15099)[0]&&attempt.accepts(15099));assert(!attempt.accepts(15100));assert(!strcmp(attempt.expired(15100),"dhcp_timeout"));
   attempt.fail(15100,"dhcp_timeout",0,0);assert(!attempt.retryAllowed(45099)&&attempt.retryAllowed(45100));
   auto previous=attempt.id;attempt.prepare(45100,true);assert(attempt.lastFailedId==previous&&!strcmp(attempt.lastError,"dhcp_timeout"));
   attempt.connecting(45350);attempt.online();assert(attempt.stage==NetworkAttempt::CONNECTING);

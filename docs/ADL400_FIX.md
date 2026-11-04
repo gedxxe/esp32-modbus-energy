@@ -1,5 +1,7 @@
 # ADL400 correction based on the owner's field scan
 
+The 3.5.0 reading path follows the supplied independent diagnostic requests: contact and energy use FC03 `0x0000/2`, PT uses `0x008D/1`, and CT uses `0x008E/1`. Optional current at `0x0064` is no longer a prerequisite for energy. UInt32 ABCD /100 and PT × CT once are unchanged. The field installation still requires slave 220, 9600 and 8N1 to be saved in Meter setup.
+
 **English** · [Bahasa Indonesia](id/ADL400_FIX.md) · [Meter profiles](METER_PROFILES.md)
 
 Version 3.3.0 follows the owner's successful ADL400 scan. There is still exactly one visible **Acrel ADL400** choice. Production now reads total active energy at `0x0000`, two holding registers, as an unsigned high-word-first integer. The forward `0x000A` and reverse `0x0014` counters remain diagnostic comparisons, not additional source choices or automatic fallbacks.
@@ -16,9 +18,9 @@ All requests use FC03, with hexadecimal PDU addresses and no 40001 offset. Each 
 
 | Quantity | Address | Registers | Decode and output |
 | --- | --- | --- | --- |
-| Contact probe | `0x0064` | 1 | UInt16 × 0.01 A |
+| Contact probe | `0x0000` | 2 | UInt32 ABCD × 0.01 kWh |
 | Total active energy | `0x0000` | 2 | UInt32 ABCD × 0.01 kWh, then PT × CT once |
-| PT / CT | `0x008D` / `0x008E` | 2 in one request | UInt16 PT, UInt16 CT; both 1–9999 |
+| PT / CT | `0x008D` / `0x008E` | 1 per independent request | UInt16 PT, UInt16 CT; both 1–9999 |
 | Phase-A voltage | `0x5300` | 2 | Float32 ABCD, V |
 | Phase-A current | `0x530C` | 2 | Float32 ABCD, A |
 | Total active power | `0x006A` | 1 | Signed Int16 × 0.001 kW |

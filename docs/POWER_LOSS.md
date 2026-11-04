@@ -8,6 +8,11 @@ The essential data is the ten-point daily cumulative-kWh log. Each capture keeps
 
 ![Verified storage and restart recovery](assets/power-recovery.svg)
 
+## Configuration and archive hardening in 3.5.0
+
+Meter and Wi-Fi configuration now use generation banks with readback and explicit degraded-copy status. Fresh units wait for a confirmed meter save, and stale staging cannot roll back a newer archive or replace conflicting immutable points. The inner payloads and capture schema stay compatible. See [fleet readiness](FLEET_READINESS.md) for migration, downgrade and first-installation limits.
+
+
 ## Findings corrected in 3.4.0
 
 | Finding | Previous exposure | Corrected behavior |

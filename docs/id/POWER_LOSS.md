@@ -8,6 +8,11 @@ Data utama adalah sepuluh checkpoint kWh kumulatif harian dengan timestamp reque
 
 ![Penyimpanan dan pemulihan restart](../assets/power-recovery.svg)
 
+## Penguatan konfigurasi dan arsip pada 3.5.0
+
+Konfigurasi meter/Wi-Fi memakai bank generation dengan readback dan status salinan bermasalah. Unit baru menunggu save meter terkonfirmasi. Staging lama tidak boleh menurunkan versi arsip atau mengganti checkpoint immutable yang bertentangan. Payload dalam dan schema capture tetap mengikuti kontrak existing. Lihat [kesiapan fleet](FLEET_READINESS.md) untuk migrasi, downgrade dan batas instalasi pertama.
+
+
 ## Temuan yang diperbaiki pada 3.4.0
 
 | Temuan | Risiko sebelumnya | Perbaikan |

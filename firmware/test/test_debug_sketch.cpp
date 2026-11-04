@@ -15,7 +15,7 @@ int main(){
  submit("profile acrel-acr");assert(debug.options.profile==fort::profiles::ACREL_ACR&&debug.options.probeAddress==0x64&&debug.auditCount==7);
  submit("profile acrel-apm");assert(debug.options.profile==fort::profiles::ACREL_APM&&debug.options.energyAddress==3000&&debug.options.probeAddress==252&&debug.auditCount==7);
  submit("profile habuer");assert(debug.options.probeAddress==0x30&&debug.auditCount==4);
- submit("profile acrel-adl400");assert(debug.options.probeAddress==0x64&&debug.options.probeWords==1&&debug.options.energyAddress==0&&debug.options.profile==fort::profiles::ACREL_ADL400_VERIFIED);submit("profile fort");
+ submit("profile acrel-adl400");assert(debug.options.probeAddress==0&&debug.options.probeWords==2&&debug.options.energyAddress==0&&debug.options.profile==fort::profiles::ACREL_ADL400_VERIFIED);submit("profile fort");
  fortUART.replies.push_back(response({1,3,4,0,0,0xC3,0x17}));submit("intermediate");assert(debug.evidence.data==1&&fortUART.transmitted.back()[3]==0x58);
  assert(Serial.output.find("VALID_RESPONSE")!=std::string::npos);
  submit("timeout 150");submit("range 1 1");submit("scanmode current");submit("discoverplan 0000:1,0064:1");submit("discover");assert(debug.discovery.phase==fort::DISCOVERY_COMPLETE&&debug.discovery.tested==2);

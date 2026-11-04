@@ -12,7 +12,7 @@ class NetworkAttempt {
   uint16_t reason=0,lastReason=0;
   int32_t apiCode=0,lastApiCode=0;
   bool active()const{return stage==PREPARING||stage==CONNECTING||stage==ADDRESSING;}
-  bool accepts(uint32_t at)const{return (stage==CONNECTING||stage==ADDRESSING||stage==ONLINE)&&int32_t(at-changed)>=0;}
+  bool accepts(uint32_t at)const{return (stage==CONNECTING||stage==ADDRESSING||stage==ONLINE)&&int32_t(at-changed)>=0&&!expired(at)[0];}
   void idle(){stage=IDLE;error="";reason=0;apiCode=0;}
   void prepare(uint32_t now,bool enterprise){
     ++id;if(!id)++id;stage=PREPARING;started=changed=now;

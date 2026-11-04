@@ -72,7 +72,7 @@ INO mandiri mengikutsertakan FortDiagnostics dari library yang sama dengan firmw
 
 ## State Wi-Fi dan persistensi
 
-Driver Wi-Fi berjalan di core 0, sedangkan core 1 memvalidasi dan menyimpan record kredensial v2 108 byte ber-versi pada key Preferences `wifi`. Formatnya mengodekan mode, 33 byte SSID, 65 byte key, empat byte pilihan IPv4 AP dan CRC16 secara eksplisit agar tidak bergantung padding struct. CRC mendeteksi kerusakan record dan tidak mengenkripsi kredensial. WiFi.persistent(false) mencegah driver membuat konfigurasi persisten kedua di luar kepemilikan core 1.
+Driver Wi-Fi berjalan di core 0, sedangkan core 1 memvalidasi dan menyimpan payload kredensial v3 779 byte dalam envelope 793 byte yang bergantian pada Preferences `wifi_a`/`wifi_b`. Mode, SSID, kredensial Personal/EAP, batas server opsional, hash CA, IPv4 AP dan CRC16 dikodekan eksplisit agar tidak bergantung padding struct. CRC mendeteksi kerusakan record dan tidak mengenkripsi kredensial. WiFi.persistent(false) mencegah driver membuat konfigurasi persisten kedua di luar kepemilikan core 1.
 
 Perintah jaringan harus lolos guard mode/revisi/umur dan tersimpan sebelum dikirim melalui antrean satu slot ke core 0. Penundaan delapan detik memberi browser waktu membaca hasil HTTP. Kegagalan simpan mempertahankan koneksi, sedangkan record boot rusak menyisakan AP default. Mode AP mempertahankan kredensial client dan endpoint GET tidak mengembalikan password tersimpan.
 
@@ -82,7 +82,7 @@ Endpoint diagnostik kini membawa setting sesi aktual serta counter bukti, dan me
 
 ## Perubahan jaringan dan jam pada 2.2
 
-Setting jaringan memakai record v2 eksplisit 108 byte dengan empat byte alamat AP pilihan sebelum CRC. Record v1 berukuran 104 byte tetap dibaca dengan default 192.168.4.1. Serialisasi tidak memakai padding struct. AP tetap /24, mendahulukan alamat pilihan dan menghindari tumpang tindih subnet client.
+Payload v3 aktif mempertahankan field IPv4 AP eksplisit. Record legacy v1 104 byte dan v2 108 byte diimpor sebelum bank baru ada, dengan default v1 sebesar 192.168.4.1. Serialisasi tidak memakai padding struct. AP tetap /24, mendahulukan alamat pilihan dan menghindari tumpang tindih subnet client.
 
 Scan SSID berjalan asinkron pada driver core 0 dengan cache 16 baris yang dipakai web serta OLED. Kredensial persisten tetap milik core 1, dan kedua antarmuka menghasilkan SET_NETWORK yang sama. State machine OledNetworkMenu tidak menyentuh GPIO atau NVS, sehingga perpindahan mode, pemilih jaringan, input ASCII tersamarkan dan tools IP dapat diuji pada host. Repeat tombol dimulai setelah 450 ms dengan langkah 80 ms dan event pelepasan diabaikan setelah repeat agar tidak menambah karakter lagi.
 

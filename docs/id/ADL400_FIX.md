@@ -1,5 +1,7 @@
 # Perbaikan ADL400 berdasarkan scan lapangan
 
+Jalur pembacaan 3.5.0 mengikuti request diagnostik independen yang diberikan: kontak dan energi memakai FC03 `0x0000/2`, PT `0x008D/1`, dan CT `0x008E/1`. Arus opsional pada `0x0064` tidak lagi menjadi syarat pembacaan energi. UInt32 ABCD /100 dan PT × CT satu kali tetap dipakai. Instalasi lapangan tersebut tetap memerlukan slave 220, 9600 dan 8N1 disimpan pada Pengaturan meter.
+
 [English](../ADL400_FIX.md) · **Bahasa Indonesia** · [Profil meter](METER_PROFILES.md)
 
 Versi 3.3.0 langsung mengikuti hasil scan pengguna. Tetap hanya ada satu pilihan **Acrel ADL400**. Sumber produksi sekarang total energi aktif `0x0000`, dua register UInt32 ABCD. Counter forward `0x000A` dan reverse `0x0014` hanya menjadi pembanding diagnostik, tanpa opsi sumber tambahan atau fallback otomatis.
@@ -16,7 +18,7 @@ Semua request FC03 memakai alamat heksadesimal tanpa offset 40001. Float32 memak
 
 | Parameter | Alamat | Register | Dekode |
 | --- | --- | --- | --- |
-| Probe kontak | `0x0064` | 1 | UInt16 × 0,01 A |
+| Probe kontak | `0x0000` | 1 | UInt16 × 0,01 A |
 | Total energi aktif | `0x0000` | 2 | UInt32 ABCD × 0,01 kWh, lalu PT × CT sekali |
 | PT / CT | `0x008D` / `0x008E` | 2 bersama | UInt16 PT dan CT, keduanya 1–9999 |
 | Voltage A | `0x5300` | 2 | Float32 ABCD, V |

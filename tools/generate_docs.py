@@ -184,7 +184,7 @@ s.save('architecture.svg')
 
 s=SVG(1400,650,'OLED screen and button reference')
 s.heading('OLED 128 × 64 · five pages + boot','Representative firmware screens, not hardware photographs. All sample values are simulated.')
-screens=[('BOOT',['MIDEA ENGINEERING','ENERGY','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh | Fort','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING CAPTURES','2026-10-28 07:00','128400.000','07:00:01 saved']),('EVENING',['EVENING CAPTURES','2026-10-28 18:00','128480.000','18:00:01 saved']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering AP','192.168.4.1','OK: network options']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
+screens=[('BOOT',['MIDEA ENGINEERING','ENERGY','[============      ]']),('MAIN',['MIDEA | ENERGY','128432.73','kWh | Fort','08:42:16 WIB       OK','IP 192.168.4.1']),('MORNING',['MORNING CAPTURES','2026-10-28 07:00','128400.000','07:00:01 saved']),('EVENING',['EVENING CAPTURES','2026-10-28 18:00','128480.000','18:00:01 saved']),('NETWORK',['NETWORK / WIFI','ap','Midea Engineering-','020000123456','IP 192.168.4.1']),('DIAGNOSTICS',['DIAGNOSTICS','CRC:0 T/O:2','RTC:OK FS:OK','ID:1 9600N','ALARM ENABLED'])]
 for i,(title,lines) in enumerate(screens):
     x=45+i%3*450;y=145+i//3*230;s.rect(x,y,410,205);s.text(x+20,y+30,title,14,BLUE,700);s.rect(x+20,y+45,370,140,'#030b13',LINE,7)
     for j,line in enumerate(lines):s.text(x+35,y+70+j*23,line,16,color='#e2f4f0',mono=True)
@@ -242,7 +242,7 @@ s.save('boot-flow.svg')
 
 s=SVG(1400,850,'Wi-Fi modes and recovery','AP and client share one radio. Core 1 persists settings and core 0 applies driver changes without blocking UART acquisition.')
 s.heading('One local application · three Wi-Fi modes','The same dashboard, diagnostics and API are served through every active interface.')
-for x,title,lines in [(45,'ACCESS POINT',['Midea Engineering AP','Default: 192.168.4.1','Direct phone connection','Saved client credentials retained']), (495,'CLIENT + AP RECOVERY',['Join the configured 2.4 GHz SSID','DHCP address shown on OLED','AP stays on during connection','AP closes 15 s after DHCP succeeds']), (945,'ACCESS POINT + CLIENT',['Both interfaces remain available','One radio follows the router channel','AP subnet avoids LAN overlap','No internet service is required'])]:
+for x,title,lines in [(45,'ACCESS POINT',['Unique AP: factory MAC suffix','Default: 192.168.4.1','Direct phone connection','Saved client credentials retained']), (495,'CLIENT + AP RECOVERY',['Join the configured 2.4 GHz SSID','DHCP address shown on OLED','AP stays on during connection','AP closes 15 s after DHCP succeeds']), (945,'ACCESS POINT + CLIENT',['Both interfaces remain available','One radio follows the router channel','AP subnet avoids LAN overlap','No internet service is required'])]:
  s.rect(x,140,410,245);s.text(x+22,180,title,21,BLUE,700)
  for i,line in enumerate(lines):s.text(x+22,225+i*38,line,17,MUTED)
 s.rect(45,430,590,170);s.text(70,471,'CORE 1 / PREFERENCES',22,BLUE,700)

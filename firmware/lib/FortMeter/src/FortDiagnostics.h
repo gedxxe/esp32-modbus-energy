@@ -200,7 +200,7 @@ bool readEnergy(const Link &link) {
   },reading,&quality);
   if(!valid){++evidence.energyBad;LOG("[SNAPSHOT_REJECTED] transport=0x%02X invalid=0x%02X (PF=1 Hz=2 kWh=4 kvarh=8). No new energy accepted\n",quality.transportFailed,quality.invalid);return false;}
   uint8_t ratioBytes[6]={};uint16_t ptNum=1,ptDen=1,ct=1;
-  if(profile.ratioWords&&(!readRegisters(link,options.ratioAddress,profile.ratioWords,ratioBytes)||!profiles::ratios(profile,ratioBytes,ptNum,ptDen,ct))){++evidence.energyBad;LOG("[RATIO_REJECTED] CT/PT response unavailable or invalid\n");return false;}
+  if(profile.ratioWords&&(!profiles::readRatioData(profile,options.ratioAddress,[&](uint16_t address,uint8_t count,uint8_t *out){return readRegisters(link,address,count,out);},ratioBytes)||!profiles::ratios(profile,ratioBytes,ptNum,ptDen,ct))){++evidence.energyBad;LOG("[RATIO_REJECTED] CT/PT response unavailable or invalid\n");return false;}
   double multiplier=profiles::directEnergy(profile)?1.0:double(ptNum)/ptDen*ct;
   LOG("[DECODE_SETTINGS] energy=0x%04X scale=%.12g order=%s basis=%s. Compare with meter display\n",options.energyAddress,options.energyScale,options.swappedWords?"swap":"normal",profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios");
   LOG("[ENERGY] raw=%lu meter=%.3f kWh PT=%u/%u CT=%u multiplier=%.6f\n",(unsigned long)reading.rawEnergy,reading.meterEnergy,ptNum,ptDen,ct,multiplier);
@@ -215,10 +215,10 @@ void compareAdl400(){
   LOG("[ADL400_BEGIN] ID=%u baud=%lu parity=%c. Sequential reads, not simultaneous LCD sampling. Energy is UInt32 ABCD, never Float32\n",current.id,(unsigned long)current.baud,current.parity);
   uint8_t bytes[4];uint16_t pt=0,den=0,ct=0,ptAfter=0,denAfter=0,ctAfter=0;
   const auto &p=profiles::get(options.profile);
-  bool ratioOK=readRegisters(current,0x008D,2,bytes)&&profiles::ratios(p,bytes,pt,den,ct);
+  bool ratioOK=profiles::readRatioData(p,0x008D,[&](uint16_t address,uint8_t count,uint8_t *out){return readRegisters(current,address,count,out);},bytes)&&profiles::ratios(p,bytes,pt,den,ct);
   const uint16_t addresses[]={0x0000,0x000A,0x0014,0x001E};uint32_t raw[4]={};bool valid[4]={};uint32_t sampled[4]={};
   for(unsigned i=0;i<4&&!abortRequested;++i){valid[i]=readRegisters(current,addresses[i],2,bytes);sampled[i]=millis();if(valid[i])raw[i]=profiles::raw32(bytes);}
-  if(!abortRequested)ratioOK=readRegisters(current,0x008D,2,bytes)&&profiles::ratios(p,bytes,ptAfter,denAfter,ctAfter)&&ratioOK&&pt==ptAfter&&ct==ctAfter;
+  if(!abortRequested)ratioOK=profiles::readRatioData(p,0x008D,[&](uint16_t address,uint8_t count,uint8_t *out){return readRegisters(current,address,count,out);},bytes)&&profiles::ratios(p,bytes,ptAfter,denAfter,ctAfter)&&ratioOK&&pt==ptAfter&&ct==ctAfter;
   if(abortRequested){LOG("[ADL400_INCOMPLETE] Interrupted. Do not compare this run\n");return;}
   LOG("[ADL400_RATIO] valid_stable=%u PT=%u CT=%u. Applied once to energy only\n",ratioOK,pt,ct);
   for(unsigned i=0;i<4;++i){
@@ -380,7 +380,7 @@ void showStatus(){
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
   LOG("PROFILE: profile fort | profile acrel-adl400 | profile habuer. Apply documented map, ratio layout and scan bauds in RAM\n");
-  LOG("\nMeter diagnostics 3.4.3 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
+  LOG("\nMeter diagnostics 3.5.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
   LOG("ADL400: adl400 compares total/forward/reverse/reactive counters, stable PT/CT and ABCD/CDAB float samples in one read-only run\n");

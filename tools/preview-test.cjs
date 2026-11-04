@@ -93,19 +93,20 @@ const calls = [],
   assetRequests = new Set();
 const meterCatalog=[
  {key:"fort",name:"Fort",primaryFloat:138,terminals:"58 / A · 59 / B",maxBaud:38400,energyScale:.001,ratios:44,ratioWords:3,currentA:{address:88,words:2},voltageA:{address:66,words:2},power:{address:106,words:2},frequency:{address:128,words:1},secondaryEnergy:{address:130,words:2}},
- {key:"acrel-adl400",name:"Acrel ADL400",adl400:true,terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,probe:{address:100,words:1},currentA:{address:21260,words:2},voltageA:{address:21248,words:2},power:{address:106,words:1},powerFactor:{address:21296,words:2},frequency:{address:21298,words:2},secondaryEnergy:{address:0,words:2}},
+ {key:"acrel-adl400",name:"Acrel ADL400",adl400:true,terminals:"21 / A1 · 22 / B1",maxBaud:19200,energyScale:.01,ratios:141,ratioWords:2,probe:{address:0,words:2},currentA:{address:21260,words:2},voltageA:{address:21248,words:2},power:{address:106,words:1},powerFactor:{address:21296,words:2},frequency:{address:21298,words:2},secondaryEnergy:{address:0,words:2}},
  {key:"habuer",name:"Habuer",terminals:"A / B · use meter labels",maxBaud:38400,energyScale:.1,energyBasis:"meter-total",coherentSnapshot:true,ratios:0,ratioWords:0,probe:{address:48,words:2},currentA:null,voltageA:null,power:null,powerFactor:{address:48,words:2},frequency:{address:50,words:2},secondaryEnergy:{address:52,words:2},reactiveEnergy:{address:53,words:2}},
  {key:"acrel-acr",primaryFloat:71,name:"Acrel ACR10R-DxxTE",terminals:"A / B labels",maxBaud:38400,energyScale:1,energyBasis:"meter-total",coherentSnapshot:true,commissioningRequired:true,ratios:0,ratioWords:0,probe:{address:100,words:1},currentA:{address:100,words:1},voltageA:{address:97,words:1},power:{address:103,words:1},frequency:{address:119,words:1},powerFactor:{address:115,words:1},secondaryEnergy:{address:71,words:2},reactiveEnergy:{address:75,words:2}},
  {key:"acrel-apm",primaryFloat:3000,name:"Acrel APM800/801/810",terminals:"A / B labels",maxBaud:38400,energyScale:.001,energyBasis:"meter-total",coherentSnapshot:true,commissioningRequired:true,ratios:0,ratioWords:0,probe:{address:252,words:1},currentA:{address:1100,words:2},voltageA:{address:1120,words:2},power:{address:1156,words:2},frequency:{address:252,words:1},powerFactor:{address:1183,words:1},secondaryEnergy:{address:3000,words:2},reactiveEnergy:{address:3004,words:2}}
 
 ];
 const state = {
+  unit:{id:"020000123456",hostname:"energy-020000123456",identityValid:true,uniqueAP:true,meterConfigured:true,meterSettingsDegraded:false,networkSettingsDegraded:false,meterConfigGeneration:2,networkConfigGeneration:3},
   version,profile:"fort",meter:meterCatalog[0],meterProfiles:meterCatalog,
   token: "test-session",
   display:{available:true,idleSeconds:60,stored:false,storageOK:true,sleeping:false},
   lora:{revision:0,ready:true,enabled:false,stored:false,available:false,paired:false,phase:0,code:0,frequencyHz:915000000,bandwidthKHz:125,sf:7,cr:5,powerDbm:14,preamble:8,syncWord:18,nodeId:2,gatewayId:1,networkId:1,intervalMs:60000,ackMs:10000,retries:2,hasKey:false,authErrors:0,addressErrors:0,replayErrors:0,lastTxSequence:0,lastRxSequence:0,tx:0,rx:0,acks:0,timeouts:0,rejected:0,crcErrors:0,drops:0,lastRxAgeMs:0,rssi:0,snr:0,waitMs:0,airtimeMs:0},
   recovery:{resetCode:9,source:"staging",nvsVerified:true,fsVerified:true,durable:true,backlog:false},
-  network: {auth:"personal",hasEnterpriseCredentials:false,hasCustomIdentity:false,serverName:"",caFingerprint:"",error:"",disconnectReason:0,apiCode:0,attempts:0,enterpriseProvisioning:true,flashEncrypted:false,configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering AP",apActive:true,address:"192.168.4.1",phase:"ap"},
+  network: {auth:"personal",hasEnterpriseCredentials:false,hasCustomIdentity:false,serverName:"",caFingerprint:"",error:"",disconnectReason:0,apiCode:0,attempts:0,enterpriseProvisioning:true,flashEncrypted:false,configuredAPIP:"192.168.4.1",mode:"ap",activeMode:"ap",ssid:"",hasPassword:false,stored:true,pending:false,connected:false,rssi:0,clientIP:"",apIP:"192.168.4.1",apSSID:"Midea Engineering-020000123456",apActive:true,address:"192.168.4.1",phase:"ap"},
   control: { accepted: 0, completed: 0, rejected: 0, lastError: "", pending: 0, results: [] },
   rtc: true,
   storage: true,
@@ -857,7 +858,12 @@ async function checkVectors(browser, out) {
     assert(calls.some(c=>c.url==="/api/network" && c.data.get("open")==="1"));
     await page.locator("#network-ap-ip").fill("192.168.9.1");
     malformedNetwork=true;await refresh();await page.waitForFunction(() => document.getElementById("network-save")?.disabled);
-    assert(await page.locator("#mute").isVisible());malformedNetwork=false;await refresh();await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
+    assert(await page.locator("#mute").isVisible());
+    assert((await page.locator("#unit-info").innerText()).includes("020000123456"));
+    state.unit.meterSettingsDegraded=true;await refresh();await page.waitForSelector("#unit-settings-warning");state.unit.meterSettingsDegraded=false;
+    state.unit.meterConfigured=false;await refresh();await page.waitForFunction(()=>document.querySelector("#unit-info")?.innerText.includes("before recording")||document.querySelector("#unit-info")?.innerText.includes("sebelum pencatatan"));
+    state.unit.meterConfigured=true;state.unit.meterConfigGeneration=7;await refresh();await page.waitForFunction(()=>document.querySelector("#unit-info")?.innerText.includes("7"));
+    malformedNetwork=false;await refresh();await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
     assert.equal(await page.locator("#network-ap-ip").inputValue(),"192.168.9.1", "A malformed refresh must not erase the operator draft");
     const rescanWiFi=async()=>{
       // Wait for this queued POST, not the previous scan's retained result text.

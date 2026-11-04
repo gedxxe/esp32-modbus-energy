@@ -2,7 +2,12 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.3**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.5.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+
+## Audit fleet 3.5.0 dan patch ADL400 mendesak
+
+Perubahan fleet sebelumnya lolos suite native dan pengujian dashboard dari byte hasil build. Referensi ADL400 terbaru dari pemilik kemudian memerlukan patch tambahan: probe kontak/energi FC03 `0x0000/2`, dengan PT `0x008D/1` dan CT `0x008E/1` yang dibaca terpisah. UInt32 ABCD /100 serta PT × CT satu kali tetap dipakai. Produksi dan diagnostik mandiri memakai helper rasio yang sama. Tidak ada pengujian native, browser atau hardware tambahan setelah patch tersebut sesuai permintaan eksplisit pemilik. Firmware utama ESP32-S3 dan INO mandiri berhasil dikompilasi setelah patch ADL400 ini. Test native/browser/RF tidak diulang. CI GitHub dilewati untuk patch mendesak ini sesuai permintaan pemilik. Paket rilis lengkap dan penerimaan lapangan tidak boleh disimpulkan dari hasil sebelum patch.
+
 
 ## Lifecycle koneksi dan commissioning lokal pada 3.4.3
 

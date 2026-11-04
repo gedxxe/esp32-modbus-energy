@@ -26,7 +26,7 @@ Jadwal berada pada `CAPTURE_MINUTES` di [checkpoint_log.h](../../firmware/includ
 
 ## Mengambil rekaman setelah jadwal lewat
 
-1. Hubungkan HP ke **Midea Engineering AP**, password **betahdijre12345**, lalu buka **http://192.168.4.1**. Alamat lokal client juga dapat dipakai pada mode client atau gabungan.
+1. Hubungkan HP ke **Midea Engineering-XXXXXXXXXXXX**, password **betahdijre12345**, lalu buka **http://192.168.4.1**. Alamat lokal client juga dapat dipakai pada mode client atau gabungan.
 2. Buka **Ringkasan → Checkpoint kWh terjadwal** dan periksa tanggal rekamannya. Pilih Pagi atau Sore untuk melihat lima baris. Kolom angka meter berisi kWh kumulatif, sedangkan Dibaca pada menunjukkan waktu respons aktual dalam WIB.
 3. Pilih **Unduh CSV checkpoint** untuk menyimpan hari yang ditampilkan. Untuk hari sebelumnya, buka **Rekaman checkpoint sebelumnya**, pilih tanggal lalu unduh CSV. Rentang retensi adalah hari tersimpan terbaru beserta hari-hari yang tersedia sebelumnya, sebanyak 31 hari kalender.
 4. Aktifkan **Tampilkan selisih antar-checkpoint** jika membutuhkan konsumsi antar-rekaman. Tampilan awal tetap berupa angka meter asli. Pada OLED, PREV/NEXT memilih halaman capture pagi atau sore, sedangkan OK singkat berpindah di antara lima rekaman beserta tanggalnya.

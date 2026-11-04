@@ -75,7 +75,7 @@ int main(){
  // Acrel profile must use its own query width, ratio layout and kWh resolution.
  {HardwareSerial port(1);char log[4096];FortDiagnostics engine(port,log,sizeof(log));
   engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400_VERIFIED);
-  assert(engine.options.probeAddress==0x64&&engine.options.probeWords==1&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
+  assert(engine.options.probeAddress==0&&engine.options.probeWords==2&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
   assert(engine.auditPlan[2].address==0x5300&&engine.auditPlan[3].address==0x006A&&engine.auditPlan[5].address==0x5332);
   port.replies.push_back(response({1,3,2,0,123}));assert(engine.probeLink(engine.current));
   assert(port.transmitted.back()[3]==0x64&&port.transmitted.back()[5]==1);
@@ -97,15 +97,15 @@ int main(){
   bool reverse=false,changeRatio=false,failEnergy=false;unsigned ratios=0;
   port.onWrite=[&](){const auto &tx=port.transmitted.back();assert(tx[0]==220&&tx[1]==3);uint16_t a=uint16_t(tx[2])<<8|tx[3];
    if(failEnergy&&a==0){for(auto b:response({220,0x83,2}))port.incoming.push_back(b);return;}
-   uint32_t raw=a==0x64?10000:a==0?9798:a==0xA?9790:a==0x14?(reverse?1:0):a==0x1E?100:a==0x8D?(0x10000UL+(changeRatio&&++ratios>1?81:80)):a==0x5300?0x436B8CB0UL:a==0x5332?0x4247D70AUL:a==0x5330?0x3F733333UL:0x42C80000UL;
+   uint32_t raw=a==0x64?10000:a==0?9798:a==0xA?9790:a==0x14?(reverse?1:0):a==0x1E?100:a==0x8D?1:a==0x8E?(changeRatio&&++ratios>1?81:80):a==0x5300?0x436B8CB0UL:a==0x5332?0x4247D70AUL:a==0x5330?0x3F733333UL:0x42C80000UL;
    if(tx[5]==1){for(auto b:response({220,3,2,uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(b);}
    else for(auto b:response({220,3,4,uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(b);
   };
-  assert(engine.readEnergy(engine.current));assert(port.transmitted.size()==2&&port.transmitted[0][2]==0&&port.transmitted[0][3]==0&&port.transmitted[0][5]==2&&port.transmitted[1][3]==0x8D);
+  assert(engine.readEnergy(engine.current));assert(port.transmitted.size()==3&&port.transmitted[0][2]==0&&port.transmitted[0][3]==0&&port.transmitted[0][5]==2&&port.transmitted[1][3]==0x8D);
   char copy[8193];engine.copyLog(copy,sizeof(copy));assert(std::string(copy).find("7838.400000 kWh")!=std::string::npos);
   uint8_t voltage[]={0x43,0x6B,0x8C,0xB0},hz[]={0x42,0x47,0xD7,0x0A};assert(fabs(profiles::decode(p.voltage,voltage)-235.54956)<.0001&&fabs(profiles::decode(p.frequency,hz)-49.96)<.0001);
   assert(fabs(profiles::primaryEnergy(p.id,9798,1,1,80)-7838.4)<1e-8);assert(fabs(7838.9-7838.4)<.01*80);
-  engine.clearLog();engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(engine.evidence.requests==13);
+  engine.clearLog();engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(engine.evidence.requests==15);
   std::string report(copy);assert(report.find("[ADL400_BEGIN] ID=220")!=std::string::npos&&report.find("address=0x0000 energy=7838.400000")!=std::string::npos&&report.find("[ADL400_REVERSE] zero")!=std::string::npos&&report.find("complete=1")!=std::string::npos);
   engine.clearLog();reverse=true;engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(std::string(copy).find("[ADL400_REVERSE] nonzero")!=std::string::npos);
   engine.clearLog();changeRatio=true;ratios=0;engine.command("adl400");engine.copyLog(copy,sizeof(copy));assert(std::string(copy).find("valid_stable=0")!=std::string::npos&&std::string(copy).find("[ADL400_SCALED]")==std::string::npos);

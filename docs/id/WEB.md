@@ -2,6 +2,8 @@
 
 [English](../WEB.md) · **Bahasa Indonesia**
 
+Untuk mengganti Wi-Fi, daftar scan tidak wajib: masukkan nama jaringan persis di kolom **SSID manual/tersembunyi** bila jaringan tidak ditemukan saat scan. Memilih ulang SSID Enterprise yang sudah tersimpan tetap memakai login dan CA tersimpan, sedangkan SSID berbeda harus memakai kredensialnya sendiri. Pilih jenis keamanan Personal/Open/PEAP yang benar lalu simpan. Simpan berhasil **bukan** bukti koneksi atau DHCP berhasil; lihat panel **Hasil koneksi**. Penggantian kredensial Enterprise harus melalui AP pemulihan.
+
 Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta codec setting yang dipisahkan dijelaskan pada [Pencarian meter](METER_DISCOVERY.md). Scanner tetap hanya memakai FC03 dan tidak menebak produsen dari nilai mentah.
 
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel atau Habuer, simpan model terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) serta [referensi Habuer](HABUER.md) untuk peta, konversi dan alur diagnostiknya.

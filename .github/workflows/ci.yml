@@ -87,13 +87,17 @@ jobs:
           npm run build:web
           git add firmware/include/web_ui.h web/bundle.json
           if ! git diff --cached --quiet; then
-            for file in firmware/include/web_ui.h web/bundle.json; do
-              gh api "repos/${GITHUB_REPOSITORY}/contents/${file}" --method PUT \
-                -f branch=fix/adl400-field-rtu-20261104 \
-                -f message="Regenerate ${file} for ADL400 Meter Lab" \
-                -f sha="$(git rev-parse "HEAD:${file}")" \
-                -f content="$(base64 -w0 "${file}")" --silent > /dev/null
-            done
+            python - <<'PY'
+            import os,base64,json,subprocess,urllib.request
+            for filename in ("firmware/include/web_ui.h","web/bundle.json"):
+                old=subprocess.check_output(["git","rev-parse","HEAD:"+filename],text=True).strip()
+                content=base64.b64encode(open(filename,"rb").read()).decode()
+                data=json.dumps({"message":"Regenerate "+filename+" for ADL400 Meter Lab","branch":"fix/adl400-field-rtu-20261104","sha":old,"content":content}).encode()
+                url="https://api.github.com/repos/"+os.environ["GITHUB_REPOSITORY"]+"/contents/"+filename
+                req=urllib.request.Request(url,data=data,method="PUT",headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"})
+                with urllib.request.urlopen(req,timeout=60) as response:
+                    print("Committed generated asset:",filename,"HTTP",response.status)
+            PY
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

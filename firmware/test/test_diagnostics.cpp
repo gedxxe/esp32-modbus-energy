@@ -161,6 +161,27 @@ int main(){
   assert(engine.discovery.begin(cfg,333,millis(),1));while(engine.discovery.running())engine.discovery.step(engine,millis(),1793185200);
   assert(engine.discovery.found[0].mapEvidence()&(1<<profiles::ACREL_ADL400_VERIFIED));SavedMeter savedMeter;savedMeter.id=8;savedMeter.profile=profiles::ACREL_ADL400_VERIFIED;savedMeter.verified=true;savedMeter.evidence=engine.discovery.found[0];strcpy(savedMeter.name,"ADL panel");strcpy(savedMeter.model,"ADL400");Settings bound;assert(canActivateSaved(savedMeter,bound)&&bound.slave==220);
   failEnergy=true;const size_t before=port.transmitted.size();assert(!engine.readEnergy(engine.current));assert(port.transmitted.size()==before+1); // Never fall back to forward energy.
+  // Reproduce the normal acquisition path without invoking the console's
+  // readEnergy command: the same shared transport, snapshot and ratio helpers
+  // used by firmware/src/main.cpp must emit the field-verified request order.
+  failEnergy=false;
+  MeterReadings productionReading;ReadingQuality productionQuality;
+  const size_t productionBefore=port.transmitted.size();
+  assert(readMeterReadings(p,[&](const profiles::Register &reg,uint8_t *bytes) {
+    return engine.readRegisters(engine.current,reg.address,reg.words,bytes);
+  },productionReading,&productionQuality));
+  assert(productionQuality.complete&&productionReading.rawEnergy==9798);
+  uint8_t productionRatios[6]={};uint16_t productionPT=0,productionDen=0,productionCT=0;
+  assert(profiles::readRatioData(p,p.ratios,[&](uint16_t address,uint8_t count,uint8_t *bytes) {
+    return engine.readRegisters(engine.current,address,count,bytes);
+  },productionRatios));
+  assert(profiles::ratios(p,productionRatios,productionPT,productionDen,productionCT));
+  assert(productionPT==1&&productionDen==1&&productionCT==80);
+  assert(fabs(profiles::primaryEnergy(p.id,productionReading.rawEnergy,productionPT,productionDen,productionCT)-7838.4)<1e-8);
+  assert(port.transmitted.size()==productionBefore+3);
+  assert(port.transmitted[productionBefore][3]==0x00&&port.transmitted[productionBefore][5]==2);
+  assert(port.transmitted[productionBefore+1][3]==0x8D&&port.transmitted[productionBefore+1][5]==1);
+  assert(port.transmitted[productionBefore+2][3]==0x8E&&port.transmitted[productionBefore+2][5]==1);
   uint8_t oldBytes[METER_CONFIG_BYTES];Settings old;old.profile=profiles::ACREL_ADL400;old.slave=220;encodeMeterConfig(old,37,oldBytes);Settings upgraded;uint16_t saved=37;
   assert(decodeMeterConfig(oldBytes,sizeof(oldBytes),upgraded,saved)&&upgraded.profile==profiles::ACREL_ADL400_VERIFIED&&upgraded.slave==220&&saved==0);
   assert(!profiles::selectable(profiles::ACREL_ADL400));uint8_t id=0;assert(!profiles::parse("adl400-legacy",id)&&profiles::parse("acrel-adl400",id)&&id==profiles::ACREL_ADL400_VERIFIED);

@@ -122,7 +122,7 @@ void sendAfterCad(uint32_t now){
   int16_t code=radio.startTransmit(wire,wireSize);
   if(code==RADIOLIB_ERR_NONE){
     ++view.tx;view.lastTxSequence=flight.sequence;
-    Serial.printf("[LoRa] tx type=%u seq=%lu attempt=%u airtime=%lu ms\\n",flight.type,
+    Serial.printf("[LoRa] tx type=%u seq=%lu attempt=%u airtime=%lu ms\n",flight.type,
       (unsigned long)flight.sequence,unsigned(attempts+1),(unsigned long)view.lastAirMs);
     if(!attempts)firstTxAt=now;
     ++attempts;transmitting=true;txAt=now;cadStreak=0;

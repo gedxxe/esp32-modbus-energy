@@ -19,7 +19,7 @@ inline uint16_t meterCRC(const uint8_t *data,size_t size){uint16_t crc=0xFFFF;wh
 struct MeterLink {uint32_t baud=9600;uint8_t id=1;char parity='N';uint8_t stops=1;};
 struct TransportOptions {
   int rx=18,tx=17,dir=16;
-  bool manual=true;
+  bool manual=true,rawFC03=false;
   uint16_t responseMs=2000,settleUs=100,gapMs=200;
 };
 struct Transaction {
@@ -27,6 +27,7 @@ struct Transaction {
   uint8_t txSize=0,rxSize=0,status=0xE2,libraryStatus=0xE2;
   uint16_t staleBytes=0;uint8_t stale[16]={};
   bool overflow=false,writeError=false,aborted=false,exception=false,echo=false;
+  uint8_t frameOffset=0,frameSize=0; // CRC-validated span in captured RX, including any preceding noise
 };
 // ModbusMaster owns request construction and response-length parsing. The stream
 // adapter records actual I/O, bounds pathological input, and adds strict FC03
@@ -66,6 +67,13 @@ class FortTransport {
     if(!open(link)){last.status=0xE5;emit(8);return last.status;}
     planned[0]=link.id;planned[1]=3;planned[2]=uint8_t(address>>8);planned[3]=uint8_t(address);planned[4]=0;planned[5]=words;
     uint16_t crc=meterCRC(planned,6);planned[6]=uint8_t(crc);planned[7]=uint8_t(crc>>8);
+    // The ADL400 field-proven sketch uses a bounded CRC-based raw RTU parser.
+    // Keep this mode in the shared transport, not in a separate diagnostic parser.
+    if(options.rawFC03){
+      last.status=readRawFC03(link,words,out);
+      haveFinish=true;lastFinish=millis();
+      return last.status;
+    }
     FortTransport *previous=active();active()=this;receiving=false;preReads=0;firstRX=true;
     master.begin(link.id,observed);master.clearResponseBuffer();master.setResponseTimeout(options.responseMs);
     master.preTransmission(beforeThunk);master.postTransmission(afterThunk);master.idle(idleThunk);master.abortCheck(abortThunk);
@@ -103,6 +111,75 @@ class FortTransport {
   static FortTransport *&active(){static FortTransport *owner=nullptr;return owner;}
   bool cooperate(){bool stop=service&&service(context);if(stop)last.aborted=true;return stop;}
   void emit(uint8_t kind,const uint8_t *bytes=nullptr,size_t size=0,bool overflow=false){if(event)event(context,kind,current,currentAddress,currentWords,planned,bytes,size,overflow);}
+  uint8_t readRawFC03(const MeterLink &link,uint8_t words,uint16_t *out){
+    bool badCRC=false;
+    receiving=false;firstRX=true;
+    // Drain previous bytes before TX. This never treats stale input as a reply.
+    for(unsigned n=0;n<256&&uart.available();++n){
+      int byte=uart.read();if(byte<0)break;
+      if(last.staleBytes<sizeof(last.stale))last.stale[last.staleBytes]=uint8_t(byte);
+      ++last.staleBytes;
+    }
+    if(uart.available())last.overflow=true;
+    if(last.staleBytes)emit(7,last.stale,last.staleBytes<sizeof(last.stale)?last.staleBytes:sizeof(last.stale),last.staleBytes>sizeof(last.stale));
+    if(last.overflow){last.status=last.libraryStatus=0xE7;return last.status;}
+    if(cooperate()){last.aborted=true;last.status=last.libraryStatus=0xE4;return last.status;}
+    if(options.manual){digitalWrite(options.dir,HIGH);delayMicroseconds(options.settleUs);}
+    emit(1);
+    size_t written=uart.write(planned,sizeof(planned));
+    last.txSize=uint8_t(written>sizeof(planned)?sizeof(planned):written);
+    memcpy(last.tx,planned,last.txSize);
+    if(written!=sizeof(planned))last.writeError=true;
+    uart.flush();
+    delayMicroseconds(150); // Field-tested guard after TX completes, before RX.
+    if(options.manual)digitalWrite(options.dir,LOW);
+    receiving=true;emit(2,last.tx,last.txSize);
+    if(last.writeError){last.status=last.libraryStatus=0xE5;emit(8,last.rx,last.rxSize);return last.status;}
+    uint32_t began=millis();
+    last.status=0xE2;
+    while(uint32_t(millis()-began)<options.responseMs){
+      if(cooperate()){last.aborted=true;last.status=0xE4;break;}
+      while(uart.available()){
+        int byte=uart.read();if(byte<0)break;
+        capture(uint8_t(byte));
+        if(last.overflow){last.status=0xE7;break;}
+      }
+      if(last.overflow)break;
+      // Reject a local TX echo rather than silently stripping it.
+      if(last.rxSize>=8&&!memcmp(last.rx,planned,8)){last.echo=true;last.status=0xE6;break;}
+      for(size_t pos=0;pos+5<=last.rxSize;++pos){
+        if(last.rx[pos]!=link.id)continue;
+        bool exception=last.rx[pos+1]==0x83;
+        if(!exception&&last.rx[pos+1]!=0x03)continue;
+        if(!exception&&last.rx[pos+2]!=2*words)continue;
+        size_t length=exception?5:size_t(last.rx[pos+2])+5;
+        if(pos+length>last.rxSize)continue;
+        uint16_t crc=meterCRC(last.rx+pos,length-2);
+        uint16_t received=uint16_t(last.rx[pos+length-2])|(uint16_t(last.rx[pos+length-1])<<8);
+        if(crc!=received){badCRC=true;continue;}
+        last.frameOffset=uint8_t(pos);last.frameSize=uint8_t(length);
+        if(exception){
+          if(!last.rx[pos+2]||last.rx[pos+2]>0x7F)continue;
+          last.exception=true;last.status=last.rx[pos+2];
+        }else{
+          for(uint8_t i=0;i<words;++i)out[i]=uint16_t(last.rx[pos+3+2*i])<<8|last.rx[pos+4+2*i];
+          last.status=0;
+        }
+        break;
+      }
+      if(last.frameSize)break;
+      delay(1);
+    }
+    if(!last.frameSize&&!last.aborted&&!last.overflow&&!last.echo){
+      last.status=badCRC?0xE3:last.rxSize?0xE6:0xE2;
+    }
+    last.libraryStatus=last.status;
+    if(last.txSize){
+      uint8_t kind=last.aborted?5:last.rxSize?4:6;
+      emit(kind,last.rx,last.rxSize,last.overflow);
+    }
+    return last.status;
+  }
   void capture(uint8_t byte){
     if(last.rxSize<sizeof(last.rx))last.rx[last.rxSize++]=byte;else last.overflow=true;
     if(firstRX){firstRX=false;emit(3,last.rx,last.rxSize,false);}

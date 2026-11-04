@@ -69,6 +69,8 @@ jobs:
             firmware/.pio/build/esp32s3/partitions.bin
 
   browser:
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -78,6 +80,16 @@ jobs:
           node-version: '24.22.1'
           cache: npm
       - run: npm ci
+      # Temporary branch-only repair: generate reproducible embedded assets in CI.
+      - name: Regenerate ADL400 Meter Lab browser assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/adl400-field-rtu-20261104'
+        run: |
+          npm run build:web
+          git add firmware/include/web_ui.h web/bundle.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Regenerate browser assets for ADL400 Meter Lab"
+            git push origin HEAD:fix/adl400-field-rtu-20261104
+          fi
       - name: Verify committed React assets
         run: npm run check:web
       - run: npx playwright install --with-deps chromium

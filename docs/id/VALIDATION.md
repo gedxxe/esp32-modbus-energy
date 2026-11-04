@@ -2,7 +2,19 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.1**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.2**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+
+## CI dan kontrol LoRa pada 3.4.2
+
+Run GitHub 41759933608 untuk commit 138c14c gagal pada tes native daya/LoRa karena GCC Ubuntu menolak loop satu baris yang ambigu dengan `-Werror`. Job firmware serta browser berhasil. MinGW GCC 6.3.0 lokal tidak melaporkan warning itu, sehingga hasil lokal sebelumnya bukan bukti workflow Linux lulus. Loop kini memakai blok eksplisit dan langkah CI mencetak versi compiler. Pemeriksaan warning tetap aktif.
+
+Build ESP32-S3 final berhasil dengan RAM statis 149.108 byte dan program 1.917.362 byte. INO diagnostik juga berhasil dengan 36.840 dan 373.572 byte. Dashboard hasil build berukuran 157.727 byte gzip. Keempat suite native serta pemeriksaan HMAC independen lulus secara lokal. Warning USB-CDC/sleep RadioLib tetap terlihat.
+
+Regresi browser LoRa mereproduksi tombol Pair aktif saat form menampilkan perubahan RF yang belum disimpan. Tes kini memastikan Pair/Kirim sampel menunggu setting tersimpan. Kolom wajib dalam Advanced tertutup, pembukaan/fokus, pesan lokal, privasi key serta save/reload juga diperiksa. Kontrol terbuka diuji terhadap overlap antarkontrol, keluar panel, jarak label/input dan tinggi tombol minimal 44 piksel pada lebar CSS 320, 360, 390, 768, 1024, 1440 serta 2560 dalam dua bahasa. Gambar desktop dan HP diperiksa visual dan tetap memakai simulasi.
+
+Regresi Enterprise lulus setelah validasi field dibagi dengan LoRa. Suite dashboard lengkap lulus beserta 34 SVG. Percobaan lokal awal menemukan probe gelombang yang hanya menyimpan frame tengah pertama. Probe diperbaiki untuk mengambil crest maksimum yang benar-benar terlihat pada jendela tengah yang sama, dengan batas amplitudo 24–36 piksel, travel, fade dan reduced motion tetap diperiksa. Animasi produksi dan source React Bits tidak diubah.
+
+Hasil lokal dan run baseline gagal merupakan bukti yang berbeda. Revisi baru yang dipush perlu diperiksa melalui workflow GitHub miliknya, bukan disimpulkan dari build lokal. RF banyak node, pemutusan daya fisik dan autentikasi RADIUS perusahaan masih memerlukan pengujian hardware.
 
 ## Submit Enterprise dan persiapan PTMP pada 3.4.1
 

@@ -1,5 +1,11 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.4.2 / 4 November 2026
+
+Memperbaiki kegagalan CI native Ubuntu akibat loop satu baris yang ambigu pada regresi daya/LoRa. Warning tetap diperlakukan sebagai error dan workflow kini mencatat versi compiler.
+
+Pengaturan LoRa ditata menjadi kelompok alamat, key dan radio dengan kontrol minimal 44 piksel yang dapat membungkus teks serta baris simpan/aksi terpisah. Pair/kirim sampel menunggu perubahan disimpan agar nilai draft tidak dianggap sebagai konfigurasi radio aktif. Validasi field bersama membuka Advanced yang belum lengkap dan menampilkan error lokal pada form LoRa maupun Enterprise. Ditambahkan pemeriksaan layout Advanced terbuka pada tujuh lebar dalam dua bahasa.
+
 ## 3.4.1 / 4 November 2026
 
 Memperbaiki submit Enterprise ketika SSID dipilih dari profil lama yang memakai custom outer identity. Pilihan jaringan/autentikasi memulai identity otomatis, kolom tersembunyi yang sengaja diedit tetapi belum lengkap dibuka dan difokuskan, sedangkan proses serta hasil simpan muncul dekat tombol. Regresi browser pada byte hasil build mereproduksi kegagalan lama sebelum perbaikan. Validasi sertifikat dan provisi kredensial melalui AP tetap berlaku.

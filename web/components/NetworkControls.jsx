@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useText } from "../ui.js";
 import WifiPicker from "./WifiPicker.jsx";
 import { validNetworkView, validAPIP } from "../validation.js";
+import { validateFormFields } from "../form-validation.js";
 
 export default function NetworkControls({ device }) {
   const { t } = useText();
@@ -32,13 +33,7 @@ export default function NetworkControls({ device }) {
   async function submit(event) {
     event.preventDefault();
     if(formBlocked){explain(scanBusy?"wifi_scanning":"network_unavailable");return;}
-    const invalid=Array.from(event.currentTarget.elements).find(field=>field.willValidate&&!field.checkValidity());
-    if(invalid){
-      const label=invalid.labels?.[0]?.textContent||invalid.getAttribute("aria-label")||t("network_title");
-      explain(invalid.validity.valueMissing?"network_required_field":"network_invalid_field",{field:label});
-      const details=invalid.closest("details");if(details)details.open=true;
-      requestAnimationFrame(()=>{invalid.focus({preventScroll:true});invalid.scrollIntoView({block:"center",behavior:"smooth"});});return;
-    }
+    if(!validateFormFields(event.currentTarget,t,explain))return;
     if(!validAPIP(apIP)){explain("invalid_ap_ip");return;}
     if(mode!=="ap"&&(!ssid||new TextEncoder().encode(ssid).length>32||/[\x00-\x1f\x7f]/.test(ssid))){explain("invalid_network");return;}
     if(mode!=="ap"&&auth==="peap"){

@@ -1477,4 +1477,24 @@ input,select{background:rgba(255,255,255,.85);border-color:#bdcce8;border-radius
 .enterprise-fields details>.small{margin:6px 0 14px}
 
 /* Radio form stays within the existing device column on small screens. */
-.lora-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}.lora-grid label{min-width:0}#lora-key{font-family:var(--font-mono,monospace);font-size:.78rem}#lora-panel details{margin:20px 0}#lora-panel summary{cursor:pointer;margin-bottom:16px}
+#lora-form{display:grid;gap:22px}
+#lora-form .lora-section{min-width:0;min-inline-size:0;margin:0;padding:20px 0 0;border:0;border-top:1px solid var(--line)}
+#lora-form legend{padding:0 10px 0 0;font-size:14px;font-weight:650;color:var(--ink)}
+#lora-form p{margin:12px 0 0;line-height:1.65}
+#lora-form>.small,#lora-form>.hint{margin:0}
+.lora-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:18px 16px;align-items:end}
+#lora-form .lora-field{display:flex;flex-direction:column;gap:8px;min-width:0;margin:0;line-height:1.45;font-size:12px}
+.lora-field>span{overflow-wrap:anywhere}
+#lora-form .lora-field input,#lora-form .lora-field select{flex:none;width:100%;min-width:0;min-height:44px;margin:0;line-height:1.4}
+#lora-form .lora-toggle{min-height:44px;align-items:center;margin:0 0 14px;line-height:1.5;font-size:12px}
+#lora-form>.lora-toggle{margin:0}
+.lora-toggle>span{min-width:0;overflow-wrap:anywhere}
+#lora-key{font-family:var(--font-mono,monospace);font-size:.78rem}
+#lora-panel details{min-width:0;margin:0;padding:18px;border:1px solid var(--line);border-radius:16px;background:#f5f7ff80}
+#lora-panel summary{display:list-item;min-height:44px;margin:0;padding:10px 0;cursor:pointer;line-height:1.5;font-size:13px;font-weight:600}
+#lora-panel details[open]>summary{margin-bottom:16px}
+.lora-key-actions,.lora-secondary-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px}
+.lora-key-actions{margin-top:14px}
+.lora-actions{display:grid;gap:14px}
+#lora-form .lora-actions p{margin:0}
+#lora-form .button{width:100%;min-width:0;min-height:44px;height:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.4;text-align:center;padding:11px 14px}

@@ -1,7 +1,7 @@
 {
-  "version": "3.4.1",
+  "version": "3.4.2",
   "transport": "gzip",
-  "compressed_total": 156911,
+  "compressed_total": 157727,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,16 +20,16 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 459794,
-      "gzip": 145101,
-      "sha256": "3227ddcf01a38c8918a97eb5e854a9bee0a3d1abf02e5c2501f8808b45b3236d"
+      "raw": 461587,
+      "gzip": 145635,
+      "sha256": "038c585ea8ed6c410ebe2aba5834067f33201e1372904c4f4ea99255c0dad0fb"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 40308,
-      "gzip": 9738,
-      "sha256": "74cc87ac06ad07798452c1bbaccac2b6a67852fc2446ac51608eb8506b79bb26"
+      "raw": 41754,
+      "gzip": 10020,
+      "sha256": "321b85269fc25d5a21c37c757fe16445ba1236941305f163ff32e58c4c0f7a93"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "28ceb13a21e7ef28919fa9efed86057e940923c04e96bf80dd8605cf741a6e58",
-    "package.json": "065f396f15fcb73af89766cf42a354e4af5948dd3d36e6a40bec858a0593b74e",
+    "package-lock.json": "b78a9f356fa906f616ee580696f8d8997b604ed8d751a5193b75f55adcd49c78",
+    "package.json": "9af864d935a267cf95efebdbd39e36134c6e364c8459d62a88ed3d95dea072dd",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -53,11 +53,11 @@
     "web/components/FlowPlayback.jsx": "f33ba001207024f3b9dc6d380222f54f841305b12c985ceb37223496a5fb6896",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/LoRaControls.jsx": "20d3fb983ad43f3efa25cfadadcfbfca9bad06e9b1d28d88e0e94996f2d0bdfe",
+    "web/components/LoRaControls.jsx": "e562a26486211edd5c1503eea0793c4e433e752e2ce79769023470f26e91a06f",
     "web/components/MeterLab.jsx": "bb534614cf9ae08bff19eb0704b07defb80e3c31c2260c194ca2064e04fb35dd",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
-    "web/components/NetworkControls.jsx": "a167131732b45e23d8959402165b2129a37a5190a6368d5b7f5d8c9a0990058d",
+    "web/components/NetworkControls.jsx": "0d5b38ae1bd70a7594b20749fc939b46fd8080d8c86cb994ef124efdd304f155",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
@@ -65,14 +65,15 @@
     "web/device.js": "c1c1fbec85f1321026635b7c4c97f2fe0289bed16dccb92b3cf8e963b6ba99ce",
     "web/enterprise-i18n.js": "2b9682a6c93581203322de5049a98d180bc7cc1a3c75a90226a4dbf8b524c324",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
+    "web/form-validation.js": "7609ddbadd3a0a712c9f3a2dc281e55a581384a576bc9b8d1fed0a1d4dcf8c54",
     "web/i18n.js": "829330bdbad4aaf6dd0006351d658d39de41bbf3d25e33c1129b52a4c9cc839f",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
-    "web/lora-i18n.js": "07eb3233d9d905b64d4e5c6c4d9bebcf56e7ed7424950b937a403a0ab89a6a26",
+    "web/lora-i18n.js": "f5df20d95c0fb7357e34d7898e0cd6b801ad09d770c2e27d8e7a2300612498f0",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
     "web/meter-profile.js": "95fdf72684f51ffd1961e11ed39e2714ceecc9af77df5b42be78db57c23a286f",
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
-    "web/styles.css": "a7c89df3868a53183429adec8008d604153ad3648df7a6ae956f8d29ce7eb5a7",
+    "web/styles.css": "7fc288519c0f3828f343e041a00c758c84655518e8cc667152a99ae8216f7f99",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
     "web/validation.js": "cca2c05667d626d60e440e164b7edfe79fd315a84b8f583b020ed4082d5d021a",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
@@ -92,5 +93,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "a9d3a6255a6e453f1c534cfd60f78ed86aeed62e3d59333827cae98dfdff6366"
+  "header_sha256": "a217ff71cad96c9fcabb0a17d6a37b4b085ee2256313e31bee81292469bde614"
 }

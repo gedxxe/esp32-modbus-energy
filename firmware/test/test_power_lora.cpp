@@ -54,7 +54,15 @@ int main(){
  {CaptureDay a,b;assert(decodeCaptureDay(old.data(),old.size(),a));b=a;++b.generation;assert(newerCaptureDay(b,a));CaptureTracker reboot;reboot.restore(a);assert(!reboot.continuous&&reboot.day.points[0].status==CAPTURE_RECORDED);}
  Frame sent;sent.type=HELLO;sent.network=1;sent.source=2;sent.destination=1;sent.sequence=7;sent.session=0x0807060504030201ULL;sent.length=3;sent.payload[0]=3;sent.payload[1]=7;sent.payload[2]=0;
  uint8_t frame[MAX_PACKET]={};size_t size=encodeFrame(sent,frame);assert(size==27&&frame[0]=='E'&&frame[2]==1&&frame[12]==7&&frame[16]==1&&frame[23]==8);Frame parsed;assert(decodeFrame(frame,size,parsed)&&parsed.session==sent.session&&parsed.payload[1]==7);
- for(size_t n=0;n<size;++n)assert(!decodeFrame(frame,n,parsed));frame[10]=MAX_PAYLOAD+1;assert(!decodeFrame(frame,size,parsed));frame[10]=3;frame[11]=1;assert(!decodeFrame(frame,size,parsed));frame[11]=0;
+ for(size_t n=0;n<size;++n){
+  assert(!decodeFrame(frame,n,parsed));
+ }
+ frame[10]=MAX_PAYLOAD+1;
+ assert(!decodeFrame(frame,size,parsed));
+ frame[10]=3;
+ frame[11]=1;
+ assert(!decodeFrame(frame,size,parsed));
+ frame[11]=0;
  Frame ack=sent;ack.type=ACK;ack.source=1;ack.destination=2;ack.length=1;ack.payload[0]=HELLO;assert(addressed(ack,base,sent.session)&&acknowledges(ack,sent));++ack.sequence;assert(!acknowledges(ack,sent));--ack.sequence;++ack.session;assert(!addressed(ack,base,sent.session)&&!acknowledges(ack,sent));ack.session=sent.session;ack.payload[0]=TELEMETRY;assert(!acknowledges(ack,sent));ack.payload[0]=HELLO;ack.source=77;assert(!addressed(ack,base,sent.session));
  {Frame hello=sent;hello.length=24;memset(hello.payload,0,sizeof(hello.payload));hello.payload[0]=3;hello.payload[1]=7;strcpy(reinterpret_cast<char*>(hello.payload+2),"3.4.0");const uint8_t expected[]={0x45,0x53,0x01,0x01,0x01,0x00,0x02,0x00,0x01,0x00,0x18,0x00,0x07,0x00,0x00,0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x03,0x07,0x33,0x2e,0x34,0x2e,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};assert(encodeFrame(hello,frame)==sizeof(expected)&&!memcmp(frame,expected,sizeof(expected)));}
  // Three distinct stations share a gateway/network, including a delayed ACK

@@ -2,7 +2,19 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.4.1**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.4.2**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+
+## CI and LoRa controls in 3.4.2
+
+GitHub run 41759933608 for commit 138c14c failed in the native power/LoRa test because Ubuntu GCC rejected a misleading single-line loop under `-Werror`. Its firmware and browser jobs succeeded. Local MinGW GCC 6.3.0 had not reported that warning, so the earlier local pass was not evidence of a passing Linux workflow. The loop now has an explicit block and the CI step prints its compiler version. Warning enforcement remains enabled.
+
+The final ESP32-S3 build succeeded with 149,108 static RAM bytes and 1,917,362 program bytes. The diagnostic INO also built successfully with 36,840 and 373,572 bytes. The generated dashboard is 157,727 gzip bytes. All four native suites and the independent HMAC check passed locally. The upstream RadioLib USB-CDC/sleep warning remains visible.
+
+The LoRa browser regression first reproduced Pair being enabled while the form displayed unsaved RF changes. It now confirms that Pair/Sample wait for saved settings. It also checks a required field inside closed Advanced settings, reveal/focus, local feedback, redacted keys and normal save/reload. Expanded controls were checked for pairwise overlap, panel overflow, label/control separation and minimum 44-pixel buttons at 320, 360, 390, 768, 1024, 1440 and 2560 CSS pixels in both languages. Desktop and phone illustrations were visually reviewed and remain simulated.
+
+The Enterprise regression passed after its field validation was shared with LoRa. The full dashboard suite passed with all 34 SVGs. An initial local full-suite attempt exposed a wave probe that retained only its first central frame. The corrected probe measures the maximum observed crest across the same central window, preserving the existing 24–36-pixel amplitude, travel, fade and reduced-motion assertions. Production flow animation and vendored React Bits source were not changed.
+
+These local checks and the failing baseline run are distinct evidence. The newly pushed revision must be checked through its own GitHub workflow rather than inferred from a local build. RF multi-node operation, physical power cuts and corporate RADIUS authentication remain pending hardware tests.
 
 ## Enterprise submission and PTMP preparation in 3.4.1
 

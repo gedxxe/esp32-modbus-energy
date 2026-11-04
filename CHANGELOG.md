@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.2 / 4 November 2026
+
+Fixed the Ubuntu native CI failure caused by a misleading single-line loop in the power/LoRa regression. The workflow keeps warnings as errors and now records the compiler version.
+
+Reworked LoRa settings into address, key and radio groups with wrapping 44-pixel controls and separate save/action rows. Pair/sample actions wait until edited settings are saved, so the displayed draft cannot be mistaken for the active radio configuration. Shared field validation reveals incomplete Advanced fields and reports the error locally for both LoRa and Enterprise forms. Added open-Advanced layout checks at seven widths in both languages.
+
 ## 3.4.1 / 4 November 2026
 
 Fixed Enterprise form submission after selecting a network from a profile with a custom outer identity. Network/auth changes reset automatic identity, explicitly incomplete hidden fields are revealed and focused, and save progress/results appear beside the button. The generated-byte regression reproduced the old failure before the fix. Server certificate validation and AP-only credential provisioning remain enforced.

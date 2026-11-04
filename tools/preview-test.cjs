@@ -1341,12 +1341,14 @@ async function checkVectors(browser, out) {
           }
         }
         for(const direction of ["tx","rx"]){
-          if(phase===direction&&window.flowWavePeak[direction]===0){
+          if(phase===direction){
             const train=document.querySelector(`.flow-train.${direction}`),track=document.querySelector(`.flow-rail.${direction} .flow-track`);
             if(train&&track){
               const a=train.getBoundingClientRect(),b=track.getBoundingClientRect();
               const position=(a.x-b.x)/(b.width-a.width);
-              if(position>.4&&position<.6)window.flowWavePeak[direction]=Math.max(...[...track.querySelectorAll(".wake-slider__bar")].map(node=>node.getBoundingClientRect().height));
+              // Motion paints its spring on a separate frame. Measure the
+              // observed crest across the centre window, not only its first frame.
+              if(position>.4&&position<.6)window.flowWavePeak[direction]=Math.max(window.flowWavePeak[direction],...[...track.querySelectorAll(".wake-slider__bar")].map(node=>node.getBoundingClientRect().height));
             }
           }
           if(phase!==`${direction}-settle`)continue;

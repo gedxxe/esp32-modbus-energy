@@ -19,6 +19,7 @@ jobs:
           python-version: '3.13'
       - name: Native regression tests
         run: |
+          g++ --version
           mkdir -p tmp
           g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_energy.cpp firmware/src/oled_frames.cpp -o tmp/fort-test
           ./tmp/fort-test

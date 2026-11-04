@@ -4,7 +4,7 @@
 
 ## Temuan dan perbaikan
 
-Password Access Point (AP) pemulihan sebelumnya ditulis langsung di `firmware/include/board.h` dan sembilan file source/dokumentasi. Anggap password lama **telah terekspos**; jangan digunakan ulang. Firmware baru membuat 128 bit acak di perangkat, mengubahnya menjadi kata sandi WPA2 sepanjang 32 karakter, lalu menyimpannya di namespace NVS `apauth`. Jika NVS gagal, perangkat menggunakan password acak sementara untuk boot tersebut, bukan password bersama. Password dapat dilihat melalui **OLED → NETWORK / WIFI → AP password**; firmware tidak mencetaknya ke log atau mengembalikannya melalui API status.
+Password Access Point (AP) pemulihan sebelumnya ditulis langsung di `firmware/include/board.h` dan sembilan file source/dokumentasi. Anggap password lama **telah terekspos**; jangan digunakan ulang. Firmware baru membuat 128 bit acak di perangkat (sumber entropi SAR ADC ESP32-S3 diaktifkan secara eksplisit sebelum Wi-Fi), mengubahnya menjadi kata sandi WPA2 sepanjang 32 karakter, lalu menyimpannya di namespace NVS `apauth`. Jika NVS gagal, perangkat menggunakan password acak sementara untuk boot tersebut, bukan password bersama. Password dapat dilihat melalui **OLED → NETWORK / WIFI → AP password**; firmware tidak mencetaknya ke log atau mengembalikannya melalui API status.
 
 **Upgrade akan mengganti password AP lama.** Sambungkan ulang memakai kata sandi yang ditampilkan di OLED. Menghapus password dari HEAD Git **tidak menghilangkannya dari commit lama, fork, clone atau cache**. Perubahan ini tidak melakukan rewrite history. Jika pernah digunakan ulang, seluruh kredensial terkait harus dirotasi. Perangkat dengan firmware lama tetap berisiko sampai di-flash ulang.
 

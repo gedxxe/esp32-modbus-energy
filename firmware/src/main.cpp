@@ -10,6 +10,7 @@
 #include <esp_task_wdt.h>
 #include <esp_system.h>
 #include <esp_mac.h>
+#include <bootloader_random.h>
 #ifndef CONFIG_ESP_BROWNOUT_DET
 #error "Brownout detection must remain enabled for the physical logger"
 #endif
@@ -94,10 +95,14 @@ char apPassword[AP_PASSWORD_BUFFER] = {};
 bool apPasswordPersisted = false;
 // Only physical local OLED access discloses the device-specific recovery key.
 void generateAPEntropy(uint8_t *dest, size_t count) {
+  // At early setup Wi-Fi RF is not active. Enable the ESP32-S3 SAR ADC
+  // entropy source explicitly for true-random first-boot credentials.
+  bootloader_random_enable();
   for (size_t i = 0; i < count;) {
     uint32_t sample = esp_random();
     for (unsigned j = 0; j < 4 && i < count; ++j, ++i) dest[i] = uint8_t(sample >> (8 * j));
   }
+  bootloader_random_disable();
 }
 void provisionAPCredential() {
   Preferences store;

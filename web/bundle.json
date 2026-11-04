@@ -1,7 +1,7 @@
 {
   "version": "3.5.0",
   "transport": "gzip",
-  "compressed_total": 160201,
+  "compressed_total": 160359,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 470940,
-      "gzip": 148109,
-      "sha256": "0a46ad3378ebae1b633e9615df3e76d0763aaecc9c91a01c64a717f1d6ac6dcf"
+      "raw": 471632,
+      "gzip": 148267,
+      "sha256": "9afb0b01423ab636dfc0b19a267793f01d183b2647fc2304b1fdb258339c66c1"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -57,17 +57,17 @@
     "web/components/MeterLab.jsx": "50757340ea3c398c516598ecf839dcf7373e06e6f351ca2f32f76a9fee9f0dc2",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
-    "web/components/NetworkControls.jsx": "c6c546b41265e251b06dae09fdb223c1edb6cc1996cb5a9fcb2a343bfe2743a8",
+    "web/components/NetworkControls.jsx": "0a0a878e5fdaf90af68126ef0fec14f95f63bfb74455089115e5c5b4488a1ca2",
     "web/components/NetworkResult.jsx": "61057fb689ae799b83094e4b38962b3ed0cf5d182aee36ff3319f1d6f8ed86fa",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
-    "web/components/WifiPicker.jsx": "7d75572854681be4c43001b34bbee03d5728cdaba7fddebf5c8741c156034ab7",
+    "web/components/WifiPicker.jsx": "a426bcdfd28a58574f410ee79e1ffa4e51e28a45127ed21613caa99f8427a434",
     "web/device.js": "c1c1fbec85f1321026635b7c4c97f2fe0289bed16dccb92b3cf8e963b6ba99ce",
     "web/enterprise-i18n.js": "4d43e469bba54cada09c6a85ef160ff089f9ec9c68a89922ecc43832af61afa8",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
     "web/form-validation.js": "7609ddbadd3a0a712c9f3a2dc281e55a581384a576bc9b8d1fed0a1d4dcf8c54",
-    "web/i18n.js": "46fa3e6d94563bbef5e7d5c57e53edea8591d5d63d9927457d8d5befbf7444b6",
+    "web/i18n.js": "9126ce635da9627345bb6619f0001f68e482bb4c7491d0a2946a9ce17275e97d",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
     "web/lora-i18n.js": "3cc9c97e54ee29d58680a09ec80cd1961f7856a473ef26a69a65ac7171904e5b",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
@@ -94,5 +94,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "462d2addf904aebc7a247a1bab9f5f657280b8f56cc7a7e510663230efa90048"
+  "header_sha256": "7238c4bd327350dcfd095bb324929cbd943547ae9d17024f0d02d73d17dcf4a8"
 }

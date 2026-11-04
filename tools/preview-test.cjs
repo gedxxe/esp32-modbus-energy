@@ -218,7 +218,7 @@ function appendFlow(outcome="valid") {
 }
 function rtuHex(bytes){let crc=65535;for(const byte of bytes){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>1)^((crc&1)?0xa001:0);}return [...bytes,crc&255,crc>>8].map(b=>b.toString(16).padStart(2,"0").toUpperCase()).join(" ");}
 function labEvidence(index=0){
- const profile=meterCatalog[index],slave=index+1,queries=[profile.probe||profile.currentA,profile.secondaryEnergy,...(profile.ratioWords?[{address:profile.ratios,words:profile.ratioWords}]:[])];
+ const profile=meterCatalog[index],slave=index+1,queries=profile.adl400?[profile.probe,{address:profile.ratios,words:1},{address:profile.ratios+1,words:1}]:[profile.probe||profile.currentA,profile.secondaryEnergy,...(profile.ratioWords?[{address:profile.ratios,words:profile.ratioWords}]:[])];
  const probes=queries.map(({address,words})=>{const tx=rtuHex([slave,3,address>>8,address&255,0,words]);
   let data=Array(words*2).fill(0);if(words===3)data=[0,1,0,1,0,80];else if(words===1)data=[0,123];else data=[0,0,3,232];
   if(profile.key==="habuer")data=address===48?[63,96,0,0]:[0,1,226,64];
@@ -723,7 +723,7 @@ async function checkVectors(browser, out) {
       if(!process.argv.includes("--record-flow")&&!process.argv.includes("--record-energy")){
         await page.setViewportSize({width:1440,height:1100});await page.goto(`${origin}/#setup`);
         await page.waitForSelector("#meter-profile");await page.locator("#meter-profile").selectOption("acrel-adl400");
-        await page.locator("#config button").click();await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0064");
+        await page.locator("#config button").click();await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0000");
         await page.locator("#config").screenshot({path:path.join(assets,"ui-meter-profile.png"),style:".main-nav{visibility:hidden}"});
       }
       console.log("PASS: shipped UI design previews captured");return;
@@ -1109,8 +1109,8 @@ async function checkVectors(browser, out) {
     await page.locator("#meter-profile").selectOption("acrel-adl400");
     assert.equal(await page.locator("#baud option[value='38400']").count(),0);
     await page.locator("#config button").click();
-    await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0064");
-    assert.equal(await page.locator("#scan-words").inputValue(),"1");
+    await page.waitForFunction(()=>document.querySelector("#scan-probe")?.value==="0000");
+    assert.equal(await page.locator("#scan-words").inputValue(),"2");
     await page.reload();await page.waitForFunction(()=>document.querySelector("#meter-profile")?.value==="acrel-adl400");
     assert((await page.locator(".wiring-help").textContent()).includes("21 / A1"));
     assert(calls.some(call=>call.url==="/api/config"&&call.data.get("profile")==="acrel-adl400"));

@@ -2,6 +2,8 @@
 
 **English** · [Bahasa Indonesia](id/WEB.md)
 
+For Wi-Fi changes, the scan list is optional: enter the exact network SSID in the **manual/hidden SSID** field if the scan omits it. Selecting the currently saved Enterprise SSID again retains the existing login and CA selection; selecting a different SSID clears login reuse and requires its own credentials. Set the correct Personal/Open/PEAP security mode explicitly, then save. A successful save is not proof of association or DHCP. Use the **Connection result** panel for confirmation. For Enterprise credential changes, open the dashboard through the recovery AP first.
+
 The shared discovery controller, named flash registry, immutable checkpoint source IDs and refactored settings codec are described in [Meter discovery](METER_DISCOVERY.md). The scanner remains FC03-only and does not infer a manufacturer from raw values.
 
 Meter-specific Fort examples below remain valid for Fort. For Acrel or Habuer, select the saved model first and use [Meter profiles](METER_PROFILES.md) and the [Habuer reference](HABUER.md) for the applicable map, conversion and diagnostic workflow.

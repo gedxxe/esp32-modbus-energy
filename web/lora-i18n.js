@@ -97,7 +97,7 @@ export const loraText = {
     "lora_save": "Simpan pengaturan radio",
     "lora_pair": "Pairing ulang",
     "lora_sample": "Kirim sampel saat ini",
-    "lora_gateway_note": "Gateway ESP32-C6 memerlukan protokol Energy Station v1 yang cocok. Pairing membutuhkan ACK terautentikasi dan belum terbukti hanya karena inisialisasi radio berhasil. Checkpoint lokal tetap tersedia saat gateway offline.",
+    "lora_gateway_note": "Gateway ESP32-C3 memerlukan protokol Energy Station v1 yang cocok. Pairing membutuhkan ACK terautentikasi dan belum terbukti hanya karena inisialisasi radio berhasil. Checkpoint lokal tetap tersedia saat gateway offline.",
     "lora_paired": "Sesi sudah dipasangkan",
     "lora_unpaired": "Menunggu gateway",
     "lora_failures": "Timeout / ditolak / CRC",

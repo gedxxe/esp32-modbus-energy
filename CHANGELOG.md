@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (audit fixes · 5 November 2026)
+
+The Wi-Fi dashboard accepts manually entered/hidden SSIDs, groups scan entries by selectable security family, and preserves saved Enterprise credentials and trusted CA when the same SSID is selected again. An unrelated SSID cannot inherit a saved login. AP-only transitions clean up the Enterprise station before turning the STA radio off. Native/Playwright regressions exercise credential-reuse boundaries. The published gateway target and diagrams now consistently identify the separate ESP32-C3 project. Live corporate RADIUS, physical RF and power-cut tests still require hardware.
+
 ## 3.5.0
 
 Fleet identity now uses the complete factory MAC for AP names, hostnames and local unit status. Fresh installations require an explicit meter configuration save. Meter and Wi-Fi settings use verified generation banks with legacy import and degraded-copy reporting. Archive promotion rejects stale or conflicting staging records, Wi-Fi event admission honors deadlines, and uptime no longer wraps at the millis boundary. Meter profiles, checkpoint schema and radio wire version are unchanged.
@@ -20,11 +24,11 @@ Reworked LoRa settings into address, key and radio groups with wrapping 44-pixel
 
 Fixed Enterprise form submission after selecting a network from a profile with a custom outer identity. Network/auth changes reset automatic identity, explicitly incomplete hidden fields are revealed and focused, and save progress/results appear beside the button. The generated-byte regression reproduced the old failure before the fix. Server certificate validation and AP-only credential provisioning remain enforced.
 
-Improved shared-gateway LoRa behavior by accepting authenticated matching outstanding ACKs during retry backoff, widening airtime-dependent initial contention and interleaving live samples with archive fragments without starving either stream. Added a PTMP topology, identifier table, commissioning/capacity guide and a bilingual prompt for separate C6 gateway development. The v1 wire layout and stored settings remain compatible. Physical multi-node/gateway acceptance is still required.
+Improved shared-gateway LoRa behavior by accepting authenticated matching outstanding ACKs during retry backoff, widening airtime-dependent initial contention and interleaving live samples with archive fragments without starving either stream. Added a PTMP topology, identifier table, commissioning/capacity guide and a bilingual prompt for separate C3 gateway development. The v1 wire layout and stored settings remain compatible. Physical multi-node/gateway acceptance is still required.
 
 ## 3.4.0 / 3 November 2026
 
-Added an optional Ai-Thinker Ra-01SH SX1262 node with editable 915 MHz default, dedicated core-0 SPI ownership, web radio/ID/key controls, authenticated pairing and ACK/retry, freshness-aware live telemetry and acknowledged retrieval of saved checkpoint days. Published the binary v1 gateway contract, test vector and wiring/netlist for separate ESP32-C6 development. Radio starts disabled and physical RF acceptance remains pending.
+Added an optional Ai-Thinker Ra-01SH SX1262 node with editable 915 MHz default, dedicated core-0 SPI ownership, web radio/ID/key controls, authenticated pairing and ACK/retry, freshness-aware live telemetry and acknowledged retrieval of saved checkpoint days. Published the binary v1 gateway contract, test vector and wiring/netlist for separate ESP32-C3 development. Radio starts disabled and physical RF acceptance remains pending.
 
 Hardened primary checkpoint writes with NVS readback, protected staging promotion, validation before backup replacement and generation-aware recovery. Invalid saved meter settings now pause production rather than selecting defaults beside retained data. Added legacy record semantic checks, verified setting writes, reset/recovery status and radio pin reservations in production diagnostics. Meter maps, profile IDs, partitions and capture schedules remain unchanged.
 

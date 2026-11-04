@@ -140,9 +140,13 @@ bool startAP(uint32_t address){
 void applyNetwork(const NetworkSettings &settings){
   networkAttempt.idle();activeNetwork=settings;networkPolicy.begin(settings.mode,millis(),settings.auth==NETWORK_PEAP?60000:NETWORK_RETRY_MS);
   WiFi.setAutoReconnect(false);if(WiFi.getMode()&WIFI_MODE_STA)WiFi.disconnectAsync(false,false);
+  // Disable the active EAP client while the station interface still exists.
+  // Switching to AP-only first can leave an Enterprise session uncleared.
+  if(settings.mode==NETWORK_AP&&!stationDriver.reset())
+    Serial.printf("[WiFi] EAP cleanup step=%s code=%ld\n",stationDriver.apiStep,(long)stationDriver.apiCode);
   WiFi.mode(settings.mode==NETWORK_AP?WIFI_AP:WIFI_AP_STA);WiFi.setSleep(false);
   WiFi.setHostname(unitIdentity.hostname);apOK=startAP(settings.apIP);
-  if(settings.mode!=NETWORK_AP)startStation();else stationDriver.reset();
+  if(settings.mode!=NETWORK_AP)startStation();
 }
 void networkNotice(const char *message);
 void syncNetworkCommandResult();

@@ -1,4 +1,4 @@
-# Development prompt for the separate ESP32-C6 gateway
+# Development prompt for the separate ESP32-C3 gateway
 
 **English** · [Bahasa Indonesia](id/GATEWAY_PROMPT.md) · [PTMP setup](LORA_PTMP.md) · [Wire contract](LORA_PROTOCOL.md)
 
@@ -9,7 +9,7 @@ The prompt targets the station contract shipped in 3.5.0. Its wire version remai
 ## Prompt to copy
 
 ```text
-Build a separate, compile-ready ESP32-C6 + SX1262 raw-LoRa PTMP gateway for the Midea Energy Station nodes. Implement the gateway in this repository. The ESP32-S3 node project is the read-only interoperability reference and must not become the gateway build target.
+Build a separate, compile-ready ESP32-C3 + SX1262 raw-LoRa PTMP gateway for the Midea Energy Station nodes. Implement the gateway in the separate `gedxxe/esp32-modbus-energy-gateway` repository, not in this ESP32-S3 node repository. The ESP32-S3 node project is the read-only interoperability reference and must not become the gateway build target.
 
 Start by reading these files from the supplied station source:
 - docs/LORA_PROTOCOL.md and docs/LORA_PTMP.md
@@ -20,9 +20,9 @@ Start by reading these files from the supplied station source:
 - docs/lora-v1-vector.json and tools/check_lora.py
 - docs/LORA.md and docs/ENTERPRISE_WIFI.md
 
-Inspect the exact C6 development board, radio module, available GPIOs, installed SDK and build tools before selecting wiring. Pin a compatible supported framework and RadioLib 7.8.1. The C6 application has one high-performance application core. Do not copy S3 core-1 affinity, PSRAM assumptions, GPIO assignments, OLED, Modbus polling or RGB/RMT setup. Produce a C6 pin table and generated SVG after checking the actual board/module. Keep RF-switch/TCXO configuration specific to that module. Do not infer that every SX1262 module has the Ra-01SH crystal and DIO2 switch circuit.
+Inspect the exact C3 development board, radio module, available GPIOs, installed SDK and build tools before selecting wiring. Pin a compatible supported framework and RadioLib 7.8.1. The C3 application has one high-performance application core. Do not copy S3 core-1 affinity, PSRAM assumptions, GPIO assignments, OLED, Modbus polling or RGB/RMT setup. Produce a C3 pin table and generated SVG after checking the actual board/module. Keep RF-switch/TCXO configuration specific to that module. Do not infer that every SX1262 module has the Ra-01SH crystal and DIO2 switch circuit.
 
-The topology is several independent S3 meter stations to one office C6 gateway, then Wi-Fi to a configurable backend. Use raw LoRa, not a LoRaWAN server/concentrator, mesh, broadcast-only receiver, text payload or JSON over RF. Default carrier is editable 915 MHz. Default PHY is 125 kHz, SF7, CR4/5, preamble 8, logical sync 0x12, explicit header, normal IQ and LoRa CRC. Match the node's RadioLib sync-byte semantics. Keep radio disabled until configured. Document applicable regional limits without silently changing the owner-selected default.
+The topology is several independent S3 meter stations to one office C3 gateway, then Wi-Fi to a configurable backend. Use raw LoRa, not a LoRaWAN server/concentrator, mesh, broadcast-only receiver, text payload or JSON over RF. Default carrier is editable 915 MHz. Default PHY is 125 kHz, SF7, CR4/5, preamble 8, logical sync 0x12, explicit header, normal IQ and LoRa CRC. Match the node's RadioLib sync-byte semantics. Keep radio disabled until configured. Document applicable regional limits without silently changing the owner-selected default.
 
 Implement a bounded gateway inventory, initially 16 entries with an explicit capacity constant. Each entry contains Network ID, unique Node ID, name, a nonzero 32-byte per-node key, enabled state and commissioning notes. Gateway ID defaults to 1, Network ID to 1, with example nodes 2, 3 and 4. Node and gateway addresses must differ. A station's local Modbus slave/profile/saved-meter IDs are payload metadata and must not be used as its radio source ID. Keys must not appear in logs, status JSON or browser storage. Allow key configuration through an authorized local dashboard, as the station does on its AP or client interface. Keep key entry on a trusted local connection and never expose saved keys.
 
@@ -46,7 +46,7 @@ Provide local AP/client/dual configuration and Wi-Fi scanning without a hardcode
 
 Provide a compact English/Indonesian dashboard with node inventory, RF settings, session/pairing status, node time/receive age, values, checkpoint retrieval, outbox/backend state, RSSI/SNR, ACK/retry/auth/CRC counters and bounded logs. Distinguish configured, chip initialized, authenticated radio exchange, live-data freshness and database durability. Show measured metadata and label schematic animation honestly.
 
-Complete verification before packaging: real C6 compile, public codec/HMAC vector, three independent nodes/keys, foreign-node and replay rejection, delayed/duplicate ACK handling, sequence reservation across reset, candidate-session challenge, concurrent telemetry during one archive transfer, fragment corruption/reordering, outbox power-loss faults, backend outage/idempotence, and actual generated-byte web tests for both languages. Document software mocks separately from pending RF/power tests. Deliver source, pinned dependencies, wiring SVG/netlist, protocol compatibility notes, setup steps and verified binaries with manifest. Do not claim field pairing, range or zero data loss without hardware evidence.
+Complete verification before packaging: real C3 compile, public codec/HMAC vector, three independent nodes/keys, foreign-node and replay rejection, delayed/duplicate ACK handling, sequence reservation across reset, candidate-session challenge, concurrent telemetry during one archive transfer, fragment corruption/reordering, outbox power-loss faults, backend outage/idempotence, and actual generated-byte web tests for both languages. Document software mocks separately from pending RF/power tests. Deliver source, pinned dependencies, wiring SVG/netlist, protocol compatibility notes, setup steps and verified binaries with manifest. Do not claim field pairing, range or zero data loss without hardware evidence.
 ```
 
 The gateway work should report its exact target, framework, source-contract version and completed checks. Its first hardware test should use one node before adding the other two. The [PTMP guide](LORA_PTMP.md) contains the operator-facing ID table and commissioning sequence.

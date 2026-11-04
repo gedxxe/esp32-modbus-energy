@@ -3,7 +3,7 @@ import { useText } from "../ui.js";
 import { deviceFetch } from "../request.js";
 import { validWifiScan } from "../validation.js";
 
-export default function WifiPicker({ device, ssid, open, auth, onChoose, onBusy, disabled }) {
+export default function WifiPicker({ device, ssid, open, auth, onChoose, onManual, onBusy, disabled }) {
   const { t } = useText();
   const [rows, setRows] = useState([]), [phase, setPhase] = useState("idle");
   const [reason, setReason] = useState(""), [detail, setDetail] = useState(null);
@@ -34,7 +34,7 @@ export default function WifiPicker({ device, ssid, open, auth, onChoose, onBusy,
         }
         const unique = new Map();
         for (const row of data.networks) {
-          const key = `${row.ssid}/${row.open}/${row.security==="wpa2-enterprise"?"enterprise":row.supported?"personal":row.security||"unsupported"}`, old = unique.get(key);
+          const key = `${row.ssid}/${row.security==="wpa2-enterprise"?"enterprise":row.open}`, old = unique.get(key);
           if (!old || (row.supported && !old.supported) || (row.supported === old.supported && row.rssi > old.rssi)) unique.set(key, row);
         }
         setRows([...unique.values()].sort((a,b) => b.rssi-a.rssi));
@@ -67,6 +67,8 @@ export default function WifiPicker({ device, ssid, open, auth, onChoose, onBusy,
       {rows.map((row) => <option key={`${rowKey(row)}/${row.security}`} value={rowKey(row)} disabled={!row.supported}>{row.ssid} · {row.rssi} dBm · {securityLabel(row)}</option>)}
     </select>
     <p className="small muted" id="wifi-scan-status" role="status">{t(message, { count: rows.length })}</p>
+    <label htmlFor="network-manual-ssid">{t("wifi_manual_ssid")}</label>
+    <input id="network-manual-ssid" type="text" value={ssid} onChange={event=>onManual(event.target.value)} maxLength={32} autoComplete="off" spellCheck={false} disabled={disabled} />
     {detail && <p className="small muted mono" id="wifi-scan-detail">{t("wifi_scan_detail", { generation: detail.generation, attempts: detail.attempts ?? 0, code: detail.driverCode ?? 0, reason: detail.error || detail.phase })}</p>}
   </div>;
 }

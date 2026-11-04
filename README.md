@@ -22,7 +22,7 @@ ADL400 now follows the verified field scan: total energy 0x0000, UInt32 / 100 ×
 
 The [power-loss audit](docs/POWER_LOSS.md) explains verified writes, recovery from NVS/files/staging, protected rollover and the remaining hardware limits. Corrupt saved meter settings now stop production instead of silently selecting a default map. Completed captures stay immutable, and a missed powered-off window is never filled with a late reading.
 
-The [SX1262 node guide](docs/LORA.md) provides GPIO wiring and the local web configuration. The radio starts disabled with an editable **915 MHz** default. It supports addressed pairing, authenticated ACK/retry, live telemetry and retrieval of saved checkpoint days. The future ESP32-C6 gateway uses the published [Energy Station v1 contract](docs/LORA_PROTOCOL.md) and remains a separate firmware project.
+The [SX1262 node guide](docs/LORA.md) provides GPIO wiring and the local web configuration. The radio starts disabled with an editable **915 MHz** default. It supports addressed pairing, authenticated ACK/retry, live telemetry and retrieval of saved checkpoint days. The future ESP32-C3 gateway uses the published [Energy Station v1 contract](docs/LORA_PROTOCOL.md) and remains a separate firmware project.
 
 For several panels, use the [PTMP setup](docs/LORA_PTMP.md), which explains Node ID, Gateway ID, Network ID and shared-radio scheduling. The [gateway development prompt](docs/GATEWAY_PROMPT.md) is ready to paste into a separate gateway-project chat with this source available as a reference.
 

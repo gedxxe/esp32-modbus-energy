@@ -44,7 +44,7 @@ Keempat suite native dan vector HMAC Python independen lulus. Kasus radio baru m
 
 Regresi dashboard lengkap pada byte hasil build lulus beserta 34 SVG. Suite Enterprise dan LoRa final juga lulus, termasuk contoh ID PTMP dua bahasa, privasi key, radio tidak tersedia/payload invalid serta tampilan responsif. UI dan diagram PTMP hasil generator diperiksa secara visual. Screenshot memakai simulasi. [Setup PTMP](LORA_PTMP.md) dan [prompt gateway](GATEWAY_PROMPT.md) menjelaskan kontrak receiver serta keterbatasan radio bersama.
 
-Project node ini tidak mengimplementasikan atau mengompilasi firmware gateway C6. RF banyak node, ACK terlambat pada hardware, jangkauan/tabrakan, akses RADIUS dan pemutusan daya fisik masih perlu diuji. Tes alamat software membuktikan kebijakan protokol, bukan kapasitas RF simultan atau penerimaan instalasi lapangan.
+Project node ini tidak mengimplementasikan atau mengompilasi firmware gateway C3. RF banyak node, ACK terlambat pada hardware, jangkauan/tabrakan, akses RADIUS dan pemutusan daya fisik masih perlu diuji. Tes alamat software membuktikan kebijakan protokol, bukan kapasitas RF simultan atau penerimaan instalasi lapangan.
 
 
 ## Penguatan recovery dan node SX1262 pada 3.4.0
@@ -57,7 +57,7 @@ Suite browser LoRa pada byte gzip lulus untuk carrier/ID, pembuatan/redaksi/peng
 
 Aturan capture lima detik, format tersimpan, ID profil, map Fort/ADL400/Habuer/ACR/APM serta partisi dipertahankan. Konfigurasi meter invalid atau hilang di samping data lama kini menghentikan produksi sampai setting terverifikasi disimpan. Guard brownout, verifikasi NVS/berkas dan startup/BUSY radio terbatas diperiksa pada build target sebenarnya. Query arsip melewati core 1 tanpa masuk mode maintenance atau mengubah meter.
 
-Tidak dilakukan power-cut fisik, pengukuran transien brownout, SPI/DIO, antena/daya RF, jangkauan atau pertukaran dengan gateway C6. Firmware gateway tetap pengembangan terpisah. Pairing memerlukan ACK terautentikasi dan tidak disimpulkan dari inisialisasi sukses. [Audit daya](POWER_LOSS.md), [wiring/pengaturan radio](LORA.md) dan [protokol v1](LORA_PROTOCOL.md) memuat batas serta prosedur bench.
+Tidak dilakukan power-cut fisik, pengukuran transien brownout, SPI/DIO, antena/daya RF, jangkauan atau pertukaran dengan gateway C3. Firmware gateway tetap pengembangan terpisah. Pairing memerlukan ACK terautentikasi dan tidak disimpulkan dari inisialisasi sukses. [Audit daya](POWER_LOSS.md), [wiring/pengaturan radio](LORA.md) dan [protokol v1](LORA_PROTOCOL.md) memuat batas serta prosedur bench.
 
 ## Perbaikan login Enterprise pada 3.3.1
 

@@ -30,6 +30,15 @@ module.exports=async({page,origin,state,calls,root})=>{
   await page.reload();await page.waitForSelector("#enterprise-keep:checked");
   assert.equal(await page.locator("#enterprise-password").inputValue(),"");assert.equal(await page.locator("#enterprise-username").inputValue(),"");
   assert.equal(await page.locator("#enterprise-keep-ca").count(),0,"Public-bundle profiles must not acquire a fake custom CA reference");
+  // A hidden or temporarily unlisted SSID remains editable without a scan.
+  await page.locator("#network-manual-ssid").fill("Hidden corporate network");
+  assert.equal(await page.locator("#network-ssid").inputValue(),"saved");
+  assert(!(await page.locator("#enterprise-keep").count()),"A different SSID must not reuse the previous Enterprise login");
+  await page.locator("#network-manual-ssid").fill("Corporate test");
+  assert(await page.locator("#enterprise-keep").isChecked(),"Returning to the saved SSID should restore reuse without resending credentials");
+  await page.locator("#enterprise-keep").uncheck();
+  await page.locator("#network-ssid").selectOption("Corporate test/enterprise");
+  assert(await page.locator("#enterprise-keep").isChecked(),"Selecting the saved SSID from scan must retain reusable credentials");
   await page.locator("#network-save").click();await page.waitForFunction(()=>!document.querySelector("#network-save")?.disabled);
   assert.equal(calls.filter(c=>c.url==="/api/network").at(-1).data.get("keepCA"),"0");
   await page.locator("#enterprise-advanced > summary").click();assert(await page.locator("#enterprise-auto-identity").isChecked());

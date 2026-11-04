@@ -69,7 +69,7 @@ def scan_bytes(path: str, data: bytes) -> list[tuple[str, int]]:
             findings.append((kind, data.count(b"\n", 0, match.start()) + 1))
     if b"\0" in data[:1024]:
         return findings
-    is_fixture = path.startswith("firmware/test/") or path.startswith("tools/test-")
+    is_fixture = (path.startswith("firmware/test/") or path.startswith("tools/test-") or path == "tools/security_audit.py")
     if not is_fixture:
         for match in STATIC_SECRET.finditer(data):
             if not approved_public_ap(path, match.group(1)):

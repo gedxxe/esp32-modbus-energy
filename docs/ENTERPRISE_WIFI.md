@@ -91,4 +91,4 @@ On hardware, check public-chain and private-CA profiles independently, wrong/mis
 
 ## Planned office receiver
 
-The optional panel-room SX1262 node and the separate office C6 gateway follow [Energy Station v1](LORA_PROTOCOL.md). The gateway owns its corporate Wi-Fi connection. Radio framing and node acknowledgements are already available, while gateway firmware and its database client remain a separate project.
+The optional panel-room SX1262 node and the separate office C3 gateway follow [Energy Station v1](LORA_PROTOCOL.md). The gateway owns its corporate Wi-Fi connection. Radio framing and node acknowledgements are already available, while gateway firmware and its database client remain a separate project.

@@ -103,6 +103,7 @@ void openLink(const Link &link) {
   transport.options.rx=options.rx;transport.options.tx=options.tx;transport.options.dir=options.dir;
   transport.options.manual=options.manualDirection;transport.options.settleUs=options.settleUs;
   transport.options.responseMs=uint16_t(options.responseMs);transport.options.gapMs=options.gapMs;
+  transport.options.rawFC03=profiles::isAdl400(options.profile);
   if(!activeBaud)transport.invalidate();
   if(!transport.open(link)){activeBaud=0;return;}
   meter.onReceiveError([this](hardwareSerial_error_t error){uartError(error);});
@@ -167,7 +168,8 @@ bool readRegisters(const Link &link,uint16_t address,uint8_t words,uint8_t *out)
   if(result.txSize)hexLog("TX",result.tx,result.txSize);
   if(result.rxSize)hexLog("RX",result.rx,result.rxSize);
   LOG("[MODBUS_RESULT] 0x%02X %s. Library=0x%02X\n",lastStatus,statusName(lastStatus),result.libraryStatus);
-  if(result.rxSize>=5){uint16_t calculated=modbusCRC(result.rx,result.rxSize-2),received=uint16_t(result.rx[result.rxSize-2])|(uint16_t(result.rx[result.rxSize-1])<<8);LOG("CRC calculated=0x%04X received=0x%04X %s\n",calculated,received,calculated==received?"OK":"MISMATCH");}
+  if(result.frameSize){LOG("[VALID_FRAME] offset=%u bytes=%u; ignored RX prefix=%u\n",result.frameOffset,result.frameSize,result.frameOffset);}
+  if(result.rxSize>=5){const uint8_t *frame=result.frameSize?result.rx+result.frameOffset:result.rx;size_t length=result.frameSize?result.frameSize:result.rxSize;uint16_t calculated=modbusCRC(frame,length-2),received=uint16_t(frame[length-2])|(uint16_t(frame[length-1])<<8);LOG("CRC calculated=0x%04X received=0x%04X %s\n",calculated,received,calculated==received?"OK":"MISMATCH");}
   if(result.echo){++evidence.echoes;LOG("[EXACT_TX_ECHO] request returned. Rejected as meter data, no bytes stripped\n");}
   if(result.rxSize>8&&!memcmp(result.tx,result.rx,8)){++evidence.echoPrefixes;LOG("[TX_PREFIX_WITH_TRAILING_RX] rejected. Nothing stripped\n");}
   if(lastStatus==0){

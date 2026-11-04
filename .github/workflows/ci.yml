@@ -87,7 +87,7 @@ jobs:
           npm run build:web
           git add firmware/include/web_ui.h web/bundle.json
           if ! git diff --cached --quiet; then
-            python -c '
+            python -c 'import textwrap;exec(textwrap.dedent("""
             import os,base64,json,subprocess,urllib.request
             for filename in ("firmware/include/web_ui.h","web/bundle.json"):
                 old=subprocess.check_output(["git","rev-parse","HEAD:"+filename],text=True).strip()
@@ -97,7 +97,7 @@ jobs:
                 req=urllib.request.Request(url,data=data,method="PUT",headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"})
                 with urllib.request.urlopen(req,timeout=60) as response:
                     print("Committed generated asset:",filename,"HTTP",response.status)
-            '
+            """))'
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

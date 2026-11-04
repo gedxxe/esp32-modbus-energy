@@ -91,4 +91,4 @@ Pada perangkat, uji profil rantai publik dan CA privat secara terpisah, CA salah
 
 ## Receiver kantor yang direncanakan
 
-Node SX1262 opsional di panel dan gateway C6 kantor yang terpisah mengikuti [Energy Station v1](LORA_PROTOCOL.md). Gateway mengelola koneksi Wi-Fi perusahaan sendiri. Framing radio dan acknowledgement node sudah tersedia, sedangkan firmware gateway dan client database merupakan proyek terpisah.
+Node SX1262 opsional di panel dan gateway C3 kantor yang terpisah mengikuti [Energy Station v1](LORA_PROTOCOL.md). Gateway mengelola koneksi Wi-Fi perusahaan sendiri. Framing radio dan acknowledgement node sudah tersedia, sedangkan firmware gateway dan client database merupakan proyek terpisah.

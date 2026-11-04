@@ -1,5 +1,10 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.4.3
+
+Wi-Fi melacak persiapan asinkron, autentikasi dan DHCP dengan batas waktu per percobaan, menampilkan operasi SDK yang gagal serta mempertahankan kegagalan terakhir. Kolom login Enterprise menjelaskan kebutuhan AP sebelum pengisian, isian pengganti mematikan pemakaian ulang kredensial, dan login tersimpan dapat dicoba ulang melalui IP client. Key LoRa dapat dipasang lewat kedua antarmuka lokal terotorisasi. Test regresi mengompilasi adapter Enterprise produksi dan menguji aset browser yang dikemas.
+
+
 ## 3.4.2 / 4 November 2026
 
 Memperbaiki kegagalan CI native Ubuntu akibat loop satu baris yang ambigu pada regresi daya/LoRa. Warning tetap diperlakukan sebagai error dan workflow kini mencatat versi compiler.

@@ -50,35 +50,7 @@ bool storeNetworkCA(fs::FS &fs,const char *pem,const uint8_t hash[32]){
   if(!ok)return false; // Preserve partial and valid records for investigation.
   return fs.rename(temporary,path);
 }
-bool EnterpriseWiFi::checked(int32_t result){if(result==ESP_OK)return true;apiCode=result;error="enterprise_api_failed";return false;}
-bool EnterpriseWiFi::reset(){
-  attempted=false;authenticationPaused=false;if(!configured){error="";apiCode=0;disconnectReason=0;return true;}if(enabled&&!checked(esp_wifi_sta_enterprise_disable()))return false;enabled=false;
-  esp_eap_client_clear_identity();esp_eap_client_clear_username();esp_eap_client_clear_password();esp_eap_client_clear_new_password();esp_eap_client_clear_ca_cert();esp_eap_client_clear_certificate_and_key();
-  esp_eap_client_set_domain_name(nullptr);error="";apiCode=0;disconnectReason=0;configured=false;return true;
-}
-bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockValid,uint32_t utc){
-  ++attempts;if(!reset())return false;auth=s.auth;
-  if(s.auth!=NETWORK_PEAP){WiFi.setMinSecurity(s.auth==NETWORK_OPEN?WIFI_AUTH_OPEN:WIFI_AUTH_WPA_PSK);WiFi.begin(s.ssid,s.password[0]?s.password:nullptr);attempted=true;return true;}
-  if(!clockValid||utc<1704067200UL||utc>4102444799UL){error="enterprise_clock_required";return false;}
-  const bool customCA=hasCustomNetworkCA(s);
-  uint8_t hash[32];if(customCA&&(!ca||!validateEnterpriseCA(ca,hash)||memcmp(hash,s.caHash,32))){error="enterprise_ca_missing";return false;}
-  timeval value{};value.tv_sec=utc;if(settimeofday(&value,nullptr)){error="enterprise_clock_required";return false;}
-  WiFi.setMinSecurity(WIFI_AUTH_WPA2_ENTERPRISE);WiFi.begin(s.ssid,nullptr,0,nullptr,false);
-  wifi_config_t config{};
-  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&config)))return false;
-  if(strncmp(reinterpret_cast<const char*>(config.sta.ssid),s.ssid,32)){error="station_config_failed";return false;}
-  memset(config.sta.password,0,sizeof(config.sta.password));config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;config.sta.pmf_cfg.capable=true;
-  if(!checked(esp_wifi_set_config(WIFI_IF_STA,&config)))return false;
-  configured=true;
-  if(!checked(esp_eap_client_set_eap_methods(ESP_EAP_TYPE_PEAP))||!checked(esp_eap_client_set_disable_time_check(false))||
-     !checked(esp_eap_client_set_identity(reinterpret_cast<const uint8_t*>(s.identity[0]?s.identity:s.username),strlen(s.identity[0]?s.identity:s.username)))||
-     !checked(esp_eap_client_set_username(reinterpret_cast<const uint8_t*>(s.username),strlen(s.username)))||
-     !checked(esp_eap_client_set_password(reinterpret_cast<const uint8_t*>(s.eapPassword),strlen(s.eapPassword)))||
-     !checked(esp_eap_client_set_domain_name(s.serverName[0]?s.serverName:nullptr)))return false;
-  if(!checked(esp_eap_client_use_default_cert_bundle(!customCA)))return false;
-  if(customCA&&!checked(esp_eap_client_set_ca_cert(reinterpret_cast<const uint8_t*>(ca),strlen(ca)+1)))return false;
-  if(!checked(esp_wifi_sta_enterprise_enable()))return false;enabled=true;
-  if(!checked(esp_wifi_connect())){if(esp_wifi_sta_enterprise_disable()==ESP_OK)enabled=false;return false;}
-  attempted=true;return true;
+bool setEnterpriseSystemClock(uint32_t utc){
+  timeval value{};value.tv_sec=utc;return settimeofday(&value,nullptr)==0;
 }
 } // namespace fort

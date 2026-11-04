@@ -98,12 +98,12 @@ class NetworkPolicy {
  public:
   uint8_t mode=NETWORK_AP;bool connected=false,fallback=false;
   void begin(uint8_t value,uint32_t now,uint32_t retry=NETWORK_RETRY_MS){retryMs=retry;mode=value;connected=false;fallback=false;started=lastAttempt=now;connectedAt=0;}
-  bool update(uint32_t now,bool ready){
+  bool update(uint32_t now,bool ready,bool allowRetry=true){
     if(mode==NETWORK_AP){connected=false;fallback=false;return false;}
     if(ready){if(!connected)connectedAt=now;connected=true;fallback=false;started=now;return false;}
     if(connected)started=now;
     connected=false;fallback=uint32_t(now-started)>=retryMs;
-    if(uint32_t(now-lastAttempt)>=retryMs){lastAttempt=now;return true;}
+    if(allowRetry&&uint32_t(now-lastAttempt)>=retryMs){lastAttempt=now;return true;}
     return false;
   }
   bool apWanted(uint32_t now)const{return mode!=NETWORK_CLIENT||!connected||uint32_t(now-connectedAt)<NETWORK_AP_GRACE_MS;}

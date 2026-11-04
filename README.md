@@ -2,7 +2,9 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 3.4.2](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
+![Firmware 3.4.3](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
+
+Wi-Fi reports the connection result beside Save, including the attempt number, authentication/DHCP deadline and retained last failure. New Enterprise credentials are entered through the recovery AP, while an unchanged saved login can be retried through either address. LoRa settings and pairing keys can be saved from either local interface. See [Enterprise connection results](docs/ENTERPRISE_WIFI.md) and [LoRa commissioning](docs/LORA.md).
 
 This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort, Habuer, Acrel ADL400, ACR10R-DxxTE or APM800/801/810 power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
 
@@ -92,7 +94,7 @@ A normal firmware build uses the committed web header and does not require Node.
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
 | RadioLib | 7.8.1, MIT, SX1262 raw LoRa |
-| FortMeter / ModbusMaster | 3.4.2 / 2.0.1+fort.1, local source |
+| FortMeter / ModbusMaster | 3.4.3 / 2.0.1+fort.1, local source |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -101,7 +103,7 @@ A normal firmware build uses the committed web header and does not require Node.
 
 ## 3. First startup and meter scan
 
-Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.4.2, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, Acrel `0x0064/1`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
+Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.4.3, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, Acrel `0x0064/1`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
 
 On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 

@@ -2,7 +2,20 @@
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.2**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.3**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+
+## Lifecycle koneksi dan commissioning lokal pada 3.4.3
+
+Pemeriksaan read-only terhadap ESP32 di IP client yang diberikan pengguna menunjukkan firmware 3.4.2, koneksi Personal aktif, `enterpriseProvisioning=false` dan AP pemulihan pada `192.168.4.1`. Ini membuktikan bahwa form dibuka melalui antarmuka client, yang menolak pemasangan login Enterprise baru. Temuan tersebut belum membuktikan percobaan ataupun penolakan autentikasi RADIUS. Form revisi menjelaskan kebutuhan antarmuka sebelum pengisian, menerima retry profil tersimpan tanpa mengirim ulang secret dan menampilkan hasil koneksi di dekat Simpan.
+
+Build final ESP32-S3 berhasil dengan RAM statis 149.156 byte dan program 1.922.034 byte. Sketch diagnostik mandiri juga berhasil dengan 36.840 dan 373.572 byte. Aset dashboard final berukuran 159.324 byte gzip, di bawah 160 KiB. Peringatan upstream RadioLib terkait USB-CDC/sleep tetap terlihat.
+
+Lima suite native dan vektor HMAC Python independen lolos. Suite baru mengompilasi adapter SDK Enterprise produksi dan menginjeksi kegagalan tiap tahap EAP, termasuk pemasangan CA privat. Cakupannya meliputi CA publik bawaan, DNS opsional kosong, trust privat eksplisit, jam tidak tersedia, pembersihan kredensial, Personal setelah Enterprise, penerimaan event, batas persiapan/autentikasi/DHCP, riwayat gagal dan rollover milidetik. Implementasi memerlukan asosiasi yang cocok lalu GOT_IP sebelum menandai online, bukan menerima IP station lama.
+
+Pengujian browser memakai byte gzip yang dikemas dan lolos untuk submit/reload Enterprise, penggantian kredensial, trust publik/privat, petunjuk antarmuka client sebelum pengisian, retry login tersimpan tanpa secret, progres, timeout dan kegagalan terakhir, kedua bahasa serta layout HP. Pengujian LoRa lolos untuk key baru melalui dashboard AP/client, pemakaian ulang key, penguncian aksi saat draft belum disimpan dan pemeriksaan overlap dari 320 sampai 2560 piksel CSS. Regresi dashboard lengkap dan 34 SVG lolos. Screenshot ditinjau sebagai contoh UI simulasi. Pemeriksaan dokumentasi dan aset juga lolos.
+
+Paket dibentuk ulang dari binari final dan diverifikasi terhadap manifest SHA256 serta isi ZIP. Hasil lokal ini terpisah dari GitHub Actions, yang harus diperiksa pada commit yang dipush. Autentikasi PEAP perusahaan, radio multi-node dan pemutusan daya fisik masih memerlukan penerimaan lapangan. Pemeriksaan status langsung di atas bukan bukti penerimaan autentikasi ataupun RF.
+
 
 ## CI dan kontrol LoRa pada 3.4.2
 

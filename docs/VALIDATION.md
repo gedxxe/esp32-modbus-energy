@@ -2,9 +2,24 @@
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.4.2**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.4.3**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+
+## Connection lifecycle and local commissioning in 3.4.3
+
+A read-only check of the user's ESP32 at its supplied client IP showed firmware 3.4.2, an active Personal connection, `enterpriseProvisioning=false` and the recovery AP at `192.168.4.1`. This establishes that the reported form was being used through the client interface, where installing a new Enterprise login was refused. It does not establish an attempted or rejected RADIUS authentication. The revised form explains that interface requirement before credential entry, permits a secret-free retry of an unchanged saved profile and shows the connection outcome beside Save.
+
+The final ESP32-S3 target compiled successfully with 149,156 static RAM bytes and 1,922,034 program bytes. The standalone diagnostic also compiled successfully with 36,840 and 373,572 bytes. Final dashboard assets total 159,324 gzip bytes, below 160 KiB. The existing upstream RadioLib USB-CDC/sleep warning remains visible.
+
+All five native suites and the independent Python HMAC vector passed. The new suite compiles the production Enterprise SDK adapter and injects failures at each EAP configuration step, including custom CA installation. It covers the default public trust bundle, optional blank DNS, explicit private trust, missing clock, credential clearing, Personal after Enterprise, event admission, preparation/authentication/DHCP deadlines, preserved failure evidence and millisecond rollover. The implementation requires a matching association followed by GOT_IP before reporting online, rather than accepting an old station IP.
+
+The generated-byte browser checks passed Enterprise submission/reload, editable replacement credentials, default/custom trust, client-interface instructions before input, secret-free saved-login retry, visible progress, timeout and retained failure details, both languages and phone layout. LoRa checks passed new key installation through AP/client dashboard interfaces, saved-key reuse, dirty-form action guards and overlap checks from 320 to 2560 CSS pixels. The full dashboard regression and all 34 SVGs passed. Screenshots were reviewed as simulated UI examples. Documentation and generated assets passed the repository checker.
+
+The package is rebuilt from the final binaries and verified against its SHA256 manifest and ZIP contents. These local results are distinct from GitHub Actions, whose result must be checked for the pushed commit. Corporate PEAP authentication, RF multi-node operation and physical power-cut tests remain pending field acceptance. The live observation above is not an authentication or RF acceptance test.
+
 
 ## CI and LoRa controls in 3.4.2
+
+The corrected 3.4.2 commit `5b76177` subsequently passed all three jobs in [GitHub run 41765048413](https://github.com/gedxxe/esp32-modbus-energy/actions/runs/41765048413).
 
 GitHub run 41759933608 for commit 138c14c failed in the native power/LoRa test because Ubuntu GCC rejected a misleading single-line loop under `-Werror`. Its firmware and browser jobs succeeded. Local MinGW GCC 6.3.0 had not reported that warning, so the earlier local pass was not evidence of a passing Linux workflow. The loop now has an explicit block and the CI step prints its compiler version. Warning enforcement remains enabled.
 

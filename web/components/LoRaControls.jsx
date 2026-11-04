@@ -31,7 +31,6 @@ export default function LoRaControls({ device }) {
   }, [v]);
 
   const blocked = !v?.ready || !device.fresh || device.pending;
-  const provisioning = Boolean(device.data?.network?.enterpriseProvisioning);
   const dirty = Boolean(v && (fields.some(f => draft[f] !== v[f]) || key || keepKey !== v.hasKey));
   const actionBlocked = blocked || dirty || !v?.enabled || !v?.available;
   const set = (name, value) => setDraft(d => ({ ...d, [name]: value }));
@@ -52,7 +51,6 @@ export default function LoRaControls({ device }) {
     if (blocked) { explain("lora_unavailable"); return; }
     if (!validateFormFields(event.currentTarget, t, explain)) return;
     if (draft.nodeId === draft.gatewayId) { explain("invalid_lora"); return; }
-    if (key && !provisioning) { explain("lora_ap_required"); return; }
     if ((key && (!/^[0-9a-f]{64}$/i.test(key) || /^0{64}$/.test(key))) ||
         (draft.enabled && !keepKey && !/^[0-9a-f]{64}$/i.test(key))) {
       explain("invalid_lora_key"); return;
@@ -117,7 +115,6 @@ export default function LoRaControls({ device }) {
           <div className="lora-key-actions"><button id="lora-generate" type="button" className="button" disabled={blocked} onClick={generate}>{t("lora_generate")}</button><button type="button" className="button" disabled={blocked} onClick={() => setShowKey(!showKey)}>{t(showKey ? "lora_hide_key" : "lora_show_key")}</button></div>
           <p className="small muted">{t("lora_key_note")}</p>
         </>}
-        {!provisioning && <p className="hint">{t("lora_ap_required")}</p>}
       </fieldset>
       <details id="lora-advanced"><summary>{t("lora_advanced")}</summary><div className="lora-grid">
         <label className="lora-field" htmlFor="lora-bandwidthKHz"><span>{t("lora_bandwidth")}</span><select id="lora-bandwidthKHz" value={draft.bandwidthKHz} disabled={blocked} onChange={e => set("bandwidthKHz", Number(e.target.value))}>{[125, 250, 500].map(n => <option key={n} value={n}>{n} kHz</option>)}</select></label>

@@ -33,7 +33,7 @@ Power the radio from 3.3 V, never a GPIO output or a 5 V rail. The manufacturer 
 
 ## Configure through the ESP32 website
 
-1. Open **Device & records → LoRa node / SX1262**. Start on the protected ESP32 AP when installing a new pairing key. An existing key is never returned by status, and ordinary parameter changes can reuse it without resubmitting the secret through the client interface.
+1. Open **Device & records → LoRa node / SX1262**. Use either the ESP32 AP address or its connected client address. Radio settings and new pairing keys use the same dashboard command authorization on either interface, independently of Enterprise credential provisioning. Keep key entry on a trusted local connection because this dashboard uses HTTP. An existing key is never returned by status.
 2. Set a unique **Node ID**, the intended **Gateway ID**, and a common **Network ID**. Keep the node and gateway IDs different. These identifiers do not configure the meter or change its Modbus address.
 3. Keep 915 MHz or choose the carrier needed by the installation. Open **Radio parameters and retry timing** to match bandwidth, spreading factor, coding denominator, preamble and sync word with the gateway. Power, sample interval, ACK timeout and retry count can also be edited.
 4. Generate or enter a nonzero 64-digit hexadecimal pairing key. Copy the new key into the gateway's configuration before saving, because it is cleared from the form after the save and cannot be recovered through HTTP. Keep it in the deployment's credential record if it will be needed later. Provisioning does not encrypt stock NVS or measurement payloads.

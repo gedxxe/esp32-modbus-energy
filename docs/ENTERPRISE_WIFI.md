@@ -1,5 +1,18 @@
 # WPA2-Enterprise connection and certificate provisioning
 
+## Connection results in 3.4.3
+
+The form identifies the interface before accepting a new login. If the page was opened at the device's client address, join the recovery hotspot shown by the device and open its AP address, normally `http://192.168.4.1`. Enter a new username and password there, select the scanned SSID and save. The client address can retry an unchanged saved Enterprise profile without resending its credentials. Changing the login, trusted server or CA still requires the protected AP interface. The recovery AP name is independent of the target SSID, which is never restricted to a company name.
+
+A successful save confirms persistence, not authentication. The **Connection result** panel beside Save shows the eight-second changeover, release of the previous connection, authentication, DHCP and the final result. Entering either username or password switches off saved-login reuse, so replacement input cannot be silently ignored. When the driver reports a failure, the panel includes its reason and API code. An EAP configuration error also names the failed SDK operation. The last failed attempt remains available when a later retry starts or succeeds, and is retained in RAM until reboot rather than written repeatedly to flash.
+
+The core-0 lifecycle in `network_attempt.h` waits asynchronously for the previous station connection to release, with a two-second preparation deadline. Personal authentication has a 30-second deadline and Enterprise has 60 seconds. A station-associated event starts a separate 15-second DHCP deadline, subject to the overall connection deadline. Only a matching live station and a new GOT_IP event mark the attempt online. An old IP or a successful configuration call cannot do that. Failed attempts have at least a 30-second retry cooldown, while reasons 23/202 pause Enterprise retries until the profile is saved again. A full event queue stops the attempt with an explicit error instead of losing its outcome silently.
+
+The production SDK adapter lives in `enterprise_station.cpp`. It checks the boolean Arduino station configuration result before using the official Espressif EAP functions. The shared certificate parser, immutable CA storage, system-clock bridge and SDK security compile guards remain in `enterprise_wifi.cpp`. The native test compiles this production adapter with SDK boundary doubles and injects failures at every EAP operation. It also checks a blank optional server name, public and custom trust, missing clock, credential clearing and Personal after Enterprise. These tests verify call order and error handling, not a live RADIUS authentication.
+
+If the panel reaches its deadline without a specific driver error, it says so. A timeout cannot prove that a password is wrong, and a generic authentication rejection cannot distinguish a credential problem from certificate trust or network policy. For support, copy the **Connection result** text and Serial Monitor **OUTPUT** into the support chat. No Serial Monitor INPUT command is required for this procedure.
+
+
 **English** · [Bahasa Indonesia](id/ENTERPRISE_WIFI.md) · [Dashboard guide](WEB.md)
 
 Choose the desired 2.4 GHz network from the scan, select the PEAP authentication option if it was not detected automatically, and enter the username and password. The outer identity defaults to the username and the server DNS name can stay blank. Since firmware 3.3.1, a new Enterprise profile uses the SDK's built-in public CA bundle, so an uploaded certificate is no longer a prerequisite for saving the connection.
@@ -76,4 +89,4 @@ On hardware, check public-chain and private-CA profiles independently, wrong/mis
 
 ## Planned office receiver
 
-The panel-room RS485 logger and a future office Wi-Fi receiver can exchange data over SX1278. This release does not add LoRa framing, acknowledgements or a server/database client. Those modules can use network status without owning EAP configuration or blocking the logger.
+The optional panel-room SX1262 node and the separate office C6 gateway follow [Energy Station v1](LORA_PROTOCOL.md). The gateway owns its corporate Wi-Fi connection. Radio framing and node acknowledgements are already available, while gateway firmware and its database client remain a separate project.

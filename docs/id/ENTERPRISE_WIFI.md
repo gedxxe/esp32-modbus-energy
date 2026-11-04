@@ -1,5 +1,18 @@
 # Koneksi WPA2-Enterprise dan pengisian sertifikat
 
+## Hasil koneksi pada 3.4.3
+
+Form mengenali antarmuka yang dipakai sebelum menerima login baru. Bila halaman dibuka melalui IP client perangkat, hubungkan HP atau komputer ke hotspot pemulihan yang ditampilkan perangkat lalu buka IP AP, biasanya `http://192.168.4.1`. Isi username dan password baru di sana, pilih SSID hasil scan lalu simpan. IP client dapat mencoba ulang profil Enterprise tersimpan yang tidak berubah tanpa mengirim ulang kredensial. Penggantian login, server tepercaya atau CA tetap melalui AP terlindungi. Nama AP pemulihan terpisah dari SSID tujuan, yang tidak dibatasi pada nama perusahaan tertentu.
+
+Simpan berhasil berarti penyimpanan selesai, belum berarti autentikasi berhasil. Panel **Hasil koneksi** di dekat Simpan menunjukkan jeda pergantian delapan detik, pelepasan koneksi lama, autentikasi, DHCP dan hasil akhirnya. Mengisi username atau password otomatis mematikan pemakaian ulang login tersimpan agar isian pengganti tidak diabaikan. Kegagalan menampilkan reason dan kode API. Jika konfigurasi EAP gagal, nama operasi SDK juga ditampilkan. Kegagalan terakhir tetap tersedia ketika percobaan berikutnya dimulai atau berhasil, dan hanya disimpan di RAM sampai reboot agar tidak menambah penulisan flash berulang.
+
+Lifecycle core 0 pada `network_attempt.h` menunggu pelepasan station secara asinkron dengan batas persiapan dua detik. Batas koneksi Personal adalah 30 detik dan Enterprise 60 detik. Event station-associated memulai batas DHCP 15 detik, tetap tunduk pada batas keseluruhan koneksi. Hanya station aktif yang cocok dan event GOT_IP baru yang menandai koneksi online. IP lama atau konfigurasi yang berhasil tidak cukup. Percobaan gagal memiliki jeda retry minimal 30 detik, sedangkan reason 23/202 menjeda retry Enterprise sampai profil disimpan kembali. Antrean event yang penuh menghentikan percobaan dengan pesan khusus agar hasilnya tidak hilang tanpa penjelasan.
+
+Adapter SDK produksi berada di `enterprise_station.cpp` dan memeriksa hasil boolean konfigurasi station Arduino sebelum memakai fungsi EAP resmi Espressif. Parser sertifikat, penyimpanan CA immutable, pengaturan jam sistem dan compile guard keamanan SDK tetap pada `enterprise_wifi.cpp`. Test native mengompilasi adapter produksi ini dengan pengganti batas API SDK, lalu menginjeksi kegagalan tiap operasi EAP. Test juga mencakup nama server opsional kosong, CA publik maupun privat, jam tidak valid, pembersihan kredensial serta Personal setelah Enterprise. Hasil tersebut membuktikan urutan pemanggilan dan penanganan error, belum autentikasi RADIUS fisik.
+
+Bila batas waktu tercapai tanpa alasan driver yang lebih spesifik, panel menjelaskannya. Timeout tidak membuktikan password salah, dan penolakan autentikasi umum belum membedakan masalah kredensial, CA atau kebijakan jaringan. Untuk bantuan, salin teks **Hasil koneksi** dan **OUTPUT Serial Monitor** ke chat dukungan. Prosedur ini tidak memerlukan perintah INPUT Serial Monitor.
+
+
 [English](../ENTERPRISE_WIFI.md) · **Bahasa Indonesia** · [Panduan dashboard](WEB.md)
 
 Pilih SSID 2,4 GHz dari hasil scan, pilih autentikasi PEAP bila belum terpilih otomatis, lalu isi username dan password. Identitas luar mengikuti username dan nama DNS server boleh dikosongkan. Mulai firmware 3.3.1, profil Enterprise baru memakai kumpulan CA publik bawaan SDK, sehingga form tidak lagi mewajibkan unggahan sertifikat sebelum pengaturan dapat disimpan.
@@ -76,4 +89,4 @@ Pada perangkat, uji profil rantai publik dan CA privat secara terpisah, CA salah
 
 ## Receiver kantor yang direncanakan
 
-Logger RS485 di panel dan receiver Wi-Fi kantor mendatang dapat bertukar data melalui SX1278. Rilis ini tidak menambahkan framing LoRa, acknowledgement atau client database/server. Modul tersebut dapat memakai status jaringan tanpa mengambil alih konfigurasi EAP atau memblokir logger.
+Node SX1262 opsional di panel dan gateway C6 kantor yang terpisah mengikuti [Energy Station v1](LORA_PROTOCOL.md). Gateway mengelola koneksi Wi-Fi perusahaan sendiri. Framing radio dan acknowledgement node sudah tersedia, sedangkan firmware gateway dan client database merupakan proyek terpisah.

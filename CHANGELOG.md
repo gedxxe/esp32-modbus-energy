@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.4.3
+
+Wi-Fi now tracks each connection through asynchronous preparation, authentication and DHCP deadlines, reports the SDK operation that failed and retains the last failed attempt. New Enterprise login fields explain the AP requirement before entry, replacement input stops credential reuse, and unchanged saved logins can be retried through the client interface. LoRa key installation now works through either authorized local interface. Regression coverage compiles the production Enterprise adapter and exercises shipped browser assets.
+
+
 ## 3.4.2 / 4 November 2026
 
 Fixed the Ubuntu native CI failure caused by a misleading single-line loop in the power/LoRa regression. The workflow keeps warnings as errors and now records the compiler version.

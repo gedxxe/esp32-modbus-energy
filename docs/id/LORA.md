@@ -33,7 +33,7 @@ Radio memakai 3,3 V dan tidak boleh diberi daya dari GPIO atau rail 5 V. Pabrika
 
 ## Pengaturan melalui website ESP32
 
-1. Buka **Perangkat & arsip → Node LoRa / SX1262**. Untuk memasang key baru, hubungkan lewat AP pemulihan ESP32 dan buka IP AP tersebut. Key tersimpan tidak dikembalikan melalui status. Pengaturan biasa dapat memakai ulang key tanpa mengirim secret lewat antarmuka client.
+1. Buka **Perangkat & arsip → Node LoRa / SX1262**. Gunakan IP AP ESP32 atau IP client yang sedang terhubung. Pengaturan radio dan key baru memakai otorisasi perintah dashboard yang sama pada kedua antarmuka, terpisah dari provisi kredensial Enterprise. Isi key melalui koneksi lokal tepercaya karena dashboard memakai HTTP. Key tersimpan tidak dikembalikan melalui status.
 2. Isi **ID node** yang unik, **ID gateway** tujuan dan **ID jaringan** bersama. ID node dan gateway harus berbeda. Pengaturan ini tidak mengganti alamat Modbus meter.
 3. Pertahankan 915 MHz atau pilih carrier instalasi. Buka **Parameter radio dan waktu retry** untuk menyamakan bandwidth, spreading factor, coding denominator, preamble dan sync word dengan gateway. Daya, interval sampel, timeout ACK dan jumlah retry juga dapat diubah.
 4. Buat atau isi pairing key heksadesimal 64 digit yang tidak seluruhnya nol. Salin key baru ke konfigurasi gateway sebelum menyimpan. Setelah simpan, kolom dibersihkan dan secret tidak dapat diambil kembali lewat HTTP. Simpan key pada catatan kredensial instalasi bila diperlukan kemudian. Provisi ini tidak mengenkripsi NVS pengembangan ataupun payload pengukuran.

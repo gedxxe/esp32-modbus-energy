@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "lora_web.h"
-#include <WiFi.h>
 namespace fort {
 namespace {
 void response(WebServer &s,int status,const char *code){JsonDocument d;d["code"]=code;d["message"]=code;String out;serializeJson(d,out);s.send(status,"application/json",out);}
 bool number(const String &s,uint32_t &out){if(!s.length()||s.length()>10)return false;uint64_t n=0;for(char c:s){if(c<'0'||c>'9')return false;n=n*10+unsigned(c-'0');if(n>UINT32_MAX)return false;}out=uint32_t(n);return true;}
-bool provisioning(WebServer &s){return bool(WiFi.getMode()&WIFI_MODE_AP)&&s.client().localIP()==WiFi.softAPIP();}
 int nibble(char c){return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;}
 }
 void addLoRaJSON(JsonObject d){LoRaView v=readLoRaView();const auto &s=v.settings;
@@ -24,7 +22,6 @@ void setupLoRaWeb(WebServer &server,bool (*authorized)(),void (*save)(const lora
     if(!field("frequencyHz",803000000,930000000,s.frequencyHz)||!field("bandwidthKHz",125,500,bw)||!field("sf",7,12,sf)||!field("cr",5,8,cr)||!field("powerDbm",0,22,power)||!field("preamble",8,64,preamble)||!field("syncWord",0,255,sync)||!field("nodeId",1,65534,node)||!field("gatewayId",1,65534,gateway)||!field("networkId",1,65535,network)||!field("intervalMs",30000,3600000,s.intervalMs)||!field("ackMs",1000,60000,s.ackMs)||!field("retries",0,4,retries)){response(server,400,"invalid_lora");return;}
     s.bandwidthKHz=bw;s.sf=sf;s.cr=cr;s.powerDbm=power;s.preamble=preamble;s.syncWord=sync;s.nodeId=node;s.gatewayId=gateway;s.networkId=network;s.retries=retries;
     String key=server.arg("key");if(key.length()){
-      if(!provisioning(server)){response(server,403,"lora_ap_required");return;}
       if(key.length()!=lora::KEY_SIZE*2||strlen(key.c_str())!=key.length()){response(server,400,"invalid_lora_key");return;}
       for(unsigned i=0;i<lora::KEY_SIZE;++i){int hi=nibble(key[i*2]),lo=nibble(key[i*2+1]);if(hi<0||lo<0){response(server,400,"invalid_lora_key");return;}s.key[i]=uint8_t(hi*16+lo);}
     }else if(server.arg("keepKey")!="1")memset(s.key,0,sizeof(s.key));

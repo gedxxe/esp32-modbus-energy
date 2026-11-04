@@ -94,7 +94,7 @@ The root scanned Fort manual supplies the register map, the user's reported work
 
 ## Wi-Fi state and persistence
 
-The Wi-Fi driver runs on core 0, while core 1 validates and stores the 108-byte v2 credential record under the `wifi` Preferences key. The record explicitly encodes mode, 33 SSID bytes, 65 key bytes, a four-byte AP IPv4 preference and CRC16, avoiding structure-padding dependencies. CRC detects a damaged record and does not encrypt credentials. WiFi.persistent(false) prevents the driver from maintaining a second persistent configuration outside the application's core 1 ownership.
+The Wi-Fi driver runs on core 0, while core 1 validates and stores the 779-byte v3 credential record under the `wifi` Preferences key. The record explicitly encodes mode, SSID, Personal/EAP credential fields, optional server constraint, CA hash, AP IPv4 preference and CRC16, avoiding structure-padding dependencies. Legacy 104/108-byte records remain readable. CRC detects a damaged record and does not encrypt credentials. WiFi.persistent(false) prevents the driver from maintaining a second persistent configuration outside the application's core 1 ownership.
 
 An accepted network command must pass normal-mode/revision/age guards and save successfully before a one-entry queue hands it to core 0. The eight-second deferred application preserves time for its HTTP execution result. A failed save keeps the current driver configuration, and a corrupt boot record leaves the default AP available. Switching to AP retains client credentials without exposing the saved password through GET endpoints.
 

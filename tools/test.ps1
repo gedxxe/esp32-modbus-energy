@@ -18,5 +18,9 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & (Join-Path $testOut 'test_power_lora.exe')
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& g++ -std=c++11 -Wall -Wextra -Werror -I (Join-Path $taskRoot 'firmware/test/network_stub') -I (Join-Path $taskRoot 'firmware/include') (Join-Path $taskRoot 'firmware/test/test_network.cpp') (Join-Path $taskRoot 'firmware/src/enterprise_station.cpp') -o (Join-Path $testOut 'test_network.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& (Join-Path $testOut 'test_network.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & python (Join-Path $taskRoot 'tools/check_lora.py')
 exit $LASTEXITCODE

@@ -4,7 +4,7 @@
 
 Salin prompt di bawah ke **INPUT chat coding-agent baru yang dibuka pada repository gateway terpisah**. Isinya permintaan pengembangan, bukan perintah Serial Monitor maupun Command input pada web S3. Beri chat tersebut akses baca ke repository station ini atau ZIP source-nya. Repository node tetap menjadi referensi dan tidak ditimpa menjadi build receiver.
 
-Kontrak ini mengikuti station 3.4.2 dengan wire version Energy Station v1, tetap cocok dengan 3.4.0. Periksa source sebenarnya dan test vector ketika mengerjakan gateway. Teks firmware `3.4.0` pada fixture HELLO publik lama sengaja dipertahankan dan tidak mengubah versi protokol.
+Kontrak ini mengikuti station 3.4.3 dengan wire version Energy Station v1, tetap cocok dengan 3.4.0. Periksa source sebenarnya dan test vector ketika mengerjakan gateway. Teks firmware `3.4.0` pada fixture HELLO publik lama sengaja dipertahankan dan tidak mengubah versi protokol.
 
 ## Prompt untuk disalin
 
@@ -24,7 +24,7 @@ Periksa board C6, modul radio, GPIO, SDK dan tooling sebenarnya sebelum menentuk
 
 Topologi terdiri dari beberapa station S3 menuju satu gateway C6 di kantor, kemudian Wi-Fi menuju backend yang dapat dikonfigurasi. Gunakan raw LoRa, bukan LoRaWAN, mesh, receiver broadcast saja, teks atau JSON melalui RF. Default carrier 915 MHz dapat diedit. Default PHY ialah 125 kHz, SF7, CR4/5, preamble 8, sync logis 0x12, explicit header, IQ normal dan CRC LoRa. Ikuti semantik sync byte RadioLib pada node. Radio nonaktif sampai dikonfigurasi. Dokumentasikan batas wilayah instalasi tanpa mengganti default pemilik secara diam-diam.
 
-Buat inventori gateway terbatas, awalnya 16 entri dengan konstanta kapasitas yang jelas. Setiap entri berisi ID jaringan, ID node unik, nama, key per-node 32 byte bukan nol, status enabled dan catatan commissioning. Default ID gateway 1, ID jaringan 1, contoh node 2, 3 dan 4. Alamat node dan gateway wajib berbeda. Slave ID Modbus, profile ID serta saved-meter ID lokal hanyalah metadata dan tidak menjadi source ID radio. Jangan tampilkan key dalam log, status JSON atau browser storage. Key baru diprovisikan melalui AP lokal terlindungi.
+Buat inventori gateway terbatas, awalnya 16 entri dengan konstanta kapasitas yang jelas. Setiap entri berisi ID jaringan, ID node unik, nama, key per-node 32 byte bukan nol, status enabled dan catatan commissioning. Default ID gateway 1, ID jaringan 1, contoh node 2, 3 dan 4. Alamat node dan gateway wajib berbeda. Slave ID Modbus, profile ID serta saved-meter ID lokal hanyalah metadata dan tidak menjadi source ID radio. Jangan tampilkan key dalam log, status JSON atau browser storage. Konfigurasi key memakai dashboard lokal yang terotorisasi, seperti station melalui antarmuka AP atau client. Key tetap tidak boleh masuk status maupun log.
 
 Implementasikan codec biner Energy Station v1 sesuai source, dengan little endian eksplisit tanpa cast struct native. Header 24 byte, payload maksimal 112, tag 16 dan total maksimal 152. Verifikasi 16 byte pertama HMAC-SHA256 atas header dan payload secara constant time sebelum menerima frame. Periksa magic, versi, reserved, panjang, jaringan, sumber, tujuan, session dan tipe. Lookup key harus terbatas serta menolak node tak dikenal/nonaktif. Protokol saat ini mengautentikasi plaintext. Jangan diam-diam menambah enkripsi atau layout baru yang tidak dikenali node.
 

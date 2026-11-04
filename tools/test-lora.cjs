@@ -57,10 +57,10 @@ module.exports=async({page,origin,state,calls,root})=>{
  await page.locator("#language").selectOption("id");assert((await page.locator("#lora-panel").innerText()).includes("Sesi sudah dipasangkan"));
  assert((await page.locator("#lora-ptmp-note").innerText()).includes("station 2, 3 dan 4"));
  await page.setViewportSize({width:390,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.locator("#lora-panel").screenshot({path:path.join(root,"docs/assets/ui-lora-mobile.png"),style:".main-nav{visibility:hidden}"});
- state.network.enterpriseProvisioning=false;await page.waitForTimeout(2300);await page.locator("#lora-keep-key").uncheck();await page.locator("#lora-generate").click();const beforeKey=calls.filter(x=>x.url==="/api/lora/config").length;await page.locator("#lora-save").click();assert.equal(calls.filter(x=>x.url==="/api/lora/config").length,beforeKey);
+ state.network.enterpriseProvisioning=false;await page.waitForTimeout(2300);await page.locator("#lora-keep-key").uncheck();await page.locator("#lora-generate").click();const beforeKey=calls.filter(x=>x.url==="/api/lora/config").length;await page.locator("#lora-save").click();await page.waitForSelector("#lora-keep-key:checked");assert.equal(calls.filter(x=>x.url==="/api/lora/config").length,beforeKey+1,"LoRa keys must save through the client interface independently of Enterprise credential policy");
  Object.assign(state.lora,{available:false,paired:false,phase:6,code:-2});await page.waitForSelector("#lora-error");assert(await page.locator("#lora-pair").isDisabled());assert(!(await page.locator("#lora-save").isDisabled()),"An absent module must not lock configuration");
  state.lora.frequencyHz="invalid";await page.waitForFunction(()=>document.querySelector("#lora-save")?.disabled);
  assert(!(await page.evaluate(()=>JSON.stringify({...localStorage}))).includes(key));
  assert.deepEqual(errors,[],'LoRa UI JavaScript errors');
- console.log("PASS: shipped LoRa 915 default/off, editable RF/IDs, key generation/redaction/reuse, duplicate-ID guard, explicit unconfirmed pairing, simulated ACK status, AP key protection, absent/malformed radio handling, recovery status, EN/ID and mobile layout");
+ console.log("PASS: shipped LoRa 915 default/off, editable RF/IDs, key generation/redaction/reuse, duplicate-ID guard, explicit unconfirmed pairing, simulated ACK status, AP/client key installation, absent/malformed radio handling, recovery status, EN/ID and mobile layout");
 };

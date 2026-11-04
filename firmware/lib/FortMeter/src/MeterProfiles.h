@@ -107,7 +107,13 @@ template<class Query> inline size_t discoveryQueries(const Profile &p,Query *out
 template<class Query> inline size_t auditQueries(const Profile &p,Query *out,size_t capacity){
   size_t n=0;const Register registers[]={p.probe,p.current,p.voltage,p.power,p.powerFactor,p.frequency,p.energy,p.reactiveEnergy};
   for(const auto &r:registers)appendQuery(out,n,capacity,r.address,r.words);
-  if(p.primaryFloat)appendQuery(out,n,capacity,p.primaryFloat,2);else appendQuery(out,n,capacity,p.ratios,p.ratioWords);
+  if(p.primaryFloat)appendQuery(out,n,capacity,p.primaryFloat,2);
+  else if(p.ratioLayout==PT_CT&&p.ratioWords==2){
+    // ADL400 field tests read PT (0x008D) and CT (0x008E) separately.
+    // Some firmware revisions reject a combined two-register request.
+    appendQuery(out,n,capacity,p.ratios,1);
+    if(p.ratios!=UINT16_MAX)appendQuery(out,n,capacity,uint16_t(p.ratios+1),1);
+  }else appendQuery(out,n,capacity,p.ratios,p.ratioWords);
   return n;
 }
 } // namespace profiles

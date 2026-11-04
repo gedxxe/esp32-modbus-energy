@@ -77,6 +77,8 @@ int main(){
   engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400_VERIFIED);
   assert(engine.options.probeAddress==0&&engine.options.probeWords==2&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
   assert(engine.auditPlan[2].address==0x5300&&engine.auditPlan[3].address==0x006A&&engine.auditPlan[5].address==0x5332);
+  assert(engine.auditCount==8&&engine.auditPlan[6].address==0x008D&&engine.auditPlan[6].words==1
+         &&engine.auditPlan[7].address==0x008E&&engine.auditPlan[7].words==1);
   port.replies.push_back(response({1,3,4,0,0,0,123}));assert(engine.probeLink(engine.current));
   assert(port.transmitted.back()[3]==0x00&&port.transmitted.back()[5]==2);
   port.replies.push_back(response({1,3,4,0,1,0xE2,0x40})); // 123456 -> 1234.56 secondary kWh
@@ -102,6 +104,23 @@ int main(){
   assert(profiles::raw32(values)==9798);
   assert(engine.transport.last.frameOffset==2&&engine.transport.last.frameSize==9);
   assert(engine.transport.last.status==0);
+  // Real transceivers can return local TX echo followed by the valid meter
+  // response. Echo alone must still fail, but the later reply must be read.
+  port.onWrite=[&](){
+    for(auto b:port.transmitted.back())port.incoming.push_back(b);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);
+  };
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798&&engine.transport.last.echo
+         &&engine.transport.last.frameOffset==8&&engine.transport.last.frameSize==9);
+  // A corrupt candidate must not mask a later valid response.
+  port.onWrite=[&](){
+    auto corrupt=response({220,3,4,0,0,0x26,0x46});corrupt.back()^=0x01;
+    for(auto b:corrupt)port.incoming.push_back(b);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);
+  };
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798&&engine.transport.last.frameOffset==9);
   port.onWrite=[&](){auto reply=response({220,3,4,0,0,0x26,0x46});reply.back()^=0x01;
     for(auto b:reply)port.incoming.push_back(b);};
   assert(!engine.readRegisters(engine.current,0,2,values));

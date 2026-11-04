@@ -1,8 +1,20 @@
-# Validation record / 3 November 2026
+# Validation record / 4 November 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
-Firmware, FortMeter and FortSerialDebug are **3.4.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+Firmware, FortMeter and FortSerialDebug are **3.4.1**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+
+## Enterprise submission and PTMP preparation in 3.4.1
+
+The final ESP32-S3 target compiled successfully with 149,108 static RAM bytes and 1,916,546 program bytes. The standalone diagnostic also compiled, using 36,840 and 373,572 bytes. Final generated web assets occupy 156,911 gzip bytes. RadioLib's existing generic USB-CDC/sleep warning remains visible, and no warning was suppressed to obtain these outcomes.
+
+The pre-fix Enterprise regression loaded a saved custom-identity profile, selected another Enterprise SSID and failed because automatic outer identity stayed unchecked. After the fix, this case posts the username/password using automatic identity. The generated-byte Edge suite also passed an explicitly blank identity inside closed Advanced settings, automatic reveal/focus with a local error, save confirmation beside the button, credential reuse, public/custom trust paths, invalid DNS rejection, AP-only provisioning feedback, Personal after Enterprise, both languages and mobile width. These are form/API checks with simulated device responses, not RADIUS authentication evidence.
+
+All four native suites and the independent Python HMAC vector check passed. New radio cases cover three distinct node addresses sharing one gateway, wrong-node/session rejection, matching outstanding ACK acceptance during backoff, rejection before any TX or during active TX, bounded contention and alternating live/archive progress when telemetry is permanently overdue. Existing power-loss, checkpoint, Modbus and persisted-setting regressions remain in those suites. The original public HELLO fixture stays at firmware text 3.4.0 to exercise the unchanged v1 contract rather than rewriting a historical vector.
+
+The full generated-byte dashboard regression passed with all 34 SVGs. The final Enterprise and LoRa suites passed, including the bilingual PTMP identifier example, key privacy, malformed/absent-radio states and responsive layout. UI and the generated PTMP diagram were visually inspected. Screenshots use simulated values. [PTMP setup](LORA_PTMP.md) and the [gateway prompt](GATEWAY_PROMPT.md) describe receiver-side requirements and the shared-radio limits.
+
+No C6 gateway firmware was implemented or compiled in this node project. Physical multi-node RF, real delayed ACKs, range/collision measurements, RADIUS access and physical power-cut tests remain pending. Software addressing tests establish protocol policy, not simultaneous RF capacity or a successful field installation.
 
 
 ## Power-loss hardening and SX1262 node in 3.4.0

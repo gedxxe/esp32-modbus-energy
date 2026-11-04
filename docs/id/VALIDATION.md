@@ -1,8 +1,20 @@
-# Catatan validasi / 3 November 2026
+# Catatan validasi / 4 November 2026
 
 [English](../VALIDATION.md) · **Bahasa Indonesia**
 
-Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.4.1**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
+
+## Submit Enterprise dan persiapan PTMP pada 3.4.1
+
+Build ESP32-S3 final berhasil dengan RAM statis 149.108 byte dan program 1.916.546 byte. Sketch diagnostik juga berhasil dikompilasi, memakai 36.840 dan 373.572 byte. Aset web final berukuran 156.911 byte gzip. Warning USB-CDC/sleep umum RadioLib tetap terlihat dan tidak disembunyikan untuk memperoleh hasil tersebut.
+
+Regresi Enterprise sebelum perbaikan memuat profil custom identity tersimpan, memilih SSID Enterprise lain lalu gagal karena identity otomatis tetap tidak tercentang. Setelah diperbaiki, kasus ini mengirim username/password dengan identity otomatis. Suite Edge pada byte hasil build juga lulus untuk identity kosong yang sengaja diatur dalam Advanced tertutup, pembukaan/fokus kolom dengan pesan lokal, konfirmasi di dekat tombol, reuse kredensial, trust publik/privat, DNS invalid, penjelasan provisi melalui AP, Personal setelah Enterprise, dua bahasa dan lebar HP. Ini tes form/API dengan respons perangkat simulasi, bukan bukti autentikasi RADIUS.
+
+Keempat suite native dan vector HMAC Python independen lulus. Kasus radio baru mencakup tiga alamat node menuju satu gateway, penolakan node/session lain, ACK frame aktif saat menunggu retry, penolakan sebelum TX pertama atau ketika TX aktif, contention terbatas serta pergantian live/arsip yang tetap maju saat telemetry selalu overdue. Regresi daya, checkpoint, Modbus dan setting tersimpan tetap tercakup. Fixture HELLO publik mempertahankan teks firmware 3.4.0 untuk menguji kompatibilitas wire v1 tanpa menulis ulang vector lama.
+
+Regresi dashboard lengkap pada byte hasil build lulus beserta 34 SVG. Suite Enterprise dan LoRa final juga lulus, termasuk contoh ID PTMP dua bahasa, privasi key, radio tidak tersedia/payload invalid serta tampilan responsif. UI dan diagram PTMP hasil generator diperiksa secara visual. Screenshot memakai simulasi. [Setup PTMP](LORA_PTMP.md) dan [prompt gateway](GATEWAY_PROMPT.md) menjelaskan kontrak receiver serta keterbatasan radio bersama.
+
+Project node ini tidak mengimplementasikan atau mengompilasi firmware gateway C6. RF banyak node, ACK terlambat pada hardware, jangkauan/tabrakan, akses RADIUS dan pemutusan daya fisik masih perlu diuji. Tes alamat software membuktikan kebijakan protokol, bukan kapasitas RF simultan atau penerimaan instalasi lapangan.
 
 
 ## Penguatan recovery dan node SX1262 pada 3.4.0

@@ -57,6 +57,22 @@ int main(){
  for(size_t n=0;n<size;++n)assert(!decodeFrame(frame,n,parsed));frame[10]=MAX_PAYLOAD+1;assert(!decodeFrame(frame,size,parsed));frame[10]=3;frame[11]=1;assert(!decodeFrame(frame,size,parsed));frame[11]=0;
  Frame ack=sent;ack.type=ACK;ack.source=1;ack.destination=2;ack.length=1;ack.payload[0]=HELLO;assert(addressed(ack,base,sent.session)&&acknowledges(ack,sent));++ack.sequence;assert(!acknowledges(ack,sent));--ack.sequence;++ack.session;assert(!addressed(ack,base,sent.session)&&!acknowledges(ack,sent));ack.session=sent.session;ack.payload[0]=TELEMETRY;assert(!acknowledges(ack,sent));ack.payload[0]=HELLO;ack.source=77;assert(!addressed(ack,base,sent.session));
  {Frame hello=sent;hello.length=24;memset(hello.payload,0,sizeof(hello.payload));hello.payload[0]=3;hello.payload[1]=7;strcpy(reinterpret_cast<char*>(hello.payload+2),"3.4.0");const uint8_t expected[]={0x45,0x53,0x01,0x01,0x01,0x00,0x02,0x00,0x01,0x00,0x18,0x00,0x07,0x00,0x00,0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x03,0x07,0x33,0x2e,0x34,0x2e,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};assert(encodeFrame(hello,frame)==sizeof(expected)&&!memcmp(frame,expected,sizeof(expected)));}
+ // Three distinct stations share a gateway/network, including a delayed ACK
+ // received after the ACK timer expired but before the queued retry was sent.
+ for(uint16_t id=2;id<=4;++id){Settings node=base;node.nodeId=id;Frame uplink=sent;uplink.source=id;uplink.session+=id;
+  Frame delayed=uplink;delayed.type=ACK;delayed.source=1;delayed.destination=id;delayed.length=1;delayed.payload[0]=HELLO;
+  assert(addressed(delayed,node,uplink.session));assert(acceptsOutstandingACK(delayed,uplink,false,1));
+  assert(!acceptsOutstandingACK(delayed,uplink,true,1)&&!acceptsOutstandingACK(delayed,uplink,false,0));
+  for(uint16_t other=2;other<=4;++other)if(other!=id){Settings stranger=node;stranger.nodeId=other;assert(!addressed(delayed,stranger,uplink.session));}
+  ++delayed.session;assert(!acceptsOutstandingACK(delayed,uplink,false,2));
+ }
+ assert(contentionWindowMs(100,true)==5000&&contentionWindowMs(100,false)==1500);
+ assert(contentionWindowMs(4000,true)==30000&&contentionWindowMs(UINT32_MAX,false)==30000);
+ assert(nextUplink(false,true,false,true,false)==HELLO&&nextUplink(false,true,false,false,false)==0);
+ assert(nextUplink(true,false,true,false,false)==TELEMETRY&&nextUplink(true,true,false,false,false)==CHECKPOINT);
+ bool liveSinceFragment=false;unsigned live=0,chunks=0;
+ for(unsigned i=0;i<10;++i){uint8_t next=nextUplink(true,true,false,true,liveSinceFragment);if(next==TELEMETRY){++live;liveSinceFragment=true;}else{assert(next==CHECKPOINT);++chunks;liveSinceFragment=false;}}
+ assert(live==5&&chunks==5); // Neither stream starves with a permanently overdue interval.
  DutyGate duty;assert(duty.remaining(0)==0);duty.transmitted(0xfffffff0U,200);assert(duty.remaining(0xfffffff0U)==20000);assert(duty.remaining(uint32_t(uint64_t(0xfffffff0U)+19999))==1);assert(duty.remaining(uint32_t(uint64_t(0xfffffff0U)+20000))==0);
  std::cout<<"PASS: 80 interrupted LoRa settings writes, corrupt-bank fallback, verified readback, every truncated checkpoint, interrupted valid/corrupt archive promotion, recovery generation, exact LE frame bounds, ACK/session/address checks and airtime rollover\n";
 }

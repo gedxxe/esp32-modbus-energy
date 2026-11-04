@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 export const enterpriseText = {
   "en": {
+    "network_saving": "Saving Wi-Fi settings. Keep this page open until the device confirms the result.",
+    "network_required_field": "Enter {field} before saving.",
+    "network_invalid_field": "Check the value in {field} before saving.",
     "network_error_enterprise_authentication_rejected": "Enterprise authentication was rejected. Automatic retries are paused. Check the login and network settings, then save once to retry.",
     "enterprise_reenter_credentials": "Re-enter EAP credentials when changing the trusted server name or CA.",
     "network_phase_addressing": "Associated, waiting for an IP address",
@@ -42,6 +45,9 @@ export const enterpriseText = {
     "enterprise_ap_inactive": "The recovery hotspot is off. Select Access point only and save, then join {ssid} and open the AP address shown on the OLED. You can configure Enterprise login from there."
   },
   "id": {
+    "network_saving": "Sedang menyimpan pengaturan Wi-Fi. Biarkan halaman terbuka sampai perangkat mengonfirmasi hasilnya.",
+    "network_required_field": "Isi {field} sebelum menyimpan.",
+    "network_invalid_field": "Periksa nilai pada {field} sebelum menyimpan.",
     "network_error_enterprise_authentication_rejected": "Autentikasi Enterprise ditolak. Percobaan otomatis dijeda. Periksa login dan pengaturan jaringan, lalu simpan sekali untuk mencoba lagi.",
     "enterprise_reenter_credentials": "Isi ulang kredensial EAP saat mengganti nama server atau CA tepercaya.",
     "network_phase_addressing": "Terhubung ke AP, menunggu alamat IP",

@@ -2,6 +2,8 @@
 
 [English](../LORA.md) · **Bahasa Indonesia** · [Protokol radio](LORA_PROTOCOL.md) · [Audit listrik terputus](POWER_LOSS.md)
 
+Untuk beberapa station menuju satu receiver kantor, ikuti [setup PTMP dan contoh ID](LORA_PTMP.md). [Prompt pengembangan gateway](GATEWAY_PROMPT.md) siap disalin ke chat terpisah pada project gateway.
+
 Firmware 3.4.0 menambahkan raw LoRa opsional dari station ESP32-S3 ini ke satu gateway yang ditentukan. Gateway yang direncanakan memakai ESP32-C6 dan SX1262 dengan firmware terpisah. Rilis ini mengimplementasikan node S3 dan spesifikasi protokol gateway, tanpa menyediakan image C6 atau mengklaim pairing RF sudah diuji pada perangkat.
 
 Sesuai permintaan pemilik, default carrier adalah **915.000 MHz** dan radio tetap nonaktif sampai dikonfigurasi. Frekuensi dapat diubah melalui web dari 803 sampai 930 MHz mengikuti rentang model Ra-01SH. ID node, gateway dan jaringan terpisah dari slave ID Modbus. Setiap node pada jaringan yang sama harus memiliki ID unik.

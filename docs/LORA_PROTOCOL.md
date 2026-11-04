@@ -1,6 +1,6 @@
 # Energy Station radio protocol v1
 
-**English** · [Bahasa Indonesia](id/LORA_PROTOCOL.md) · [Configuration and wiring](LORA.md)
+**English** · [Bahasa Indonesia](id/LORA_PROTOCOL.md) · [Configuration and wiring](LORA.md) · [PTMP and gateway](LORA_PTMP.md)
 
 This is the interoperability contract for the S3 node and a future independently developed ESP32-C6 gateway. It uses raw LoRa with explicit headers, normal IQ, physical packet CRC and a shared 32-byte key. It is not LoRaWAN. The gateway must implement this binary contract rather than treating received bytes as JSON or text.
 
@@ -57,7 +57,7 @@ Flags are bit 0: accepted energy present and no older than 15 seconds, bit 1: va
 
 POLL has five payload bytes. Byte 0 selects0 for live telemetry or 1 for checkpoints, and bytes 1–4 give the WIB day number. Day 0 selects the current capture day. The node accepts polls after pairing, rejects replayed sequences and supports one pending archive query. A busy/rejected poll does not acknowledge a successful read. Use a new increasing poll sequence after a response timeout. Version 1 provides no register writes, RTC changes, reboot or radio-reconfiguration commands.
 
-A live poll returns telemetry with the request sequence in payload bytes 0–3. An archive poll returns CHECKPOINT fragments. Each fragment has a new node sequence and requires ACK before the next fragment.
+A live poll returns telemetry with the request sequence in payload bytes 0–3. An archive poll returns CHECKPOINT fragments. Each fragment has a new node sequence and requires ACK before the next fragment. A due or requested live telemetry frame can be interleaved between fragments without ending the archive transfer. The scheduler allows at most one live frame before the next fragment, so neither stream starves when radio pacing exceeds the telemetry interval.
 
 | Fragment payload offset | Bytes | Meaning |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ Validate the full record before database insertion. Use day, revision and captur
 
 ## Timing and limits
 
-Only one node packet is outstanding. The radio returns to continuous RX after TX completion and waits for ACK, default 10 seconds. Two default retries permit three total attempts. Random backoff and a shared per-boot 1% airtime gate pace outgoing frames. Unsent live telemetry is refreshed before its first TX. A live packet older than 15 seconds is dropped rather than retried as fresh, while record fragments remain valid dated data. At slow settings, the gate can exceed the ACK timeout. Retries wait for that budget rather than transmitting immediately. The gateway must schedule compatible responses across its own half-duplex link and multiple nodes.
+Only one node packet is outstanding. The radio returns to continuous RX after TX completion and waits for ACK, default 10 seconds. Two default retries permit three total attempts. Random backoff and a shared per-boot 1% airtime gate pace outgoing frames. Since 3.4.1 a matching ACK for an already transmitted outstanding frame is also accepted during retry backoff. ACKs for retired frames, new sessions or an active TX are rejected. The first-TX random contention window is at least 5 seconds for HELLO and 1.5 seconds for other frames, scales with packet airtime and is capped at 30 seconds before the small node-ID offset. The selected delay can be anywhere within that window. Unsent live telemetry is refreshed before its first TX. A live packet older than 15 seconds is dropped rather than retried as fresh, while record fragments remain valid dated data. At slow settings, the gate can exceed the ACK timeout. Retries wait for that budget rather than transmitting immediately. The gateway must schedule compatible responses across its own half-duplex link and multiple nodes. POLL deadlines must cover contention, duty and owner-service waits rather than using the node ACK timeout as a response deadline.
 
 After retry exhaustion the node becomes unpaired and makes a later HELLO attempt. It does not reset the ESP32 or erase measurements. Live telemetry coalesces to the latest sample. Archive/control queues are bounded. Core 1 reads archives outside urgent capture admission, while core 0 owns SPI/radio. Gateway request rates must respect these limits.
 

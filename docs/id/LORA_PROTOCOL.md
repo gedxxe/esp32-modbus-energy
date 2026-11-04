@@ -1,6 +1,6 @@
 # Protokol radio Energy Station v1
 
-[English](../LORA_PROTOCOL.md) · **Bahasa Indonesia** · [Konfigurasi dan wiring](LORA.md)
+[English](../LORA_PROTOCOL.md) · **Bahasa Indonesia** · [Konfigurasi dan wiring](LORA.md) · [PTMP dan gateway](LORA_PTMP.md)
 
 Spesifikasi ini merupakan kontrak antara node S3 dan gateway ESP32-C6 yang dikembangkan terpisah. Transport memakai raw LoRa, explicit header, IQ normal, CRC fisik dan key bersama 32 byte. Ini bukan LoRaWAN. Gateway harus membaca format biner tersebut, bukan menganggap paket sebagai JSON atau teks.
 
@@ -57,7 +57,7 @@ Flag bit 0 berarti energi valid tersedia dan tidak lebih tua dari 15 detik, bit 
 
 POLL memiliki lima byte. Byte 0 memilih 0 untuk live atau 1 untuk checkpoint, lalu byte 1–4 berisi nomor hari WIB. Hari 0 memilih hari capture saat ini. Poll diterima setelah pairing, sequence replay ditolak dan hanya satu query arsip dapat menunggu. Poll sibuk/ditolak tidak menyatakan pembacaan sukses. Gunakan sequence baru meningkat ketika respons kedaluwarsa. Versi 1 tidak menyediakan tulis register, set RTC, reboot atau konfigurasi radio lewat udara.
 
-Poll live menghasilkan telemetry dengan sequence request pada byte 0–3. Poll arsip menghasilkan CHECKPOINT. Setiap fragmen memiliki sequence node baru dan membutuhkan ACK sendiri.
+Poll live menghasilkan telemetry dengan sequence request pada byte 0–3. Poll arsip menghasilkan CHECKPOINT. Setiap fragmen memiliki sequence node baru dan membutuhkan ACK sendiri. Node dapat menyisipkan satu telemetry live yang jatuh tempo atau diminta di antara fragmen tanpa mengakhiri transfer arsip. Batas satu frame live sebelum fragmen berikutnya menjaga kedua aliran tetap maju ketika pacing lebih lama dari interval telemetry.
 
 | Offset payload fragmen | Byte | Arti |
 | --- | --- | --- |
@@ -74,6 +74,8 @@ Validasi record lengkap sebelum memasukkannya ke database. Gunakan hari, revisio
 ## Waktu dan batas
 
 Satu paket node menunggu penyelesaian. Setelah TX, radio kembali RX kontinu dan menunggu ACK dengan default 10 detik. Dua retry berarti tiga percobaan total. Backoff acak dan pacing 1% per boot membatasi seluruh frame keluar. Telemetry yang belum pernah TX diperbarui sebelum percobaan pertama. Paket live lebih tua dari 15 detik dibuang agar tidak diulang sebagai nilai segar, sedangkan fragmen record tetap merupakan data bertanggal. Pada parameter lambat, anggaran ini dapat menunda retry lebih lama daripada timeout ACK. Gateway perlu menjadwalkan respons half duplex dan laju poll beberapa node sesuai kondisi itu.
+
+Mulai 3.4.1, ACK yang cocok untuk frame yang sudah dikirim dan masih aktif juga diterima saat menunggu retry. Frame yang sudah dihentikan, session baru atau TX yang sedang aktif tidak menerima ACK tersebut. Jendela acak TX pertama minimal 5 detik untuk HELLO dan 1,5 detik untuk frame lain, mengikuti airtime hingga 30 detik sebelum offset kecil ID node. Deadline POLL perlu mencakup contention, duty dan layanan owner, bukan disamakan dengan timeout ACK node.
 
 Setelah retry habis, sesi menjadi unpaired dan HELLO dicoba kemudian. ESP32 tidak direset dan log tidak dihapus. Telemetry mengambil sampel terbaru. Antrean arsip/kontrol terbatas. Core 1 membaca arsip di luar capture mendesak, sedangkan core 0 memiliki SPI/radio. Jangan menganggap node melayani arus request tanpa batas.
 

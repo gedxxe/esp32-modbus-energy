@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc"><title id="title">PTMP star with three meter stations and one office gateway</title><desc id="desc">Logical topology for the S3 node contract and a separately developed C6 receiver. Not RF hardware acceptance evidence.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">PTMP star · one shared receiver, separate station identities</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Network 1 and gateway 1 are shared. Each panel has its own node address and pairing key.</text>
+<rect x="40" y="170" width="360" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="65" y="207" fill="#183438" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="start">Panel station · node 2</text>
+<text x="65" y="248" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Fort → RS485 → ESP32-S3</text>
+<text x="65" y="284" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">SX1262 · independent key K2</text>
+<polyline points="400,242 525,242" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="40" y="370" width="360" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="65" y="407" fill="#183438" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="start">Panel station · node 3</text>
+<text x="65" y="448" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Acrel → RS485 → ESP32-S3</text>
+<text x="65" y="484" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">SX1262 · independent key K3</text>
+<polyline points="400,442 525,442" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="40" y="570" width="360" height="145" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="65" y="607" fill="#183438" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="start">Panel station · node 4</text>
+<text x="65" y="648" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Habuer → RS485 → ESP32-S3</text>
+<text x="65" y="684" fill="#087e82" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">SX1262 · independent key K4</text>
+<polyline points="400,642 525,642" fill="none" stroke="#087e82" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="525,242 525,642" fill="none" stroke="#087e82" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="525,442 650,442" fill="none" stroke="#087e82" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="650" y="310" width="420" height="270" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="675" y="352" fill="#183438" font-family="Arial, sans-serif" font-size="23" font-weight="700" text-anchor="start">Office gateway · C6 + SX1262</text>
+<text x="675" y="398" fill="#087e82" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">Gateway ID 1 · Network ID 1</text>
+<text x="675" y="444" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Per-node key / session / ACK routing</text>
+<text x="675" y="485" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">One radio owner and shared TX budget</text>
+<text x="675" y="530" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Verified outbox + backend worker</text>
+<polyline points="1070,442 1150,442" fill="none" stroke="#28755e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1150" y="310" width="410" height="270" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="1175" y="352" fill="#183438" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="start">Office Wi-Fi and backend</text>
+<text x="1175" y="400" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Configured SSID + authentication</text>
+<text x="1175" y="445" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">HTTPS delivery with idempotent records</text>
+<text x="1175" y="490" fill="#587176" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Backend outage → retain local outbox</text>
+<text x="1175" y="535" fill="#087e82" font-family="Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">Gateway firmware developed separately</text>
+<rect x="40" y="760" width="1520" height="95" rx="16" fill="#ffffff" stroke="#cbdada"/>
+<text x="65" y="797" fill="#587176" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">A node ID identifies a station, while its Modbus address identifies the meter on that station’s own cable.</text>
+<text x="65" y="830" fill="#087e82" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">All radios use the same carrier / PHY. One SX1262 cannot receive another node while it transmits.</text>
+</svg>

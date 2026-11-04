@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](README.id.md)
 
-![Firmware 3.4.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
+![Firmware 3.4.1](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
 This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort, Habuer, Acrel ADL400, ACR10R-DxxTE or APM800/801/810 power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
 
@@ -20,6 +20,10 @@ The [power-loss audit](docs/POWER_LOSS.md) explains verified writes, recovery fr
 
 The [SX1262 node guide](docs/LORA.md) provides GPIO wiring and the local web configuration. The radio starts disabled with an editable **915 MHz** default. It supports addressed pairing, authenticated ACK/retry, live telemetry and retrieval of saved checkpoint days. The future ESP32-C6 gateway uses the published [Energy Station v1 contract](docs/LORA_PROTOCOL.md) and remains a separate firmware project.
 
+For several panels, use the [PTMP setup](docs/LORA_PTMP.md), which explains Node ID, Gateway ID, Network ID and shared-radio scheduling. The [gateway development prompt](docs/GATEWAY_PROMPT.md) is ready to paste into a separate gateway-project chat with this source available as a reference.
+
+![PTMP star, logical topology](docs/assets/lora-ptmp.svg)
+
 ![Optional SX1262 wiring, logical diagram](docs/assets/wiring-lora.svg)
 
 
@@ -27,7 +31,7 @@ The [SX1262 node guide](docs/LORA.md) provides GPIO wiring and the local web con
 
 Choose **Fort**, **Habuer**, **Acrel ADL400**, **Acrel ACR10R-DxxTE** or **Acrel APM800/801/810** in **Meter setup → Meter model**, then save the reader settings before starting a scan. That choice selects a complete register profile for acquisition, transformer ratios, diagnostics and scan defaults. It does not configure the meter itself. Fort remains the default after upgrading an existing installation, and saved checkpoints retain their original model identity.
 
-The ADL400 implementation follows the supplied **V1.3 manual**. Its import counter is `0x000A` at 0.01 kWh per count, compared with Fort `0x0082` at 0.001 kWh per count. Its RS485 port is **21/A1 and 22/B1**, while Fort uses **58/A and 59/B**. [Meter profiles and commissioning](docs/METER_PROFILES.md) documents the complete maps, revision differences, conversion, migration and field checks. [Acrel full wiring](docs/assets/wiring-acrel-adl400.svg) shows the alternate meter terminals with the same ESP32 electronics.
+The selectable ADL400 profile uses the owner's verified total counter `0x0000`, UInt32 ABCD divided by 100 with PT/CT applied once. The older V1.3 forward counter `0x000A` remains a historical archived identity and is not an operator selection. Its RS485 port is **21/A1 and 22/B1**, while Fort uses **58/A and 59/B**. [Meter profiles and commissioning](docs/METER_PROFILES.md) documents the maps, conversion, migration and field checks. [Acrel full wiring](docs/assets/wiring-acrel-adl400.svg) shows the meter terminals with the same ESP32 electronics.
 
 Habuer follows the [owner's working reference sketch](docs/HABUER.md), with separate reads for PF, frequency, cumulative active kWh and reactive kvarh. Its active total comes from `0x0034`, two words divided by 10, without an additional transformer multiplier. The guide includes the exact read plan, supported values and [complete Habuer wiring](docs/assets/wiring-habuer.svg).
 
@@ -88,7 +92,7 @@ A normal firmware build uses the committed web header and does not require Node.
 | pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
 | Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
 | RadioLib | 7.8.1, MIT, SX1262 raw LoRa |
-| FortMeter / ModbusMaster | 3.4.0 / 2.0.1+fort.1, local source |
+| FortMeter / ModbusMaster | 3.4.1 / 2.0.1+fort.1, local source |
 | Adafruit SSD1306 / GFX / BusIO | 2.5.13 / 1.11.11 / 1.17.0 |
 | RTClib / ArduinoJson | 2.1.4 / 7.3.1 |
 | React / React DOM / Motion | 19.3.1 / 19.3.1 / 14.7.1 |
@@ -97,7 +101,7 @@ A normal firmware build uses the committed web header and does not require Node.
 
 ## 3. First startup and meter scan
 
-Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.4.0, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, Acrel `0x0064/1`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
+Join **Midea Engineering AP** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.4.1, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, Acrel `0x0064/1`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
 
 On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 

@@ -25,7 +25,7 @@ DutyGate duty;
 Frame flight;bool inFlight=false,transmitting=false,awaiting=false,forceTelemetry=false;
 uint8_t attempts=0;uint32_t txAt=0,ackAt=0,lastCycle=0,lastPublish=0,lastInit=0,sequence=0,lastDown=0;
 uint64_t session=0;uint32_t backoffAt=0,backoffMs=0,firstTxAt=0;
-LoRaArchiveReply archive;bool archiveActive=false,queryActive=false;uint16_t archiveOffset=0;
+LoRaArchiveReply archive;bool archiveActive=false,queryActive=false,liveSinceFragment=false;uint16_t archiveOffset=0;
 uint32_t queryAt=0,queryRequest=0,telemetryRequest=0,latestAt=0;
 uint8_t wire[MAX_PACKET]={};size_t wireSize=0;
 uint64_t freshSession(){uint64_t n=(uint64_t(esp_random())<<32)|esp_random();return n?n:1;}
@@ -35,13 +35,15 @@ bool tag(const uint8_t *p,size_t n,uint8_t out[32]){
 }
 bool receiveMode(){int16_t code=radio.startReceive();if(code!=RADIOLIB_ERR_NONE){view.code=code;view.available=false;view.phase=LORA_ERROR;return false;}return true;}
 void clearFlight(){inFlight=transmitting=awaiting=false;wireSize=0;attempts=0;}
-void rotateSession(){session=freshSession();sequence=lastDown=0;telemetryRequest=0;forceTelemetry=false;view.paired=false;archiveActive=queryActive=false;clearFlight();}
+void rotateSession(){session=freshSession();sequence=lastDown=0;telemetryRequest=0;forceTelemetry=false;view.paired=false;archiveActive=queryActive=liveSinceFragment=false;clearFlight();}
 bool makeFrame(uint8_t type,const uint8_t *payload,uint8_t length){
   if(sequence==UINT32_MAX){rotateSession();return false;}
   flight=Frame{};flight.type=type;flight.source=view.settings.nodeId;flight.destination=view.settings.gatewayId;flight.network=view.settings.networkId;flight.session=session;flight.sequence=++sequence;flight.length=length;
   if(length)memcpy(flight.payload,payload,length);
   size_t n=encodeFrame(flight,wire);uint8_t mac[32]={};if(!n||!tag(wire,n,mac)){view.code=-10001;return false;}
-  memcpy(wire+n,mac,TAG_SIZE);wireSize=n+TAG_SIZE;inFlight=true;attempts=0;backoffAt=millis();backoffMs=esp_random()%1000+17*(view.settings.nodeId%23);return true;
+  memcpy(wire+n,mac,TAG_SIZE);wireSize=n+TAG_SIZE;inFlight=true;attempts=0;backoffAt=millis();
+  uint32_t airMs=uint32_t((radio.getTimeOnAir(wireSize)+999)/1000);
+  backoffMs=esp_random()%contentionWindowMs(airMs,type==HELLO)+17*(view.settings.nodeId%23);return true;
 }
 void initializeRadio(){
   lastInit=millis();view.available=false;view.lastRxMs=0;view.rssi=view.snr=0;view.phase=LORA_STARTING;view.code=0;rotateSession();
@@ -81,7 +83,7 @@ void nextArchiveChunk(){uint8_t p[MAX_PAYLOAD]={};constexpr uint16_t chunk=MAX_P
   put32(p,archive.request);put32(p+4,archive.day);put16(p+8,archiveOffset);put16(p+10,CAPTURE_RECORD_SIZE);memcpy(p+12,archive.bytes+archiveOffset,count);makeFrame(CHECKPOINT,p,uint8_t(12+count));}
 void acceptedACK(){
   ++view.acks;if(flight.type==HELLO)view.paired=true;
-  if(flight.type==CHECKPOINT){archiveOffset=uint16_t(archiveOffset+flight.length-12);if(archiveOffset>=CAPTURE_RECORD_SIZE)archiveActive=false;}
+  if(flight.type==CHECKPOINT){archiveOffset=uint16_t(archiveOffset+flight.length-12);liveSinceFragment=false;if(archiveOffset>=CAPTURE_RECORD_SIZE)archiveActive=false;}
   clearFlight();view.code=0;
 }
 void receivedPacket(){
@@ -96,7 +98,7 @@ void receivedPacket(){
   ++view.rx;view.lastRxSequence=f.sequence;view.lastRxMs=millis();
   Serial.printf("[LoRa] rx type=%u seq=%lu rssi=%.1f snr=%.1f\n",f.type,(unsigned long)f.sequence,view.rssi,view.snr);
   if(f.type==POLL&&lastDown&&int32_t(f.sequence-lastDown)<=0){++view.replayErrors;++view.rejected;receiveMode();return;}
-  if(awaiting&&inFlight&&acknowledges(f,flight)){acceptedACK();}
+  if(inFlight&&acceptsOutstandingACK(f,flight,transmitting,attempts)){acceptedACK();}
   else if(f.type==POLL&&view.paired&&f.length==5&&(!lastDown||int32_t(f.sequence-lastDown)>0)){
     uint32_t day=get32(f.payload+1);
     if(f.payload[0]==0&&!forceTelemetry&&!telemetryRequest){lastDown=f.sequence;telemetryRequest=f.sequence;forceTelemetry=true;}
@@ -133,12 +135,13 @@ void run(void *){
           else if(action==2)forceTelemetry=true;
         }
         LoRaArchiveReply reply;if(xQueueReceive(replyQ,&reply,0)==pdTRUE&&queryActive&&reply.request==queryRequest&&reply.session==session){queryActive=false;
-          if(reply.found){archive=reply;archiveOffset=0;archiveActive=true;}else ++view.drops;
+          if(reply.found){archive=reply;archiveOffset=0;archiveActive=true;liveSinceFragment=false;}else ++view.drops;
         }
         if(queryActive&&uint32_t(now-queryAt)>30000){queryActive=false;++view.drops;}
         if(!inFlight){
-          if(archiveActive&&view.paired)nextArchiveChunk();
-          else if(forceTelemetry||uint32_t(now-lastCycle)>=view.settings.intervalMs){lastCycle=now;forceTelemetry=false;if(view.paired)telemetry();else hello();}
+          uint8_t next=nextUplink(view.paired,archiveActive,forceTelemetry,uint32_t(now-lastCycle)>=view.settings.intervalMs,liveSinceFragment);
+          if(next==CHECKPOINT)nextArchiveChunk();
+          else if(next==HELLO||next==TELEMETRY){lastCycle=now;forceTelemetry=false;if(next==HELLO)hello();else{telemetry();if(archiveActive)liveSinceFragment=true;}}
         }
         // Do not resend an old live value as fresh after a long ACK/duty delay.
         if(inFlight&&flight.type==TELEMETRY&&(flight.payload[12]&1)&&attempts&&!transmitting&&uint64_t(get32(flight.payload+8))+uint32_t(now-firstTxAt)>15000){++view.drops;view.paired=false;clearFlight();lastCycle=now;}

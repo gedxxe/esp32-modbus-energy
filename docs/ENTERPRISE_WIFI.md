@@ -4,6 +4,8 @@
 
 Choose the desired 2.4 GHz network from the scan, select the PEAP authentication option if it was not detected automatically, and enter the username and password. The outer identity defaults to the username and the server DNS name can stay blank. Since firmware 3.3.1, a new Enterprise profile uses the SDK's built-in public CA bundle, so an uploaded certificate is no longer a prerequisite for saving the connection.
 
+Open the dashboard through the ESP32 recovery AP's IP when entering new Enterprise credentials. In 3.4.1, selecting an SSID starts with automatic outer identity even if an earlier profile used a custom identity. This fixes an enabled Save button being blocked by an empty required field inside closed Advanced settings. If an explicitly edited field is missing, Save now reveals and focuses it, with a message beside the button. The same area reports saving, the confirmed result or the reason a request cannot proceed. A successful settings save is followed by the separate Wi-Fi association/authentication status and does not itself prove network access.
+
 No corporate SSID, username, domain or RADIUS hostname is built into the client. The installation's separately configured recovery AP name remains unchanged. Scanning identifies advertised WPA2-Enterprise security, but cannot discover whether that network actually accepts PEAP with EAP-MSCHAPv2. A successful connection still depends on that method, certificate trust and the network's account/device policy.
 
 ![Enterprise ownership and trust flow](assets/enterprise-wifi.svg)

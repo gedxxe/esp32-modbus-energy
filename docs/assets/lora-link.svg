@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="690" viewBox="0 0 1400 690" role="img" aria-labelledby="title desc"><title id="title">Half-duplex node and future gateway protocol</title><desc id="desc">Protocol diagram. The separate ESP32-C6 gateway is not implemented or hardware-tested by this firmware.</desc><rect width="100%" height="100%" fill="#f5f8f8"/>
-<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Energy Station v1 · one node, one configured gateway</text>
-<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Raw LoRa with addressed HMAC-SHA256 frames. Each direction waits for the radio to release the channel.</text>
+<text x="45" y="60" fill="#183438" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="start">Energy Station v1 · each node addresses one gateway</text>
+<text x="45" y="96" fill="#587176" font-family="Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">Raw LoRa with addressed HMAC-SHA256 frames. Several nodes can share a receiver and its radio time.</text>
 <rect x="70" y="155" width="450" height="390" rx="16" fill="#ffffff" stroke="#cbdada"/>
 <text x="100" y="200" fill="#183438" font-family="Arial, sans-serif" font-size="26" font-weight="700" text-anchor="start">ESP32-S3 meter node</text>
 <text x="100" y="245" fill="#183438" font-family="Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start">UART → verified meter sample</text>

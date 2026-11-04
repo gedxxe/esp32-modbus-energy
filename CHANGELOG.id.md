@@ -1,5 +1,11 @@
 [English](CHANGELOG.md) · **Bahasa Indonesia**
 
+## 3.4.1 / 4 November 2026
+
+Memperbaiki submit Enterprise ketika SSID dipilih dari profil lama yang memakai custom outer identity. Pilihan jaringan/autentikasi memulai identity otomatis, kolom tersembunyi yang sengaja diedit tetapi belum lengkap dibuka dan difokuskan, sedangkan proses serta hasil simpan muncul dekat tombol. Regresi browser pada byte hasil build mereproduksi kegagalan lama sebelum perbaikan. Validasi sertifikat dan provisi kredensial melalui AP tetap berlaku.
+
+Memperbaiki LoRa menuju gateway bersama dengan menerima ACK terautentikasi untuk frame aktif saat menunggu retry, memperlebar contention awal mengikuti airtime serta menyisipkan sampel live di antara fragmen arsip tanpa membuat salah satu aliran tertahan selamanya. Menambahkan topologi PTMP, tabel ID, panduan commissioning/kapasitas serta prompt dua bahasa untuk firmware C6 terpisah. Layout wire v1 dan setting tersimpan tetap kompatibel. Penerimaan RF banyak node dan gateway masih perlu diuji pada perangkat.
+
 ## 3.4.0 / 3 November 2026
 
 Menambahkan node Ai-Thinker Ra-01SH SX1262 opsional dengan default915 MHz yang dapat diubah, SPI milik task core0, pengaturan radio/ID/key melalui web, pairing dan ACK/retry terautentikasi, telemetry dengan batas kesegaran serta retrieval hari checkpoint ber-ACK. Kontrak gateway v1, test vector dan wiring/netlist tersedia untuk pengembangan ESP32-C6 terpisah. Radio mulai nonaktif dan penerimaan RF fisik masih diperlukan.

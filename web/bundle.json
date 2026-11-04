@@ -1,7 +1,7 @@
 {
-  "version": "3.4.0",
+  "version": "3.4.1",
   "transport": "gzip",
-  "compressed_total": 156104,
+  "compressed_total": 156911,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 457427,
-      "gzip": 144294,
-      "sha256": "ddbad47f1df3d3f23c8bdf37bd6b42cf6c849bd4176c7b80d63f5d6efff6a511"
+      "raw": 459794,
+      "gzip": 145101,
+      "sha256": "3227ddcf01a38c8918a97eb5e854a9bee0a3d1abf02e5c2501f8808b45b3236d"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -40,8 +40,8 @@
     }
   },
   "inputs": {
-    "package-lock.json": "68fe8a81aae9e8bbe3052c203ef5dd8e635ee8162456bb562bf029d234379cde",
-    "package.json": "e21ef00e119042b8edc091c1edb26e695799c03c7d0bb0f452def7d2f37dca1b",
+    "package-lock.json": "28ceb13a21e7ef28919fa9efed86057e940923c04e96bf80dd8605cf741a6e58",
+    "package.json": "065f396f15fcb73af89766cf42a354e4af5948dd3d36e6a40bec858a0593b74e",
     "tools/build-web.cjs": "7140da4105545e53e0fb13d131960afdcca4712d6be0b39517e9a37422f26fbb",
     "web/Application.jsx": "ace9e0dbb1198cf4ad6efd1316fa7e2d6fb750d9cc43ad3d21ec77546f48530a",
     "web/app.jsx": "d71c9d3b421f5071271ba4c92be30a4a193d7de64f3ca832949e5788434f8970",
@@ -53,21 +53,21 @@
     "web/components/FlowPlayback.jsx": "f33ba001207024f3b9dc6d380222f54f841305b12c985ceb37223496a5fb6896",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/LoRaControls.jsx": "c937cfdc2d55660dd1f0e2e3a38f1c817c6fa1e09874219a2fab5e35e1203020",
+    "web/components/LoRaControls.jsx": "20d3fb983ad43f3efa25cfadadcfbfca9bad06e9b1d28d88e0e94996f2d0bdfe",
     "web/components/MeterLab.jsx": "bb534614cf9ae08bff19eb0704b07defb80e3c31c2260c194ca2064e04fb35dd",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
-    "web/components/NetworkControls.jsx": "d05425b1ce295551e86e73578e258013cc838f304f04a0065167f4c663631df3",
+    "web/components/NetworkControls.jsx": "a167131732b45e23d8959402165b2129a37a5190a6368d5b7f5d8c9a0990058d",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
     "web/components/WifiPicker.jsx": "7d75572854681be4c43001b34bbee03d5728cdaba7fddebf5c8741c156034ab7",
-    "web/device.js": "48c47f929f90b9b3a8296010061fb6b00263e474913f1c510455584aa4013036",
-    "web/enterprise-i18n.js": "2205a3bc6875f6dac7809cb128e8cacbe7e60fa3c26023ea295f9f334ba6bd21",
+    "web/device.js": "c1c1fbec85f1321026635b7c4c97f2fe0289bed16dccb92b3cf8e963b6ba99ce",
+    "web/enterprise-i18n.js": "2b9682a6c93581203322de5049a98d180bc7cc1a3c75a90226a4dbf8b524c324",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
     "web/i18n.js": "829330bdbad4aaf6dd0006351d658d39de41bbf3d25e33c1129b52a4c9cc839f",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
-    "web/lora-i18n.js": "07fc6e8a33eb86b219242d8dd6f466332dce70828e2fb88c263eee27a76b3ee4",
+    "web/lora-i18n.js": "07eb3233d9d905b64d4e5c6c4d9bebcf56e7ed7424950b937a403a0ab89a6a26",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
     "web/meter-profile.js": "95fdf72684f51ffd1961e11ed39e2714ceecc9af77df5b42be78db57c23a286f",
@@ -92,5 +92,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "35a96b37fe6b2560d420ba752c5e85eaedaf43a20d51229cad99c6b8dd0c7238"
+  "header_sha256": "a9d3a6255a6e453f1c534cfd60f78ed86aeed62e3d59333827cae98dfdff6366"
 }

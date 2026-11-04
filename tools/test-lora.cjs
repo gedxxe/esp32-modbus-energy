@@ -2,6 +2,7 @@ const assert=require("node:assert/strict"),path=require("node:path");
 module.exports=async({page,origin,state,calls,root})=>{
  await page.goto(origin+"/#device");await page.waitForFunction(()=>document.querySelector("#lora-save")&&!document.querySelector("#lora-save").disabled);
  assert.equal(await page.locator("#lora-frequency").inputValue(),"915");assert(!(await page.locator("#lora-enabled").isChecked()));
+ assert((await page.locator("#lora-ptmp-note").innerText()).includes("stations 2, 3 and 4"));
  assert((await page.locator("body").innerText()).includes("Checkpoints restored from staging"));
  await page.locator("#lora-enabled").check();await page.locator("#lora-nodeId").fill("1");await page.locator("#lora-generate").click();
  const key=await page.locator("#lora-key").inputValue();assert(/^[0-9a-f]{64}$/.test(key));
@@ -15,6 +16,7 @@ module.exports=async({page,origin,state,calls,root})=>{
  Object.assign(state.lora,{paired:true,phase:2,rx:1,acks:1,lastRxAgeMs:350,rssi:-82,snr:8.5});await page.waitForFunction(()=>document.querySelector("#lora-panel")?.innerText.includes("Session paired"));
  await page.locator("#lora-panel").screenshot({path:path.join(root,"docs/assets/ui-lora-desktop.png"),style:".main-nav{visibility:hidden}"});
  await page.locator("#language").selectOption("id");assert((await page.locator("#lora-panel").innerText()).includes("Sesi sudah dipasangkan"));
+ assert((await page.locator("#lora-ptmp-note").innerText()).includes("station 2, 3 dan 4"));
  await page.setViewportSize({width:390,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.locator("#lora-panel").screenshot({path:path.join(root,"docs/assets/ui-lora-mobile.png"),style:".main-nav{visibility:hidden}"});
  state.network.enterpriseProvisioning=false;await page.waitForTimeout(2300);await page.locator("#lora-keep-key").uncheck();await page.locator("#lora-generate").click();const beforeKey=calls.filter(x=>x.url==="/api/lora/config").length;await page.locator("#lora-save").click();assert.equal(calls.filter(x=>x.url==="/api/lora/config").length,beforeKey);
  Object.assign(state.lora,{available:false,paired:false,phase:6,code:-2});await page.waitForSelector("#lora-error");assert(await page.locator("#lora-pair").isDisabled());assert(!(await page.locator("#lora-save").isDisabled()),"An absent module must not lock configuration");

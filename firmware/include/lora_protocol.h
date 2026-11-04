@@ -59,6 +59,22 @@ inline bool decodeFrame(const uint8_t *p,size_t n,Frame &f){if(n<HEADER_SIZE||p[
 }
 inline bool addressed(const Frame &f,const Settings &s,uint64_t session){return f.network==s.networkId&&f.source==s.gatewayId&&f.destination==s.nodeId&&f.session==session;}
 inline bool acknowledges(const Frame &f,const Frame &sent){return f.type==ACK&&f.sequence==sent.sequence&&f.session==sent.session&&f.length==1&&f.payload[0]==sent.type;}
+// A gateway can be serving another node when our ACK deadline expires. Keep
+// accepting the matching ACK during backoff until this immutable frame retires.
+inline bool acceptsOutstandingACK(const Frame &ack,const Frame &sent,bool transmitting,uint8_t attempts){return attempts&&!transmitting&&acknowledges(ack,sent);}
+inline uint32_t contentionWindowMs(uint32_t airtimeMs,bool joining){
+  uint32_t minimum=joining?5000:1500,multiplier=joining?8:3;
+  uint32_t scaled=airtimeMs>30000/multiplier?30000:airtimeMs*multiplier;
+  return scaled>minimum?scaled:minimum;
+}
+// Interleave at most one due/requested live sample between archive fragments.
+// Both streams progress even when duty wait exceeds the telemetry interval.
+inline uint8_t nextUplink(bool paired,bool archive,bool requested,bool due,bool liveSinceFragment){
+  if(!paired)return requested||due?HELLO:0;
+  if(archive&&liveSinceFragment)return CHECKPOINT;
+  if(requested||due)return TELEMETRY;
+  return archive?CHECKPOINT:0;
+}
 class DutyGate {
  public:bool used=false;uint32_t at=0,quietMs=0;
   void transmitted(uint32_t now,uint32_t airtimeMs){used=true;at=now;quietMs=airtimeMs>UINT32_MAX/100?UINT32_MAX:airtimeMs*100;}

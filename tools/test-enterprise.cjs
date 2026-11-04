@@ -1,17 +1,28 @@
 // The shipped gzip UI is exercised against simulated network responses.
 const assert=require("node:assert/strict");const path=require("node:path");
 module.exports=async({page,origin,state,calls,root})=>{
+  // Reproduce changing SSID after a saved profile used a custom outer identity.
+  Object.assign(state.network,{mode:"dual",ssid:"Previous corporate network",auth:"peap",hasEnterpriseCredentials:true,hasCustomIdentity:true});
   await page.goto(origin+"/#device");await page.waitForSelector("#network-mode");await page.locator("#network-mode").selectOption("dual");
   await page.waitForSelector('#network-ssid option[value="Corporate test/enterprise"]',{state:'attached'});
   assert(!(await page.locator('#network-ssid option[value="Corporate test/enterprise"]').isDisabled()));
   await page.locator("#network-ssid").selectOption("Corporate test/enterprise");assert.equal(await page.locator("#network-auth").inputValue(),"peap");
+  assert(await page.locator("#enterprise-auto-identity").isChecked(),"Choosing a network must reset hidden custom identity requirements");
   assert(!(await page.locator("#enterprise-server").isVisible()),"Ordinary login must not expose certificate fields");
   await page.locator("#enterprise-username").fill("device-user");await page.locator("#enterprise-password").fill("test-only-eap-secret");
+  const beforeHidden=calls.filter(c=>c.url==="/api/network").length;
+  await page.locator("#enterprise-advanced > summary").click();await page.locator("#enterprise-auto-identity").uncheck();await page.locator("#enterprise-advanced > summary").click();
+  await page.locator("#network-save").click();await page.waitForSelector("#network-feedback");
+  assert((await page.locator("#network-feedback").innerText()).includes("Outer EAP identity"));
+  assert(await page.locator("#enterprise-advanced").evaluate(el=>el.open),"A hidden invalid field must be revealed instead of silently blocking submit");
+  assert.equal(calls.filter(c=>c.url==="/api/network").length,beforeHidden);
+  await page.locator("#enterprise-auto-identity").check();await page.locator("#enterprise-advanced > summary").click();
   await page.waitForFunction(()=>!document.querySelector("#network-save")?.disabled);await page.locator("#enterprise-password").blur();
   await page.locator("#network-panel").screenshot({path:path.join(root,"docs/assets/ui-enterprise-desktop.png"),style:".main-nav{visibility:hidden}"});
   const beforePublic=calls.filter(c=>c.url==="/api/network").length;
   await page.locator("#network-save").click();await page.waitForFunction(()=>document.querySelector("#enterprise-keep")?.checked);
   assert.equal(calls.filter(c=>c.url==="/api/network").length,beforePublic+1,"Username/password must submit using the built-in CA bundle");
+  assert((await page.locator("#network-feedback").innerText()).includes("Wi-Fi settings saved"));
   const defaultLogin=calls.filter(c=>c.url==="/api/network").at(-1).data;
   assert.equal(defaultLogin.get("ssid"),"Corporate test");assert.equal(defaultLogin.get("ca"),"");assert.equal(defaultLogin.get("keepCA"),"0");
   assert.equal(defaultLogin.get("serverName"),"");assert.equal(defaultLogin.get("identity"),"");assert.equal(defaultLogin.get("autoIdentity"),"1");
@@ -44,6 +55,7 @@ module.exports=async({page,origin,state,calls,root})=>{
   assert.equal(await page.locator("#enterprise-ap-link").getAttribute("href"),"http://192.168.8.1/#device");
   const beforeClient=calls.filter(c=>c.url==="/api/network").length;await page.locator("#network-save").click();
   assert.equal(calls.filter(c=>c.url==="/api/network").length,beforeClient,"Client HTTP must not submit Enterprise credentials");
+  assert((await page.locator("#network-feedback").innerText()).includes("recovery AP"),"The reason must be visible next to Save");
   state.network.apIP="";await page.waitForSelector("#enterprise-ap-link",{state:"detached"});
   assert((await page.locator("#enterprise-access-help").innerText()).includes("Select Access point only"));
   state.network.enterpriseProvisioning=true;await page.waitForSelector("#enterprise-access-help",{state:"detached"});

@@ -92,11 +92,11 @@ export default function useDevice() {
             const outcome = next.control.results?.find((row) => row.id === commandId);
             if (!outcome) {
               setNotice({ key: "request_timeout" });
-              return { ok: false, body };
+              return { ok: false, body, error: "request_timeout" };
             }
             if (outcome.error) {
               setNotice(catalog.en[outcome.error] ? { key: outcome.error } : { text: outcome.error });
-              return { ok: false, body };
+              return { ok: false, body, error: outcome.error };
             }
             return { ok: true, body };
           }
@@ -104,7 +104,7 @@ export default function useDevice() {
         } while (Date.now() < deadline);
         if (Number.isInteger(commandId)) {
           setNotice({ key: "request_timeout" });
-          return { ok: false, body };
+          return { ok: false, body, error: "request_timeout" };
         }
       }
       return { ok: response.ok, body };

@@ -4,6 +4,8 @@
 
 Pilih SSID 2,4 GHz dari hasil scan, pilih autentikasi PEAP bila belum terpilih otomatis, lalu isi username dan password. Identitas luar mengikuti username dan nama DNS server boleh dikosongkan. Mulai firmware 3.3.1, profil Enterprise baru memakai kumpulan CA publik bawaan SDK, sehingga form tidak lagi mewajibkan unggahan sertifikat sebelum pengaturan dapat disimpan.
 
+Saat memasukkan kredensial Enterprise baru, buka dashboard melalui IP AP pemulihan ESP32. Mulai 3.4.1, pilihan SSID selalu memulai identity otomatis meskipun profil lama memakai custom identity. Perubahan ini memperbaiki tombol Save aktif yang sebelumnya tertahan kolom wajib kosong di dalam Advanced settings tertutup. Jika operator sengaja mengedit kolom yang belum lengkap, Save membuka dan memfokuskan kolom tersebut serta menampilkan pesan di dekat tombol. Area yang sama menunjukkan proses simpan, hasil terkonfirmasi atau alasan permintaan belum dapat dijalankan. Pengaturan berhasil tersimpan belum membuktikan akses jaringan, sehingga periksa status asosiasi dan autentikasi Wi-Fi sesudahnya.
+
 Tidak ada nama SSID perusahaan, username, domain maupun hostname RADIUS yang ditanam dalam client. Nama hotspot pemulihan perangkat tetap mengikuti konfigurasi AP tersendiri. Scan hanya mengenali keamanan WPA2-Enterprise yang diumumkan jaringan dan tidak dapat mengetahui metode EAP yang diterima. Keberhasilan koneksi tetap bergantung pada dukungan PEAP / EAP-MSCHAPv2, kepercayaan sertifikat serta kebijakan akun dan perangkat jaringan tersebut.
 
 ![Alur trust Enterprise dan kepemilikan task](../assets/enterprise-wifi.svg)

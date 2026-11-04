@@ -2,6 +2,8 @@
 
 **English** · [Bahasa Indonesia](id/LORA.md) · [Wire protocol](LORA_PROTOCOL.md) · [Power-loss audit](POWER_LOSS.md)
 
+For several stations sharing one office receiver, follow [PTMP setup and ID examples](LORA_PTMP.md). The [gateway development prompt](GATEWAY_PROMPT.md) is ready to copy into a separate gateway-project chat.
+
 Firmware 3.4.0 adds an optional raw-LoRa link between this ESP32-S3 meter station and one configured gateway. The intended gateway is an ESP32-C6 with an SX1262, developed in a separate firmware project. This release implements the S3 node and publishes the gateway's wire contract. It does not include an ESP32-C6 image or claim a completed RF pairing test.
 
 The radio defaults to **915.000 MHz**, as requested by the owner, and remains disabled until configured through the website. The carrier is editable from 803 to 930 MHz, which follows the Ra-01SH model's stated range. Node ID, gateway ID and network ID are independent of the Modbus slave address. Each station needs a unique node ID within its network.

@@ -69,8 +69,6 @@ jobs:
             firmware/.pio/build/esp32s3/partitions.bin
 
   browser:
-    permissions:
-      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -80,27 +78,6 @@ jobs:
           node-version: '24.22.1'
           cache: npm
       - run: npm ci
-      # Temporary branch-only repair: generate reproducible embedded assets in CI.
-      - name: Regenerate ADL400 Meter Lab browser assets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/adl400-field-rtu-20261104'
-        run: |
-          npm run build:web
-          git add firmware/include/web_ui.h web/bundle.json
-          if ! git diff --cached --quiet; then
-            python -c 'import textwrap;exec(textwrap.dedent("""
-            import os,base64,json,subprocess,urllib.request
-            for filename in ("firmware/include/web_ui.h","web/bundle.json"):
-                old=subprocess.check_output(["git","rev-parse","HEAD:"+filename],text=True).strip()
-                content=base64.b64encode(open(filename,"rb").read()).decode()
-                data=json.dumps({"message":"Regenerate "+filename+" for ADL400 Meter Lab","branch":"fix/adl400-field-rtu-20261104","sha":old,"content":content}).encode()
-                url="https://api.github.com/repos/"+os.environ["GITHUB_REPOSITORY"]+"/contents/"+filename
-                req=urllib.request.Request(url,data=data,method="PUT",headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"})
-                with urllib.request.urlopen(req,timeout=60) as response:
-                    print("Committed generated asset:",filename,"HTTP",response.status)
-            """))'
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify committed React assets
         run: npm run check:web
       - run: npx playwright install --with-deps chromium

@@ -46,7 +46,7 @@ All four native suites and the independent Python HMAC vector check passed. New 
 
 The full generated-byte dashboard regression passed with all 34 SVGs. The final Enterprise and LoRa suites passed, including the bilingual PTMP identifier example, key privacy, malformed/absent-radio states and responsive layout. UI and the generated PTMP diagram were visually inspected. Screenshots use simulated values. [PTMP setup](LORA_PTMP.md) and the [gateway prompt](GATEWAY_PROMPT.md) describe receiver-side requirements and the shared-radio limits.
 
-No C6 gateway firmware was implemented or compiled in this node project. Physical multi-node RF, real delayed ACKs, range/collision measurements, RADIUS access and physical power-cut tests remain pending. Software addressing tests establish protocol policy, not simultaneous RF capacity or a successful field installation.
+No C3 gateway firmware was implemented or compiled in this node project. Physical multi-node RF, real delayed ACKs, range/collision measurements, RADIUS access and physical power-cut tests remain pending. Software addressing tests establish protocol policy, not simultaneous RF capacity or a successful field installation.
 
 
 ## Power-loss hardening and SX1262 node in 3.4.0
@@ -59,7 +59,7 @@ The generated-byte LoRa browser suite passed editable carrier/IDs, key generatio
 
 The primary five-second capture rules, stored formats, immutable profile IDs, Fort/ADL400/Habuer/ACR/APM mappings and partition layout are preserved. Corrupt or missing meter settings beside retained data now stop production until a verified setting is saved. The brownout build guard, NVS/file verification and bounded radio BUSY/reset path were checked in the real target build. Radio archives are queued through core 1 and do not trigger maintenance mode or change the meter.
 
-No physical power-cut, brownout transient, SPI/DIO measurement, antenna/RF-power check, range test or C6 gateway exchange was performed here. The gateway firmware remains a separate development. Pairing requires a matching authenticated ACK and cannot be inferred from successful initialization. See [power-loss audit](POWER_LOSS.md), [radio wiring/configuration](LORA.md) and [protocol v1](LORA_PROTOCOL.md) for failure limits and bench procedures.
+No physical power-cut, brownout transient, SPI/DIO measurement, antenna/RF-power check, range test or C3 gateway exchange was performed here. The gateway firmware remains a separate development. Pairing requires a matching authenticated ACK and cannot be inferred from successful initialization. See [power-loss audit](POWER_LOSS.md), [radio wiring/configuration](LORA.md) and [protocol v1](LORA_PROTOCOL.md) for failure limits and bench procedures.
 
 ## Enterprise login repair in 3.3.1
 

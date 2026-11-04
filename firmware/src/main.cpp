@@ -22,6 +22,7 @@
 #include "rgb_driver.h"
 #include "board.h"
 #include "device_identity.h"
+#include "ap_credentials.h"
 #include "energy.h"
 #include "checkpoint_log.h"
 #include "debounce.h"
@@ -89,6 +90,30 @@ QueueHandle_t snapshotQueue,commandQueue,networkQueue;
 bool oledOK=false,apOK=false;
 DeviceIdentity unitIdentity;
 String apiToken;
+char apPassword[AP_PASSWORD_BUFFER] = {};
+bool apPasswordPersisted = false;
+// Only physical local OLED access discloses the device-specific recovery key.
+void generateAPEntropy(uint8_t *dest, size_t count) {
+  for (size_t i = 0; i < count;) {
+    uint32_t sample = esp_random();
+    for (unsigned j = 0; j < 4 && i < count; ++j, ++i) dest[i] = uint8_t(sample >> (8 * j));
+  }
+}
+void provisionAPCredential() {
+  Preferences store;
+  if (store.begin("apauth", false)) {
+    apPasswordPersisted = loadOrCreateAPPassword(store, generateAPEntropy, apPassword);
+    store.end();
+  } else {
+    uint8_t entropy[AP_RANDOM_BYTES] = {};
+    generateAPEntropy(entropy, sizeof(entropy));
+    encodeAPPassword(entropy, apPassword);
+    memset(entropy, 0, sizeof(entropy));
+  }
+  // Never print the key, including on NVS failures or crash diagnostics.
+  Serial.printf("[WiFi] Recovery AP key: %s; view locally on OLED Network > AP password\n",
+                apPasswordPersisted ? "persisted" : "ephemeral");
+}
 IdleScreen idleScreen;uint16_t lastIdleFrame=0xffff;
 
 // Wi-Fi driver calls stay on core 0. Only core 1 writes the credential record.
@@ -134,7 +159,7 @@ bool startAP(uint32_t address){
   lastAPTry=millis();if(!address)return false;
   if(!WiFi.enableAP(true))return false;
   IPAddress ip=ipv4Address(address),mask(255,255,255,0);
-  bool ready=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(unitIdentity.apSSID,AP_PASSWORD,6,false,4);
+  bool ready=WiFi.softAPConfig(ip,ip,mask)&&WiFi.softAP(unitIdentity.apSSID,apPassword,6,false,4);
   if(ready)apAddress=address;else Serial.println("[WiFi] AP start failed. Retrying without stopping acquisition");return ready;
 }
 void applyNetwork(const NetworkSettings &settings){
@@ -373,8 +398,8 @@ void uartEvent(uint8_t kind,const DiagnosticEngine::Link &link,uint16_t address,
   }
   state.flow.append(kind,micros(),link.baud,link.parity,link.id,address,words,kind==1?tx:rx,kind==1?8:size,overflow,diagnosticActive,result,diagnosticActive?diagnostic.options.rx:normalReader.options.rx,diagnosticActive?diagnostic.options.tx:normalReader.options.tx,diagnosticActive?(diagnostic.options.manualDirection?diagnostic.options.dir:-1):(normalReader.options.manualDirection?normalReader.options.dir:-1),observedProfile,link.stops);
 }
-// Production polling and diagnostics use the identical strict FC03 transport.
-// Echoes and extra bytes remain visible and are rejected within a transaction.
+// Production polling and diagnostics share the strict FC03 transport.
+// Echo/noise stays in the trace; only CRC-valid reply frames are accepted.
 bool readWordsFor(const Settings &config,uint16_t address,uint8_t count,uint8_t *out,uint8_t attempts=1,bool normal=true){
   if(count<1||count>3||uint32_t(address)+count>65536UL)return false;
   readingNormally=normal;
@@ -1463,7 +1488,12 @@ void drawNetworkMenu(){
   else if(networkMenu.screen==Menu::KEY_TOOLS){const char *items[]={"Save and connect","Delete last","Clear password","Cancel"};oled.println(items[networkMenu.selected]);oled.println("PREV/NEXT to choose");}
   else if(networkMenu.screen==Menu::IP){oled.println(ipv4Address(networkMenu.address()).toString());oled.printf("Edit octet %u / 4\n",networkMenu.octet+1);oled.println("OK:next Hold:save");}
   else if(networkMenu.screen==Menu::IP_TOOLS){const char *items[]={"Save AP address","Reset 192.168.4.1","Cancel"};oled.println(items[networkMenu.selected]);oled.println("Private IPv4 /24");}
-  else if(networkMenu.screen==Menu::AP_PASSWORD){oled.println(unitIdentity.apSSID);oled.println(AP_PASSWORD);}
+  else if(networkMenu.screen==Menu::AP_PASSWORD){
+    oled.println(String(unitIdentity.apSSID).substring(0,21));
+    oled.println("Device-unique key:");
+    oled.println(String(apPassword).substring(0,16));
+    oled.println(String(apPassword).substring(16));
+  }
   oled.setCursor(0,56);if(oledNotice[0]&&uint32_t(millis()-oledNoticeAt)<5000)oled.print(String(oledNotice).substring(0,21));else oled.print("Hold OK: tools/back");
 }
 uint8_t page=0,slotPage=0;uint32_t lastPaint=0;
@@ -1529,6 +1559,7 @@ void setup() {
   uint8_t factoryMAC[6]={};esp_err_t identityResult=esp_efuse_mac_get_default(factoryMAC);
   if(identityResult!=ESP_OK)memset(factoryMAC,0,sizeof(factoryMAC));
   unitIdentity.initialize(factoryMAC,AP_FLEET_PREFIX,AP_SSID,AP_UNIQUE_NAME);
+  provisionAPCredential();
   if(identityResult!=ESP_OK||!unitIdentity.valid)Serial.println("[Boot] Factory identity unavailable. Verify unit identity before deployment");
   pinMode(PIN_RS485_DE,OUTPUT);digitalWrite(PIN_RS485_DE,LOW);
   pinMode(PIN_BUZZER,OUTPUT);digitalWrite(PIN_BUZZER,LOW);

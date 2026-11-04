@@ -9,7 +9,7 @@ constexpr char AP_SSID[] = "Midea Engineering AP";
 constexpr bool AP_UNIQUE_NAME = true;
 constexpr char AP_FLEET_PREFIX[] = "Midea Engineering";
 static_assert(sizeof(AP_FLEET_PREFIX)-1<=19&&sizeof(AP_SSID)-1<=32,"AP names must fit the 32-byte Wi-Fi limit");
-constexpr char AP_PASSWORD[] = "betahdijre12345";
+// AP credential is generated from device entropy and persisted in NVS on first boot.
 constexpr uint8_t OLED_ADDRESS = 0x3C;
 constexpr uint32_t LOCAL_OFFSET = 7 * 3600; // WIB. DS3231 stores UTC.
 

@@ -26,7 +26,7 @@ The schedule is defined in `CAPTURE_MINUTES` in [checkpoint_log.h](../firmware/i
 
 ## Collect readings after the scheduled time
 
-1. Connect the phone to **Midea Engineering-XXXXXXXXXXXX**, password **betahdijre12345**, and open **http://192.168.4.1**. In client or combined mode, the device's current local address also works.
+1. Connect the phone to **Midea Engineering-XXXXXXXXXXXX**, password **the device-specific password displayed on the OLED (Network → AP password)**, and open **http://192.168.4.1**. In client or combined mode, the device's current local address also works.
 2. Open **Overview → Scheduled kWh checkpoints** and verify the displayed record date. Choose Morning or Evening to view its five rows. The meter-reading column contains cumulative kWh, and Read at shows the actual response time in WIB.
 3. Choose **Download checkpoints CSV** to save the displayed day. To collect an earlier day, expand **Previous checkpoint days**, select its date and then download the CSV. The current day and previous available days are retained for a rolling 31-day range.
 4. Enable **Show differences between checkpoints** when consumption between readings is useful. The default view remains the original meter readings. On OLED, PREV/NEXT selects the morning or evening capture page, and short OK cycles its five saved readings with their record date.

@@ -6,7 +6,7 @@ The shared discovery controller, named flash registry, immutable checkpoint sour
 
 Meter-specific Fort examples below remain valid for Fort. For Acrel or Habuer, select the saved model first and use [Meter profiles](METER_PROFILES.md) and the [Habuer reference](HABUER.md) for the applicable map, conversion and diagnostic workflow.
 
-Firmware 3.4.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
+Firmware 3.5.0 serves the complete application from the ESP32, including measurement, connection discovery, the shared ModbusMaster diagnostic console, raw traffic, process metrics and Wi-Fi settings. The standalone INO remains an optional USB-only diagnostic tool. It is not required to unlock features in the installed firmware, and changing Wi-Fi mode does not change meter settings or replace the firmware.
 
 ## Retrieve scheduled meter readings
 
@@ -14,7 +14,7 @@ Overview begins with live energy and **Scheduled kWh checkpoints**. The five mor
 
 ## Reach the application
 
-On a fresh installation, connect the phone to **Midea Engineering-XXXXXXXXXXXX** using **betahdijre12345** and open **http://192.168.4.1**. The AP password is the compile-time setting in [board.h](../firmware/include/board.h). English is selected initially, with Indonesian available from the language selector. Once joined as a client, open the IP assigned by the router instead. The OLED network page and the Wi-Fi panel show the current addresses.
+On a fresh installation, connect the phone to **Midea Engineering-XXXXXXXXXXXX** using **the device-specific password displayed on the OLED (Network → AP password)** and open **http://192.168.4.1**. The password is uniquely generated on the device, saved separately in NVS, and shown only in the OLED Network → AP password menu. Upgrading from an older shared-password image rotates the recovery AP key; reconnect using the OLED value. English is selected initially, with Indonesian available from the language selector. Once joined as a client, open the IP assigned by the router instead. The OLED network page and the Wi-Fi panel show the current addresses.
 
 Open **Device & records → Wi-Fi connection** to select a mode, choose an SSID from the automatic 2.4 GHz scan and enter its password, then choose **Save Wi-Fi settings**. The ESP32 uses DHCP for client addressing. A password must be 8–63 printable ASCII characters or a 64-digit hexadecimal WPA key. For an intentionally open network, select the explicit checkbox. Leaving the field blank retains a saved password only when the SSID is unchanged, and the saved password is never returned to the browser or put into browser storage. For WPA2-Enterprise, select the explicit PEAP / EAP-MSCHAPv2 profile and follow [certificate provisioning](ENTERPRISE_WIFI.md). The main form uses username and password with the built-in public CA bundle. Advanced settings accept a private CA only when needed, an optional server DNS name and a separate outer identity. SSIDs come from the scan without a company-name restriction. If this page was opened through the client IP, the form shows the recovery AP name and link beside Save rather than leaving the button silently disabled.
 

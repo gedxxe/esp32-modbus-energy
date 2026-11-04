@@ -14,7 +14,7 @@ The web console now also shows the current session settings and evidence counter
 
 ## First run at the panel
 
-1. Join **Midea Engineering-XXXXXXXXXXXX**, password **betahdijre12345**, open **http://192.168.4.1**, and confirm Firmware 3.5.0 in the footer. In Meter setup, match the Fort CONi ID/baud/parity and select Manual direction for the confirmed DE-/RE installation.
+1. Join **Midea Engineering-XXXXXXXXXXXX**, password **the device-specific password displayed on the OLED (Network → AP password)**, open **http://192.168.4.1**, and confirm Firmware 3.5.0 in the footer. In Meter setup, match the Fort CONi ID/baud/parity and select Manual direction for the confirmed DE-/RE installation.
 2. Open **Diagnostic console**. Type `status` into the web **Command input**, then choose **Run command**. Read the printed ID, format, direction and timings before starting a test. These command lines are device input, not messages for a support chat.
 3. Enter `intermediate` as a new command and choose Run command. This sends the manual's phase-A current request at `0x0058`, two registers, and prints TX/RX plus the ModbusMaster result. At ID 1 the request bytes are `01 03 00 58 00 02 45 D8`.
 4. Enter `diagnose` separately when a wider record is needed. It first observes RX without TX for three seconds, then tries the selected probe and the configured raw register plan, including energy/ratio decoding when enabled. A silent first address does not prevent the later plan entries from running.

@@ -103,9 +103,11 @@ A normal firmware build uses the committed web header and does not require Node.
 | GSAP for preserved FadeContent reference | 3.15.0, excluded from the current runtime bundle |
 | Node / esbuild / Playwright | 24.22.1 / 0.28.2 / 1.62.1 |
 
+For the credential exposure remediation, device-unique AP password provisioning, scan scope and ADL400 evidence, see the [security audit](docs/SECURITY_AUDIT.md).
+
 ## 3. First startup and meter scan
 
-Join **Midea Engineering-XXXXXXXXXXXX** with password **betahdijre12345**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.5.0, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, Acrel `0x0064/1`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
+Join **Midea Engineering-XXXXXXXXXXXX** with password **the device-specific password displayed on the OLED (Network → AP password)**, then open **http://192.168.4.1**. Check that the footer says Firmware 3.5.0, select the installed model, match its slave ID/baud/parity in Meter setup, and confirm Manual direction. Contact testing uses that profile's FC03 probe: Fort `0x0058/2`, ADL400 `0x0000/2`, or Habuer `0x0030/2`, before requesting its measurement plan. When contact fails it returns to a bounded retry rather than immediately querying every register.
 
 On a new board, LittleFS may have no usable filesystem yet. The firmware does not format it automatically: only after a mount failure, hold OK through boot and continue holding for the five-second confirmation shown on the OLED. This erases CSV archives. Existing completed records and the active-day checkpoint are not deliberately cleared during the v1 configuration migration.
 

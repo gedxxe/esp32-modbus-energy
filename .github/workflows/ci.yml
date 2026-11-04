@@ -17,6 +17,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+      - name: Secret and repository hygiene scan
+        run: python tools/security_audit.py
+      - name: Native AP credential tests
+        run: |
+          mkdir -p tmp
+          g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_ap_credentials.cpp -o tmp/fort-ap-credential-test
+          ./tmp/fort-ap-credential-test
       - name: Native regression tests
         run: |
           g++ --version

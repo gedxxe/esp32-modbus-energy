@@ -113,6 +113,13 @@ int main(){
   assert(engine.readRegisters(engine.current,0,2,values));
   assert(profiles::raw32(values)==9798&&engine.transport.last.echo
          &&engine.transport.last.frameOffset==8&&engine.transport.last.frameSize==9);
+  // A malformed exception frame must not suppress a later valid FC03 frame.
+  port.onWrite=[&](){
+    for(auto b:response({220,0x83,0}))port.incoming.push_back(b);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);
+  };
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798&&engine.transport.last.frameOffset==5);
   // A corrupt candidate must not mask a later valid response.
   port.onWrite=[&](){
     auto corrupt=response({220,3,4,0,0,0x26,0x46});corrupt.back()^=0x01;

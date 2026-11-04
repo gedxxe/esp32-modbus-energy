@@ -104,9 +104,11 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 | GSAP untuk referensi FadeContent | 3.15.0, tidak dimuat dalam bundle runtime saat ini |
 | Node / esbuild / Playwright | 24.22.1 / 0.28.2 / 1.62.1 |
 
+Lihat [audit keamanan](docs/id/SECURITY_AUDIT.md) untuk perubahan password AP unik, temuan kebocoran, cakupan pemeriksaan dan pembuktian pembacaan ADL400.
+
 ## 3. Menyalakan pertama kali
 
-Hubungkan HP ke **Midea Engineering-XXXXXXXXXXXX** dengan password **betahdijre12345**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.5.0, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, Acrel `0x0064/1`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
+Hubungkan HP ke **Midea Engineering-XXXXXXXXXXXX** dengan password **kata sandi unik yang ditampilkan pada OLED perangkat (Network → AP password)**, lalu buka **http://192.168.4.1**. Pastikan footer menunjukkan Firmware 3.5.0, pilih model yang dipasang, samakan slave ID/baud/parity dengan meter, dan pilih Manual direction. Probe kontak mengikuti model tersimpan: Fort `0x0058/2`, ADL400 `0x0000/2`, atau Habuer `0x0030/2`, sebelum meminta parameter pengukurannya. Saat kontak gagal, pembacaan kembali ke retry terbatas setiap tiga detik.
 
 Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. Firmware tidak melakukan format otomatis: hanya sesudah mount gagal, tahan OK saat boot dan lanjutkan selama lima detik sesuai petunjuk OLED. Prosedur ini menghapus arsip CSV, sedangkan migrasi konfigurasi v1 tidak sengaja menghapus checkpoint hari atau interval lengkap yang sudah tersimpan.
 

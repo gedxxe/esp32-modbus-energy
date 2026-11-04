@@ -6,7 +6,7 @@ Controller discovery bersama, registry flash bernama, ID sumber checkpoint serta
 
 Contoh khusus Fort di bawah tetap berlaku untuk Fort. Untuk Acrel atau Habuer, simpan model terlebih dahulu lalu ikuti [Profil meter](METER_PROFILES.md) serta [referensi Habuer](HABUER.md) untuk peta, konversi dan alur diagnostiknya.
 
-Firmware 3.4.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
+Firmware 3.5.0 menyajikan seluruh aplikasi dari ESP32, termasuk pengukuran, scanner koneksi, konsol diagnostik ModbusMaster, traffic mentah, metrik proses dan pengaturan Wi-Fi. INO mandiri tetap menjadi alat opsional untuk diagnostik USB, sehingga fitur terbaru tidak mengharuskan flash sketch lain atau memakai Serial Monitor. Pergantian Wi-Fi tidak mengubah setting meter.
 
 ## Mengambil angka meter terjadwal
 
@@ -14,7 +14,7 @@ Ringkasan dimulai dari energi langsung serta **Checkpoint kWh terjadwal**. Lima 
 
 ## Membuka aplikasi dan memilih Wi-Fi
 
-Pada instalasi baru, hubungkan HP ke **Midea Engineering-XXXXXXXXXXXX** memakai **betahdijre12345**, kemudian buka **http://192.168.4.1**. Password AP mengikuti [board.h](../../firmware/include/board.h). Bahasa awal adalah English dan dapat diganti ke Indonesia melalui pemilih bahasa. Jika ESP32 menjadi client, gunakan IP DHCP dari router yang ditampilkan pada halaman jaringan OLED maupun panel Wi-Fi.
+Pada instalasi baru, hubungkan HP ke **Midea Engineering-XXXXXXXXXXXX** memakai **kata sandi unik yang ditampilkan pada OLED perangkat (Network → AP password)**, kemudian buka **http://192.168.4.1**. Password AP dihasilkan secara acak untuk setiap perangkat, disimpan terpisah di NVS, dan ditampilkan pada menu OLED Network → AP password. Setelah upgrade dari firmware lama, perangkat memakai kata sandi baru; sambungkan ulang memakai nilai pada OLED. Bahasa awal adalah English dan dapat diganti ke Indonesia melalui pemilih bahasa. Jika ESP32 menjadi client, gunakan IP DHCP dari router yang ditampilkan pada halaman jaringan OLED maupun panel Wi-Fi.
 
 Buka **Perangkat & arsip → Koneksi Wi-Fi**, pilih mode, pilih SSID dari scan otomatis jaringan 2,4 GHz lalu isi password, kemudian pilih **Simpan pengaturan Wi-Fi**. Password menerima 8–63 karakter ASCII tercetak atau WPA key heksadesimal 64 digit. Jaringan terbuka harus dipilih melalui checkbox khusus. Kolom password kosong mempertahankan key lama hanya untuk SSID yang sama, dan password tersimpan tidak pernah dikirim kembali lewat API status atau dimasukkan ke storage browser. Untuk WPA2-Enterprise, pilih profil PEAP / EAP-MSCHAPv2 secara eksplisit lalu ikuti [pengisian sertifikat](ENTERPRISE_WIFI.md). Form utama memakai username dan password dengan kumpulan CA publik bawaan. Pengaturan lanjutan menyediakan CA privat bila dibutuhkan, nama DNS server opsional dan identitas luar. SSID mengikuti hasil scan tanpa pembatasan nama perusahaan. Bila halaman dibuka lewat IP client, petunjuk nama AP pemulihan dan tautan alamatnya muncul di dekat Simpan, sehingga tombol tidak terkunci tanpa penjelasan.
 

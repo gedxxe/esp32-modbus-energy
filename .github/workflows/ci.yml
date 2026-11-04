@@ -87,9 +87,16 @@ jobs:
           npm run build:web
           git add firmware/include/web_ui.h web/bundle.json
           if ! git diff --cached --quiet; then
-            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Regenerate browser assets for ADL400 Meter Lab"
-            git push origin HEAD:fix/adl400-field-rtu-20261104
+            for file in firmware/include/web_ui.h web/bundle.json; do
+              gh api "repos/${GITHUB_REPOSITORY}/contents/${file}" --method PUT \
+                -f branch=fix/adl400-field-rtu-20261104 \
+                -f message="Regenerate ${file} for ADL400 Meter Lab" \
+                -f sha="$(git rev-parse "HEAD:${file}")" \
+                -f content="$(base64 -w0 "${file}")" --silent > /dev/null
+            done
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify committed React assets
         run: npm run check:web
       - run: npx playwright install --with-deps chromium

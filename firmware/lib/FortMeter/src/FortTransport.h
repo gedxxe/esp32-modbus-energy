@@ -162,9 +162,11 @@ class FortTransport {
         uint16_t crc=meterCRC(last.rx+pos,length-2);
         uint16_t received=uint16_t(last.rx[pos+length-2])|(uint16_t(last.rx[pos+length-1])<<8);
         if(crc!=received){badCRC=true;continue;}
+        // Reject malformed exception codes before committing a frame. Keep
+        // searching: a later CRC-valid data response may still be present.
+        if(exception&&(!last.rx[pos+2]||last.rx[pos+2]>0x7F))continue;
         last.frameOffset=uint8_t(pos);last.frameSize=uint8_t(length);
         if(exception){
-          if(!last.rx[pos+2]||last.rx[pos+2]>0x7F)continue;
           last.exception=true;last.status=last.rx[pos+2];
         }else{
           for(uint8_t i=0;i<words;++i)out[i]=uint16_t(last.rx[pos+3+2*i])<<8|last.rx[pos+4+2*i];

@@ -19,3 +19,14 @@ sdkconfig.*
 /firmware/dependencies.lock
 /examples/FortSerialDebug/CMakeLists.txt
 /examples/FortSerialDebug/dependencies.lock
+
+# Local-only configuration and temporary artifacts
+.env
+.env.*
+!.env.example
+*.log
+*.local
+.cache/
+dist/
+build/
+temp/

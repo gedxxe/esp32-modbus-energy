@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/LORA_PROTOCOL.md) · [Configuration and wiring](LORA.md) · [PTMP and gateway](LORA_PTMP.md)
 
-This is the interoperability contract for the S3 node and a future independently developed ESP32-C6 gateway. It uses raw LoRa with explicit headers, normal IQ, physical packet CRC and a shared 32-byte key. It is not LoRaWAN. The gateway must implement this binary contract rather than treating received bytes as JSON or text.
+This is the interoperability contract for the S3 node and the independently developed ESP32-C3 gateway. It uses raw LoRa with explicit headers, normal IQ, physical packet CRC and a shared 32-byte key. It is not LoRaWAN. The gateway must implement this binary contract rather than treating received bytes as JSON or text.
 
 ## Representation and radio defaults
 

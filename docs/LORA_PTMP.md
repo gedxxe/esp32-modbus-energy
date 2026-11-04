@@ -2,7 +2,7 @@
 
 **English** · [Bahasa Indonesia](id/LORA_PTMP.md) · [Radio configuration](LORA.md) · [Gateway development prompt](GATEWAY_PROMPT.md)
 
-The station is the node side of a point-to-multipoint star. Several ESP32-S3 stations can address one ESP32-C6 receiver, with one SX1262 at each end. The S3 firmware implements the node and the [Energy Station v1 binary contract](LORA_PROTOCOL.md). The C6 needs a separate compatible gateway application before an exchange can occur. Matching the frequency alone does not implement authentication, acknowledgements or checkpoint retrieval.
+The station is the node side of a point-to-multipoint star. Several ESP32-S3 stations can address one ESP32-C3 receiver, with one SX1262 at each end. The S3 firmware implements the node and the [Energy Station v1 binary contract](LORA_PROTOCOL.md). The [ESP32-C3 gateway repository](https://github.com/gedxxe/esp32-modbus-energy-gateway) contains a separate compatible receiver implementation. A successful RF exchange still requires physically matching both configurations and keys. Matching the frequency alone does not implement authentication, acknowledgements or checkpoint retrieval.
 
 ![PTMP installation and gateway responsibilities](assets/lora-ptmp.svg)
 
@@ -24,7 +24,7 @@ Node `2` and gateway `1` are different endpoints in the same address space. Netw
 
 ## Configure a three-station installation
 
-1. Implement and flash the separate C6 gateway using the [development prompt](GATEWAY_PROMPT.md). Give it Gateway ID `1`, Network ID `1` and the same PHY settings as the nodes. Default carrier is editable `915 MHz`, with `125 kHz`, `SF7`, `CR4/5`, preamble `8`, logical sync `0x12`, explicit header, normal IQ and LoRa CRC enabled. Follow the installation's spectrum requirements described in [LORA](LORA.md).
+1. Build the separate [ESP32-C3 gateway](https://github.com/gedxxe/esp32-modbus-energy-gateway) from its `firmware/` PlatformIO workspace; use [the development prompt](GATEWAY_PROMPT.md) only as background. Give it Gateway ID `1`, Network ID `1` and the same PHY settings as the nodes. Default carrier is editable `915 MHz`, with `125 kHz`, `SF7`, `CR4/5`, preamble `8`, logical sync `0x12`, explicit header, normal IQ and LoRa CRC enabled. Follow the installation's spectrum requirements described in [LORA](LORA.md).
 2. At the first S3, open its AP or client address and choose **Device & records → LoRa node / SX1262**. Set Node ID `2`, Gateway ID `1` and Network ID `1`. Generate a key and copy that new key into the gateway's inventory entry for node `2` before saving. Saved secrets are not returned by HTTP.
 3. Use Node ID `3` at the second panel and `4` at the third, with the same gateway/network/PHY. Generate and register their own keys. Modbus settings stay specific to the meter connected to each panel.
 4. Enable and test one station first. SX1262 initialization must succeed, then HELLO needs its matching authenticated ACK. Inspect RX/ACK counters and last RSSI/SNR. A configured gateway ID or a successful SPI initialization alone does not prove a radio exchange.
@@ -34,7 +34,7 @@ Node `2` and gateway `1` are different endpoints in the same address space. Netw
 
 ## Shared radio time and capacity
 
-One SX1262 listens on one selected configuration and cannot receive another station while transmitting. The existing v1 link uses addressed packets, bounded random contention and retries. It has no negotiated TDMA slots, collision-free reservation, mesh routing or multichannel concentrator. Gateway polling serializes requested work but cannot silence the nodes' autonomous periodic uplinks.
+One SX1262 listens on one selected configuration and cannot receive another station while transmitting. The v1 link uses addressed packets, SX1262 nonblocking CAD before node uplinks in the companion branch, bounded random backoff and retries. It has no negotiated TDMA slots, collision-free reservation, mesh routing or multichannel concentrator. Gateway polling serializes requested work but cannot silence the nodes' autonomous periodic uplinks.
 
 Since 3.4.1, initial HELLO contention has at least a five-second random window, increased for longer airtime up to 30 seconds. Other first transmissions use an airtime-dependent window with a 1.5-second minimum. A correctly addressed ACK for an already transmitted outstanding frame can arrive during retry backoff. It is rejected after that frame retires or its session changes. Retry bytes remain immutable and stale live values retain the existing expiry rule.
 
@@ -48,6 +48,10 @@ The gateway inventory maps `(Network ID, Node ID)` to a name, key and expected r
 
 ACK means radio packet acceptance. Database durability is a separate status. Retain validated records in a recoverable local gateway outbox before reporting durable collection, retry backend delivery idempotently and never delete a station's records because an ACK was sent. Record missing energy as missing, preserve UTC/sample age/source metadata and do not multiply already-scaled kWh by CT/PT again.
 
-The C6's application CPU is a single high-performance RISC-V core, with a separate low-power CPU documented by [Espressif](https://documentation.espressif.com/esp32-c6_datasheet_en.html). Do not copy the S3's core-1 ownership assignments into the C6 application. Use bounded worker queues and short tasks on its supported application core. Exact gateway GPIOs depend on its board/module and must be checked before wiring.
+The ESP32-C3 gateway has a single RISC-V application core; do not copy the S3's core-1 ownership assignments into it. Use bounded worker queues and short tasks on its supported application core. Exact gateway GPIOs depend on its board/module and must be checked before wiring.
 
 Software tests cover three addressed nodes, foreign-node/session rejection, delayed outstanding ACKs and bounded contention. Physical multi-node RF reception, collision behavior, gateway scheduling, power failure and backend delivery remain installation acceptance tests. The [gateway prompt](GATEWAY_PROMPT.md) specifies the required implementation and test evidence.
+
+## ESP32-S3 channel sensing update (wire v1 unchanged)
+
+The node's independent [PTMP medium-access PR #5](https://github.com/gedxxe/esp32-modbus-energy/pull/5) now checks for LoRa preamble/channel activity using RadioLib 7.8.1's interrupt-driven SX1262 CAD before each HELLO, TELEMETRY and CHECKPOINT uplink. Busy-channel observations defer the **same immutable authenticated frame** through bounded random backoff. The receiver gateway gives ACKs priority and performs its own CAD before lower-priority POLLs. Both ends keep their factory software default **915 MHz**, SX1262 PHY, 14 dBm configured TX and protocol v1 packet layout. This is a software collision-mitigation mechanism, not deterministic TDMA or proof of zero hidden-node collisions. Physical four-node RF acceptance remains outstanding.

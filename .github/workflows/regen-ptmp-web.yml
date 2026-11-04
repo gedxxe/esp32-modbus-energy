@@ -1,0 +1,35 @@
+name: Regenerate LoRa web bundle for PTMP branch
+
+on:
+  push:
+    branches:
+      - feature/lora-ptmp-anti-collision-20261105
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+          cache: npm
+      - run: npm ci
+      - name: Rebuild committed offline firmware dashboard
+        run: npm run build:web
+      - name: Commit generated source bundle back to this feature branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- firmware/include/web_ui.h web/bundle.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(web): synchronize LoRa CAD dashboard assets"
+            git push origin HEAD:feature/lora-ptmp-anti-collision-20261105
+          fi

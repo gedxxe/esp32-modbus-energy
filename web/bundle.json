@@ -1,7 +1,7 @@
 {
   "version": "3.5.0",
   "transport": "gzip",
-  "compressed_total": 160065,
+  "compressed_total": 160201,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 470537,
-      "gzip": 147973,
-      "sha256": "fd920a0ed8bbe4c9013eb5e0d37d4fe418971ae0f425beca11fdcae53122cab5"
+      "raw": 470940,
+      "gzip": 148109,
+      "sha256": "0a46ad3378ebae1b633e9615df3e76d0763aaecc9c91a01c64a717f1d6ac6dcf"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -53,7 +53,7 @@
     "web/components/FlowPlayback.jsx": "f33ba001207024f3b9dc6d380222f54f841305b12c985ceb37223496a5fb6896",
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/LoRaControls.jsx": "6498ddae605d7aab9453b1896102d1fb1314ce84da78415303bea8af9c0f3844",
+    "web/components/LoRaControls.jsx": "2b34079e796367fed80db03aaf5804c30b2442fd020fab9d7a007b1d401591c1",
     "web/components/MeterLab.jsx": "50757340ea3c398c516598ecf839dcf7373e06e6f351ca2f32f76a9fee9f0dc2",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
@@ -69,7 +69,7 @@
     "web/form-validation.js": "7609ddbadd3a0a712c9f3a2dc281e55a581384a576bc9b8d1fed0a1d4dcf8c54",
     "web/i18n.js": "46fa3e6d94563bbef5e7d5c57e53edea8591d5d63d9927457d8d5befbf7444b6",
     "web/index.html": "e5ea589dab070704146e1de47c176f2b09f4e1b59ed022fc7af9f7a8532740c8",
-    "web/lora-i18n.js": "81652b45c0c463c3e1149bb4ad680daf94bb481e6868f2453cd597b14b34f977",
+    "web/lora-i18n.js": "3cc9c97e54ee29d58680a09ec80cd1961f7856a473ef26a69a65ac7171904e5b",
     "web/meter-lab-i18n.js": "722217aa752093bc83cd0fd62547b2287e45b3e8147954cf6ac70826e144c446",
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
     "web/meter-profile.js": "95fdf72684f51ffd1961e11ed39e2714ceecc9af77df5b42be78db57c23a286f",
@@ -94,5 +94,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "5fd5ac794d3dba69e8a096761702b6dd4b117009671feec611f06280f5ea4e4e"
+  "header_sha256": "462d2addf904aebc7a247a1bab9f5f657280b8f56cc7a7e510663230efa90048"
 }

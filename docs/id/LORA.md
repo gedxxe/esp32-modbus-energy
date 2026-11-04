@@ -4,7 +4,7 @@
 
 Untuk beberapa station menuju satu receiver kantor, ikuti [setup PTMP dan contoh ID](LORA_PTMP.md). [Prompt pengembangan gateway](GATEWAY_PROMPT.md) siap disalin ke chat terpisah pada project gateway.
 
-Firmware 3.4.0 menambahkan raw LoRa opsional dari station ESP32-S3 ini ke satu gateway yang ditentukan. Gateway yang direncanakan memakai ESP32-C6 dan SX1262 dengan firmware terpisah. Rilis ini mengimplementasikan node S3 dan spesifikasi protokol gateway, tanpa menyediakan image C6 atau mengklaim pairing RF sudah diuji pada perangkat.
+Firmware 3.4.0 menambahkan raw LoRa opsional dari station ESP32-S3 ini ke satu gateway yang ditentukan. Gateway penerima memakai ESP32-C3 dan SX1262 dalam [repository terpisah](https://github.com/gedxxe/esp32-modbus-energy-gateway). Rilis ini mengimplementasikan node S3 dan spesifikasi protokol gateway, tanpa menyertakan image gateway atau mengklaim pairing RF fisik sudah diuji.
 
 Sesuai permintaan pemilik, default carrier adalah **915.000 MHz** dan radio tetap nonaktif sampai dikonfigurasi. Frekuensi dapat diubah melalui web dari 803 sampai 930 MHz mengikuti rentang model Ra-01SH. ID node, gateway dan jaringan terpisah dari slave ID Modbus. Setiap node pada jaringan yang sama harus memiliki ID unik.
 
@@ -58,10 +58,14 @@ Setelah TX selesai, radio kembali RX sebelum menunggu ACK. Retry mempertahankan 
 
 Telemetry live mengambil nilai meter valid terbaru dan tidak membuat antrean tanpa batas. Energi hilang atau kedaluwarsa ditandai tidak tersedia. Checkpoint tetap berada pada log lokal. Gateway dapat meminta satu tanggal WIB untuk memperoleh record CRC 446 byte melalui fragmen ber-ACK. Core 1 melayani satu permintaan arsip terbatas dan menundanya di dekat jadwal checkpoint. Gateway perlu merakit, memvalidasi dan menghapus duplikasi sebelum menyimpan. ACK tidak menghapus record lokal dan belum membuktikan commit database. Setelah gangguan, gateway dapat meminta hari tersebut lagi selama retensi lokal masih tersedia.
 
-Gunakan pairing key berbeda untuk setiap node, dengan inventori ID-ke-key pada gateway. Frame memakai HMAC-SHA256 terpotong untuk autentikasi, tanpa enkripsi payload kWh. Alamat, session, sequence ACK dan replay poll diperiksa. Tidak ada pairing tanpa key melalui udara atau konfigurasi meter jarak jauh. [Energy Station v1](LORA_PROTOCOL.md) menjelaskan offset, flag, ACK dan test vector publik untuk implementasi C6.
+Gunakan pairing key berbeda untuk setiap node, dengan inventori ID-ke-key pada gateway. Frame memakai HMAC-SHA256 terpotong untuk autentikasi, tanpa enkripsi payload kWh. Alamat, session, sequence ACK dan replay poll diperiksa. Tidak ada pairing tanpa key melalui udara atau konfigurasi meter jarak jauh. [Energy Station v1](LORA_PROTOCOL.md) menjelaskan offset, flag, ACK dan test vector publik untuk implementasi C3.
 
 ## Pemeriksaan lapangan
 
 Panel menampilkan counter TX, RX terautentikasi, ACK, timeout, frame ditolak dan CRC fisik, RSSI/SNR, airtime terakhir, tunggu TX dan kode driver. Counter direset saat ESP32 restart dan tidak ditulis ke flash setiap paket. Process monitor menampilkan task `sx1262-link / SPI` beserta stack watermark. Timeout ACK saja tidak dapat membedakan modul tidak terpasang, antena tidak cocok, interferensi atau gateway yang berbeda protokol.
 
 [Gambar desktop](../assets/ui-lora-desktop.png) dan [gambar HP](../assets/ui-lora-mobile.png) memakai API simulasi. Pengujian native mencakup codec, recovery, alamat, kecocokan ACK/session dan pacing. Sinyal SPI, RF switch DIO2 pada modul yang dibeli, daya TX, penerimaan, jangkauan, coexistence, beban Wi-Fi dan interoperabilitas gateway tetap memerlukan pengujian perangkat. Status paired simulasi bukan bukti penerimaan hardware.
+
+## Mitigasi collision uplink melalui CAD
+
+Worker radio node memeriksa kanal SX1262 dengan CAD nonblocking sebelum HELLO, TELEMETRY dan CHECKPOINT. Kanal yang sedang sibuk membuat frame yang sama ditunda menggunakan randomized backoff terbatas. Session dan sequence paket tidak berubah sehingga retry tetap bisa dideduplikasi di gateway. Penerima ESP32-C3 memprioritaskan ACK dan memeriksa kanal sebelum mengirim POLL. **Default 915 MHz dan TX power 14 dBm tidak berubah.** CAD bukan TDMA dan tidak menghilangkan collision hidden node; uji lapangan tetap dibutuhkan. Baca [topologi PTMP](LORA_PTMP.md) dan [desain gateway](https://github.com/gedxxe/esp32-modbus-energy-gateway/blob/main/docs/COLLISION_CONTROL.md).

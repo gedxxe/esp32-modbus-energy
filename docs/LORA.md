@@ -4,7 +4,7 @@
 
 For several stations sharing one office receiver, follow [PTMP setup and ID examples](LORA_PTMP.md). The [gateway development prompt](GATEWAY_PROMPT.md) is ready to copy into a separate gateway-project chat.
 
-Firmware 3.4.0 adds an optional raw-LoRa link between this ESP32-S3 meter station and one configured gateway. The intended gateway is an ESP32-C6 with an SX1262, developed in a separate firmware project. This release implements the S3 node and publishes the gateway's wire contract. It does not include an ESP32-C6 image or claim a completed RF pairing test.
+Firmware 3.4.0 adds an optional raw-LoRa link between this ESP32-S3 meter station and one configured gateway. The receiver is the separate [ESP32-C3 SX1262 gateway project](https://github.com/gedxxe/esp32-modbus-energy-gateway). This release implements the S3 node and publishes the gateway's wire contract. This node repository does not include the gateway image or claim completed physical RF pairing tests.
 
 The radio defaults to **915.000 MHz**, as requested by the owner, and remains disabled until configured through the website. The carrier is editable from 803 to 930 MHz, which follows the Ra-01SH model's stated range. Node ID, gateway ID and network ID are independent of the Modbus slave address. Each station needs a unique node ID within its network.
 
@@ -65,3 +65,7 @@ Use a distinct pairing key for each node, with the gateway maintaining an ID-to-
 The panel exposes TX, authenticated RX, ACK, timeout, rejected-frame and physical CRC counters, RSSI/SNR, last airtime, queued TX wait and driver error code. These counters reset with the ESP32 and are not written to flash per packet. The process monitor includes `sx1262-link / SPI` and its stack watermark. A missing module, antenna mismatch, interference or incompatible gateway cannot be diagnosed from an ACK timeout alone.
 
 [Desktop](assets/ui-lora-desktop.png) and [phone](assets/ui-lora-mobile.png) illustrations use simulated API responses. Native tests exercise codecs, recovery, addressing, ACK/session matching and pacing. Physical SPI signals, DIO2 RF switching on the purchased board, TX power, reception, range, coexistence, RADIUS/Wi-Fi load and gateway interoperability still require bench and field tests. Do not interpret the simulated paired state as hardware acceptance.
+
+## Uplink collision mitigation (CAD)
+
+The SX1262 node radio worker checks LoRa channel activity before HELLO, TELEMETRY and CHECKPOINT uplinks with nonblocking CAD. A busy channel defers the same session/sequence frame by randomized bounded backoff; a clear channel proceeds to transmission subject to the existing duty gate. The gateway uses a complementary single-radio scheduler with ACK priority and CAD before discretionary POLLs. **Default frequency remains 915 MHz and configured TX power remains 14 dBm.** CAD cannot detect hidden transmitters or guarantee collision-free PTMP. See [PTMP setup and caveats](LORA_PTMP.md) and [gateway medium-access design](https://github.com/gedxxe/esp32-modbus-energy-gateway/blob/main/docs/COLLISION_CONTROL.md).

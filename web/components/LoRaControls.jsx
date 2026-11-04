@@ -96,6 +96,7 @@ export default function LoRaControls({ device }) {
       <div><dt>{t("lora_sequences")}</dt><dd>{v ? `${v.lastTxSequence} / ${v.lastRxSequence}` : "—"}</dd></div>
       <div><dt>RSSI / SNR</dt><dd>{v?.lastRxAgeMs ? `${number(v.rssi, 1)} dBm / ${number(v.snr, 1)} dB` : "—"}</dd></div>
       <div><dt>{t("lora_airtime")}</dt><dd>{v ? `${v.airtimeMs} ms / ${Math.ceil(v.waitMs / 1000)} s` : "—"}</dd></div>
+      <div><dt>{t("lora_cad_counts")}</dt><dd>{v ? `${v.cadBusy ?? 0} / ${v.cadClear ?? 0} / ${v.cadErrors ?? 0} / ${v.cadDeferred ?? 0}` : "—"}</dd></div>
     </dl>
     <form id="lora-form" onSubmit={save} onChange={() => setFeedback(null)} noValidate>
       <label className="checkbox-line lora-toggle"><input id="lora-enabled" type="checkbox" disabled={blocked} checked={draft.enabled} onChange={e => set("enabled", e.target.checked)} /><span>{t("lora_enable")}</span></label>

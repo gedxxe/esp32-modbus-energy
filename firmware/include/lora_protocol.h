@@ -75,6 +75,16 @@ inline uint8_t nextUplink(bool paired,bool archive,bool requested,bool due,bool 
   if(requested||due)return TELEMETRY;
   return archive?CHECKPOINT:0;
 }
+// RadioLib SX1262 CAD is carrier sensing, not collision-free TDMA.
+// Keep one immutable frame/session/sequence through every busy-channel retry.
+// Delay increases on persistent activity and remains bounded on all MCUs.
+inline uint32_t cadBackoffMs(uint32_t entropy,uint8_t busyStreak,uint32_t airtimeMs){
+  const uint8_t exponent=busyStreak>4?4:busyStreak;
+  uint32_t window=1000u<<exponent;
+  if(window>12000u)window=12000u;
+  const uint32_t base=airtimeMs>1200u?1500u:airtimeMs+300u;
+  return base+entropy%window;
+}
 class DutyGate {
  public:bool used=false;uint32_t at=0,quietMs=0;
   void transmitted(uint32_t now,uint32_t airtimeMs){used=true;at=now;quietMs=airtimeMs>UINT32_MAX/100?UINT32_MAX:airtimeMs*100;}

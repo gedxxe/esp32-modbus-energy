@@ -2,7 +2,7 @@
 
 [English](../LORA_PTMP.md) · **Bahasa Indonesia** · [Konfigurasi radio](LORA.md) · [Prompt pengembangan gateway](GATEWAY_PROMPT.md)
 
-Station ini merupakan sisi node dari jaringan PTMP bertopologi bintang. Beberapa ESP32-S3 mengirim ke satu receiver ESP32-C6, dengan SX1262 pada setiap perangkat. Firmware S3 menyediakan node beserta [kontrak biner Energy Station v1](LORA_PROTOCOL.md). Receiver C6 tetap memerlukan firmware gateway yang cocok. Menyamakan frekuensi saja belum menyediakan autentikasi, ACK maupun pengambilan checkpoint.
+Station ini merupakan sisi node dari jaringan PTMP bertopologi bintang. Beberapa ESP32-S3 mengirim ke satu receiver ESP32-C3, dengan SX1262 pada setiap perangkat. Firmware S3 menyediakan node beserta [kontrak biner Energy Station v1](LORA_PROTOCOL.md). Receiver C6 tetap memerlukan firmware gateway yang cocok. Menyamakan frekuensi saja belum menyediakan autentikasi, ACK maupun pengambilan checkpoint.
 
 ![Topologi PTMP dan pekerjaan gateway](../assets/lora-ptmp.svg)
 
@@ -24,7 +24,7 @@ Node `2` dan gateway `1` merupakan dua endpoint dalam ruang alamat yang sama. Ja
 
 ## Contoh pengaturan tiga station
 
-1. Buat dan flash firmware C6 terpisah menggunakan [prompt gateway](GATEWAY_PROMPT.md). Tentukan ID gateway `1`, ID jaringan `1` dan PHY yang sama dengan node. Default carrier dapat diubah dari `915 MHz`, dengan bandwidth `125 kHz`, `SF7`, `CR4/5`, preamble `8`, sync logis `0x12`, explicit header, IQ normal dan CRC LoRa aktif. Sesuaikan instalasi dengan ketentuan spektrum pada [panduan radio](LORA.md).
+1. Build firmware [gateway ESP32-C3](https://github.com/gedxxe/esp32-modbus-energy-gateway) dari folder `firmware/` menggunakan PlatformIO; [prompt gateway](GATEWAY_PROMPT.md) hanya referensi pengembangan. Tentukan ID gateway `1`, ID jaringan `1` dan PHY yang sama dengan node. Default carrier dapat diubah dari `915 MHz`, dengan bandwidth `125 kHz`, `SF7`, `CR4/5`, preamble `8`, sync logis `0x12`, explicit header, IQ normal dan CRC LoRa aktif. Sesuaikan instalasi dengan ketentuan spektrum pada [panduan radio](LORA.md).
 2. Di S3 pertama, buka IP AP atau IP client lalu pilih **Perangkat & arsip → Node LoRa / SX1262**. Isi ID node `2`, ID gateway `1` dan ID jaringan `1`. Generate key baru, lalu salin ke entri node `2` pada inventori gateway sebelum menyimpan. Key tersimpan tidak dapat diambil kembali melalui HTTP.
 3. Gunakan ID node `3` untuk panel kedua dan `4` untuk panel ketiga. Gateway, jaringan dan PHY tetap sama, sedangkan setiap station memakai key sendiri. Pengaturan Modbus mengikuti meter yang terpasang pada masing-masing panel.
 4. Uji satu station dahulu. Setelah inisialisasi SX1262 berhasil, HELLO harus mendapat ACK yang alamat, session dan autentikasinya cocok. Periksa counter RX/ACK serta RSSI/SNR terakhir. ID gateway tersimpan atau SPI berhasil belum membuktikan pertukaran RF.
@@ -48,6 +48,10 @@ Inventori gateway memetakan `(ID jaringan, ID node)` ke nama, key dan alamat rec
 
 ACK berarti frame diterima melalui radio. Status database durable harus dipisah. Gateway perlu outbox lokal yang dapat pulih dari restart, pengiriman backend tanpa duplikasi dan tidak menghapus log station setelah ACK. Energi yang tidak tersedia tidak boleh diubah menjadi nol. Pertahankan UTC, usia sampel dan identitas sumber, serta jangan mengalikan CT/PT kembali pada kWh yang sudah dikonversi node.
 
-CPU aplikasi C6 memakai satu core RISC-V performa tinggi dengan CPU low-power terpisah, sesuai [datasheet Espressif](https://documentation.espressif.com/esp32-c6_datasheet_en.html). Penetapan core 1 pada firmware S3 tidak boleh disalin ke C6. Gunakan worker dan antrean terbatas pada core aplikasi yang didukung. GPIO gateway perlu disesuaikan dengan board serta modul C6 sebenarnya.
+Gateway ESP32-C3 memakai satu core aplikasi RISC-V. Penetapan core 1 pada firmware S3 tidak boleh disalin ke C3. Gunakan worker dan antrean terbatas pada core aplikasi yang didukung. GPIO gateway perlu disesuaikan dengan board serta modul C3 sebenarnya.
 
 Tes software memeriksa tiga node beralamat, penolakan node/session lain, ACK terlambat untuk frame aktif dan batas contention. RF banyak node, tabrakan, scheduler gateway, pemutusan daya dan pengiriman backend tetap perlu diuji pada perangkat. [Prompt gateway](GATEWAY_PROMPT.md) memuat implementasi dan bukti pengujian yang diperlukan.
+
+## CAD pada node ESP32-S3 (tanpa mengubah protokol v1)
+
+[PR node #5](https://github.com/gedxxe/esp32-modbus-energy/pull/5) menggunakan Channel Activity Detection (CAD) SX1262 nonblocking sebelum uplink HELLO, TELEMETRY dan CHECKPOINT. Ketika kanal terdeteksi sibuk, frame yang sama ditunda menggunakan random backoff terbatas, tanpa mengganti session, sequence maupun HMAC paket yang sudah ada. Gateway ESP32-C3 memprioritaskan ACK dan melakukan CAD untuk POLL. Frekuensi sumber tetap **915 MHz** dengan TX power terkonfigurasi **14 dBm**. CAD mengurangi collision yang dapat dideteksi, tetapi tidak dapat menjamin bebas interferensi atau hidden-node collision. Uji RF empat node fisik masih diperlukan.

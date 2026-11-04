@@ -1,7 +1,7 @@
 {
   "version": "3.5.0",
   "transport": "gzip",
-  "compressed_total": 160012,
+  "compressed_total": 160065,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 470363,
-      "gzip": 147920,
-      "sha256": "d75a35d275ea03abdc1a3264616648740f4dcb645542b8ebe65d5ddc917dbd6e"
+      "raw": 470537,
+      "gzip": 147973,
+      "sha256": "fd920a0ed8bbe4c9013eb5e0d37d4fe418971ae0f425beca11fdcae53122cab5"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -54,7 +54,7 @@
     "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
     "web/components/LoRaControls.jsx": "6498ddae605d7aab9453b1896102d1fb1314ce84da78415303bea8af9c0f3844",
-    "web/components/MeterLab.jsx": "bb534614cf9ae08bff19eb0704b07defb80e3c31c2260c194ca2064e04fb35dd",
+    "web/components/MeterLab.jsx": "50757340ea3c398c516598ecf839dcf7373e06e6f351ca2f32f76a9fee9f0dc2",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
     "web/components/NetworkControls.jsx": "c6c546b41265e251b06dae09fdb223c1edb6cc1996cb5a9fcb2a343bfe2743a8",
@@ -94,5 +94,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "6ac985264788022ae34298255e59192a45011c455c58e91393b29192c5c4f165"
+  "header_sha256": "5fd5ac794d3dba69e8a096761702b6dd4b117009671feec611f06280f5ea4e4e"
 }

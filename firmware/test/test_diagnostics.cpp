@@ -77,13 +77,14 @@ int main(){
   engine.command("profile acrel-adl400");assert(engine.options.profile==profiles::ACREL_ADL400_VERIFIED);
   assert(engine.options.probeAddress==0&&engine.options.probeWords==2&&engine.baudCount==5);engine.command("ratios FFFE");assert(engine.options.ratioAddress==0xFFFE);engine.command("ratios 008D");
   assert(engine.auditPlan[2].address==0x5300&&engine.auditPlan[3].address==0x006A&&engine.auditPlan[5].address==0x5332);
-  port.replies.push_back(response({1,3,2,0,123}));assert(engine.probeLink(engine.current));
-  assert(port.transmitted.back()[3]==0x64&&port.transmitted.back()[5]==1);
+  port.replies.push_back(response({1,3,4,0,0,0,123}));assert(engine.probeLink(engine.current));
+  assert(port.transmitted.back()[3]==0x00&&port.transmitted.back()[5]==2);
   port.replies.push_back(response({1,3,4,0,1,0xE2,0x40})); // 123456 -> 1234.56 secondary kWh
-  port.replies.push_back(response({1,3,4,0,2,0,40})); // PT=2, CT=40
+  port.replies.push_back(response({1,3,2,0,2})); // independent PT=2
+  port.replies.push_back(response({1,3,2,0,40})); // independent CT=40
   assert(engine.readEnergy(engine.current));char copy[4097];engine.copyLog(copy,sizeof(copy));
   assert(std::string(copy).find("98764.800000 kWh")!=std::string::npos);
-  assert(port.transmitted.back()[3]==0x8D&&port.transmitted.back()[5]==2);
+  assert(port.transmitted.back()[3]==0x8E&&port.transmitted.back()[5]==1);
   const size_t before=port.transmitted.size();engine.command("primary");assert(port.transmitted.size()==before);
   engine.command("profile fort");assert(engine.options.probeAddress==0x58&&engine.options.probeWords==2&&engine.baudCount==6);
   engine.command("profile unknown");assert(engine.options.profile==profiles::FORT);
@@ -91,6 +92,27 @@ int main(){
  const uint8_t signedPower[]={0xFF,0xFF,0xD8,0xF0},voltage[]={0x08,0xFC};
  assert(fabs(profiles::decode(profiles::get(1).power,signedPower)+1.0)<1e-10);
  assert(fabs(profiles::decode(profiles::get(1).voltage,voltage)-230.0)<1e-10);
+ // Raw ADL400 FC03 compatibility: accept a CRC-valid response preceded by noise,
+ // but never accept wrong CRC, a loopback echo, or the wrong slave ID.
+ {HardwareSerial port(1);FortDiagnostics engine(port);engine.command("profile acrel-adl400");engine.command("id 220");engine.options.responseMs=100;
+  uint8_t values[4]={};
+  port.onWrite=[&](){port.incoming.push_back(0x55);port.incoming.push_back(0xAA);
+    for(auto b:response({220,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);};
+  assert(engine.readRegisters(engine.current,0,2,values));
+  assert(profiles::raw32(values)==9798);
+  assert(engine.transport.last.frameOffset==2&&engine.transport.last.frameSize==9);
+  assert(engine.transport.last.status==0);
+  port.onWrite=[&](){auto reply=response({220,3,4,0,0,0x26,0x46});reply.back()^=0x01;
+    for(auto b:reply)port.incoming.push_back(b);};
+  assert(!engine.readRegisters(engine.current,0,2,values));
+  assert(engine.lastStatus==0xE3);
+  port.onWrite=[&](){for(auto b:port.transmitted.back())port.incoming.push_back(b);};
+  assert(!engine.readRegisters(engine.current,0,2,values));
+  assert(engine.lastStatus==0xE6&&engine.transport.last.echo);
+  port.onWrite=[&](){for(auto b:response({219,3,4,0,0,0x26,0x46}))port.incoming.push_back(b);};
+  assert(!engine.readRegisters(engine.current,0,2,values));
+  assert(engine.lastStatus==0xE6);
+ }
  // Reproduce the user's ADL400 scan through the actual shared ModbusMaster transport.
  {HardwareSerial port(1);char log[8192];FortDiagnostics engine(port,log,sizeof(log));engine.command("profile acrel-adl400");engine.command("id 220");
   const auto &p=profiles::get(engine.options.profile);assert(p.energy.address==0&&p.energy.words==2&&p.energy.encoding==profiles::U32);

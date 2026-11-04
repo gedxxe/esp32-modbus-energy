@@ -8,7 +8,7 @@ module.exports=async({page,origin,state,calls})=>{
  await page.locator('#nav-overview').click();await page.waitForFunction(()=>document.querySelector('#energy')?.getAttribute('data-value')?.includes('7,838.400'));
  assert((await page.locator('#value-secondaryEnergy').innerText()).includes('97.980'));assert((await page.locator('#value-voltageA').innerText()).includes('235.550'));assert((await page.locator('#value-voltageA').locator('..').innerText()).includes('5300'));
  assert((await page.locator('#value-frequency').innerText()).includes('49.96'));
- await page.locator('#nav-setup').click();await page.locator('#meter-lab > summary').click();await page.waitForSelector('#lab-plan');assert.equal((await page.locator('#lab-plan').inputValue()).toUpperCase(),'0064:1,0000:2,008D:2');
+ await page.locator('#nav-setup').click();await page.locator('#meter-lab > summary').click();await page.waitForSelector('#lab-plan');assert.equal((await page.locator('#lab-plan').inputValue()).toUpperCase(),'0000:2,008D:1,008E:1');
  await page.locator('#meter-lab > summary').click();
  const details=page.locator('details').filter({has:page.locator('#diagnostic-command')});
  // The console is mounted only after expanding its parent panel.

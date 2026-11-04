@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (audit fixes · 5 November 2026)
+
+The Wi-Fi dashboard accepts manually entered/hidden SSIDs, groups scan entries by selectable security family, and preserves saved Enterprise credentials and trusted CA when the same SSID is selected again. An unrelated SSID cannot inherit a saved login. AP-only transitions clean up the Enterprise station before turning the STA radio off. Native/Playwright regressions exercise credential-reuse boundaries. The published gateway target and diagrams now consistently identify the separate ESP32-C3 project. Live corporate RADIUS, physical RF and power-cut tests still require hardware.
+
 ## 3.5.0
 
 Fleet identity now uses the complete factory MAC for AP names, hostnames and local unit status. Fresh installations require an explicit meter configuration save. Meter and Wi-Fi settings use verified generation banks with legacy import and degraded-copy reporting. Archive promotion rejects stale or conflicting staging records, Wi-Fi event admission honors deadlines, and uptime no longer wraps at the millis boundary. Meter profiles, checkpoint schema and radio wire version are unchanged.

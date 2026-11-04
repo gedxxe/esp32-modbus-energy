@@ -2,7 +2,7 @@
 
 [English](../LORA_PTMP.md) · **Bahasa Indonesia** · [Konfigurasi radio](LORA.md) · [Prompt pengembangan gateway](GATEWAY_PROMPT.md)
 
-Station ini merupakan sisi node dari jaringan PTMP bertopologi bintang. Beberapa ESP32-S3 mengirim ke satu receiver ESP32-C3, dengan SX1262 pada setiap perangkat. Firmware S3 menyediakan node beserta [kontrak biner Energy Station v1](LORA_PROTOCOL.md). Receiver C6 tetap memerlukan firmware gateway yang cocok. Menyamakan frekuensi saja belum menyediakan autentikasi, ACK maupun pengambilan checkpoint.
+Station ini merupakan sisi node dari jaringan PTMP bertopologi bintang. Beberapa ESP32-S3 mengirim ke satu receiver ESP32-C3, dengan SX1262 pada setiap perangkat. Firmware S3 menyediakan node beserta [kontrak biner Energy Station v1](LORA_PROTOCOL.md). Receiver C3 tetap memerlukan firmware gateway yang cocok. Menyamakan frekuensi saja belum menyediakan autentikasi, ACK maupun pengambilan checkpoint.
 
 ![Topologi PTMP dan pekerjaan gateway](../assets/lora-ptmp.svg)
 

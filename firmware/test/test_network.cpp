@@ -50,6 +50,12 @@ bool validateEnterpriseCA(const char*,uint8_t hash[32]){memset(hash,1,32);return
 int main(){
   NetworkSettings s{};s.mode=NETWORK_DUAL;s.auth=NETWORK_PEAP;
   strcpy(s.ssid,"Arbitrary company SSID");strcpy(s.username,"device-user");strcpy(s.eapPassword,"test-secret");
+  assert(validNetwork(s));
+  assert(canReuseEnterprise(s,s));
+  NetworkSettings newSsid=s;strcpy(newSsid.ssid,"New plant WiFi");
+  assert(!canReuseEnterprise(s,newSsid));
+  NetworkSettings changedTrust=s;strcpy(changedTrust.serverName,"radius.example.org");
+  assert(!canReuseEnterprise(s,changedTrust));
   EnterpriseWiFi driver;
   assert(driver.begin(s,nullptr,true,1793750400));
   assert(driver.attempted&&security==WIFI_AUTH_WPA2_ENTERPRISE&&!autoConnect);

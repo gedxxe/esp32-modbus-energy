@@ -84,7 +84,7 @@ int main(){
  assert(cadBackoffMs(0,4,100)==400);
  assert(cadBackoffMs(11999,4,100)==12399);
  assert(cadBackoffMs(UINT32_MAX,200,2000)>=1500&&cadBackoffMs(UINT32_MAX,200,2000)<13500);
- assert(cadBackoffMs(42,1,100)<cadBackoffMs(42,2,100));
+ assert(cadBackoffMs(3000,1,100)<cadBackoffMs(3000,2,100));
  assert(cadBackoffMs(0,1,UINT32_MAX)==1500);
 
  assert(contentionWindowMs(4000,true)==30000&&contentionWindowMs(UINT32_MAX,false)==30000);

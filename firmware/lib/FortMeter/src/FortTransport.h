@@ -175,7 +175,7 @@ class FortTransport {
       if(last.frameSize)break;
       delay(1);
     }
-    if(!last.frameSize&&!last.aborted&&!last.overflow&&!last.echo){
+    if(!last.frameSize&&!last.aborted&&!last.overflow){
       last.status=badCRC?0xE3:last.echo?0xE6:last.rxSize?0xE6:0xE2;
     }
     last.libraryStatus=last.status;

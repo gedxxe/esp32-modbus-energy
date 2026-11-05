@@ -1,30 +1,32 @@
+<img src="docs/assets/midea-logo.svg" alt="Midea" width="190" />
+
 # Modbus Energy Station
 
 **English** · [Bahasa Indonesia](README.id.md)
 
 ![Firmware 3.5.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
-For multiple units, read [fleet deployment and readiness](docs/FLEET_READINESS.md). The AP suffix `XXXXXXXXXXXX` below means the actual twelve-character Device ID shown on that unit. Fresh units wait for a saved meter configuration before recording.
+For multi-unit deployment, see [fleet readiness](docs/FLEET_READINESS.md). New stations require a saved meter profile before recording.
 
-Wi-Fi reports the connection result beside Save, including the attempt number, authentication/DHCP deadline and retained last failure. New Enterprise credentials are entered through the recovery AP, while an unchanged saved login can be retried through either address. LoRa settings and pairing keys can be saved from either local interface. See [Enterprise connection results](docs/ENTERPRISE_WIFI.md) and [LoRa commissioning](docs/LORA.md).
+Configure Wi-Fi (including Enterprise) and LoRa in the local panel. Guides: [Wi-Fi Enterprise](docs/ENTERPRISE_WIFI.md) and [LoRa](docs/LORA.md).
 
-This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort, Habuer, Acrel ADL400, ACR10R-DxxTE or APM800/801/810 power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
+ESP32-S3 N16R8 reads Fort, Habuer and Acrel meters over RS485 and saves ten daily kWh checkpoints using a DS3231 RTC. Records stay on the device without Wi-Fi; the dashboard handles setup, diagnostics and export.
 
-The primary schedule is **06:00, 06:30, 07:00, 07:30, 08:00** and **17:00, 17:30, 18:00, 18:30, 19:00 WIB**. For example, a reading recorded near 07:00 remains the 07:00 record when someone connects at 09:20. The table retains its actual request and response time, and a failed checkpoint stays marked missed instead of being filled with a later value. [Checkpoint operation and storage](docs/CHECKPOINTS.md) explains timing, retrieval, CSV fields and recovery.
+Daily checkpoint times (WIB): **06:00, 06:30, 07:00, 07:30, 08:00; 17:00, 17:30, 18:00, 18:30, 19:00**. Each record keeps its actual reading time. Missed checkpoints are never filled with later values. [Checkpoint details](docs/CHECKPOINTS.md).
 
 ![Daily checkpoint schedule](docs/assets/checkpoint-schedule.svg)
 
-WPA2-Enterprise PEAP / EAP-MSCHAPv2 is available through the [Enterprise Wi-Fi guide](docs/ENTERPRISE_WIFI.md). Choose any scanned Enterprise SSID and enter the username and password. The SDK public CA bundle is used by default, so uploading a certificate is only necessary for a private CA. Advanced settings retain optional server DNS and outer identity fields. Certificate validation stays enabled, and successful access still depends on the network accepting the account and device. Existing Personal/open profiles and local AP recovery remain available.
+WPA2-Enterprise supports PEAP/MSCHAPv2. Select an Enterprise SSID, enter credentials and use the built-in public CA bundle or upload your private CA. Certificate checks stay enabled. [Enterprise Wi-Fi setup](docs/ENTERPRISE_WIFI.md).
 
 ADL400 now follows the verified field scan: total energy 0x0000, UInt32 / 100 × PT × CT, and ABCD electrical floats. There is one ADL400 selection with no energy-source submenu. [ADL400](docs/ADL400_FIX.md).
 
 ## Power interruption and optional LoRa
 
-The [power-loss audit](docs/POWER_LOSS.md) explains verified writes, recovery from NVS/files/staging, protected rollover and the remaining hardware limits. Corrupt saved meter settings now stop production instead of silently selecting a default map. Completed captures stay immutable, and a missed powered-off window is never filled with a late reading.
+Records are saved and verified in NVS/filesystem with staging recovery. Invalid stored meter settings stop production instead of selecting a different profile. [Power-loss and recovery limits](docs/POWER_LOSS.md).
 
-The [SX1262 node guide](docs/LORA.md) provides GPIO wiring and the local web configuration. The radio starts disabled with an editable **915 MHz** default. It supports addressed pairing, authenticated ACK/retry, live telemetry and retrieval of saved checkpoint days. The future ESP32-C3 gateway uses the published [Energy Station v1 contract](docs/LORA_PROTOCOL.md) and remains a separate firmware project.
+LoRa starts disabled. Set the node/gateway IDs, matching RF settings and shared key in the panel. The ESP32-C3 gateway runs separate firmware. [SX1262 wiring and setup](docs/LORA.md) · [Radio protocol](docs/LORA_PROTOCOL.md).
 
-For several panels, use the [PTMP setup](docs/LORA_PTMP.md), which explains Node ID, Gateway ID, Network ID and shared-radio scheduling. The [gateway development prompt](docs/GATEWAY_PROMPT.md) is ready to paste into a separate gateway-project chat with this source available as a reference.
+For multiple nodes, assign unique Node IDs and a common Gateway/Network ID. [PTMP setup](docs/LORA_PTMP.md) · [Gateway development](docs/GATEWAY_PROMPT.md).
 
 ![PTMP star, logical topology](docs/assets/lora-ptmp.svg)
 
@@ -35,7 +37,7 @@ For several panels, use the [PTMP setup](docs/LORA_PTMP.md), which explains Node
 
 Choose **Fort**, **Habuer**, **Acrel ADL400**, **Acrel ACR10R-DxxTE** or **Acrel APM800/801/810** in **Meter setup → Meter model**, then save the reader settings before starting a scan. That choice selects a complete register profile for acquisition, transformer ratios, diagnostics and scan defaults. It does not configure the meter itself. Fort remains the default after upgrading an existing installation, and saved checkpoints retain their original model identity.
 
-The selectable ADL400 profile uses the owner's verified total counter `0x0000`, UInt32 ABCD divided by 100 with PT/CT applied once. The older V1.3 forward counter `0x000A` remains a historical archived identity and is not an operator selection. Its RS485 port is **21/A1 and 22/B1**, while Fort uses **58/A and 59/B**. [Meter profiles and commissioning](docs/METER_PROFILES.md) documents the maps, conversion, migration and field checks. [Acrel full wiring](docs/assets/wiring-acrel-adl400.svg) shows the meter terminals with the same ESP32 electronics.
+ADL400 uses total energy at `0x0000` (UInt32 ABCD, `/100 × PT × CT` once). The older `0x000A` forward counter is retained only for historical records. RS485 terminals: Acrel **21/A1, 22/B1**; Fort **58/A, 59/B**. [Meter profiles](docs/METER_PROFILES.md) · [Acrel wiring](docs/assets/wiring-acrel-adl400.svg).
 
 Habuer follows the [owner's working reference sketch](docs/HABUER.md), with separate reads for PF, frequency, cumulative active kWh and reactive kvarh. Its active total comes from `0x0034`, two words divided by 10, without an additional transformer multiplier. The guide includes the exact read plan, supported values and [complete Habuer wiring](docs/assets/wiring-habuer.svg).
 
@@ -43,13 +45,13 @@ Acrel ACR10R-DxxTE and APM800/801/810 are also selectable. These profiles use a 
 
 ## Discovery and saved meters
 
-Open **Meter setup → Meter discovery and saved devices** to survey FC03 devices with an editable register plan. The scanner continues past silent probes, retains two-response evidence and supports a broad serial matrix. Save an installation name, declared model and notes, then download its raw development report. Four named records survive reboot in alternating CRC-protected NVS banks. Supported profiles can be selected for production after explicit map/LCD verification, while unresolved devices remain observations. [Discovery and developer workflow](docs/METER_DISCOVERY.md) explains the field steps and limits.
+In **Meter setup → Meter discovery and saved devices**, run FC03 probes and confirm the result before saving it. Up to four named devices persist after reboot. Unverified models remain diagnostic-only. [Discovery procedure](docs/METER_DISCOVERY.md).
 
 ## Dashboard
 
 ![Representative dashboard with simulated values](docs/assets/ui-desktop.png)
 
-The browser uses React 19.3.1 and locally vendored React Bits components. It runs on the phone or computer while the ESP32 serves compressed assets from flash. English is the default language and the language selector switches the interface to Indonesian. Screenshots in this repository contain simulated values and do not represent a hardware acceptance test.
+The ESP32 serves the dashboard locally; internet access is not required. English/Indonesian can be switched in the header. Screenshots contain simulated data, not field measurements.
 
 ## 1. Connect the hardware
 
@@ -111,7 +113,7 @@ On a new board, LittleFS may have no usable filesystem yet. The firmware does no
 
 ### AP and client Wi-Fi modes
 
-Open **Device & records → Wi-Fi connection** to choose AP, Client with AP recovery, or AP + client and select an SSID from the automatic 2.4 GHz scan. Settings are saved before the connection changes after eight seconds. Client mode keeps the AP during connection attempts and for 15 seconds after DHCP succeeds, then restores it if the link is lost. Read the current client/AP address from the web panel or OLED, especially when the LAN overlaps the default AP subnet. The [complete web guide](docs/WEB.md) explains password retention, recovery and every integrated feature.
+Under **Device & records → Wi-Fi**, select AP, client with recovery AP, or dual mode. Choose a scanned 2.4 GHz SSID or enter it manually; then save. The recovery AP remains available if joining fails. [Wi-Fi setup](docs/ENTERPRISE_WIFI.md).
 
 ![Wi-Fi connection modes](docs/assets/network-modes.svg)
 
@@ -195,6 +197,6 @@ Run `tools/test.ps1` for native logic, the actual standalone INO and the actual 
 
 Original project code is **GPL-3.0-only**. Dependency terms, the ModbusMaster source patch and the Fort manual's separate ownership are explained in [NOTICE](NOTICE). React Bits and the other dependencies retain their own licenses. Read [AGENTS](AGENTS.md), [CONTRIBUTING](CONTRIBUTING.md) and [CHANGELOG](CHANGELOG.md) before changing peripheral ownership, protocol handling or the register profile.
 
-At boot, the supplied Midea logo is held for three seconds before the existing loading bar and startup sound. `OLED_BOOT_SPLASH_MS` in [board.h](firmware/include/board.h) controls this first stage, and `OLED_ROTATE_180` applies before its first frame. The [OLED guide](docs/OLED.md#first-boot-frame) includes the pixel preview and startup timing.
+The OLED shows a Midea boot logo, followed by the loading bar. Set orientation and splash duration in [board.h](firmware/include/board.h). [OLED guide](docs/OLED.md#first-boot-frame).
 
-The communication view uses React Bits WakeSlider for readable, alternating TX/RX movement, Counter for the device clock and primary kWh readout, and StarBorder for menu buttons. The TX/RX lanes use small 2 px points with responsive density, while changed kWh digits roll for 650 ms with three fixed decimals. Visual replay takes about 3.2 seconds per request/response pair, with gradual acceleration, arrival deceleration and a 360 ms fade for both the packet and its wake. The exact UART timestamps remain visible below it. [Watch the simulated flow replay](docs/assets/ui-flow-demo.mp4) or see the [web operating guide](docs/WEB.md#reading-the-communication-diagram) for playback, clock and accessibility behavior.
+The communication view animates observed TX/RX frames; timestamps and raw bytes remain available beneath the replay. Animations are not additional meter measurements. [Simulated demo](docs/assets/ui-flow-demo.mp4) · [Web guide](docs/WEB.md#reading-the-communication-diagram).

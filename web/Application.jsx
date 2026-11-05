@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import UartFlow from "./components/UartFlow.jsx";
 import NavTabs from "./components/NavTabs.jsx";
 import Icon from "./components/Icon.jsx";
+import MideaLogo from "./components/MideaLogo.jsx";
 import Overview from "./views/Overview.jsx";
 import MeterSetup from "./views/MeterSetup.jsx";
 import DeviceRecords from "./views/DeviceRecords.jsx";
@@ -118,13 +119,9 @@ export default function Application() {
       <header className="topbar">
         <div className="shell topbar-inner">
           <div className="identity">
-            <span className="brand-mark">
-              <Icon name="meter" size={22} />
-            </span>
-            <div>
-              <div className="brand-name">
-                midea <span style={{ fontWeight: 400 }}>engineering</span>
-              </div>
+            <span className="brand-logo"><MideaLogo /></span>
+            <div className="brand-copy">
+              <div className="brand-name">engineering</div>
               <div className="brand-sub">MODBUS ENERGY STATION</div>
             </div>
           </div>

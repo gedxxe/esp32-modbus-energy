@@ -1,20 +1,22 @@
+<img src="docs/assets/midea-logo.svg" alt="Midea" width="190" />
+
 # Modbus Energy Station
 
 [English](README.md) · **Bahasa Indonesia**
 
 ![Firmware 3.5.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
-Untuk banyak unit, baca [deployment dan kesiapan firmware](docs/id/FLEET_READINESS.md). Suffix AP `XXXXXXXXXXXX` di bawah berarti Device ID dua belas karakter yang ditampilkan unit tersebut. Unit baru menunggu konfigurasi meter disimpan sebelum mencatat.
+Untuk pemasangan banyak unit, baca [kesiapan perangkat](docs/id/FLEET_READINESS.md). Station baru harus menyimpan profil meter sebelum merekam.
 
-Hasil koneksi Wi-Fi tampil di dekat Simpan, termasuk nomor percobaan, batas autentikasi/DHCP dan kegagalan terakhir. Kredensial Enterprise baru diisi melalui AP pemulihan, sedangkan login tersimpan yang tidak berubah dapat dicoba ulang lewat kedua alamat. Pengaturan dan pairing key LoRa bisa disimpan lewat kedua antarmuka lokal. Lihat [hasil koneksi Enterprise](docs/id/ENTERPRISE_WIFI.md) dan [commissioning LoRa](docs/id/LORA.md).
+Atur Wi-Fi (termasuk Enterprise) dan LoRa lewat panel lokal. Panduan: [Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md) dan [LoRa](docs/id/LORA.md).
 
-Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort, Habuer, Acrel ADL400, ACR10R-DxxTE atau APM800/801/810. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
+ESP32-S3 N16R8 membaca meter Fort, Habuer dan Acrel lewat RS485, lalu menyimpan sepuluh checkpoint kWh setiap hari memakai RTC DS3231. Data tetap ada tanpa Wi-Fi; dashboard dipakai untuk pengaturan, diagnosis dan ekspor.
 
-Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.30, 18.00, 18.30, 19.00 WIB**. Angka yang tercatat di sekitar 07.00 tetap menjadi rekaman 07.00 saat petugas terhubung pukul 09.20. Waktu request serta respons aktual ikut disimpan, sedangkan checkpoint yang gagal tetap ditandai terlewat dan tidak diisi dengan angka belakangan. [Panduan checkpoint dan penyimpanan](docs/id/CHECKPOINTS.md) menjelaskan timing, pengambilan data, kolom CSV serta pemulihan.
+Jadwal checkpoint harian (WIB): **06.00, 06.30, 07.00, 07.30, 08.00; 17.00, 17.30, 18.00, 18.30, 19.00**. Waktu baca aktual disimpan. Checkpoint yang terlewat tidak diisi pembacaan setelahnya. [Detail checkpoint](docs/id/CHECKPOINTS.md).
 
 ![Jadwal checkpoint harian](docs/assets/checkpoint-schedule.svg)
 
-WPA2-Enterprise PEAP / EAP-MSCHAPv2 tersedia melalui [panduan Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md). Pilih SSID Enterprise mana pun dari hasil scan, lalu isi username dan password. Kumpulan CA publik bawaan SDK dipakai secara default, sehingga unggahan sertifikat hanya diperlukan bila jaringan memakai CA privat. Pengaturan lanjutan tetap menyediakan nama DNS server dan identitas luar opsional. Validasi sertifikat tetap aktif, sedangkan akses bergantung pada penerimaan akun dan perangkat oleh jaringan. Profil Personal/open serta AP pemulihan tetap tersedia.
+Wi-Fi Enterprise mendukung PEAP/MSCHAPv2. Pilih SSID, isi kredensial, lalu gunakan CA publik bawaan atau unggah CA privat. Pemeriksaan sertifikat tetap aktif. [Panduan Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md).
 
 
 Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` sekali lalu buka ulang terminal PlatformIO. Langkah ini memasang Core terkelola yang dipin untuk build turunan SDK.
@@ -23,11 +25,11 @@ ADL400 mengikuti hasil scan: total energi 0x0000, UInt32 / 100 × PT × CT dan f
 
 ## Listrik terputus dan LoRa opsional
 
-[Audit mati listrik](docs/id/POWER_LOSS.md) menjelaskan verifikasi tulis, recovery NVS/berkas/staging, rollover terlindungi dan batas hardware yang tersisa. Konfigurasi meter tersimpan yang rusak kini menghentikan produksi, sehingga profil default tidak dipilih diam-diam. Capture selesai tetap immutable dan jadwal saat perangkat mati tidak diisi dengan pembacaan terlambat.
+Data disimpan dengan verifikasi NVS/berkas dan pemulihan staging. Konfigurasi meter yang rusak menghentikan pencatatan, bukan mengganti profil secara diam-diam. [Batas pemulihan saat listrik mati](docs/id/POWER_LOSS.md).
 
-[Panduan node SX1262](docs/id/LORA.md) memuat wiring GPIO dan konfigurasi melalui web. Radio mulai nonaktif dengan default **915 MHz** yang dapat diubah. Fitur mencakup pairing beralamat, ACK/retry terautentikasi, telemetry dan pengambilan hari checkpoint tersimpan. Gateway ESP32-C3 mendatang mengikuti [kontrak Energy Station v1](docs/id/LORA_PROTOCOL.md) melalui proyek firmware terpisah.
+LoRa nonaktif secara default. Atur ID node/gateway, parameter RF dan key bersama melalui panel. Gateway ESP32-C3 memakai firmware terpisah. [Wiring dan pengaturan SX1262](docs/id/LORA.md) · [Protokol radio](docs/id/LORA_PROTOCOL.md).
 
-Untuk beberapa panel, ikuti [setup PTMP](docs/id/LORA_PTMP.md) yang menjelaskan ID node, gateway, jaringan serta pembagian waktu radio. [Prompt pengembangan gateway](docs/id/GATEWAY_PROMPT.md) siap ditempel ke chat terpisah pada project gateway dengan source ini sebagai referensi.
+Untuk beberapa node, setiap Node ID harus unik; Gateway ID dan Network ID disamakan. [Pengaturan PTMP](docs/id/LORA_PTMP.md) · [Pengembangan gateway](docs/id/GATEWAY_PROMPT.md).
 
 ![Topologi bintang PTMP, diagram logis](docs/assets/lora-ptmp.svg)
 
@@ -38,7 +40,7 @@ Untuk beberapa panel, ikuti [setup PTMP](docs/id/LORA_PTMP.md) yang menjelaskan 
 
 Pilih **Fort**, **Habuer**, **Acrel ADL400**, **Acrel ACR10R-DxxTE** atau **Acrel APM800/801/810** melalui **Meter setup → Model meter**, lalu simpan sebelum menjalankan scan. Pilihan ini mengatur register, dekode rasio trafo, diagnostik dan probe awal. Fort tetap menjadi default setelah upgrade instalasi lama, sedangkan checkpoint yang sudah tercatat tetap menyimpan identitas model asalnya.
 
-Profil ADL400 yang dapat dipilih memakai counter total `0x0000` hasil verifikasi pemilik, UInt32 ABCD dibagi 100 dengan PT/CT diterapkan sekali. Counter forward `0x000A` dari V1.3 tetap menjadi identitas arsip lama dan bukan pilihan operator. Port Acrel adalah **21/A1 dan 22/B1**, berbeda dari **58/A dan 59/B** milik Fort. Baca [profil meter dan commissioning](docs/id/METER_PROFILES.md) untuk map, konversi, migrasi dan pemeriksaan lapangan, atau lihat [wiring Acrel lengkap](docs/assets/wiring-acrel-adl400.svg).
+ADL400 memakai energi total `0x0000` (UInt32 ABCD, `/100 × PT × CT` sekali). Register forward `0x000A` hanya untuk arsip historis. Terminal RS485 Acrel **21/A1, 22/B1**; Fort **58/A, 59/B**. [Profil meter](docs/id/METER_PROFILES.md) · [Wiring Acrel](docs/assets/wiring-acrel-adl400.svg).
 
 Habuer mengikuti [sketch referensi yang berhasil diuji pengguna](docs/id/HABUER.md), dengan pembacaan terpisah untuk PF, frekuensi, kWh aktif kumulatif dan kvarh reaktif. Total aktif dibaca pada `0x0034`, dua word dibagi 10, tanpa pengali trafo tambahan. Panduan tersebut menjelaskan urutan pembacaan dan [wiring Habuer lengkap](docs/assets/wiring-habuer.svg).
 
@@ -46,13 +48,13 @@ Acrel ACR10R-DxxTE dan APM800/801/810 juga tersedia. Kedua profil memerlukan bin
 
 ## Pencarian meter dan record bernama
 
-Buka **Meter setup → Pencarian meter dan perangkat tersimpan** untuk survey FC03 dengan plan register yang dapat diubah. Scanner tetap mencoba setelah probe yang diam, menyimpan dua respons konfirmasi serta mendukung matrix serial. Temuan dapat disimpan dengan nama instalasi, model dan catatan, lalu diunduh sebagai laporan raw untuk pengembangan. Empat record bertahan setelah reboot melalui dua bank NVS dengan CRC. Profil yang didukung dapat dipakai untuk produksi setelah pemeriksaan manual/LCD, sedangkan perangkat yang belum jelas tetap sebagai observasi. Baca [alur discovery dan penyimpanan](docs/id/METER_DISCOVERY.md) untuk langkah lapangan serta batasnya.
+Di **Meter setup → Pencarian meter dan perangkat tersimpan**, jalankan probe FC03, periksa hasilnya, lalu simpan. Maksimal empat perangkat bernama tetap tersimpan setelah reboot. Model yang belum diverifikasi hanya untuk diagnosis. [Prosedur discovery](docs/id/METER_DISCOVERY.md).
 
 ## Dashboard
 
 ![Dashboard representatif dengan nilai simulasi](docs/assets/ui-desktop-id.png)
 
-React 19.3.1 dan komponen React Bits yang disimpan lokal berjalan pada browser HP atau komputer. ESP32 hanya menyajikan aset terkompresi dari flash. Bahasa awal English dapat diganti menjadi Indonesia melalui pemilih bahasa. Screenshot repository memakai data simulasi dan bukan bukti pembacaan Fort terpasang.
+Dashboard disajikan langsung oleh ESP32 dan tidak memerlukan internet. Bahasa dapat diganti di header. Gambar screenshot memakai data simulasi, bukan hasil pengukuran lapangan.
 
 ## 1. Sambungan hardware
 
@@ -112,7 +114,7 @@ Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. 
 
 ### Mode AP dan client Wi-Fi
 
-Buka **Perangkat & arsip → Koneksi Wi-Fi** untuk memilih AP, Client dengan pemulihan AP, atau AP + client dan memilih SSID dari scan otomatis 2,4 GHz. Setting disimpan sebelum koneksi berubah setelah delapan detik. Mode client mempertahankan AP selama mencoba terhubung dan 15 detik setelah DHCP berhasil, lalu memunculkannya kembali jika koneksi putus. Baca IP terbaru pada panel web atau OLED, khususnya jika subnet LAN bertabrakan dengan AP. [Panduan web terpadu](docs/id/WEB.md) menjelaskan penyimpanan password, pemulihan dan seluruh fitur yang tersedia.
+Pada **Perangkat & arsip → Koneksi Wi-Fi**, pilih AP, client dengan pemulihan AP, atau mode ganda. Pilih SSID hasil scan 2,4 GHz atau isi manual, lalu simpan. AP pemulihan tersedia bila koneksi client gagal. [Pengaturan Wi-Fi](docs/id/ENTERPRISE_WIFI.md).
 
 ![Mode koneksi Wi-Fi](docs/assets/network-modes.svg)
 
@@ -196,6 +198,6 @@ Halaman Network OLED juga menyediakan pilihan mode Wi-Fi, scan SSID, editor pass
 
 Animasi wajah 772 frame menjadi screensaver idle dengan waktu 10–3600 detik atau opsi nonaktif dari web. Default-nya 60 detik. Tekanan fisik pertama membangunkan dashboard dan tidak menjalankan aksi tombol lain.
 
-Saat boot, logo Midea yang diberikan ditampilkan selama tiga detik sebelum loading bar dan bunyi startup yang sudah ada. `OLED_BOOT_SPLASH_MS` pada [board.h](firmware/include/board.h) mengatur tahap pertama ini, dan `OLED_ROTATE_180` diterapkan sebelum frame pertama. [Panduan OLED](docs/id/OLED.md#frame-pertama-saat-boot) memuat preview piksel serta timing startup.
+OLED menampilkan logo Midea, diikuti animasi pemuatan. Orientasi dan durasi splash ada di [board.h](firmware/include/board.h). [Panduan OLED](docs/id/OLED.md#frame-pertama-saat-boot).
 
-Panel komunikasi memakai React Bits WakeSlider untuk gerak TX/RX bergantian yang terbaca, Counter untuk jam perangkat serta angka kWh utama, dan StarBorder untuk tombol menu. Jalur TX/RX memakai titik kecil 2 px yang kerapatannya mengikuti layar, sedangkan perubahan digit kWh bergulir selama 650 ms dengan tiga desimal tetap. Replay visual memakai sekitar 3,2 detik untuk satu pasangan request/respons, dengan percepatan bertahap, perlambatan saat tiba dan fade 360 ms pada paket serta gelombangnya. Timestamp UART asli tetap ditampilkan di bawahnya. [Lihat rekaman flow simulasi](docs/assets/ui-flow-demo.mp4) atau baca [panduan web](docs/id/WEB.md#membaca-diagram-komunikasi) untuk penjelasan operasi.
+Panel komunikasi menganimasikan frame TX/RX yang teramati. Timestamp dan byte mentah tetap tersedia di bawahnya; animasi bukan pengukuran tambahan. [Demo simulasi](docs/assets/ui-flow-demo.mp4) · [Panduan web](docs/id/WEB.md#membaca-diagram-komunikasi).

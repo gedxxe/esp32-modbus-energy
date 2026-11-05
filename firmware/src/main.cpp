@@ -331,6 +331,9 @@ uint32_t lastDiagnosticPublish=0,lastFlowPublish=0;
 void serviceDiagnostic();
 void uartEvent(uint8_t,const DiagnosticEngine::Link &,uint16_t,uint8_t,const uint8_t *,const uint8_t *,size_t,bool);
 Snapshot state{}; // UI reads queue copies. Only acquisition task mutates state.
+// One shared core-0 HTTP snapshot. WebServer dispatches handlers sequentially,
+// and the acquisition task never writes this buffer directly.
+Snapshot webRequestSnapshot{};
 Tracker tracker;
 CaptureTracker captureLog;
 CaptureDay capturePending{};
@@ -623,11 +626,16 @@ String csvCaptures(const CaptureDay &day){
 }
 
 void saveCheckpoint(bool archive) {
+  // Only the acquisition task calls this. Retain the large buffers off its stack.
+  static Checkpoint c{},verify{};
   if(tracker.day.number&&nvsOK) {
-    Checkpoint c{};c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
-    Checkpoint verify{};checkpointOK=verifiedPut(prefs,"day",&c,&verify,sizeof(c));
+    c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
+    checkpointOK=verifiedPut(prefs,"day",&c,&verify,sizeof(c));
   }else checkpointOK=false;
-  if(archive)saveArchive();saveCaptures();lastSave=millis();
+  esp_task_wdt_reset();
+  if(archive)saveArchive();
+  esp_task_wdt_reset();
+  saveCaptures();lastSave=millis();
 }
 void publish() {
   state.meterConfigured=configOK&&meterSettingsBank.bank>=0;state.meterSettingsDegraded=meterSettingsBank.degraded;state.networkSettingsDegraded=networkSettingsBank.degraded;
@@ -814,9 +822,13 @@ void processCommands(){
         uint32_t effectiveUTC=0;
         auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,retainedDay(),effectiveUTC);
         if(result!=CLOCK_ACCEPTED){error="RTC request expired or precedes retained records. Sync again";break;}
+        Serial.printf("[RTC] sync start utc=%lu stack_min=%lu\n",(unsigned long)effectiveUTC,(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
         interruptRecording();clockKnown=false;rawKnown=false;++state.clockRevision;
         if(!rtcWrite(effectiveUTC)){error="RTC write or verification failed";setError(error,"rtc_write_failed");}
-        saveCheckpoint(true);break;
+        esp_task_wdt_reset();
+        saveCheckpoint(true);
+        Serial.printf("[RTC] sync complete result=%s stack_min=%lu\n",*error?error:"ok",(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
+        break;
       }
       case START_SCAN:
         if(!scanner.begin(cmd.first,cmd.last,state.config,millis(),cmd.currentOnly)){error="Invalid scan request";break;}
@@ -1114,7 +1126,7 @@ void webSetup() {
   server.on("/assets/app.css",HTTP_GET,[]{serveAsset(WEB_STYLE_GZIP,WEB_STYLE_GZIP_LEN,"text/css; charset=utf-8");});
   server.on("/assets/third-party.txt",HTTP_GET,[]{serveAsset(WEB_NOTICES_GZIP,WEB_NOTICES_GZIP_LEN,"text/plain; charset=utf-8");});
   server.on("/api/status",HTTP_GET,[]{
-    Snapshot s{};readSnapshot(s);JsonDocument d;
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);JsonDocument d;
     JsonObject control=d["control"].to<JsonObject>();control["accepted"]=acceptedCommand;control["completed"]=s.completedCommand;control["rejected"]=s.rejectedCommand;control["lastError"]=s.commandError;control["pending"]=uxQueueMessagesWaiting(commandQueue);
     JsonArray outcomes=control["results"].to<JsonArray>();for(const auto &result:s.commandResults)if(result.id){JsonObject row=outcomes.add<JsonObject>();row["id"]=result.id;row["error"]=result.error;}
     JsonObject led=d["led"].to<JsonObject>();
@@ -1188,7 +1200,7 @@ void webSetup() {
   });
   // Short event pages preserve order and make loss explicit. No UART reads here.
   server.on("/api/system",HTTP_GET,[]{
-    static CoreLoadSample samples;samples.update(millis());Snapshot s{};readSnapshot(s);JsonDocument d;
+    static CoreLoadSample samples;samples.update(millis());Snapshot &s=webRequestSnapshot;readSnapshot(s);JsonDocument d;
     d["uptime"]=uint64_t(esp_timer_get_time())/1000000;d["cpuMHz"]=getCpuFrequencyMhz();d["heapFree"]=ESP.getFreeHeap();d["heapMin"]=ESP.getMinFreeHeap();d["heapLargest"]=ESP.getMaxAllocHeap();d["heapTotal"]=ESP.getHeapSize();d["psramFree"]=ESP.getFreePsram();d["psramTotal"]=ESP.getPsramSize();d["taskCount"]=uxTaskGetNumberOfTasks();d["sampledAt"]=samples.sampledAt;
     d["diagnosticActive"]=s.diagnosticActive;d["scanActive"]=s.scan.phase==SCAN_RUNNING||s.discoveryRunning;d["uiCycleMs"]=uiCycleMs;d["acquisitionCycleMs"]=s.acquisitionCycleMs;
     d["commandQueue"]=uxQueueMessagesWaiting(commandQueue);d["diagnosticQueue"]=uxQueueMessagesWaiting(diagnosticInputQueue);
@@ -1200,7 +1212,7 @@ void webSetup() {
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/uart",HTTP_GET,[]{
-    Snapshot s{};readSnapshot(s);uint32_t after=0;
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);uint32_t after=0;
     if(server.hasArg("after")&&!parseNumber(server.arg("after"),after)){jsonReply(400,"Invalid event cursor","invalid_cursor");return;}
     JsonDocument d;d["boot"]=s.flow.boot;d["sequence"]=s.flow.sequence;d["nowUs"]=micros();d["diagnosticActive"]=s.diagnosticActive;
     d["autoDirection"]=s.diagnosticActive?!s.diagnosticManual:s.config.direction==DIRECTION_AUTO;d["capacity"]=FLOW_CAPACITY;d["oldest"]=s.flow.count?s.flow.at(0).seq:0;
@@ -1217,7 +1229,7 @@ void webSetup() {
     static DiagnosticView view; // UI core only; avoid an 8 KiB stack frame.
     if(xQueuePeek(diagnosticViewQueue,&view,0)!=pdTRUE){view.active=false;view.busy=false;view.log[0]=0;}
     JsonDocument d;d["pendingCommands"]=uxQueueMessagesWaiting(diagnosticInputQueue);d["version"]=FIRMWARE_VERSION;d["active"]=view.active;d["busy"]=view.busy;d["generation"]=view.generation;d["discardedBytes"]=view.discarded;d["log"]=view.log;
-    Snapshot production{};readSnapshot(production);
+    Snapshot &production=webRequestSnapshot;readSnapshot(production);
     DiagnosticEngine::DebugOptions o=view.active?view.options:DiagnosticEngine::DebugOptions{};
     auto link=view.active?view.link:diagnosticLink(production.config);
     if(!view.active){const auto &p=profiles::get(production.config.profile);o.profile=p.id;o.probeAddress=p.probe.address;o.probeWords=p.probe.words;o.energyAddress=p.energy.address;o.ratioAddress=p.ratios;o.energyScale=p.energy.scale;o.rx=PIN_RX;o.tx=PIN_TX;o.dir=PIN_RS485_DE;o.manualDirection=production.config.direction==DIRECTION_MANUAL;}
@@ -1236,12 +1248,12 @@ void webSetup() {
     if(line=="x"||line=="stop"||line=="resume"){
       DiagnosticStop stop;stop.action=line=="resume"?2:1;stop.generation=++diagnosticInputGeneration;xQueueOverwrite(diagnosticStopQueue,&stop);jsonReply(202,"Stop/resume queued","accepted");return;
     }
-    Snapshot s{};readSnapshot(s);if((s.scan.phase==SCAN_RUNNING||s.discoveryRunning)&&line!="status"&&line!="report"&&line!="help"&&line!="discoveryreport"&&line!="plan show"&&line!="compare"){jsonReply(409,"Cancel active discovery or scan first","scan_busy");return;}
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);if((s.scan.phase==SCAN_RUNNING||s.discoveryRunning)&&line!="status"&&line!="report"&&line!="help"&&line!="discoveryreport"&&line!="plan show"&&line!="compare"){jsonReply(409,"Cancel active discovery or scan first","scan_busy");return;}
     DiagnosticInput input;input.generation=diagnosticInputGeneration;strlcpy(input.line,line.c_str(),sizeof(input.line));
     if(xQueueSend(diagnosticInputQueue,&input,0)==pdTRUE)jsonReply(202,"Diagnostic command queued. Recording will pause","accepted");else jsonReply(503,"Diagnostic queue full","queue_busy");
   });
   server.on("/api/trace",HTTP_GET,[]{
-    Snapshot s{};readSnapshot(s);JsonDocument d;
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);JsonDocument d;
     d["version"]=FIRMWARE_VERSION;d["generation"]=s.trace.generation;d["active"]=s.trace.active;
     d["count"]=s.trace.count;d["capacity"]=TRACE_CAPACITY;d["txPin"]=PIN_TX;d["rxPin"]=PIN_RX;
     JsonArray frames=d["frames"].to<JsonArray>();
@@ -1256,7 +1268,7 @@ void webSetup() {
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/trace/start",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(!authorizePost())return;Snapshot &s=webRequestSnapshot;readSnapshot(s);
     if(s.trace.active){jsonReply(409,"A raw capture is already running","trace_busy");return;}
     Command c{};c.type=START_TRACE;enqueueCommand(c);
   });
@@ -1342,7 +1354,7 @@ void webSetup() {
   });
   server.on("/api/config",HTTP_POST,[]{
     // The request handler runs inside server.handleClient() on loopTask.
-    if(!authorizePost())return;static Snapshot s{};readSnapshot(s);
+    if(!authorizePost())return;Snapshot &s=webRequestSnapshot;readSnapshot(s);
     if(s.diagnosticActive){jsonReply(409,"Resume measurement before changing saved settings","diagnostic_busy");return;}
     if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"Cancel the scan before changing the connection","scan_busy");return;}
     uint32_t slave=0,baud=0;String parity=server.arg("parity");
@@ -1354,7 +1366,7 @@ void webSetup() {
     if(!validSettings(c.config)){jsonReply(400,"Unsupported baud rate or parity","unsupported_serial");return;}enqueueCommand(c);
   });
   server.on("/api/scan/start",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(!authorizePost())return;Snapshot &s=webRequestSnapshot;readSnapshot(s);
     if(s.diagnosticActive){jsonReply(409,"Resume measurement before starting production scan","diagnostic_busy");return;}
     if(s.scan.phase==SCAN_RUNNING){jsonReply(409,"A scan is already running","scan_running_error");return;}
     uint32_t first=0,last=0;
@@ -1369,20 +1381,22 @@ void webSetup() {
   });
   server.on("/api/scan/cancel",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=CANCEL_SCAN;enqueueCommand(c);});
   server.on("/api/scan/apply",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot s{};readSnapshot(s);
+    if(!authorizePost())return;Snapshot &s=webRequestSnapshot;readSnapshot(s);
     if(s.diagnosticActive){jsonReply(409,"Resume measurement before applying production settings","diagnostic_busy");return;}
     if(s.scan.phase!=SCAN_FOUND){jsonReply(409,"No scan result is available","no_scan_result");return;}
     Command c{};c.type=APPLY_SCAN;enqueueCommand(c);
   });
   server.on("/api/time",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot s{};readSnapshot(s);if(s.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
+    // WebServer runs on core 0, one request at a time. Keep the large status
+    // snapshot off loopTask's limited stack during an RTC update.
+    if(!authorizePost())return;Snapshot &s=webRequestSnapshot;readSnapshot(s);if(s.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
     if(!parseNumber(server.arg("epoch"),epoch)||!validClockEpoch(epoch,LOCAL_OFFSET)){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
     if(!protectsRecordedDay(epoch,LOCAL_OFFSET,fmax(s.day.number,fmax(s.captures.number,s.capturePending.number)))){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);
   });
   server.on("/api/mute",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=TOGGLE_MUTE;enqueueCommand(c);});
   server.on("/api/history",HTTP_GET,[]{
-    Snapshot s{};readSnapshot(s);JsonDocument d;JsonArray a=d.to<JsonArray>();
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);JsonDocument d;JsonArray a=d.to<JsonArray>();
     bool captures=server.arg("kind")=="checkpoints";
     bool locked=fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE;
     for(uint32_t n=captures?s.captures.number:s.day.number,k=0;n&&k<31;--n,++k){
@@ -1393,7 +1407,7 @@ void webSetup() {
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
   });
   server.on("/api/checkpoints",HTTP_GET,[]{
-    Snapshot s{};readSnapshot(s);uint32_t day=s.captures.number;
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);uint32_t day=s.captures.number;
     if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid checkpoint date","invalid_archive_date");return;}
     if(!day||day>s.captures.number||s.captures.number-day>=31){jsonReply(404,"Checkpoint record is not available","archive_missing");return;}
     CaptureDay record;bool durable=true,archived=true;
@@ -1405,7 +1419,7 @@ void webSetup() {
     JsonDocument d;addCaptureJSON(d,record,durable,archived,s.captureBacklog);String out;serializeJson(d,out);server.send(200,"application/json",out);
   });
   server.on("/api/export",HTTP_GET,[]{
-    Snapshot s{};readSnapshot(s);uint32_t day=s.day.number;
+    Snapshot &s=webRequestSnapshot;readSnapshot(s);uint32_t day=s.day.number;
     if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid archive date","invalid_archive_date");return;}
     if(!day||day>s.day.number||s.day.number-day>=31){jsonReply(404,"Archive is not available","archive_missing");return;}
     server.sendHeader("Content-Disposition","attachment; filename=meter-"+dateForDay(day)+".csv");

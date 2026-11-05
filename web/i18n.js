@@ -409,9 +409,9 @@ export const catalog = {
     last_error: "Latest acquisition status",
     clock_title: "Clock",
     clock_intro:
-      "The DS3231 keeps UTC. The display and recording schedule use WIB (UTC+7).",
-    sync: "Set from this phone",
-    clock_warning: "Changing the clock interrupts the current interval.",
+      "DS3231 stores UTC. The panel and checkpoint schedule display WIB (UTC+7).",
+    sync: "Sync RTC from this browser",
+    clock_warning: "Syncing interrupts the current recording interval. Avoid syncing near a scheduled checkpoint.",
     records: "CSV records",
     records_intro:
       "Download completed and partial intervals, with their quality flags. Up to 31 dates are retained.",
@@ -914,9 +914,9 @@ export const catalog = {
     last_error: "Status akuisisi terakhir",
     clock_title: "Waktu",
     clock_intro:
-      "DS3231 menyimpan UTC. Tampilan dan jadwal pencatatan memakai WIB (UTC+7).",
-    sync: "Atur dari HP ini",
-    clock_warning: "Mengubah waktu memutus interval aktif.",
+      "DS3231 menyimpan UTC. Panel dan jadwal checkpoint memakai WIB (UTC+7).",
+    sync: "Sinkronkan RTC dari browser",
+    clock_warning: "Sinkronisasi memutus interval rekaman yang sedang berjalan. Hindari saat mendekati jadwal checkpoint.",
     records: "Arsip CSV",
     records_intro:
       "Unduh interval lengkap dan parsial beserta penanda kualitasnya. Arsip menyimpan hingga 31 tanggal.",

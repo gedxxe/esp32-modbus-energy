@@ -33,6 +33,9 @@ export default function LoRaControls({ device }) {
   const blocked = !v?.ready || !device.fresh || device.pending;
   const dirty = Boolean(v && (fields.some(f => draft[f] !== v[f]) || key || keepKey !== v.hasKey));
   const actionBlocked = blocked || dirty || !v?.enabled || !v?.available;
+  const keyReady = (keepKey && v?.hasKey) || (/^[0-9a-f]{64}$/i.test(key) && !/^0{64}$/.test(key));
+  const keyBlocking = draft.enabled && !keyReady;
+  const addressBlocking = draft.nodeId === draft.gatewayId;
   const set = (name, value) => setDraft(d => ({ ...d, [name]: value }));
   function explain(code, values = {}) {
     setFeedback({ key: code, values });
@@ -124,6 +127,9 @@ export default function LoRaControls({ device }) {
         {secondsField("ackMs", "lora-ack", "lora_ack", 1, 60)}
       </div></details>
       <p className="small muted">{t("lora_timing_note")}</p>
+      {keyBlocking && <p id="lora-blocking-key" className="hint lora-blocking" role="status">{t("lora_blocking_key")}</p>}
+      {addressBlocking && <p id="lora-blocking-ids" className="hint lora-blocking" role="status">{t("lora_blocking_ids")}</p>}
+      {draft.enabled && v?.enabled && !v?.paired && <p id="lora-warning-unpaired" className="hint lora-warning" role="status">{t("lora_warning_unpaired")}</p>}
       <div className="lora-actions">
         <button id="lora-save" className="button primary" disabled={blocked}>{t("lora_save")}</button>
         {dirty && <p id="lora-unsaved" className="small muted" role="status">{t("lora_save_first")}</p>}

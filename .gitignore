@@ -30,3 +30,6 @@ sdkconfig.*
 dist/
 build/
 temp/
+
+# Development-only IoT device bearer; never commit per-device credentials.
+/firmware/include/iot_credentials.local.h

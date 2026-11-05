@@ -41,12 +41,13 @@ module.exports=async({page,origin,state,calls,root})=>{
   }
  }
  await page.locator('#language').selectOption('en');await page.setViewportSize({width:1440,height:1100});await page.locator('#lora-advanced > summary').click();
- await page.locator("#lora-enabled").check();await page.locator("#lora-nodeId").fill("1");await page.locator("#lora-generate").click();
+ await page.locator("#lora-enabled").check();assert.equal(await page.locator("#lora-blocking-key").count(),1,"Missing shared key must block enable");
+ await page.locator("#lora-nodeId").fill("1");await page.locator("#lora-generate").click();assert.equal(await page.locator("#lora-blocking-key").count(),0);assert.equal(await page.locator("#lora-blocking-ids").count(),1);
  const key=await page.locator("#lora-key").inputValue();assert(/^[0-9a-f]{64}$/.test(key));
  const before=calls.filter(x=>x.url==="/api/lora/config").length;await page.locator("#lora-save").click();assert.equal(calls.filter(x=>x.url==="/api/lora/config").length,before);
  await page.locator("#lora-nodeId").fill("41");await page.locator("#lora-networkId").fill("7");await page.locator("#lora-save").click();await page.waitForSelector("#lora-keep-key:checked");
  let command=calls.filter(x=>x.url==="/api/lora/config").at(-1).data;assert.equal(command.get("key"),key);assert.equal(command.get("frequencyHz"),"915000000");assert.equal(command.get("nodeId"),"41");assert(!JSON.stringify(state).includes(key));assert.equal(await page.locator("#lora-key").count(),0);
- await page.reload();await page.waitForSelector("#lora-keep-key:checked");assert.equal(await page.locator("#lora-nodeId").inputValue(),"41");
+ await page.reload();await page.waitForSelector("#lora-keep-key:checked");assert.equal(await page.locator("#lora-nodeId").inputValue(),"41");assert.equal(await page.locator("#lora-blocking-key").count(),0,"Saved shared key must not require regeneration");
  await page.locator("#lora-frequency").fill("921.4");
  assert(await page.locator("#lora-pair").isDisabled(),"Pair must not use saved RF settings while the form displays an unsaved draft");
  await page.locator("#lora-save").click();await page.waitForFunction(()=>!document.querySelector("#lora-save").disabled);

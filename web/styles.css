@@ -1498,3 +1498,6 @@ input,select{background:rgba(255,255,255,.85);border-color:#bdcce8;border-radius
 .lora-actions{display:grid;gap:14px}
 #lora-form .lora-actions p{margin:0}
 #lora-form .button{width:100%;min-width:0;min-height:44px;height:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.4;text-align:center;padding:11px 14px}
+
+.lora-blocking{border-left:3px solid #c45451;background:#fff6f3}
+.lora-warning{border-left:3px solid #bd9238;background:#fffbf1}

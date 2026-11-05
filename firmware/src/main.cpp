@@ -1202,7 +1202,7 @@ void webSetup() {
     if(isfinite(s.powerFactor))d["powerFactor"]=s.powerFactor;if(isfinite(s.reactiveEnergy))d["reactiveEnergy"]=s.reactiveEnergy;
     JsonObject readingQuality=d["readingQuality"].to<JsonObject>();readingQuality["required"]=s.readingQuality.required;readingQuality["transportFailed"]=s.readingQuality.transportFailed;readingQuality["invalid"]=s.readingQuality.invalid;readingQuality["complete"]=s.readingQuality.complete;
     if(isfinite(s.currentA))d["currentA"]=s.currentA;
-    d["currentAge"]=s.lastCurrentMs?double(uint32_t(millis()-s.lastCurrentMs))/1000.0:nullptr;
+    if(s.lastCurrentMs)d["currentAge"]=double(uint32_t(millis()-s.lastCurrentMs))/1000.0;else d["currentAge"]=nullptr;
     if(isfinite(s.voltageA))d["voltageA"]=s.voltageA;if(isfinite(s.frequency))d["frequency"]=s.frequency;
     if(s.lastContactMs)d["contactAge"]=(millis()-s.lastContactMs)/1000;else d["contactAge"]=nullptr;
     d["diagnosticActive"]=s.diagnosticActive;d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;

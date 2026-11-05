@@ -25,8 +25,8 @@
 // A positive build marker proves that this translation unit saw the private
 // local header. Neither the marker nor /api/status exposes credentials.
 #if defined(__has_include)
-# if __has_include("iot_credentials.local.h")
-#  include "iot_credentials.local.h"
+# if __has_include("../include/iot_credentials.local.h")
+#  include "../include/iot_credentials.local.h"
 #  define IOT_LOCAL_HEADER_PRESENT 1
 # else
 #  define IOT_LOCAL_HEADER_PRESENT 0

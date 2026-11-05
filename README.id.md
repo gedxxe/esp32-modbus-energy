@@ -114,7 +114,7 @@ Pada board baru, LittleFS mungkin belum memiliki filesystem yang dapat dipakai. 
 
 ### Mode AP dan client Wi-Fi
 
-Pada **Perangkat & arsip → Koneksi Wi-Fi**, pilih AP, client dengan pemulihan AP, atau mode ganda. Pilih SSID hasil scan 2,4 GHz atau isi manual, lalu simpan. AP pemulihan tersedia bila koneksi client gagal. [Mode Wi-Fi](docs/id/NETWORK.md).
+Pada **Perangkat & arsip → Koneksi Wi-Fi**, pilih AP, client dengan pemulihan AP, atau mode ganda. Pilih SSID hasil scan 2,4 GHz atau isi manual, lalu simpan. AP pemulihan tersedia bila koneksi client gagal. [Pengaturan Wi-Fi](docs/id/ENTERPRISE_WIFI.md).
 
 ![Mode koneksi Wi-Fi](docs/assets/network-modes.svg)
 

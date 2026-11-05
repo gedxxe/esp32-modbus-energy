@@ -1,14 +1,16 @@
+<img src="docs/assets/midea-logo.svg" alt="Midea" width="190" />
+
 # Modbus Energy Station
 
 [English](README.md) · **Bahasa Indonesia**
 
 ![Firmware 3.5.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![Lisensi](docs/assets/badges/license.svg)
 
-Untuk banyak unit, baca [deployment dan kesiapan firmware](docs/id/FLEET_READINESS.md). Suffix AP `XXXXXXXXXXXX` di bawah berarti Device ID dua belas karakter yang ditampilkan unit tersebut. Unit baru menunggu konfigurasi meter disimpan sebelum mencatat.
+Untuk pemasangan banyak unit, baca [kesiapan perangkat](docs/id/FLEET_READINESS.md). Station baru harus menyimpan profil meter sebelum merekam.
 
-Hasil koneksi Wi-Fi tampil di dekat Simpan, termasuk nomor percobaan, batas autentikasi/DHCP dan kegagalan terakhir. Kredensial Enterprise baru diisi melalui AP pemulihan, sedangkan login tersimpan yang tidak berubah dapat dicoba ulang lewat kedua alamat. Pengaturan dan pairing key LoRa bisa disimpan lewat kedua antarmuka lokal. Lihat [hasil koneksi Enterprise](docs/id/ENTERPRISE_WIFI.md) dan [commissioning LoRa](docs/id/LORA.md).
+Atur Wi-Fi (termasuk Enterprise) dan LoRa lewat panel lokal. Panduan: [Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md) dan [LoRa](docs/id/LORA.md).
 
-Project ini menjadikan ESP32-S3 N16R8 sebagai pencatat kWh lokal untuk power meter Fort, Habuer, Acrel ADL400, ACR10R-DxxTE atau APM800/801/810. Tugas utamanya menyimpan angka kWh kumulatif pada sepuluh checkpoint harian, sehingga petugas dapat datang belakangan dan mengambil rekamannya walaupun lokasi tidak terjangkau router. Pencatatan berjalan di ESP32 dengan jam DS3231 tanpa bergantung pada HP, dashboard terbuka maupun internet. Pengukuran langsung dan pilihan selisih antar-checkpoint tersimpan tetap tersedia dari web lokal.
+ESP32-S3 N16R8 membaca meter Fort, Habuer dan Acrel lewat RS485, lalu menyimpan sepuluh checkpoint kWh setiap hari memakai RTC DS3231. Data tetap ada tanpa Wi-Fi; dashboard dipakai untuk pengaturan, diagnosis dan ekspor.
 
 Jadwal utamanya adalah **06.00, 06.30, 07.00, 07.30, 08.00** serta **17.00, 17.30, 18.00, 18.30, 19.00 WIB**. Angka yang tercatat di sekitar 07.00 tetap menjadi rekaman 07.00 saat petugas terhubung pukul 09.20. Waktu request serta respons aktual ikut disimpan, sedangkan checkpoint yang gagal tetap ditandai terlewat dan tidak diisi dengan angka belakangan. [Panduan checkpoint dan penyimpanan](docs/id/CHECKPOINTS.md) menjelaskan timing, pengambilan data, kolom CSV serta pemulihan.
 

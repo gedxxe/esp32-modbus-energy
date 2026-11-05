@@ -29,6 +29,12 @@ no blanket GPL license is claimed over those dependencies. The browser serves
 their notices offline at /assets/third-party.txt. No assets or source from the
 JRE UNILAND project have been copied; it was used as a visual reference only.
 
+Midea brand artwork
+-------------------
+The UI wordmark and docs/assets/midea-logo.svg adapt Midea Group artwork from
+branding/Homebridge_x_Midea.svg in https://github.com/kovapatrik/homebridge-midea-platform .
+The Midea mark remains a trademark of its owner, not part of the source-code grant.
+
 Firmware transport dependency
 -----------------------------
 firmware/lib/FortMeter/src/ModbusMaster.h and ModbusMaster.cpp are based on

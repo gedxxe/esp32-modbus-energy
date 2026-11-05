@@ -1501,3 +1501,9 @@ input,select{background:rgba(255,255,255,.85);border-color:#bdcce8;border-radius
 
 .lora-blocking{border-left:3px solid #c45451;background:#fff6f3}
 .lora-warning{border-left:3px solid #bd9238;background:#fffbf1}
+
+/* Offline Midea wordmark: white vector artwork on the existing blue accent. */
+.brand-logo{width:132px;height:52px;padding:3px 10px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none;color:#fff;background:linear-gradient(130deg,#2471d9,#3164b9);border-radius:13px}
+.brand-logo .midea-logo{display:block;width:100%;height:100%;overflow:visible}.brand-copy{min-width:0}
+@media(max-width:600px){.brand-logo{width:111px;height:44px;padding:3px 7px}.brand-copy .brand-sub{letter-spacing:.7px}}
+@media(max-width:400px){.brand-copy{display:none}.brand-logo{width:116px}}

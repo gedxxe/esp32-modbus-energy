@@ -1,14 +1,16 @@
+<img src="docs/assets/midea-logo.svg" alt="Midea" width="190" />
+
 # Modbus Energy Station
 
 **English** · [Bahasa Indonesia](README.id.md)
 
 ![Firmware 3.5.0](docs/assets/badges/firmware.svg) ![ESP32-S3](docs/assets/badges/board.svg) ![Arduino](docs/assets/badges/arduino.svg) ![RadioLib](docs/assets/badges/radiolib.svg) ![ModbusMaster](docs/assets/badges/modbusmaster.svg) ![SSD1306](docs/assets/badges/ssd1306.svg) ![RTClib](docs/assets/badges/rtclib.svg) ![License](docs/assets/badges/license.svg)
 
-For multiple units, read [fleet deployment and readiness](docs/FLEET_READINESS.md). The AP suffix `XXXXXXXXXXXX` below means the actual twelve-character Device ID shown on that unit. Fresh units wait for a saved meter configuration before recording.
+For multi-unit deployment, see [fleet readiness](docs/FLEET_READINESS.md). New stations require a saved meter profile before recording.
 
-Wi-Fi reports the connection result beside Save, including the attempt number, authentication/DHCP deadline and retained last failure. New Enterprise credentials are entered through the recovery AP, while an unchanged saved login can be retried through either address. LoRa settings and pairing keys can be saved from either local interface. See [Enterprise connection results](docs/ENTERPRISE_WIFI.md) and [LoRa commissioning](docs/LORA.md).
+Configure Wi-Fi (including Enterprise) and LoRa in the local panel. Guides: [Wi-Fi Enterprise](docs/ENTERPRISE_WIFI.md) and [LoRa](docs/LORA.md).
 
-This project turns an ESP32-S3 N16R8 into a local kWh recorder for a Fort, Habuer, Acrel ADL400, ACR10R-DxxTE or APM800/801/810 power meter. Its main job is to save the cumulative meter value at ten daily checkpoints, so a technician can visit later and collect the readings even when the installation has no router coverage. Recording runs on the ESP32 with the DS3231 clock and does not depend on a phone, an open dashboard or an internet connection. Live measurements and optional differences between saved checkpoints remain available from the local web interface.
+ESP32-S3 N16R8 reads Fort, Habuer and Acrel meters over RS485 and saves ten daily kWh checkpoints using a DS3231 RTC. Records stay on the device without Wi-Fi; the dashboard handles setup, diagnostics and export.
 
 The primary schedule is **06:00, 06:30, 07:00, 07:30, 08:00** and **17:00, 17:30, 18:00, 18:30, 19:00 WIB**. For example, a reading recorded near 07:00 remains the 07:00 record when someone connects at 09:20. The table retains its actual request and response time, and a failed checkpoint stays marked missed instead of being filled with a later value. [Checkpoint operation and storage](docs/CHECKPOINTS.md) explains timing, retrieval, CSV fields and recovery.
 

@@ -114,6 +114,10 @@ void testNetwork(){
   assert(chooseAPAddress(0xC0A80428,0xFFFF0000)==0x0A2A0001);
   std::cout<<"PASS: Wi-Fi settings/CRC/key validation, AP/client/dual retry/grace/loss/rollover and LAN overlap policy\n";
   assert(commandModeAllowed(SET_NETWORK,false,false,false));assert(!commandModeAllowed(SET_NETWORK,true,false,false));assert(!commandModeAllowed(SET_NETWORK,false,true,false));
+  assert(commandModeAllowed(RETRY_STORAGE,false,false,false));
+  assert(!commandModeAllowed(RETRY_STORAGE,true,false,false));
+  assert(!commandModeAllowed(RETRY_STORAGE,false,true,false));
+  assert(!safeDuringMaintenance(RETRY_STORAGE));
 }
 
 void testMeterCheckpoints(){

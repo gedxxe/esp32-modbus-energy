@@ -60,6 +60,18 @@ When Modbus has no valid sample, the worker can issue a bounded **no-credential 
 
 The PlatformIO configuration explicitly enables the verified x509 certificate bundle and HTTPS support. If either is missing in the effective ESP-IDF SDK configuration while IoT is enabled, compilation fails closed. After updating firmware, perform a clean build and flash the *same* `firmware/` project. Neither clean nor upload requires erasing NVS/LittleFS. Test a real HTTPS POST and matching server ACK before treating the link as operational. Never paste the private header, bearer, or verbose compiler command lines into logs/issues.
 
+## Headless LittleFS recovery without an OLED
+
+When `iot.configured=true` but `iot.error=filesystem_unavailable`, the HTTPS header is valid; no HTTP request has been attempted. Wi-Fi association is **not** cloud connectivity. A failed mount does not prove a blank or irrecoverable filesystem.
+
+The firmware exposes `storageRecovery` within `/api/status`: mount state, partition presence and size, boot action, retry attempts/result, OLED presence, and the recovery URL. On a mount failure, the root URL redirects to `/storage-recovery`. The complete existing dashboard remains available at `/dashboard`. Visit `http://192.168.4.1/storage-recovery` from the ESP32 recovery AP, or use the live client IP plus `/storage-recovery`. This page is embedded in the firmware image and does not depend on a connected OLED or on LittleFS. Serial Monitor (USB, 115200 baud) reports mount/partition status and physical erase progress without printing secrets.
+
+**Retry mount — no formatting** queues a bounded command to the core-1 owner. It closes the failed mount, tries `LittleFS.begin(false)`, and unmounts if successful. It does not erase, write archives or change Wi-Fi, RTC, Modbus or LoRa settings. If it succeeds, restart normally to perform the standard NVS/FS recovery and initialize the HTTPS worker; it intentionally does not start uploading against a partially restored filesystem. A failed retry is evidence for inspecting partition compatibility and backups, not permission to destroy archives. The action is denied during active diagnostics/scans and near a scheduled checkpoint window.
+
+**Formatting is destructive and physical only.** After exporting or backing up recoverable records, power off; hold the physical OK button (GPIO6) LOW as power is applied; keep holding for five seconds, releasing early to cancel. The firmware will format only when the original mount failed and the storage partition exists. The OLED is optional. The Serial output shows progress and the final result. Formatting removes LittleFS archives and other filesystem material (including custom network CA), but does not erase NVS. There is no network format endpoint. If GPIO6 is not wired, arrange supervised physical maintenance rather than shorting arbitrary pins or bypassing the safeguard.
+
+Once storage mounts on a normal boot, the uploader can start. With an internet-connected station and valid RTC but no Modbus sample, its credential-free GET probe may return HTTP 405; this verifies HTTPS routing only. Authenticated cloud connectivity requires a successful signed POST. The development website has no independent heartbeat/presence endpoint, so the device can remain marked as having no accepted upload while Modbus is disconnected.
+
 ## Status values
 
 `iot.phase`: 0 disabled, 1 idle/waiting, 2 upload in progress, 3 retry/backoff, 4 blocked. `accepted` is newly created events and `duplicates` is confirmed idempotent replays. The `lastAckDay` and `lastAckSlot` fields identify the last durably acknowledged checkpoint. A unit running old firmware will not expose the `iot` status field.

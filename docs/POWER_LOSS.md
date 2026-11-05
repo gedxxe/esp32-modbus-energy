@@ -37,7 +37,7 @@ A capture is marked durable when at least one current saved copy passes this pat
 
 ## Restart and a multi-day outage
 
-Boot never formats a failed filesystem automatically. The physical hold-to-erase procedure remains a deliberate recovery action.
+Boot never formats a failed filesystem automatically. A failed mount now has Serial diagnostics and a standalone `/storage-recovery` browser page even without the OLED. Its safe retry probes the mount and requires a normal reboot before recovery or uploads. The physical GPIO6 hold-to-erase procedure remains deliberate and destructive. See [headless LittleFS recovery](IOT_HTTPS.md#headless-littlefs-recovery-without-an-oled).
 
 Recovery examines NVS, canonical files, backups and flushed staging. It rejects truncation, bad CRC, non-finite energy, invalid source/ratio metadata and out-of-window timestamps. The newest valid day/revision/generation is restored with sampling continuity broken. Completed captures stay completed, while elapsed uncaptured windows become missed. Late readings cannot backfill a scheduled value.
 

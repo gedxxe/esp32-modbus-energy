@@ -10,6 +10,7 @@
 #include <esp_task_wdt.h>
 #include <esp_system.h>
 #include <esp_mac.h>
+#include <esp_partition.h>
 #ifndef CONFIG_ESP_BROWNOUT_DET
 #error "Brownout detection must remain enabled for the physical logger"
 #endif
@@ -26,6 +27,7 @@
 #include "checkpoint_log.h"
 #include "debounce.h"
 #include "web_ui.h"
+#include "storage_recovery_page.h"
 #include "version.h"
 #include "recovery.h"
 #include "verified_record.h"
@@ -283,6 +285,7 @@ struct Snapshot {
   uint32_t modeRevision=0,completedCommand=0,rejectedCommand=0;
   char commandError[80]={};
   CommandResult commandResults[COMMAND_RESULTS]={};uint8_t commandResultNext=0;
+  uint32_t storageRetryAttempts=0;bool storageRetrySucceeded=false;char storageRetryResult[32]="not_requested";
   char captureRecovery[16]="none";bool captureNVSVerified=false;
   CaptureDay captures{},capturePending{};bool captureDurable=false,captureArchiveOK=false,captureBacklog=false;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
@@ -366,6 +369,7 @@ SettingsBank<METER_CONFIG_BYTES> meterSettingsBank;
 SettingsBank<NETWORK_RECORD_SIZE> networkSettingsBank;
 bool configMissing=true;
 bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=false;
+const char *storageBootAction="not_checked"; // core 0 at boot, immutable thereafter.
 uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0,lastRatioTry=0,lastContactTry=0;
 bool haveSample=false,muted=false;
 uint32_t previousRaw=0,previousMono=0;
@@ -789,6 +793,34 @@ void processCommands(){
     const char *error="";
     switch(cmd.type){
       case METER_LAB:error=processMeterLab(cmd.lab,cmd.id);strlcpy(labOwnerView.error,error,sizeof(labOwnerView.error));break;
+      case RETRY_STORAGE:{
+        // Probe on the core-1 owner only. Never format or mutate an archive.
+        // On success, release the mount and require a normal reboot, so startup
+        // can reconcile the complete NVS/FS history before enabling uploads.
+        if(fsOK){error="storage_already_mounted";break;}
+        if(!esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_SPIFFS,nullptr)){
+          error="storage_partition_missing";break;
+        }
+        if(state.rtc&&captureLog.urgent(state.utc)){
+          error="storage_retry_checkpoint_window";break;
+        }
+        if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))!=pdTRUE){
+          error="storage_retry_busy";break;
+        }
+        LittleFS.end();
+        const bool mounted=LittleFS.begin(false);
+        if(mounted)LittleFS.end();
+        xSemaphoreGive(fsMutex);
+        ++state.storageRetryAttempts;
+        state.storageRetrySucceeded=mounted;
+        strlcpy(state.storageRetryResult,mounted?"probe_ok_reboot_required":"mount_probe_failed",
+                sizeof(state.storageRetryResult));
+        Serial.printf("[Storage] Non-destructive mount probe=%s attempt=%lu. %s\n",
+          mounted?"OK":"FAILED",(unsigned long)state.storageRetryAttempts,
+          mounted?"Restart normally to recover archives and IoT.":"No data erased; inspect partition and backups.");
+        if(!mounted)error="storage_retry_failed";
+        break;
+      }
       case TOGGLE_MUTE:muted=!muted;break;
       case START_TRACE:
         if(state.trace.active)error="A raw capture is already running";else state.trace.begin();break;
@@ -1141,7 +1173,22 @@ void webSetup() {
   labHooks.submit=[](const MeterLabRequest &request){Command command{};command.type=METER_LAB;command.lab=request;enqueueCommand(command);};
   labHooks.stop=[](uint32_t run){const auto &view=readMeterLab();if(view.discovery.run!=run){jsonReply(409,"Discovery run changed","mode_changed");return;}meterLabStopRun.store(run,std::memory_order_relaxed);jsonReply(202,"Discovery stop queued","accepted");};
   registerMeterLabWeb(server,labHooks);
-  server.on("/",HTTP_GET,[]{serveAsset(WEB_INDEX_GZIP,WEB_INDEX_GZIP_LEN,"text/html; charset=utf-8");});
+  server.on("/",HTTP_GET,[]{
+    if(!fsOK){
+      server.sendHeader("Cache-Control","no-store");
+      server.sendHeader("Location","/storage-recovery");
+      server.send(302,"text/plain","LittleFS unavailable. See /storage-recovery; no data erased.");
+      return;
+    }
+    serveAsset(WEB_INDEX_GZIP,WEB_INDEX_GZIP_LEN,"text/html; charset=utf-8");
+  });
+  // Recovery is independent of both OLED and the LittleFS mount.
+  server.on("/dashboard",HTTP_GET,[]{serveAsset(WEB_INDEX_GZIP,WEB_INDEX_GZIP_LEN,"text/html; charset=utf-8");});
+  server.on("/storage-recovery",HTTP_GET,[]{
+    server.sendHeader("Cache-Control","no-store");
+    server.sendHeader("X-Content-Type-Options","nosniff");
+    server.send_P(200,"text/html; charset=utf-8",STORAGE_RECOVERY_HTML);
+  });
   server.on("/assets/app.js",HTTP_GET,[]{serveAsset(WEB_APP_GZIP,WEB_APP_GZIP_LEN,"application/javascript; charset=utf-8");});
   server.on("/assets/app.css",HTTP_GET,[]{serveAsset(WEB_STYLE_GZIP,WEB_STYLE_GZIP_LEN,"text/css; charset=utf-8");});
   server.on("/assets/third-party.txt",HTTP_GET,[]{serveAsset(WEB_NOTICES_GZIP,WEB_NOTICES_GZIP_LEN,"text/plain; charset=utf-8");});
@@ -1192,6 +1239,21 @@ void webSetup() {
     iotState["lastAckDay"]=uplink.lastAckDay;
     iotState["lastAckSlot"]=uplink.lastAckDay?uplink.lastAckSlot:-1;
     iotState["error"]=uplink.error;
+    const esp_partition_t *fsPartition=esp_partition_find_first(
+      ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_SPIFFS,nullptr);
+    JsonObject storageDiagnostic=d["storageRecovery"].to<JsonObject>();
+    storageDiagnostic["mounted"]=fsOK;
+    storageDiagnostic["partitionFound"]=fsPartition!=nullptr;
+    storageDiagnostic["partitionBytes"]=fsPartition?fsPartition->size:0;
+    storageDiagnostic["bootAction"]=storageBootAction;
+    storageDiagnostic["retryAttempts"]=s.storageRetryAttempts;
+    storageDiagnostic["retrySucceeded"]=s.storageRetrySucceeded;
+    storageDiagnostic["retryResult"]=s.storageRetryResult;
+    storageDiagnostic["restartRequired"]=s.storageRetrySucceeded;
+    storageDiagnostic["oledAvailable"]=oledOK;
+    storageDiagnostic["physicalButtonGPIO"]=PIN_OK;
+    storageDiagnostic["formatOverNetwork"]=false;
+    storageDiagnostic["page"]="/storage-recovery";
     JsonObject recovery=d["recovery"].to<JsonObject>();recovery["resetCode"]=uint32_t(esp_reset_reason());recovery["source"]=s.captureRecovery;recovery["nvsVerified"]=s.captureNVSVerified;recovery["fsVerified"]=s.captureArchiveOK;recovery["durable"]=s.captureDurable;recovery["backlog"]=s.captureBacklog;
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
@@ -1282,6 +1344,14 @@ void webSetup() {
     const auto &e=view.evidence;JsonObject counts=d["evidence"].to<JsonObject>();
     counts["requests"]=e.requests;counts["rxBytes"]=e.rxBytes;counts["passiveBytes"]=e.passiveBytes;counts["preTxBytes"]=e.staleBytes;counts["busBusy"]=e.busBusy;counts["data"]=e.data;counts["exceptions"]=e.exceptions;counts["echoes"]=e.echoes;counts["echoPrefixes"]=e.echoPrefixes;counts["crcBad"]=e.crcBad;counts["shortFrames"]=e.shortFrames;counts["wrongFrames"]=e.wrongFrames;counts["overflows"]=e.overflows;counts["timeouts"]=e.timeouts;counts["localErrors"]=e.txErrors;counts["energyOK"]=e.energyOK;counts["energyBad"]=e.energyBad;counts["aborted"]=e.aborted;
     String out;serializeJson(d,out);server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",out);
+  });
+  server.on("/api/storage/retry",HTTP_POST,[]{
+    if(!authorizePost())return;
+    if(fsOK){jsonReply(409,"LittleFS is already mounted","storage_already_mounted");return;}
+    if(!esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_SPIFFS,nullptr)){
+      jsonReply(409,"Storage partition is missing: check flashed partition table","storage_partition_missing");return;
+    }
+    Command cmd{};cmd.type=RETRY_STORAGE;enqueueCommand(cmd);
   });
   server.on("/api/diagnostic",HTTP_POST,[]{
     if(!authorizePost())return;String line=server.arg("command");
@@ -1604,13 +1674,40 @@ void setup() {
   state.flow.boot=esp_random();
   if(!i2cMutex||!fsMutex||!snapshotQueue||!commandQueue||!networkQueue||!networkCAQueue||!networkEventQueue||!diagnosticInputQueue||!diagnosticStopQueue||!diagnosticViewQueue||!meterLabQueue){Serial.println("FATAL: RTOS allocation failed");delay(2000);ESP.restart();}
   initLED();holdBootArtwork(artworkStarted);bootAnimation();
-  // Never format existing data automatically. First installation: hold OK at boot.
+  // A failed mount is not proof the partition is blank. Never auto-format.
+  const esp_partition_t *fsPartition=esp_partition_find_first(
+    ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_SPIFFS,nullptr);
   fsOK=LittleFS.begin(false);
-  if(!fsOK&&digitalRead(PIN_OK)==LOW){
-    if(oledOK){oled.clearDisplay();oled.setTextSize(1);oled.setCursor(0,0);oled.println("Storage not ready");oled.println("Hold OK for 5 sec");oled.println("to ERASE archives");oled.display();}
-    uint32_t t=millis();while(digitalRead(PIN_OK)==LOW&&millis()-t<5000){tickLED();delay(20);}
-    if(millis()-t>=5000){LittleFS.end();fsOK=LittleFS.format()&&LittleFS.begin(false);}
+  storageBootAction=fsOK?"mounted":fsPartition?"mount_failed":"partition_missing";
+  Serial.printf("[Storage] LittleFS mount=%s partition=%s bytes=%lu OLED=%s\n",
+    fsOK?"OK":"FAILED",fsPartition?"present":"MISSING",
+    (unsigned long)(fsPartition?fsPartition->size:0),oledOK?"present":"absent");
+  if(!fsOK){
+    Serial.println("[Storage] No data erased. Visit http://<ESP32-IP>/storage-recovery for safe diagnostics.");
+    if(!fsPartition)Serial.println("[Storage] Partition missing; check flash layout. DO NOT format.");
+    else Serial.println("[Storage] Mount failure does not prove empty storage. Back up recoverable data before formatting.");
   }
+  // GPIO6 works without any OLED. Require a continuous five-second physical
+  // hold at boot; release early to cancel. Never expose a network format action.
+  if(!fsOK&&fsPartition&&digitalRead(PIN_OK)==LOW){
+    if(oledOK){oled.clearDisplay();oled.setTextSize(1);oled.setCursor(0,0);oled.println("Storage not ready");oled.println("Hold OK for 5 sec");oled.println("ERASES LittleFS");oled.display();}
+    Serial.println("[Storage] Physical ERASE request: hold OK (GPIO6) low for five seconds; release to cancel.");
+    uint32_t t=millis(),lastSecond=0;
+    while(digitalRead(PIN_OK)==LOW&&uint32_t(millis()-t)<5000){
+      uint32_t elapsed=uint32_t(millis()-t)/1000;
+      if(elapsed!=lastSecond){lastSecond=elapsed;Serial.printf("[Storage] Hold %lu/5 seconds\n",(unsigned long)elapsed);}
+      tickLED();delay(20);
+    }
+    if(uint32_t(millis()-t)>=5000&&digitalRead(PIN_OK)==LOW){
+      Serial.println("[Storage] PHYSICAL HOLD CONFIRMED. Formatting LittleFS archives (NOT NVS).");
+      LittleFS.end();
+      const bool formatted=LittleFS.format();
+      fsOK=formatted&&LittleFS.begin(false);
+      storageBootAction=fsOK?"formatted_by_physical_hold":"format_failed";
+      Serial.printf("[Storage] Format=%s mount=%s\n",formatted?"OK":"FAILED",fsOK?"OK":"FAILED");
+    }else Serial.println("[Storage] Erase cancelled: no archive was formatted.");
+  }
+  if(!fsOK)Serial.println("[Storage] IoT uploader paused; headless recovery page remains available.");
   wifiScanDoneQueue=xQueueCreate(1,sizeof(WiFiScanDone));
   if(!wifiScanDoneQueue){Serial.println("FATAL: cannot allocate Wi-Fi scan mailbox");delay(1000);ESP.restart();}
   WiFi.onEvent([](WiFiEvent_t type,WiFiEventInfo_t info){

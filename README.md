@@ -113,7 +113,7 @@ On a new board, LittleFS may have no usable filesystem yet. The firmware does no
 
 ### AP and client Wi-Fi modes
 
-Under **Device & records → Wi-Fi**, select AP, client with recovery AP, or dual mode. Choose a scanned 2.4 GHz SSID or enter it manually; then save. The recovery AP remains available if joining fails. [Wi-Fi modes](docs/NETWORK.md).
+Under **Device & records → Wi-Fi**, select AP, client with recovery AP, or dual mode. Choose a scanned 2.4 GHz SSID or enter it manually; then save. The recovery AP remains available if joining fails. [Wi-Fi setup](docs/ENTERPRISE_WIFI.md).
 
 ![Wi-Fi connection modes](docs/assets/network-modes.svg)
 

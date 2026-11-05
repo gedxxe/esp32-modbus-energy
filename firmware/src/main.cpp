@@ -34,6 +34,7 @@
 #include <esp_timer.h>
 #include "lora_service.h"
 #include "lora_web.h"
+#include "iot_uplink.h"
 #include "scan.h"
 #include "meter_config.h"
 #include "meter_registry_store.h"
@@ -285,7 +286,7 @@ struct Snapshot {
   CaptureDay captures{},capturePending{};bool captureDurable=false,captureArchiveOK=false,captureBacklog=false;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
-  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
+  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,lastEnergyUTC=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=NAN,ratio=0,meterEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN,powerFactor=NAN,reactiveEnergy=NAN;
   ReadingQuality readingQuality{};bool profileReady=true;
   uint32_t lastContactMs=0,lastMeterMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
@@ -734,6 +735,7 @@ void completeCommand(const Command &cmd,const char *error=""){
   state.commandResultNext=(state.commandResultNext+1)%COMMAND_RESULTS;publish();
 }
 void resetMeterMeasurements(){
+  state.lastEnergyUTC=0;
   haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastMeterMs=0;state.ratios=false;state.energy=0;state.meterEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.powerFactor=NAN;state.reactiveEnergy=NAN;state.readingQuality=ReadingQuality{};state.ratio=0;
   ct=ptNum=ptDen=0;lastRatio=lastPoll=lastRatioTry=0;lastContactTry=millis()-3000;normalReader.activeBaud=0;
 }
@@ -1037,7 +1039,7 @@ void acquisition(void *) {
           if((profile.energy.encoding==profiles::F32?energy-profiles::primaryEnergy(profile.id,previousRaw,ptNum,ptDen,ct):(raw-previousRaw)*profile.energy.scale*state.ratio)>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
         }
         if(accepted) {
-          state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
+          state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();state.lastEnergyUTC=endOK?endUTC:0;previousRaw=raw;previousMono=millis();rawKnown=true;
           uint32_t local=endUTC+LOCAL_OFFSET;
           if(beginOK&&endOK&&endUTC>=beginUTC&&endUTC-beginUTC<=2&&millis()-beginMono<=2500&&local/86400==tracker.day.number) {
             CaptureSource source;source.meterId=selectedMeterId;source.profile=state.config.profile;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
@@ -1165,6 +1167,15 @@ void webSetup() {
     network["apSSID"]=unitIdentity.apSSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
     network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?(apOK?"ap":"ap_unavailable"):station?"online":networkAttempt.stage==NetworkAttempt::FAILED?"failed":networkAttempt.stage==NetworkAttempt::PREPARING?"preparing":associated?"addressing":networkPolicy.fallback?"fallback":"connecting";
     addLoRaJSON(d["lora"].to<JsonObject>());
+    const auto uplink=iot::readStatus();JsonObject iotState=d["iot"].to<JsonObject>();
+    iotState["configured"]=uplink.configured;iotState["enabled"]=uplink.enabled;
+    iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
+    iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
+    iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
+    iotState["lastAcceptedUTC"]=uplink.lastAcceptedUTC;
+    iotState["lastAckDay"]=uplink.lastAckDay;
+    iotState["lastAckSlot"]=uplink.lastAckDay?uplink.lastAckSlot:-1;
+    iotState["error"]=uplink.error;
     JsonObject recovery=d["recovery"].to<JsonObject>();recovery["resetCode"]=uint32_t(esp_reset_reason());recovery["source"]=s.captureRecovery;recovery["nvsVerified"]=s.captureNVSVerified;recovery["fsVerified"]=s.captureArchiveOK;recovery["durable"]=s.captureDurable;recovery["backlog"]=s.captureBacklog;
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
@@ -1597,6 +1608,7 @@ void setup() {
   state.led=defaultLed();state.power=NAN;xQueueOverwrite(snapshotQueue,&state);
   initProcessMonitor();webSetup();esp_task_wdt_config_t wdt{};wdt.timeout_ms=8000;wdt.idle_core_mask=3;wdt.trigger_panic=true;if(esp_task_wdt_status(nullptr)==ESP_ERR_INVALID_STATE)esp_task_wdt_init(&wdt);else esp_task_wdt_reconfigure(&wdt);esp_task_wdt_add(nullptr);
   if(!initLoRaService())Serial.println("[LoRa] optional service allocation failed");
+  if(!iot::start(fsMutex,fsOK))Serial.println("[IoT] development uplink inactive: see /api/status");
   if(xTaskCreatePinnedToCore(acquisition,"meter-acquisition",12288,nullptr,2,&acquisitionTask,1)!=pdPASS){Serial.println("FATAL: cannot create acquisition task");delay(1000);ESP.restart();}
   Serial.printf("[Boot] reset reason=%u (brownout=%u)\n",unsigned(esp_reset_reason()),unsigned(ESP_RST_BROWNOUT));
   Serial.printf("Midea Energy Station initialized. Unit: %s, AP: %s (%s), IP: %s, UI core: %d\n",unitIdentity.id,unitIdentity.apSSID,apOK?"ready":"retrying",WiFi.softAPIP().toString().c_str(),xPortGetCoreID());
@@ -1606,6 +1618,14 @@ void loop() {
   // This long-lived UI buffer must not occupy the stack during nested HTTP callbacks.
   static Snapshot s{};
   esp_task_wdt_reset();server.handleClient();tickNetwork();readSnapshot(s);uint32_t now=millis();tickLED(&s.led);
+  // Copies only: the HTTP worker never touches UART, Preferences or capture tracker.
+  static uint32_t lastIotPublish=0;
+  if(uint32_t(now-lastIotPublish)>=2000){lastIotPublish=now;
+    const bool fresh=s.haveEnergy&&s.online&&!s.diagnosticActive&&!s.discoveryRunning&&
+      s.scan.phase!=SCAN_RUNNING&&isfinite(s.energy)&&s.lastEnergyUTC&&uint32_t(now-s.lastGoodMs)<=15000;
+    iot::update(s.captures,s.capturePending,s.captureDurable,stationReady(),
+                s.rtc,s.utc,s.lastEnergyUTC,fresh,s.energy,s.config.profile);
+  }
   uint8_t pressed=0;for(unsigned i=0;i<3;++i)if(digitalRead(buttons[i].pin)==LOW)pressed|=uint8_t(1<<i);
   IdleResult idle=idleScreen.poll(now,pressed,s.display.idleSeconds,oledOK&&!networkPending&&!networkAwaitingSave&&!wifiScan.running);
   if(idle.woke){page=0;networkMenu.screen=OledNetworkMenu::CLOSED;memset(networkMenu.key,0,sizeof(networkMenu.key));networkMenu.length=0;lastIdleFrame=0xffff;lastPaint=now-300;}

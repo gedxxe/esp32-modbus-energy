@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#pragma once
+// Wire-format adapter for Midea Energy Record's IOT schema v1.
+// No UART, RTC, flash, Wi-Fi or Arduino dependencies: safe for native tests.
+#include "checkpoint_log.h"
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <initializer_list>
+
+namespace fort { namespace iot {
+
+struct Binding {
+  char device[65]={}, meter[65]={}, profile[65]={};
+};
+struct Event {
+  char id[64]={};
+  char json[640]={};
+  size_t size=0;
+  uint32_t day=0;
+  uint8_t index=0;
+};
+inline bool identifier(const char *s){
+  if(!s||!s[0])return false;
+  size_t n=0;
+  for(;s[n]&&n<=64;++n){
+    const char c=s[n];
+    if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='_'||c=='-'))return false;
+    if(n==0&&!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')))return false;
+  }
+  return n>=1&&n<=64&&!s[n];
+}
+inline bool valid(const Binding &b){return identifier(b.device)&&identifier(b.meter)&&identifier(b.profile);}
+
+// UTC epoch to strict YYYY-MM-DDTHH:MM:SSZ, independently of the ESP32 system clock.
+inline bool utcText(uint32_t epoch,char (&out)[21]){
+  if(epoch<946684800UL||epoch>4102444799UL)return false; // website accepts 2000..2099
+  int64_t z=epoch/86400;
+  unsigned seconds=epoch%86400;
+  z+=719468;
+  const int64_t era=(z>=0?z:z-146096)/146097;
+  const unsigned doe=unsigned(z-era*146097);
+  const unsigned yoe=(doe-doe/1460+doe/36524-doe/146096)/365;
+  int year=int(yoe)+int(era*400);
+  const unsigned doy=doe-(365*yoe+yoe/4-yoe/100);
+  const unsigned mp=(5*doy+2)/153;
+  const unsigned day=doy-(153*mp+2)/5+1;
+  const unsigned month=mp+(mp<10?3:-9);
+  year+=(month<=2);
+  int n=snprintf(out,sizeof(out),"%04d-%02u-%02uT%02u:%02u:%02uZ",
+    year,month,day,seconds/3600,(seconds/60)%60,seconds%60);
+  return n==20;
+}
+inline bool primaryText(double energy,char (&out)[40]){
+  if(!std::isfinite(energy)||energy<0||energy>999999999999.0)return false;
+  int n=snprintf(out,sizeof(out),"%.6f",energy);
+  return n>0&&n<int(sizeof(out));
+}
+// Immutable capture -> stable event ID + canonical field set expected by website.
+// This routine does not invent readings or modify a capture.
+inline bool checkpoint(const CaptureDay &day,unsigned index,const Binding &binding,Event &out){
+  out=Event{};
+  if(!valid(binding)||index>=CAPTURE_COUNT||!validCaptureDayNumber(day.number))return false;
+  const MeterCapture &p=day.points[index];
+  if(p.status!=CAPTURE_RECORDED||!validCaptureSource(p.source)||
+     !profiles::valid(p.source.profile)||strcmp(profiles::get(p.source.profile).key,binding.profile))return false;
+  const uint32_t scheduled=captureTarget(day.number,index);
+  if(p.startedUTC<scheduled||p.capturedUTC<p.startedUTC||
+     uint64_t(p.capturedUTC)>uint64_t(scheduled)+CAPTURE_WINDOW||
+     p.capturedUTC-p.startedUTC>2)return false;
+  char start[21],end[21],target[21],number[40];
+  if(!utcText(scheduled,target)||!utcText(p.startedUTC,start)||!utcText(p.capturedUTC,end)||
+     !primaryText(p.energy,number))return false;
+  int idlen=snprintf(out.id,sizeof(out.id),"cp_%lu_%02u",(unsigned long)day.number,index);
+  if(idlen<=0||idlen>=int(sizeof(out.id)))return false;
+  int n=snprintf(out.json,sizeof(out.json),
+    "{\"schema_version\":1,\"event_id\":\"%s\",\"device_id\":\"%s\","
+    "\"meter_id\":\"%s\",\"meter_profile\":\"%s\",\"event_type\":\"checkpoint\","
+    "\"captured_at\":\"%s\",\"quality\":\"valid\",\"readings\":{\"active_energy_kwh\":\"%s\"},"
+    "\"scheduled_at\":\"%s\",\"started_at\":\"%s\"}",
+    out.id,binding.device,binding.meter,binding.profile,end,number,target,start);
+  if(n<=0||n>=int(sizeof(out.json)))return false;
+  out.size=size_t(n);out.day=day.number;out.index=uint8_t(index);return true;
+}
+// Live telemetry uses a session-scoped ID; retransmit an unchanged Event on failure.
+inline bool telemetry(uint32_t captured,double energy,const Binding &binding,
+                      uint32_t boot,uint32_t sequence,Event &out){
+  out=Event{};
+  if(!valid(binding)||!boot||!sequence)return false;
+  char timestamp[21],number[40];
+  if(!utcText(captured,timestamp)||!primaryText(energy,number))return false;
+  int idlen=snprintf(out.id,sizeof(out.id),"live_%08lx_%08lx",
+    (unsigned long)boot,(unsigned long)sequence);
+  if(idlen<=0||idlen>=int(sizeof(out.id)))return false;
+  int n=snprintf(out.json,sizeof(out.json),
+    "{\"schema_version\":1,\"event_id\":\"%s\",\"device_id\":\"%s\","
+    "\"meter_id\":\"%s\",\"meter_profile\":\"%s\",\"event_type\":\"telemetry\","
+    "\"captured_at\":\"%s\",\"quality\":\"valid\",\"readings\":{\"active_energy_kwh\":\"%s\"}}",
+    out.id,binding.device,binding.meter,binding.profile,timestamp,number);
+  if(n<=0||n>=int(sizeof(out.json)))return false;
+  out.size=size_t(n);return true;
+}
+inline uint32_t bindingFingerprint(const Binding &b){
+  uint32_t h=2166136261UL;
+  for(const char *s:{b.device,b.meter,b.profile}){
+    for(;*s;++s){h^=uint8_t(*s);h*=16777619UL;}
+    h^=0xff;h*=16777619UL;
+  }
+  return h;
+}
+inline bool later(uint32_t day,unsigned index,uint32_t ackDay,unsigned ackIndex){
+  return day>ackDay||(day==ackDay&&index>ackIndex);
+}
+} } // namespace fort::iot

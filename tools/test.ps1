@@ -22,5 +22,9 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & (Join-Path $testOut 'test_network.exe')
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& g++ -std=c++11 -Wall -Wextra -Werror -I (Join-Path $taskRoot 'firmware/include') (Join-Path $taskRoot 'firmware/test/test_iot_contract.cpp') -o (Join-Path $testOut 'test_iot_contract.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& (Join-Path $testOut 'test_iot_contract.exe')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & python (Join-Path $taskRoot 'tools/check_lora.py')
 exit $LASTEXITCODE

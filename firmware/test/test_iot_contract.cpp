@@ -1,5 +1,6 @@
 #include "iot_contract.h"
 #include "iot_archive_path.h"
+#include "iot_provision.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -8,6 +9,19 @@ using namespace fort;
 int main(){
   iot::Binding b;strcpy(b.device,"dev_source");strcpy(b.meter,"meter_1");strcpy(b.profile,"fort");
   assert(iot::valid(b)&&iot::identifier("n-0_1"));
+  // The same validator runs on ESP32 and native CI with synthetic credentials.
+  const std::string fakeKey(43,'A');
+  const char *validEndpoint="https://synthetic.invalid/api/iot-ingest";
+  assert(iot::validateProvision(true,b,fakeKey.c_str(),validEndpoint,true)==nullptr);
+  assert(!strcmp(iot::validateProvision(true,b,fakeKey.c_str(),validEndpoint,false),"iot_header_not_compiled"));
+  assert(!strcmp(iot::validateProvision(true,b,"short",validEndpoint,true),"iot_bearer_length_invalid"));
+  std::string badKey=fakeKey;badKey[8]='.';
+  assert(!strcmp(iot::validateProvision(true,b,badKey.c_str(),validEndpoint,true),"iot_bearer_format_invalid"));
+  assert(!strcmp(iot::validateProvision(true,b,fakeKey.c_str(),"http://synthetic.invalid/api/iot-ingest",true),"iot_endpoint_https_required"));
+  assert(!strcmp(iot::validateProvision(true,b,fakeKey.c_str(),"https://synthetic.invalid/wrong",true),"iot_endpoint_path_invalid"));
+  assert(!strcmp(iot::validateProvision(true,b,fakeKey.c_str(),"https://synthetic.invalid/api/iot-ingest?x=1",true),"iot_endpoint_path_invalid"));
+  assert(!strcmp(iot::validateProvision(true,b,fakeKey.c_str(),"https://user@synthetic.invalid/api/iot-ingest",true),"iot_endpoint_url_invalid"));
+
   // Regression: main.cpp stores /c<day>.bin and /c<day>.bin.bak.
   char archive[40]={};
   assert(iot::archivePath(20762,false,archive,sizeof(archive)));

@@ -286,7 +286,7 @@ struct Snapshot {
   CaptureDay captures{},capturePending{};bool captureDurable=false,captureArchiveOK=false,captureBacklog=false;
   Day day{}; Settings config{}; ScanProgress scan{}; LedSettings led{}; TraceCapture trace{}; UartFlow flow{}; bool diagnosticActive=false,diagnosticManual=true; uint16_t scanAddress=meter::CURRENT_A;uint8_t scanWords=2;bool scanException=false;
   bool ledStored=false,ledStorageOK=false;DisplaySettings display{};bool displayStored=false,displayStorageOK=false;
-  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
+  uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,lastEnergyUTC=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=NAN,ratio=0,meterEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN,powerFactor=NAN,reactiveEnergy=NAN;
   ReadingQuality readingQuality{};bool profileReady=true;
   uint32_t lastContactMs=0,lastMeterMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
@@ -735,6 +735,7 @@ void completeCommand(const Command &cmd,const char *error=""){
   state.commandResultNext=(state.commandResultNext+1)%COMMAND_RESULTS;publish();
 }
 void resetMeterMeasurements(){
+  state.lastEnergyUTC=0;
   haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastMeterMs=0;state.ratios=false;state.energy=0;state.meterEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.powerFactor=NAN;state.reactiveEnergy=NAN;state.readingQuality=ReadingQuality{};state.ratio=0;
   ct=ptNum=ptDen=0;lastRatio=lastPoll=lastRatioTry=0;lastContactTry=millis()-3000;normalReader.activeBaud=0;
 }
@@ -1038,7 +1039,7 @@ void acquisition(void *) {
           if((profile.energy.encoding==profiles::F32?energy-profiles::primaryEnergy(profile.id,previousRaw,ptNum,ptDen,ct):(raw-previousRaw)*profile.energy.scale*state.ratio)>maxDelta){accepted=false;++state.rejected;setError("Energy increase exceeds configured limit","energy_jump");}
         }
         if(accepted) {
-          state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();previousRaw=raw;previousMono=millis();rawKnown=true;
+          state.energy=energy;setError("Reading valid","acquisition_ok");haveSample=true;lastGood=millis();state.lastEnergyUTC=endOK?endUTC:0;previousRaw=raw;previousMono=millis();rawKnown=true;
           uint32_t local=endUTC+LOCAL_OFFSET;
           if(beginOK&&endOK&&endUTC>=beginUTC&&endUTC-beginUTC<=2&&millis()-beginMono<=2500&&local/86400==tracker.day.number) {
             CaptureSource source;source.meterId=selectedMeterId;source.profile=state.config.profile;source.slave=state.config.slave;source.baud=state.config.baud;source.parity=state.config.parity;source.direction=state.config.direction;source.ptNum=ptNum;source.ptDen=ptDen;source.ct=ct;
@@ -1621,9 +1622,9 @@ void loop() {
   static uint32_t lastIotPublish=0;
   if(uint32_t(now-lastIotPublish)>=2000){lastIotPublish=now;
     const bool fresh=s.haveEnergy&&s.online&&!s.diagnosticActive&&!s.discoveryRunning&&
-      s.scan.phase!=SCAN_RUNNING&&isfinite(s.energy)&&uint32_t(now-s.lastGoodMs)<=15000;
+      s.scan.phase!=SCAN_RUNNING&&isfinite(s.energy)&&s.lastEnergyUTC&&uint32_t(now-s.lastGoodMs)<=15000;
     iot::update(s.captures,s.capturePending,s.captureDurable,stationReady(),
-                s.rtc,s.utc,fresh,s.energy,s.config.profile);
+                s.rtc,s.utc,s.lastEnergyUTC,fresh,s.energy,s.config.profile);
   }
   uint8_t pressed=0;for(unsigned i=0;i<3;++i)if(digitalRead(buttons[i].pin)==LOW)pressed|=uint8_t(1<<i);
   IdleResult idle=idleScreen.poll(now,pressed,s.display.idleSeconds,oledOK&&!networkPending&&!networkAwaitingSave&&!wifiScan.running);

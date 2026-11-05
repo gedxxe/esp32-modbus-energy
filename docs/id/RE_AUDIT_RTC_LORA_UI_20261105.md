@@ -2,7 +2,7 @@
 
 ## RTC: restart sesudah Sync
 
-- Handler HTTP `/api/time` sebelumnya mengalokasikan salinan `Snapshot` besar pada stack `loopTask`. Kini memakai buffer statis, karena WebServer dijalankan secara berurutan di core 0. Ini mengurangi tekanan stack, tetapi belum membuktikan penyebab setiap restart.
+- Endpoint HTTP termasuk `/api/time`, `/api/status`, `/api/system` dan diagnosis semula membuat salinan `Snapshot` besar di stack `loopTask`. Sekarang handler WebServer berbagi **satu** buffer statis core 0, aman selama dispatch tetap berurutan. Ini mengurangi tekanan stack, tetapi belum membuktikan penyebab setiap restart.
 - `saveCheckpoint()` memakai buffer statis pada task akuisisi (pemilik tunggal). Watchdog diberi kesempatan di antara pekerjaan NVS, arsip dan capture yang terpisah. Penyimpanan tetap diverifikasi.
 - Validasi tanggal, antrean perintah core 1, mutex I2C, penulisan dan baca balik DS3231 serta proteksi rekaman lama tetap dipertahankan.
 - Serial Monitor sekarang mengeluarkan `[RTC] sync start`, `[RTC] sync complete`, dan `stack_min`. Bila restart, cocokkan `[Boot] reset reason` serta backtrace. Brownout, WDT, stack overflow, dan koneksi browser terputus adalah kasus yang berbeda.

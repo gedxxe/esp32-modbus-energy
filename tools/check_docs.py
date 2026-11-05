@@ -65,6 +65,11 @@ for file in svgs:
 main_source='\n'.join(p.read_text(encoding='utf-8') for p in sorted((ROOT/'firmware/src').glob('*.cpp')))
 device_routes=set(re.findall(r'server\.on\("(/api/[a-z0-9_/-]+)"',main_source))
 web_source='\n'.join(p.read_text(encoding='utf-8') for p in (ROOT/'web').rglob('*') if p.suffix in ['.jsx','.js'] and 'vendor' not in p.parts)
+# The headless storage recovery page is HTML embedded in firmware flash, not
+# in the React app. It is a real browser UI consumer of /api/storage/retry.
+recovery_page=ROOT/'firmware/include/storage_recovery_page.h'
+if recovery_page.is_file():
+    web_source+='\n'+recovery_page.read_text(encoding='utf-8')
 web_routes=set(re.findall(r'/api/[a-z0-9_/-]+',web_source))
 need(device_routes==web_routes,f'Web/firmware API integration differs: {device_routes ^ web_routes}')
 for language_guide in ['docs/WEB.md','docs/id/WEB.md']:

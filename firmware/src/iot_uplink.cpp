@@ -366,8 +366,10 @@ void update(const CaptureDay &active,const CaptureDay &previous,
   xQueueOverwrite(incoming,&input);
 }
 Status readStatus(){
-  Status out=status;
+  // The worker owns mutable state. Web/loop consumers read only the queued copy.
+  Status out{};
   if(statusQ)xQueuePeek(statusQ,&out,0);
+  else out=status; // startup/disabled state, before a worker exists
   return out;
 }
 } } // namespace fort::iot

@@ -77,7 +77,8 @@ int main(){
   iot::Event zero{};
   assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,4,zero,true,0));
   assert(std::string(zero.json).find("\"current_a\":\"0.000000\"")!=std::string::npos);
-  for(double invalid:{-1.0,NAN,INFINITY}){
+  const double invalids[]={-1.0,double(NAN),double(INFINITY)};
+  for(double invalid:invalids){
     iot::Event absent{};
     assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,5,absent,true,invalid));
     assert(std::string(absent.json).find("current_a")==std::string::npos);

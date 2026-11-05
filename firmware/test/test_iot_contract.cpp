@@ -1,4 +1,5 @@
 #include "iot_contract.h"
+#include "iot_archive_path.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -7,6 +8,15 @@ using namespace fort;
 int main(){
   iot::Binding b;strcpy(b.device,"dev_source");strcpy(b.meter,"meter_1");strcpy(b.profile,"fort");
   assert(iot::valid(b)&&iot::identifier("n-0_1"));
+  // Regression: main.cpp stores /c<day>.bin and /c<day>.bin.bak.
+  char archive[40]={};
+  assert(iot::archivePath(20762,false,archive,sizeof(archive)));
+  assert(!strcmp(archive,"/c20762.bin"));
+  assert(iot::archivePath(20762,true,archive,sizeof(archive)));
+  assert(!strcmp(archive,"/c20762.bin.bak"));
+  assert(!iot::archivePath(0,false,archive,sizeof(archive)));
+  char tiny[5];
+  assert(!iot::archivePath(20762,false,tiny,sizeof(tiny)));
   assert(!iot::identifier("_bad")&&!iot::identifier("space invalid"));
   char date[21];assert(iot::utcText(1793836800UL,date)&&!strcmp(date,"2026-11-05T00:00:00Z"));
   assert(iot::utcText(1793836802UL,date)&&!strcmp(date,"2026-11-05T00:00:02Z"));
@@ -17,6 +27,11 @@ int main(){
   CaptureSource src;src.profile=profiles::FORT;src.meterId=1;src.slave=1;src.parity='N';src.baud=9600;src.ptNum=src.ptDen=src.ct=1;
   const uint32_t scheduled=captureTarget(20762,4);
   assert(scheduled==1793840400UL); // 08:00 WIB is 01:00 UTC.
+  assert(!iot::checkpointWindowProtected(scheduled-16));
+  assert(iot::checkpointWindowProtected(scheduled-15));
+  assert(iot::checkpointWindowProtected(scheduled));
+  assert(iot::checkpointWindowProtected(scheduled+CAPTURE_WINDOW+15));
+  assert(!iot::checkpointWindowProtected(scheduled+CAPTURE_WINDOW+16));
   assert(tracker.sample(scheduled+1,scheduled+2,1000,src));
   iot::Event e;assert(iot::checkpoint(tracker.day,4,b,e));
   assert(!strcmp(e.id,"cp_20762_04")&&e.size==strlen(e.json));

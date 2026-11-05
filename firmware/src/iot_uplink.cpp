@@ -3,6 +3,7 @@
 // durable source; the small dual-bank cursor is advanced only on server ACK.
 #include "iot_uplink.h"
 #include "iot_contract.h"
+#include "iot_archive_path.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -164,13 +165,21 @@ bool saveCursor(uint32_t day,uint8_t index){
   if(!ok)return false;
   ack=next;reportAck();return true;
 }
-bool readArchive(uint32_t day,CaptureDay &out){
-  if(!mounted||xSemaphoreTake(filesystem,pdMS_TO_TICKS(100))!=pdTRUE)return false;
-  bool found=false;
-  for(const char *suffix:{"",".bak"}){
-    String path="/c"+String(day)+suffix;
+enum ArchiveRead:uint8_t { ARCHIVE_ABSENT, ARCHIVE_OK, ARCHIVE_RETRY, ARCHIVE_INVALID };
+ArchiveRead readArchive(uint32_t day,CaptureDay &out){
+  if(!mounted||xSemaphoreTake(filesystem,pdMS_TO_TICKS(100))!=pdTRUE)return ARCHIVE_RETRY;
+  bool found=false,present=false;
+  for(bool backup:{false,true}){
+    char path[40]={};
+    if(!archivePath(day,backup,path,sizeof(path))){
+      xSemaphoreGive(filesystem);return ARCHIVE_INVALID;
+    }
     File f=LittleFS.open(path,"r");
-    if(!f)continue;
+    if(!f){
+      if(LittleFS.exists(path))present=true; // unreadable existing archive
+      continue;
+    }
+    present=true;
     const size_t bytesCount=f.size();
     if(captureRecordSize(bytesCount)){
       uint8_t bytes[CAPTURE_RECORD_SIZE];
@@ -183,7 +192,7 @@ bool readArchive(uint32_t day,CaptureDay &out){
     f.close();
   }
   xSemaphoreGive(filesystem);
-  return found;
+  return found?ARCHIVE_OK:present?ARCHIVE_INVALID:ARCHIVE_ABSENT;
 }
 bool receiptMatches(const Response &response,const Event &event){
   if(response.overflow||!response.used)return false;
@@ -276,7 +285,19 @@ bool uploadNextCheckpoint(const Input &input){
     bool found=false;
     if(day==input.active.number){record=input.active;found=true;}
     else if(day==input.previous.number&&input.previous.number){record=input.previous;found=true;}
-    else found=readArchive(day,record);
+    else{
+      const ArchiveRead result=readArchive(day,record);
+      if(result==ARCHIVE_RETRY){
+        notBefore=millis()+2000UL;
+        report("archive_read_retry",3);
+        return true; // Do not advance past a file busy with acquisition.
+      }
+      if(result==ARCHIVE_INVALID){
+        report("archive_corrupt_needs_review",4);
+        return true; // Fail closed: no silent loss of a damaged archived day.
+      }
+      found=result==ARCHIVE_OK;
+    }
     if(!found)continue;
     for(unsigned i=0;i<CAPTURE_COUNT;++i){
       if(!later(day,i,ack.day,ack.index))continue;
@@ -307,6 +328,12 @@ void worker(void *){
     if(status.phase==4)continue;
     uint32_t now=millis();
     if(int32_t(now-notBefore)<0||uint32_t(now-lastSend)<MIN_SEND_PERIOD_MS)continue;
+    // Keep HTTPS handshakes off the five-second Modbus checkpoint window.
+    if(checkpointWindowProtected(input.utc)){
+      if(status.phase!=1||strcmp(status.error,"checkpoint_window_hold"))
+        report("checkpoint_window_hold",1);
+      continue;
+    }
     // The DS3231 is authoritative. Set only the TCP/TLS system clock, never RTC hardware.
     if(uint32_t(now-lastRead)>60000||!lastRead){
       time_t systemUTC=time(nullptr);

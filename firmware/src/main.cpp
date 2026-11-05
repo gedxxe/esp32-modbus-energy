@@ -35,6 +35,7 @@
 #include "lora_service.h"
 #include "lora_web.h"
 #include "iot_uplink.h"
+#include "iot_contract.h"
 #include "scan.h"
 #include "meter_config.h"
 #include "meter_registry_store.h"

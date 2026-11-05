@@ -289,7 +289,7 @@ struct Snapshot {
   uint32_t acquisitionCycleMs=0,utc=0,lastGoodMs=0,lastEnergyUTC=0,crcErrors=0,timeouts=0,rejected=0,busBusy=0;
   double energy=0,power=NAN,ratio=0,meterEnergy=NAN,currentA=NAN,voltageA=NAN,frequency=NAN,powerFactor=NAN,reactiveEnergy=NAN;
   ReadingQuality readingQuality{};bool profileReady=true;
-  uint32_t lastContactMs=0,lastMeterMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
+  uint32_t lastContactMs=0,lastMeterMs=0,lastCurrentMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false,discoveryRunning=false;uint16_t savedMeterId=0;char meterName[32]={};
   char error[64]="Waiting for a response";
   char errorCode[32]="waiting_for_meter";
@@ -736,7 +736,7 @@ void completeCommand(const Command &cmd,const char *error=""){
 }
 void resetMeterMeasurements(){
   state.lastEnergyUTC=0;
-  haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastMeterMs=0;state.ratios=false;state.energy=0;state.meterEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.powerFactor=NAN;state.reactiveEnergy=NAN;state.readingQuality=ReadingQuality{};state.ratio=0;
+  haveSample=false;rawKnown=false;state.lastContactMs=0;state.lastMeterMs=0;state.lastCurrentMs=0;state.ratios=false;state.energy=0;state.meterEnergy=NAN;state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;state.power=NAN;state.powerFactor=NAN;state.reactiveEnergy=NAN;state.readingQuality=ReadingQuality{};state.ratio=0;
   ct=ptNum=ptDen=0;lastRatio=lastPoll=lastRatioTry=0;lastContactTry=millis()-3000;normalReader.activeBaud=0;
 }
 bool applyMeterSettings(const Settings &settings,uint16_t id,bool clearScan){
@@ -996,6 +996,8 @@ void acquisition(void *) {
       bool contactData=readWordsFor(state.config,profile.probe.address,profile.probe.words,handshake,1,true);
       if(!contactData&&normalReader.lastReply!=DiagnosticEngine::REPLY_EXCEPTION){state.currentA=NAN;state.voltageA=NAN;state.frequency=NAN;publish();vTaskDelay(pdMS_TO_TICKS(50));continue;}
       state.lastContactMs=millis();state.currentA=contactData&&profiles::available(profile.current)&&profile.current.address==profile.probe.address&&profile.current.words==profile.probe.words?profiles::decode(profile.current,handshake):NAN;
+      if(isfinite(state.currentA)&&state.currentA>=0)state.lastCurrentMs=millis();
+      else state.currentA=NAN;
     }
     if(profiles::directEnergy(profile)){ptNum=ptDen=ct=1;state.ratio=1;state.ratios=true;}
     if(profile.ratioWords&&(!captureUrgent||!state.ratios)&&ratioPollDue(state.ratios,millis(),lastRatio,lastRatioTry)) {
@@ -1058,6 +1060,8 @@ void acquisition(void *) {
     if(!captureUrgent&&uint32_t(millis()-lastElectrical)>=10000&&state.lastContactMs&&uint32_t(millis()-state.lastContactMs)<15000){
       lastElectrical=millis();uint8_t raw[4];
       state.currentA=profiles::available(profile.current)&&readWordsFor(state.config,profile.current.address,profile.current.words,raw,1,true)?profiles::decode(profile.current,raw):NAN;
+      if(isfinite(state.currentA)&&state.currentA>=0)state.lastCurrentMs=millis();
+      else state.currentA=NAN;
       state.voltageA=profiles::available(profile.voltage)&&readWordsFor(state.config,profile.voltage.address,profile.voltage.words,raw,1,true)?profiles::decode(profile.voltage,raw):NAN;
       if(!profiles::coherentSnapshot(profile))state.frequency=profiles::available(profile.frequency)&&readWordsFor(state.config,profile.frequency.address,profile.frequency.words,raw,1,true)?profiles::decode(profile.frequency,raw):NAN;
       if(!profiles::coherentSnapshot(profile)&&profiles::available(profile.powerFactor)){
@@ -1197,7 +1201,9 @@ void webSetup() {
     d["currentA"]=nullptr;d["voltageA"]=nullptr;d["frequency"]=nullptr;d["powerFactor"]=nullptr;d["reactiveEnergy"]=nullptr;
     if(isfinite(s.powerFactor))d["powerFactor"]=s.powerFactor;if(isfinite(s.reactiveEnergy))d["reactiveEnergy"]=s.reactiveEnergy;
     JsonObject readingQuality=d["readingQuality"].to<JsonObject>();readingQuality["required"]=s.readingQuality.required;readingQuality["transportFailed"]=s.readingQuality.transportFailed;readingQuality["invalid"]=s.readingQuality.invalid;readingQuality["complete"]=s.readingQuality.complete;
-    if(isfinite(s.currentA))d["currentA"]=s.currentA;if(isfinite(s.voltageA))d["voltageA"]=s.voltageA;if(isfinite(s.frequency))d["frequency"]=s.frequency;
+    if(isfinite(s.currentA))d["currentA"]=s.currentA;
+    d["currentAge"]=s.lastCurrentMs?double(uint32_t(millis()-s.lastCurrentMs))/1000.0:nullptr;
+    if(isfinite(s.voltageA))d["voltageA"]=s.voltageA;if(isfinite(s.frequency))d["frequency"]=s.frequency;
     if(s.lastContactMs)d["contactAge"]=(millis()-s.lastContactMs)/1000;else d["contactAge"]=nullptr;
     d["diagnosticActive"]=s.diagnosticActive;d["version"]=FIRMWARE_VERSION;d["token"]=apiToken;d["rtc"]=s.rtc;d["storage"]=s.storage;d["ratios"]=s.ratios;d["muted"]=s.muted;
     JsonObject unit=d["unit"].to<JsonObject>();unit["id"]=unitIdentity.id;unit["hostname"]=unitIdentity.hostname;unit["identityValid"]=unitIdentity.valid;unit["uniqueAP"]=unitIdentity.uniqueAP;
@@ -1621,10 +1627,16 @@ void loop() {
   // Copies only: the HTTP worker never touches UART, Preferences or capture tracker.
   static uint32_t lastIotPublish=0;
   if(uint32_t(now-lastIotPublish)>=2000){lastIotPublish=now;
-    const bool fresh=s.haveEnergy&&s.online&&!s.diagnosticActive&&!s.discoveryRunning&&
+    const bool fresh=s.haveEnergy&&s.profileReady&&s.online&&!s.diagnosticActive&&!s.discoveryRunning&&
       s.scan.phase!=SCAN_RUNNING&&isfinite(s.energy)&&s.lastEnergyUTC&&uint32_t(now-s.lastGoodMs)<=15000;
+    // The existing per-profile currentA register represents one measured channel.
+    // It is not a phase sum or average; Habuer has no configured current register.
+    const bool freshCurrent=fresh&&profiles::available(profiles::get(s.config.profile).current)&&
+      s.lastCurrentMs&&uint32_t(now-s.lastCurrentMs)<=15000&&
+      isfinite(s.currentA)&&s.currentA>=0;
     iot::update(s.captures,s.capturePending,s.captureDurable,stationReady(),
-                s.rtc,s.utc,s.lastEnergyUTC,fresh,s.energy,s.config.profile);
+                s.rtc,s.utc,s.lastEnergyUTC,fresh,s.energy,s.config.profile,
+                freshCurrent,s.currentA);
   }
   uint8_t pressed=0;for(unsigned i=0;i<3;++i)if(digitalRead(buttons[i].pin)==LOW)pressed|=uint8_t(1<<i);
   IdleResult idle=idleScreen.poll(now,pressed,s.display.idleSeconds,oledOK&&!networkPending&&!networkAwaitingSave&&!wifiScan.running);

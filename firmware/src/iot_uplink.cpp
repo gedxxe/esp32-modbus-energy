@@ -57,7 +57,7 @@ constexpr char ACK_A[]="/iot_ack_a.bin",ACK_B[]="/iot_ack_b.bin";
 struct Input {
   CaptureDay active{},previous{};
   bool durable=false,station=false,clock=false,live=false;
-  uint32_t utc=0;
+  uint32_t utc=0,liveCapturedUTC=0;
   double liveEnergy=0;
   uint8_t profile=0;
 };
@@ -323,7 +323,7 @@ void worker(void *){
        uint32_t(now-lastLive)>=MIN_TELEMETRY_PERIOD_MS){
       ++liveSequence;
       if(!liveSequence)++liveSequence;
-      if(telemetry(input.utc,input.liveEnergy,binding,bootId,liveSequence,outstandingLive))
+      if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive))
         hasOutstandingLive=true;
     }
     if(hasOutstandingLive){
@@ -356,11 +356,12 @@ bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted){
 }
 void update(const CaptureDay &active,const CaptureDay &previous,
             bool captureDurable,bool stationOnline,bool clockValid,uint32_t utc,
-            bool telemetryValid,double telemetryKWh,uint8_t profile){
+            uint32_t liveCapturedUTC,bool telemetryValid,double telemetryKWh,uint8_t profile){
   if(!ready)return;
   Input input{};
   input.active=active;input.previous=previous;input.durable=captureDurable;
   input.station=stationOnline;input.clock=clockValid;input.utc=utc;
+  input.liveCapturedUTC=liveCapturedUTC;
   input.live=telemetryValid;input.liveEnergy=telemetryKWh;input.profile=profile;
   xQueueOverwrite(incoming,&input);
 }

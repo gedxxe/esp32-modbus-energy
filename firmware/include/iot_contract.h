@@ -54,7 +54,7 @@ inline bool utcText(uint32_t epoch,char (&out)[21]){
 }
 inline bool primaryText(double energy,char (&out)[40]){
   if(!std::isfinite(energy)||energy<0||energy>1000000000000.0)return false;
-  int n=snprintf(out,sizeof(out),"%.6f",energy);
+  int n=snprintf(out,sizeof(out),"%.6f",energy==0.0?0.0:energy); // normalize IEEE-754 negative zero
   return n>0&&n<int(sizeof(out));
 }
 // Sample-age admission remains independent of the HTTPS task and UART.

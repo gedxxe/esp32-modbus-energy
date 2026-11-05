@@ -114,20 +114,25 @@ deployment. Any subsequent HTTP 401/403, Vercel deployment protection or
 invalid server ACK is a separate follow-up to diagnose, not a reason
 to weaken TLS. Modbus kWh remains unavailable until the meter is attached.
 
-### 6 November 2026: SDK Kconfig choice correction
+### 6 November 2026: target-aware SDK verification
 
-PR #15's first CI attempt passed logic-and-docs and browser checks, but
-the firmware job failed **after the custom SDK finished building**, because
-the generated `sdkconfig.h` did not have the requested Mbed TLS external
-allocator enabled. The upstream ESP-IDF `MBEDTLS_MEM_ALLOC_MODE` option is a
-**single-choice Kconfig setting** with an internal-memory default; the new
-external selection also depends on `SPIRAM_USE_MALLOC` or
-`SPIRAM_USE_CAPS_ALLOC`. Merely writing `CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`
-was insufficient to ensure the compiled choice changed.
+The initial PR #15 CI passed all browser and logic/documentation checks.
+The main ESP32-S3 application **also compiled successfully** with its
+verified custom PSRAM-backed Mbed TLS SDK. The combined firmware job failed
+at the later, independent `examples/FortSerialDebug` build, however:
+`tools/sdk_bootstrap.py` required the external allocator for **every**
+PlatformIO project. That USB-only diagnostic does not run the IoT uploader
+and intentionally uses the SDK's internal TLS allocation choice.
 
-The patch explicitly disables the internal choice, enables the PSRAM heap
-dependency and selects external Mbed TLS allocation. SDK bootstrap now reports
-the **exact missing/forbidden compiled symbols** on failure and verifies them
-*before* writing its cache provenance stamp. It never disables certificate
-verification. Firmware builds and real-device heartbeat ACKs remain distinct
-acceptance requirements.
+The corrected bootstrap distinguishes the main firmware from the standalone
+diagnostic. The main firmware remains **strictly gated** on external Mbed TLS
+memory, PSRAM and CA/date/hostname verification, with a failure before the
+SDK cache can be marked verified. The diagnostic keeps certificate-date,
+full CA bundle and Wi-Fi key-usage checks, but does not inherit an
+unnecessary IoT-specific allocator requirement. The prior Kconfig choices
+remain explicitly pinned for the main firmware.
+
+Neither the green application build nor the standalone build proves the
+physical device has completed an HTTPS heartbeat handshake and received
+a matching application ACK. Do not weaken TLS verification or format LittleFS
+to troubleshoot a transport error.

@@ -12,6 +12,11 @@ def ensure_sdk(env,repository):
     keys=["platform","board","board_build.extra_flags","framework","custom_sdkconfig","board_build.arduino.memory_type","board_build.memory_type","board_build.psram_type","board_build.flash_mode","board_upload.flash_size","board_upload.maximum_size","board_build.partitions","build_flags","build_unflags"]
     options={key:env.GetProjectOption(key,None) for key in keys}
     options={key:value for key,value in options.items() if value is not None}
+    # The main HTTPS firmware and the USB-only diagnostic intentionally use
+    # different SDK allocators. Keep the secure TLS choice gate target-aware.
+    main_firmware=(project.resolve()==(repository/"firmware").resolve())
+    if main_firmware and "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y" not in str(options.get("custom_sdkconfig","")):
+        raise RuntimeError("Main HTTPS firmware must select external Mbed TLS allocator")
     config="[platformio]\ndefault_envs = esp32s3\n\n[env:esp32s3]\n"
     for key,value in options.items():
         if isinstance(value,(list,tuple)):
@@ -47,23 +52,27 @@ def ensure_sdk(env,repository):
             "CONFIG_MBEDTLS_HAVE_TIME_DATE",
             "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE",
             "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL",
-            "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC",
-            "CONFIG_SPIRAM",
-            "CONFIG_SPIRAM_USE_MALLOC",
         }
+        if main_firmware:
+            required.update({
+                "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC",
+                "CONFIG_SPIRAM",
+                "CONFIG_SPIRAM_USE_MALLOC",
+            })
         missing=sorted(required-flags)
-        forbidden=[name for name in [
-            "CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK",
-            "CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC",
-        ] if ("#define "+name+" 1") in header]
+        forbidden=["CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK"]
+        if main_firmware:
+            forbidden.append("CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC")
+        forbidden=[name for name in forbidden if ("#define "+name+" 1") in header]
         if missing or forbidden:
             summary="; ".join([
                 "missing="+",".join(missing or ["none"]),
                 "forbidden_enabled="+",".join(forbidden or ["none"]),
             ])
             raise RuntimeError("Compiled ESP32-S3 SDK config invalid ("+summary+
-                "). Check Mbed TLS memory allocation choice and PSRAM dependency; "+
-                "CA/date verification must remain enabled. Cache will NOT be marked verified.")
+                "). Main firmware requires PSRAM TLS; standalone diagnostic "+
+                "may use internal TLS. CA/date checks always apply. "+
+                "Cache will NOT be marked verified.")
     stamp=cache/"verified-sdk.json"
     ready=False
     if stamp.exists() and (cache/"sdkconfig.defaults").exists() and (cache/"sdkconfig.esp32s3").exists():
@@ -92,4 +101,5 @@ def ensure_sdk(env,repository):
     verify_sdk()
     for name in ["sdkconfig.defaults","sdkconfig.esp32s3"]:
         shutil.copyfile(cache/name,project/name)
-    print("PASS: verified custom SDK cache, certificate date checks, Mbed TLS PSRAM allocator and unchanged application source",flush=True)
+    allocator="PSRAM TLS" if main_firmware else "standalone default TLS"
+    print("PASS: verified custom SDK cache, certificate date checks, "+allocator+" and unchanged application source",flush=True)

@@ -4,16 +4,21 @@
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
-## 6 November 2026: follow-up to TLS-memory quality check
+## 6 November 2026: correct cross-target SDK allocator verification
 
-Initial PR #15 CI completed with browser and logic/documentation jobs green,
-but the firmware job failed after compiling its SDK: the generated SDK header
-did not reflect the requested external Mbed TLS allocator. Root cause was
-a Kconfig choice/dependency not fully selected; the prior build-time
-guard correctly failed closed. The patch explicitly selects PSRAM-backed
-allocation and deselects the internal choice, then checks all required
-compiled symbols before stamping the SDK cache. CI must prove the result;
-no ESP32 device/website HTTP 200 heartbeat is claimed by this change.
+The PR #15 logic/documentation and browser jobs passed. The main ESP32-S3
+N16R8 firmware also compiled successfully with the verified PSRAM-backed
+Mbed TLS SDK. The firmware workflow failed **later**, in the optional
+standalone USB diagnostic build. That separate sketch has no HTTPS uplink and
+uses the default internal Mbed TLS allocation mode; the shared SDK bootstrap
+had incorrectly required the external allocator from this target as well.
+
+The bootstrap now gates the main firmware on external Mbed TLS allocation
+and PSRAM, while the standalone diagnostic retains the original CA bundle,
+date and Wi-Fi key-usage checks without an irrelevant memory-policy requirement.
+All SDK artifacts are verified before cache stamping. No security validation
+was turned off. Full CI and the real device's heartbeat HTTP 200 ACK remain
+independent acceptance criteria.
 
 ## 5 November 2026: development HTTPS TLS-memory diagnosis
 

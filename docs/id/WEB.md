@@ -75,6 +75,7 @@ Perintah lain tetap dapat diketik satu baris pada **Input perintah**, lalu klik 
 | LED, mute dan jam RTC | `/api/led`, `/api/mute`, `/api/time` | Kontrol antrean dengan hasil eksekusi |
 | Angka kumulatif terjadwal dan CSV checkpoint | `/api/checkpoints` | Salinan hari berjalan/pemulihan atau arsip CRC terbatas |
 | Arsip dan CSV | `/api/history`, `/api/export` | Akses filesystem terbatas dengan aturan pemulihan |
+| Pemeriksaan mount LittleFS tanpa OLED | `/api/storage/retry` POST | Halaman `/storage-recovery` tersimpan di firmware dan mengantre pemeriksaan mount tanpa format pada core 1; reboot normal wajib jika berhasil |
 
 Seluruh route tersebut terdaftar pada firmware produksi. HTTP 202 berarti diterima antrean, dan kontrol biasa tetap menunggu hasil ID eksekusinya. Mode yang tidak kompatibel diperiksa kembali oleh pemilik UART. Perubahan jaringan ditolak ketika scanner atau maintenance aktif, sedangkan Hentikan/Lanjutkan memakai mailbox prioritas. Polling panel detail berhenti saat ditutup dan payload rusak tidak diubah menjadi pengukuran valid.
 

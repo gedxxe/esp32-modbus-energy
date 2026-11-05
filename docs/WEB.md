@@ -75,6 +75,7 @@ For any other supported command, type one line into **Command input** and choose
 | LED, alarm mute and RTC synchronization | `/api/led`, `/api/mute`, `/api/time` | Queued controls with execution results |
 | Scheduled cumulative readings and checkpoint CSV | `/api/checkpoints` | Copied current/recovery day or CRC-checked bounded archive |
 | Completed records and CSV | `/api/history`, `/api/export` | Bounded filesystem access with existing recovery rules |
+| Headless LittleFS mount probe | `/api/storage/retry` POST | Flash-resident `/storage-recovery` page queues a non-destructive mount test on core 1; no HTTP formatting; normal reboot required on success |
 
 All these routes are registered by the production firmware. Ordinary controls use an execution ID rather than treating HTTP 202 as completion, and incompatible operations are checked again at the UART owner's transaction boundary. Wi-Fi changes are rejected during a scanner or maintenance session, while Stop/Resume has its own priority mailbox. The browser stops polling detailed logs, trace and process panels when they close, and malformed data cannot become accepted measurements.
 

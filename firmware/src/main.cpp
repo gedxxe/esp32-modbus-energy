@@ -1631,9 +1631,8 @@ void loop() {
       s.scan.phase!=SCAN_RUNNING&&isfinite(s.energy)&&s.lastEnergyUTC&&uint32_t(now-s.lastGoodMs)<=15000;
     // The existing per-profile currentA register represents one measured channel.
     // It is not a phase sum or average; Habuer has no configured current register.
-    const bool freshCurrent=fresh&&profiles::available(profiles::get(s.config.profile).current)&&
-      s.lastCurrentMs&&uint32_t(now-s.lastCurrentMs)<=15000&&
-      isfinite(s.currentA)&&s.currentA>=0;
+    const bool freshCurrent=iot::freshCurrent(fresh,s.config.profile,
+                                              s.currentA,s.lastCurrentMs,now);
     iot::update(s.captures,s.capturePending,s.captureDurable,stationReady(),
                 s.rtc,s.utc,s.lastEnergyUTC,fresh,s.energy,s.config.profile,
                 freshCurrent,s.currentA);

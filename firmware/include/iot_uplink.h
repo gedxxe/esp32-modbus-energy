@@ -12,7 +12,9 @@ struct Status {
   uint32_t accepted=0,duplicates=0,failures=0,lastAcceptedUTC=0,lastAckDay=0;
   uint8_t lastAckSlot=0;
   int32_t httpStatus=0,transportError=0,socketErrno=0,tlsError=0,tlsFlags=0;
-  uint32_t freeHeapBeforePost=0;
+  uint32_t freeHeapBeforePost=0,freeHeapBeforeProbe=0;
+  bool probeAttempted=false;
+  int32_t probeHttp=0,probeTransportError=0,probeTlsError=0,probeTlsFlags=0;
   char error[40]={};
 };
 bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted);

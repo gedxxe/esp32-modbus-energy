@@ -1183,6 +1183,11 @@ void webSetup() {
     iotState["socketErrno"]=uplink.socketErrno;
     iotState["tlsError"]=uplink.tlsError;iotState["tlsFlags"]=uplink.tlsFlags;
     iotState["freeHeapBeforePost"]=uplink.freeHeapBeforePost;
+    iotState["probeAttempted"]=uplink.probeAttempted;
+    iotState["probeHttp"]=uplink.probeHttp;
+    iotState["probeTransportError"]=uplink.probeTransportError;
+    iotState["probeTlsError"]=uplink.probeTlsError;iotState["probeTlsFlags"]=uplink.probeTlsFlags;
+    iotState["freeHeapBeforeProbe"]=uplink.freeHeapBeforeProbe;
     iotState["lastAcceptedUTC"]=uplink.lastAcceptedUTC;
     iotState["lastAckDay"]=uplink.lastAckDay;
     iotState["lastAckSlot"]=uplink.lastAckDay?uplink.lastAckSlot:-1;

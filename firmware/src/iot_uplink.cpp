@@ -226,11 +226,14 @@ esp_err_t onHttp(esp_http_client_event_t *event){
   }
   return ESP_OK;
 }
-PostResult post(const Event &event,Response &response){
+// The no-data probe uses GET on the same HTTPS origin with NO bearer and NO
+// payload. A 405 response proves only HTTPS routing, not device authorization.
+PostResult request(const Event *event,Response &response){
   PostResult result{};
-  status.freeHeapBeforePost=esp_get_free_heap_size();
+  if(event)status.freeHeapBeforePost=esp_get_free_heap_size();
+  else status.freeHeapBeforeProbe=esp_get_free_heap_size();
   esp_http_client_config_t cfg={};
-  cfg.url=endpoint;cfg.method=HTTP_METHOD_POST;
+  cfg.url=endpoint;cfg.method=event?HTTP_METHOD_POST:HTTP_METHOD_GET;
   cfg.crt_bundle_attach=esp_crt_bundle_attach;
   cfg.skip_cert_common_name_check=false;
   cfg.timeout_ms=6000;cfg.disable_auto_redirect=true;
@@ -238,11 +241,13 @@ PostResult post(const Event &event,Response &response){
   esp_http_client_handle_t client=esp_http_client_init(&cfg);
   if(!client){result.transportError=ESP_ERR_NO_MEM;return result;}
   char auth[64]={};
-  snprintf(auth,sizeof(auth),"Bearer %s",token);
-  esp_http_client_set_header(client,"Content-Type","application/json");
-  esp_http_client_set_header(client,"Authorization",auth);
-  esp_http_client_set_header(client,"X-Device-ID",binding.device);
-  esp_http_client_set_post_field(client,event.json,int(event.size));
+  if(event){
+    snprintf(auth,sizeof(auth),"Bearer %s",token);
+    esp_http_client_set_header(client,"Content-Type","application/json");
+    esp_http_client_set_header(client,"Authorization",auth);
+    esp_http_client_set_header(client,"X-Device-ID",binding.device);
+    esp_http_client_set_post_field(client,event->json,int(event->size));
+  }
   const esp_err_t transport=esp_http_client_perform(client);
   if(transport==ESP_OK)result.http=esp_http_client_get_status_code(client);
   else{
@@ -257,6 +262,7 @@ PostResult post(const Event &event,Response &response){
   memset(auth,0,sizeof(auth));
   return result;
 }
+PostResult post(const Event &event,Response &response){return request(&event,response);}
 void backoff(const char *reason,uint32_t retrySeconds=0){
   ++status.failures;
   if(consecutiveFailures<7)++consecutiveFailures;
@@ -373,7 +379,7 @@ bool uploadNextCheckpoint(const Input &input){
 void worker(void *){
   Input input{};
   if(!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
-  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
+  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0,lastProbe=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
@@ -410,6 +416,24 @@ void worker(void *){
       nextArchiveCheck=now+15000UL;
     }
     if(status.phase==4)continue;
+    // A live meter is not necessary to diagnose TLS/DNS/routing. When there is
+    // no valid sample, probe no more than once per five minutes, without a
+    // credential, and never inside the protected checkpoint acquisition window.
+    if(!input.live&&!hasOutstandingLive&&
+       (!status.probeAttempted||uint32_t(now-lastProbe)>=300000UL)){
+      lastProbe=now;
+      Response probeBody{};
+      const PostResult probe=request(nullptr,probeBody);
+      status.probeAttempted=true;status.probeHttp=probe.http;
+      status.probeTransportError=probe.transportError;
+      status.probeTlsError=probe.tlsError;status.probeTlsFlags=probe.tlsFlags;
+      report(probe.tlsFlags?"probe_tls_certificate_rejected":
+             probe.tlsError?"probe_tls_handshake_failed":
+             probe.transportError?"probe_http_transport_failed":
+             probe.http==405?"probe_https_reachable_waiting_for_meter":
+             "probe_unexpected_http_status",1,status.httpStatus);
+      continue;
+    }
     if(!hasOutstandingLive&&input.live&&
        profiles::valid(input.profile)&&!strcmp(profiles::get(input.profile).key,binding.profile)&&
        uint32_t(now-lastLive)>=MIN_TELEMETRY_PERIOD_MS){
@@ -422,7 +446,9 @@ void worker(void *){
     if(hasOutstandingLive){
       if(transmit(outstandingLive,false)){hasOutstandingLive=false;lastLive=millis();}
     }else if(status.phase==1){
-      const char *reason=input.live?"waiting_for_telemetry_interval":"waiting_for_valid_meter_sample";
+      const char *reason=input.live?"waiting_for_telemetry_interval":
+        status.probeAttempted&&status.probeHttp==405?
+          "probe_https_reachable_waiting_for_meter":"waiting_for_valid_meter_sample";
       if(strcmp(status.error,reason))report(reason,1);
     }
   }

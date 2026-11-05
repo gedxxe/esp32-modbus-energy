@@ -27,6 +27,20 @@ The native `firmware/test/test_iot_contract.cpp` validates deterministic JSON sh
 
 Required field tests before rollout: TLS certificate failure; a revoked and a mismatched device; invalid/late checkpoint rejection; server timeout followed by identical replay; 429 and 503; restart before and after ACK; recovery from a corrupt ACK bank; 31-day retention limit; Wi-Fi reconnect and simultaneous LoRa/UI load; clock changes; no missed scheduled readings; no changes to website report or autosave tables. No such hardware or cloud tests are claimed to be completed by this branch.
 
+## Provisioning diagnosis (safe to share)
+
+If `iot.phase=0`, the uploaded image was built with the IoT development flag disabled. If `iot.phase=4` and `iot.configured=false`, the development flag was enabled **but one of the compile-time header checks failed**. A registered source on the website, or previously saved Wi-Fi/network settings, does not automatically populate `firmware/include/iot_credentials.local.h`. The header is compiled into the image; uploading the wrong build also keeps old values.
+
+Current status error codes distinguish:
+- `iot_binding_invalid`: device ID, meter ID or profile ID is empty/contains unsupported characters.
+- `iot_bearer_length_invalid`: bearer is not the required 43-character URL-safe key (do not paste it into logs).
+- `iot_bearer_format_invalid`: bearer contains a character outside `A-Za-z0-9_-`.
+- `iot_endpoint_https_required`: endpoint is not HTTPS.
+- `iot_endpoint_path_invalid`: endpoint must end with exactly `/api/iot-ingest`.
+- `iot_endpoint_too_long` / `iot_endpoint_url_invalid`: endpoint length or URI syntax rejected.
+
+Never troubleshoot by printing full build flags, uploading headers, displaying the bearer in a screenshot or posting `-v` compiler output containing it. The error class alone is enough for next steps. Correct the local ignored header, rebuild **and upload**, then recheck `/api/status`. A `configured=true` status still requires an actual 200/201 receipt and a live meter reading before claiming end-to-end success.
+
 ## Status values
 
 `iot.phase`: 0 disabled, 1 idle/waiting, 2 upload in progress, 3 retry/backoff, 4 blocked. `accepted` is newly created events and `duplicates` is confirmed idempotent replays. The `lastAckDay` and `lastAckSlot` fields identify the last durably acknowledged checkpoint. A unit running old firmware will not expose the `iot` status field.

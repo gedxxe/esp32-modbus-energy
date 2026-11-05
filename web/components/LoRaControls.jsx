@@ -1,3 +1,4 @@
+import Icon from "./Icon.jsx";
 import { useEffect, useRef, useState } from "react";
 import { validLoRaView } from "../validation.js";
 import { validateFormFields } from "../form-validation.js";
@@ -89,7 +90,7 @@ export default function LoRaControls({ device }) {
     </label>;
   }
   return <section className="panel" id="lora-panel" aria-labelledby="lora-title">
-    <h2 id="lora-title">{t("lora_title")}</h2><p>{t("lora_intro")}</p>
+    <h2 id="lora-title" className="panel-title"><Icon name="radio" size={23}/>{t("lora_title")}</h2><p>{t("lora_intro")}</p>
     <div className="network-state" role="status"><strong id="lora-status">{v ? t(`lora_phase_${v.phase}`) : t("lora_unavailable")}</strong><span>{v?.paired ? t("lora_paired") : t("lora_unpaired")}</span></div>
     {v?.code !== 0 && v?.code !== undefined && <p className="hint" id="lora-error">{t("lora_driver_error", { code: v.code })}</p>}
     <dl className="metrics">

@@ -68,8 +68,8 @@ export default function DeviceRecords({ device }) {
   return (
     <div className="device-columns">
       <section className="panel">
-        <h2>{t("diagnostics")}</h2>
-        {validUnitView(s?.unit)&&<div id="unit-info" className="hint"><h3>{t("unit_title")}</h3>
+        <h2 className="panel-title"><Icon name="device" size={23}/>{t("diagnostics")}</h2>
+        {validUnitView(s?.unit)&&<div id="unit-info" className="hint"><h3 className="panel-title"><Icon name="device" size={20}/>{t("unit_title")}</h3>
           <dl className="metrics"><div><dt>{t("unit_id")}</dt><dd className="mono">{s.unit.id||t("unit_unavailable")}</dd></div><div><dt>{t("unit_hostname")}</dt><dd>{s.unit.hostname}</dd></div></dl>
           {(s.unit.meterSettingsDegraded||s.unit.networkSettingsDegraded)&&<p id="unit-settings-warning">{t("unit_settings_degraded")}</p>}
           <p>{t(s.unit.meterConfigured?"unit_config_saved":"config_required")}</p><p className="small mono">{t("unit_generations",{meter:s.unit.meterConfigGeneration,network:s.unit.networkConfigGeneration})}</p>
@@ -82,7 +82,7 @@ export default function DeviceRecords({ device }) {
             </div>
           ))}
         </dl>
-        {validRecoveryView(s?.recovery)&&<div className="hint"><h3>{t("recovery_title")}</h3><p>{t("recovery_summary",{code:s.recovery.resetCode,source:s.recovery.source,nvs:t(s.recovery.nvsVerified?"recovery_yes":"recovery_no"),fs:t(s.recovery.fsVerified?"recovery_yes":"recovery_no")})}</p></div>}
+        {validRecoveryView(s?.recovery)&&<div className="hint"><h3 className="panel-title"><Icon name="shield" size={20}/>{t("recovery_title")}</h3><p>{t("recovery_summary",{code:s.recovery.resetCode,source:s.recovery.source,nvs:t(s.recovery.nvsVerified?"recovery_yes":"recovery_no"),fs:t(s.recovery.fsVerified?"recovery_yes":"recovery_no")})}</p></div>}
         <div className="error-detail">
           {t("last_error")}
           <code>{s?.error_code ? t(s.error_code) : s?.error || "—"}</code>
@@ -98,7 +98,7 @@ export default function DeviceRecords({ device }) {
           </button>
         </div>
         <div className="hint">
-          <h3>{t("format_help")}</h3>
+          <h3 className="panel-title"><Icon name="storage" size={20}/>{t("format_help")}</h3>
           <p style={{ marginTop: 8 }}>{t("format_note")}</p>
         </div>
       </section>

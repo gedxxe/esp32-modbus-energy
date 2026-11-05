@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useText } from "../ui.js";
 import WifiPicker from "./WifiPicker.jsx";
 import NetworkResult from "./NetworkResult.jsx";
+import Icon from "./Icon.jsx";
 import { validNetworkView, validAPIP } from "../validation.js";
 import { validateFormFields } from "../form-validation.js";
 
@@ -58,7 +59,7 @@ export default function NetworkControls({ device }) {
     else setFeedback({key:result?.error||result?.body?.code||"request_failed"});
   }
   return <section className="panel network-panel" id="network-panel" aria-labelledby="network-title">
-    <h2 id="network-title">{t("network_title")}</h2>
+    <h2 id="network-title" className="panel-title"><Icon name="wifi" size={23}/>{t("network_title")}</h2>
     <p>{t("network_intro")}</p>
     {!network ? <p role="status" className="hint">{t("network_unavailable")}</p> : <>
       <div className="network-state" role="status" id="network-status">
@@ -70,7 +71,6 @@ export default function NetworkControls({ device }) {
         <div><dt>{t("network_ap_ip")}</dt><dd>{network.apIP || "—"}</dd></div>
       </dl>
       <p className="small muted">{t("network_recovery", { ssid: network.apSSID })}</p>
-      {network.error&&<p id="network-error" className="hint" role="status">{t(`network_error_${network.error}`)}<span className="small mono"> · {network.disconnectReason||0} / {network.apiCode||0}</span></p>}
       {!network.stored && <p className="hint">{t("network_storage_failed")}</p>}
     </>}
     <form id="network-form" onSubmit={submit} onChange={()=>setFeedback(null)} noValidate>

@@ -111,8 +111,13 @@ void startStation(){
   if(activeNetwork.mode==NETWORK_AP)return;
   networkAttempt.prepare(millis(),activeNetwork.auth==NETWORK_PEAP);
   stationDriver.authenticationPaused=false;
-  // Let the event task acknowledge the old connection before reconfiguring it.
-  WiFi.disconnectAsync(false,false);
+  // Cancel association without waiting on Arduino's cached WL_CONNECTED flag.
+  // A station with no current association needs no DISCONNECTED event.
+  esp_err_t code=esp_wifi_disconnect();
+  if(code!=ESP_OK&&code!=ESP_ERR_WIFI_NOT_CONNECT){
+    networkAttempt.fail(millis(),"station_config_failed",0,code);
+    Serial.printf("[WiFi] attempt=%lu step=disconnect code=%ld\n",(unsigned long)networkAttempt.id,(long)code);
+  }
 }
 void beginStation(){
   networkAttempt.connecting(millis());
@@ -181,9 +186,17 @@ void tickNetwork(){
     else if(!sameNetwork(activeNetwork,update.settings))applyNetwork(update.settings);
   }
   if(networkPending&&uint32_t(now-networkPendingAt)>=NETWORK_APPLY_DELAY_MS){networkPending=false;applyNetwork(pendingNetwork);}
+  now=millis(); // applyNetwork() creates a newer attempt timestamp than this tick's initial now.
+  // Reconcile actual association before evaluating the preparation deadline.
+  // HTTP service can delay this tick beyond the former two-second window.
+  if(networkAttempt.stage==NetworkAttempt::PREPARING&&uint32_t(now-networkAttempt.changed)>=250&&!wifiScanRunning()){
+    wifi_ap_record_t previous{};esp_err_t code=esp_wifi_sta_get_ap_info(&previous);
+    if(code==ESP_ERR_WIFI_NOT_CONNECT)beginStation();
+    else if(code!=ESP_OK)networkAttempt.fail(now,"station_config_failed",0,code);
+  }
+  now=millis();
   const char *expired=networkAttempt.expired(now);
   if(expired[0]){networkAttempt.fail(now,expired);WiFi.disconnectAsync(false,false);Serial.printf("[WiFi] attempt=%lu result=%s\n",(unsigned long)networkAttempt.id,expired);}
-  if(networkAttempt.stage==NetworkAttempt::PREPARING&&uint32_t(now-networkAttempt.changed)>=250&&WiFi.status()!=WL_CONNECTED&&!wifiScanRunning())beginStation();
   if(uint32_t(now-lastNetworkTick)<250)return;
   lastNetworkTick=now;bool ready=stationReady();
   bool retry=networkPolicy.update(now,ready,networkAttempt.retryAllowed(now));

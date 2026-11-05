@@ -1,3 +1,4 @@
+import Icon from "./Icon.jsx";
 import { useEffect, useRef, useState } from "react";
 import { useText } from "../ui.js";
 export default function DisplayControls({ device }) {
@@ -6,7 +7,7 @@ export default function DisplayControls({ device }) {
  const [enabled,setEnabled]=useState(true),[seconds,setSeconds]=useState(60);const previous=useRef(null);
  useEffect(()=>{if(display&&display.idleSeconds!==previous.current){previous.current=display.idleSeconds;setEnabled(display.idleSeconds!==0);if(display.idleSeconds)setSeconds(display.idleSeconds);}},[display?.idleSeconds]);
  const blocked=!display||!device.fresh||device.pending;
- return <section id="display-panel" className="panel"><h2>{t("display_title")}</h2><p>{t("display_intro")}</p>
+ return <section id="display-panel" className="panel"><h2 className="panel-title"><Icon name="display" size={23}/>{t("display_title")}</h2><p>{t("display_intro")}</p>
   <form onSubmit={(event)=>{event.preventDefault();device.act("/api/display",{idleSeconds:enabled?seconds:0});}}>
    <label className="checkbox-line" htmlFor="display-enabled"><input id="display-enabled" type="checkbox" checked={enabled} disabled={blocked} onChange={(event)=>setEnabled(event.target.checked)}/>{t("display_enabled")}</label>
    <label htmlFor="display-idle">{t("display_idle")}</label><input id="display-idle" type="number" min="10" max="3600" step="1" value={seconds} required disabled={blocked||!enabled} onChange={(event)=>setSeconds(event.target.value)} />

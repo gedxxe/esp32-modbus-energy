@@ -85,7 +85,8 @@ int main(){
   clearEnterprise(s);s.auth=NETWORK_PERSONAL;strcpy(s.password,"personal-test");
   assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK);
   NetworkAttempt attempt;attempt.prepare(0xFFFFFF00u,true);assert(attempt.active());
-  assert(!attempt.expired(0xFFFFFF00u+1999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFF00u+2000u),"station_disconnect_timeout"));
+  assert(!attempt.expired(0xFFFFFEFFu)[0]);
+  assert(!attempt.expired(0xFFFFFF00u+4999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFF00u+5000u),"station_disconnect_timeout"));
   attempt.connecting(0xFFFFFFF0u);assert(!attempt.accepts(0xFFFFFFEFu));assert(attempt.accepts(16));
   assert(!attempt.expired(0xFFFFFFF0u+59999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFFF0u+60000u),"connection_timeout"));
   assert(!attempt.accepts(0xFFFFFFF0u+60000u));

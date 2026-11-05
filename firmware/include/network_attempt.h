@@ -26,7 +26,9 @@ class NetworkAttempt {
     failedAt=now;lastFailedId=id;
   }
   const char *expired(uint32_t now)const{
-    if(stage==PREPARING&&uint32_t(now-changed)>=2000)return "station_disconnect_timeout";
+    // A caller may retain a tick timestamp sampled just before prepare().
+    if(int32_t(now-changed)<0)return "";
+    if(stage==PREPARING&&uint32_t(now-changed)>=5000)return "station_disconnect_timeout";
     if(stage==ADDRESSING&&uint32_t(now-changed)>=15000)return "dhcp_timeout";
     if((stage==CONNECTING||stage==ADDRESSING)&&uint32_t(now-started)>=budget)return "connection_timeout";
     return "";

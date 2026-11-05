@@ -1507,3 +1507,12 @@ input,select{background:rgba(255,255,255,.85);border-color:#bdcce8;border-radius
 .brand-logo .midea-logo{display:block;width:100%;height:100%;overflow:visible}.brand-copy{min-width:0}
 @media(max-width:600px){.brand-logo{width:111px;height:44px;padding:3px 7px}.brand-copy .brand-sub{letter-spacing:.7px}}
 @media(max-width:400px){.brand-copy{display:none}.brand-logo{width:116px}}
+
+/* Shared help surfaces: padding belongs to all edges, including nested forms. */
+.hint{box-sizing:border-box;border:1px solid #d4def2;padding:18px 20px;margin:20px 0;line-height:1.75;font-size:12px;overflow-wrap:anywhere;background:linear-gradient(130deg,#f0f5ffde,#f6f3ffb8);border-radius:16px}
+.hint>:first-child{margin-top:0}.hint>:last-child{margin-bottom:0}.hint p{margin:10px 0}.hint h3{margin:0 0 12px;color:#263e68;font-size:15px}.hint .metrics{margin:0 0 14px}.hint .metrics dd{font-size:16px;overflow-wrap:anywhere}
+.panel-title{display:flex;align-items:center;gap:11px}.panel-title>svg{flex:none;color:#4a6ed0}.hint .panel-title{align-items:flex-start}.hint .panel-title>svg{margin-top:2px}
+.network-result{border-left:3px solid #5d80dc}.network-result.status-error{background:linear-gradient(125deg,#fff8f1,#fff4f5);border-color:#edcfc5;color:#69483c}.network-result.status-error .panel-title>svg{color:#b96e32}.network-error-code{display:block;margin-top:10px;font-size:11px;overflow-wrap:anywhere}
+.network-state{gap:12px;flex-wrap:wrap}.network-addresses>div{min-width:0}.network-addresses dd{overflow-wrap:anywhere}.network-credentials{min-width:0}#network-form .network-result{margin:20px 0 0}#lora-form p.hint{padding:18px 20px;margin:0}#lora-form .lora-warning{border-left:3px solid #bd9238;background:#fffbf1}#lora-form .lora-blocking{border-left:3px solid #c45451;background:#fff6f3}
+.panel form .checkbox-line{align-items:flex-start;line-height:1.6}.panel form .checkbox-line input{flex:none;margin-top:3px}.error-detail code{white-space:normal;overflow-wrap:anywhere;line-height:1.7}
+@media(max-width:600px){.hint,#lora-form p.hint{padding:16px}.network-state>span{font-size:12px}.hint .metrics{grid-template-columns:minmax(0,1fr);gap:0}.panel-title{gap:9px}}

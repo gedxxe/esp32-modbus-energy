@@ -1,7 +1,7 @@
 {
   "version": "3.5.0",
   "transport": "gzip",
-  "compressed_total": 162330,
+  "compressed_total": 163056,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,16 +20,16 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 475382,
-      "gzip": 150084,
-      "sha256": "be3b852b5392b1d43bf59cec5e466e7dcbb26c8f43175b45399dd6e0cafd7782"
+      "raw": 476370,
+      "gzip": 150491,
+      "sha256": "c7c9380d88032a56533f7656ce096be2d6b2fd861e1900ed7806528966edde7b"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
       "mime": "text/css; charset=utf-8",
-      "raw": 42398,
-      "gzip": 10174,
-      "sha256": "c76159d1f02d07afbdf3ba7433bd20d3a5fe7ad9d742e1fbb86bf68a1d4929d0"
+      "raw": 44093,
+      "gzip": 10493,
+      "sha256": "a98b1a3f5f69e598c185d0b7e5466dc9642f99c9f63387b64fe0ea09513ca4d0"
     },
     "/assets/third-party.txt": {
       "symbol": "WEB_NOTICES_GZIP",
@@ -48,24 +48,24 @@
     "web/components/CheckpointRecords.jsx": "d25664891b3e2a303a291ff73ec80b1c6275033fb2820d71fbd83bb8b7387df2",
     "web/components/DeviceClock.jsx": "0db4a1efc73b0fb017f804491c95d4031dbe76122f7e229b4eec7ca976b20cdf",
     "web/components/DiagnosticConsole.jsx": "89e1f6321527ffc9672c80ed4b5007ff01f90344a4f40953db3c8a26ebad4b05",
-    "web/components/DisplayControls.jsx": "b05ed78136bf41b23b00dbe3060fed334fc1c9c03811e63db9baa6eb9752db0f",
+    "web/components/DisplayControls.jsx": "1507330d983f1944d2a216c1821d9fc45f5aa49c22181ec7a33919d23eb76f48",
     "web/components/EnergyCounter.jsx": "1381966d55dc466b0bb65463f384f0b489e64d5837d00c57ea15a91d7cb27a58",
     "web/components/FlowPlayback.jsx": "f33ba001207024f3b9dc6d380222f54f841305b12c985ceb37223496a5fb6896",
-    "web/components/Icon.jsx": "a776a69072a2d74115e6b786568a98ac980039888bede95f09ad906d4fa417fe",
+    "web/components/Icon.jsx": "9f03c3cd339347b694d3da4622cf52c1b6ec594b023d16ca4ad97454108f4311",
     "web/components/LedControls.jsx": "02c88ef31d83889a45b53db7615da4d4f2892bb6ebcfe1627926414679a140a7",
-    "web/components/LoRaControls.jsx": "955585deae00aa3f68f2caa49c88e9dee2fa891ed329ee816652d0bd65100938",
+    "web/components/LoRaControls.jsx": "46570ba4ba0a27c0f720ae73e955ef53c26fc586e9e4434dd391d97c82e79f34",
     "web/components/MeterLab.jsx": "50757340ea3c398c516598ecf839dcf7373e06e6f351ca2f32f76a9fee9f0dc2",
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/MideaLogo.jsx": "ce5000e3469bc47aaa00ac8a52c256bea915138785cf88fc8b56cb8bec9eda9a",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
-    "web/components/NetworkControls.jsx": "0a0a878e5fdaf90af68126ef0fec14f95f63bfb74455089115e5c5b4488a1ca2",
-    "web/components/NetworkResult.jsx": "61057fb689ae799b83094e4b38962b3ed0cf5d182aee36ff3319f1d6f8ed86fa",
+    "web/components/NetworkControls.jsx": "6787c67aa7a0bec11959c76f562a2700e6617e79d3be2fa89fa6218953fb1827",
+    "web/components/NetworkResult.jsx": "37ecceee3e277773359742aaa98cf6032fbcc210690559af3e38af60c7dcdf94",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
     "web/components/WifiPicker.jsx": "a426bcdfd28a58574f410ee79e1ffa4e51e28a45127ed21613caa99f8427a434",
     "web/device.js": "c1c1fbec85f1321026635b7c4c97f2fe0289bed16dccb92b3cf8e963b6ba99ce",
-    "web/enterprise-i18n.js": "4d43e469bba54cada09c6a85ef160ff089f9ec9c68a89922ecc43832af61afa8",
+    "web/enterprise-i18n.js": "69531ba160d2ae448b621af688e1010b438bd59771e460ffc920b9072d8ebff0",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
     "web/form-validation.js": "7609ddbadd3a0a712c9f3a2dc281e55a581384a576bc9b8d1fed0a1d4dcf8c54",
     "web/i18n.js": "2102c027eacb1f487eb71df5b55007ec19d608b10070d9d105c230bf8f9b9e23",
@@ -75,7 +75,7 @@
     "web/meter-lab.js": "bdb341dd355c5fb93310a01b984088a99f5bd76a02a972991922f3398b372586",
     "web/meter-profile.js": "95fdf72684f51ffd1961e11ed39e2714ceecc9af77df5b42be78db57c23a286f",
     "web/request.js": "0a16a1613f625ea348c7604988f0d057292c3a4a18a1f8d5c0dc6753c70409bc",
-    "web/styles.css": "8405679437890e4f4ad44d86bbf65453238431247811f2ca86086404f3f52664",
+    "web/styles.css": "22dc4fa80122d7e07341cff3b6d0a417cec73fde074af5dd0ca3c5e37c1b2059",
     "web/ui.js": "067f1d1b28390798b0419311d2c08564e796fcf5bee0e68cd2725782f3384014",
     "web/validation.js": "7d1d3105864b4c25edf9bbd6bfc62033f340df99164be978b7cabfc0c53bfd7e",
     "web/vendor/gsap-NOTICE.txt": "88afbbbbb61a9bd42e18193e251e9969f6d93a6638adff285cd89b236645ab67",
@@ -91,9 +91,9 @@
     "web/vendor/react-bits/WakeSlider.css": "2b8153f1bc069ef6974e0ba6cd5bba6e88641097562f28f0e21317d1c31106e4",
     "web/vendor/react-bits/WakeSlider.jsx": "f0184a8248b78ef359e088ae24a6565faf09e867bdacb96761d48f02b3badc32",
     "web/vendor/react-bits/upstream.json": "365e1a35fb29bbd42aa7fa5d39461bac789d67c533c274e3d52d5eb1596d517c",
-    "web/views/DeviceRecords.jsx": "251b6e347a199a57fb11a4fcfdfb9e7c1641f658d50552bc979e0f4f48e6173f",
+    "web/views/DeviceRecords.jsx": "5c9766e29050313056119bc9660d9d194f9f419999ccd5a91d52852a927f92cd",
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "c45440dc54c1cd5afd76cd2fe52e20659c051ae47aee0755cd34f41f38802ed2"
+  "header_sha256": "ae9d8db2b0bf9d4fd1353571cddeccd1c5327207a9db26e10f9061a1080d0716"
 }

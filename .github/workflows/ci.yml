@@ -37,6 +37,8 @@ jobs:
           ./tmp/fort-main-debug-test
           g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_power_lora.cpp -o tmp/power-lora-test
           ./tmp/power-lora-test
+          g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/include firmware/test/test_iot_contract.cpp -o tmp/iot-contract-test
+          ./tmp/iot-contract-test
           g++ -std=c++11 -Wall -Wextra -Werror -Ifirmware/test/network_stub -Ifirmware/include firmware/test/test_network.cpp firmware/src/enterprise_station.cpp -o tmp/network-test
           ./tmp/network-test
           python tools/check_lora.py

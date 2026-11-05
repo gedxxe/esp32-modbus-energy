@@ -242,11 +242,18 @@ PostResult request(const Event *event,Response &response){
   if(!client){result.transportError=ESP_ERR_NO_MEM;return result;}
   char auth[64]={};
   if(event){
-    snprintf(auth,sizeof(auth),"Bearer %s",token);
-    esp_http_client_set_header(client,"Content-Type","application/json");
-    esp_http_client_set_header(client,"Authorization",auth);
-    esp_http_client_set_header(client,"X-Device-ID",binding.device);
-    esp_http_client_set_post_field(client,event->json,int(event->size));
+    const int written=snprintf(auth,sizeof(auth),"Bearer %s",token);
+    esp_err_t prepared=written>0&&written<int(sizeof(auth))?ESP_OK:ESP_ERR_INVALID_SIZE;
+    if(prepared==ESP_OK)prepared=esp_http_client_set_header(client,"Content-Type","application/json");
+    if(prepared==ESP_OK)prepared=esp_http_client_set_header(client,"Authorization",auth);
+    if(prepared==ESP_OK)prepared=esp_http_client_set_header(client,"X-Device-ID",binding.device);
+    if(prepared==ESP_OK)prepared=esp_http_client_set_post_field(client,event->json,int(event->size));
+    if(prepared!=ESP_OK){
+      result.transportError=prepared;
+      esp_http_client_cleanup(client);
+      memset(auth,0,sizeof(auth));
+      return result;
+    }
   }
   const esp_err_t transport=esp_http_client_perform(client);
   if(transport==ESP_OK)result.http=esp_http_client_get_status_code(client);

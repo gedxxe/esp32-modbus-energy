@@ -57,6 +57,14 @@ inline bool primaryText(double energy,char (&out)[40]){
   int n=snprintf(out,sizeof(out),"%.6f",energy);
   return n>0&&n<int(sizeof(out));
 }
+// Sample-age admission remains independent of the HTTPS task and UART.
+// A single currentA channel is present only if the selected profile defines it.
+inline bool freshCurrent(bool liveEnergyValid,uint8_t profile,double currentA,
+                         uint32_t sampledAtMs,uint32_t nowMs){
+  return liveEnergyValid&&profiles::valid(profile)&&
+    profiles::available(profiles::get(profile).current)&&sampledAtMs&&
+    uint32_t(nowMs-sampledAtMs)<=15000&&std::isfinite(currentA)&&currentA>=0;
+}
 // Immutable capture -> stable event ID + canonical field set expected by website.
 // This routine does not invent readings or modify a capture.
 inline bool checkpoint(const CaptureDay &day,unsigned index,const Binding &binding,Event &out){

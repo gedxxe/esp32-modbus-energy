@@ -5,6 +5,7 @@
 #include "iot_contract.h"
 #include "iot_provision.h"
 #include "iot_archive_path.h"
+#include "iot_tls_diagnostics.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -12,6 +13,8 @@
 #include <esp_crt_bundle.h>
 #include <esp_system.h>
 #include <esp_err.h>
+#include <esp_heap_caps.h>
+#include <mbedtls/ssl.h>
 #include <sdkconfig.h>
 #include <sys/time.h>
 #include <algorithm>
@@ -60,6 +63,12 @@
 #endif
 #if IOT_DEV_ENABLED && (!defined(CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS) || !CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS)
 #error "IoT HTTPS requires CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y"
+#endif
+#if IOT_DEV_ENABLED && (!defined(CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC) || !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC)
+#error "IoT HTTPS needs CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y in the compiled ESP32-S3 N16R8 SDK"
+#endif
+#if IOT_DEV_ENABLED
+static_assert(-MBEDTLS_ERR_SSL_ALLOC_FAILED==0x7F00,"Unexpected Mbed TLS allocation failure code");
 #endif
 
 namespace fort { namespace iot {
@@ -243,8 +252,15 @@ esp_err_t onHttp(esp_http_client_event_t *event){
 // payload. A 405 response proves only HTTPS routing, not device authorization.
 PostResult request(const Event *event,Response &response){
   PostResult result{};
-  if(event)status.freeHeapBeforePost=esp_get_free_heap_size();
-  else status.freeHeapBeforeProbe=esp_get_free_heap_size();
+  if(event){
+    status.freeHeapBeforePost=esp_get_free_heap_size();
+    const uint32_t internal=MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT;
+    const uint32_t external=MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT;
+    status.internalFreeBeforePost=heap_caps_get_free_size(internal);
+    status.internalLargestBeforePost=heap_caps_get_largest_free_block(internal);
+    status.psramFreeBeforePost=heap_caps_get_free_size(external);
+    status.psramLargestBeforePost=heap_caps_get_largest_free_block(external);
+  }else status.freeHeapBeforeProbe=esp_get_free_heap_size();
   esp_http_client_config_t cfg={};
   cfg.url=endpoint;cfg.method=event?HTTP_METHOD_POST:HTTP_METHOD_GET;
   cfg.crt_bundle_attach=esp_crt_bundle_attach;
@@ -385,6 +401,7 @@ bool transmitHeartbeat(uint32_t utc){
   }
   if(!code){
     const char *reason=result.tlsFlags?"heartbeat_tls_certificate_rejected":
+      tlsAllocationFailure(result.tlsError)?"heartbeat_tls_out_of_memory":
       result.tlsError?"heartbeat_tls_handshake_failed":
       result.transportError==ESP_ERR_NO_MEM?"heartbeat_http_no_memory":
       result.transportError?"heartbeat_transport_failed":"heartbeat_no_response";
@@ -441,6 +458,7 @@ bool transmit(const Event &event,bool checkpointEvent){
   if(code==429){backoff("http_rate_limited",response.retrySeconds);return false;}
   if(!code){
     const char *cause=result.tlsFlags?"tls_certificate_rejected":
+      tlsAllocationFailure(result.tlsError)?"tls_out_of_memory":
       result.tlsError?"tls_handshake_failed":
       result.transportError==ESP_ERR_NO_MEM?"http_no_memory":
       result.transportError?"http_transport_failed":"http_no_response";
@@ -572,6 +590,9 @@ bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted){
   snprintf(binding.meter,sizeof(binding.meter),"%s",meterId);
   snprintf(binding.profile,sizeof(binding.profile),"%s",meterProfile);
   status=Status{};status.localHeaderPresent=IOT_LOCAL_HEADER_PRESENT!=0;
+#if defined(CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC) && CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC
+  status.tlsAllocatorPsram=true;
+#endif
   const char *issue=provisionIssue();status.configured=issue==nullptr;
   if(!IOT_DEV_ENABLED){status.phase=0;return true;}
   if(issue){report(issue,4);return false;}

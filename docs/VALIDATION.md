@@ -4,6 +4,19 @@
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+## 5 November 2026: development HTTPS TLS-memory diagnosis
+
+Field status reported ESP_ERR_HTTP_CONNECT (0x7002) and
+MBEDTLS_ERR_SSL_ALLOC_FAILED (-0x7F00), consistent with an allocation
+failure before HTTP response. The N16R8 custom SDK now requests and
+verifies the Mbed TLS external-PSRAM allocator, while the uploader
+publishes separate internal/PSRAM free and largest-contiguous-block
+metrics. A real-world TLS handshake and authenticated cloud receipt
+are still pending physical verification; a successful compile alone
+is insufficient. Certificate-date, CA and hostname checks remain on.
+This is a development-only provisioning arrangement, not hardened
+production credential storage.
+
 ## 5 November 2026: station preparation and dashboard panels
 
 Fixed a timestamp-underflow path where applyNetwork created a connection attempt after the loop had sampled its current time. Preparation now refreshes that time, guards against a stale earlier timestamp and reconciles ESP-IDF association before evaluating its five-second deadline. The station disconnect request is checked and no longer depends on a cached Arduino connection status. Only a fresh matching GOT_IP event can confirm online status. Dashboard help surfaces now have full padding, wrapping and local SVG icons, and the connection failure appears once beside the form result. The generated dashboard is 163,056 gzip bytes, within the 160 KiB limit. Native/browser/hardware tests were not run, following the owner instruction to avoid additional tests. The ESP32-S3 target compiled successfully with the updated embedded assets. The app and factory images were regenerated for the release package. Corporate authentication remains unverified.

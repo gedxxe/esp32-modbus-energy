@@ -1,6 +1,7 @@
 #include "iot_contract.h"
 #include "iot_archive_path.h"
 #include "iot_provision.h"
+#include "iot_tls_diagnostics.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -10,6 +11,11 @@ int main(){
   iot::Binding b;strcpy(b.device,"dev_source");strcpy(b.meter,"meter_1");strcpy(b.profile,"fort");
   assert(iot::valid(b)&&iot::identifier("n-0_1"));
   // The same validator runs on ESP32 and native CI with synthetic credentials.
+  assert(iot::tlsAllocationFailure(32512));
+  assert(iot::tlsAllocationFailure(-32512));
+  assert(!iot::tlsAllocationFailure(0));
+  assert(!iot::tlsAllocationFailure(0x2700)); // X509 error is not a memory error.
+  assert(!iot::tlsAllocationFailure(0x7200)); // Invalid record is not a memory error.
   const std::string fakeKey(43,'A');
   const char *validEndpoint="https://synthetic.invalid/api/iot-ingest";
   assert(iot::validateProvision(true,b,fakeKey.c_str(),validEndpoint,true)==nullptr);

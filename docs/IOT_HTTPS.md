@@ -78,3 +78,38 @@ When storage cannot mount, the firmware continues authenticated heartbeat-only t
 ## Status values
 
 `iot.phase`: 0 disabled, 1 idle/waiting, 2 upload in progress, 3 retry/backoff, 4 blocked. `accepted` is newly created **readings**, `duplicates` is confirmed idempotent reading replay, and `heartbeatAccepted` counts accepted **contacts** separately. The `lastAckDay` and `lastAckSlot` fields identify the last durably acknowledged checkpoint and are not changed by heartbeat. `archiveReady=false` means checkpoint upload is disabled, even if `heartbeatAccepted>0`. A unit running old firmware will not expose the `iot` status field.
+
+## TLS memory exhaustion on ESP32-S3 N16R8 (5 November 2026)
+
+A physical development node reported `heartbeatTransportError=28674`
+(ESP_ERR_HTTP_CONNECT) and `heartbeatTlsError=32512` (Mbed TLS -0x7F00,
+SSL_ALLOC_FAILED) with no HTTP response. Its aggregate heap was about 8.4 MB
+(including PSRAM), while free internal DRAM reported by the local API was
+about 36.5 KB. This is evidence of an allocation failure *before* HTTP;
+it is not evidence of an invalid URL, bearer, server registration or
+certificate chain. Never disable certificate verification to hide this error.
+
+The pinned N16R8 custom ESP-IDF SDK now builds Mbed TLS with
+`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y` so its TLS allocations use the
+installed 8 MB PSRAM rather than exhausting internal DRAM. The SDK bootstrap
+checks the compiled header, not merely a PlatformIO build flag. The status
+includes `tlsAllocatorPsram`, `internalFreeBeforePost`,
+`internalLargestBeforePost`, `psramFreeBeforePost` and
+`psramLargestBeforePost`. The existing `freeHeapBeforePost` remains for
+backward compatibility but is an aggregate number. A subsequent 0x7F00
+error now reads `heartbeat_tls_out_of_memory` or `tls_out_of_memory`
+instead of an ambiguous handshake error.
+
+**Development-only security:** PSRAM is external physical RAM, and the
+observed test unit reported `flashEncrypted=false`. This does not provide
+hardened at-rest secret protection. Keep credentials private, secure physical
+access, rotate test credentials when appropriate, and do not deploy as
+a production credential scheme. CA bundle, hostname and certificate-date
+verification remain mandatory; HTTPS redirects are never followed.
+
+After a **clean build from firmware/**, verify `tlsAllocatorPsram=true`,
+review the internal/PSRAM largest blocks, and test `heartbeatHttp=200`,
+`heartbeatAccepted>0`, `heartbeatError=""` against the actual dev
+deployment. Any subsequent HTTP 401/403, Vercel deployment protection or
+invalid server ACK is a separate follow-up to diagnose, not a reason
+to weaken TLS. Modbus kWh remains unavailable until the meter is attached.

@@ -16,6 +16,6 @@ struct Status {
 bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted);
 void update(const CaptureDay &active,const CaptureDay &previous,
             bool captureDurable,bool stationOnline,bool clockValid,uint32_t utc,
-            bool telemetryValid,double telemetryKWh,uint8_t profile);
+            uint32_t liveCapturedUTC,bool telemetryValid,double telemetryKWh,uint8_t profile);
 Status readStatus();
 } }

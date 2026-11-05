@@ -95,16 +95,16 @@ inline bool telemetry(uint32_t captured,double energy,const Binding &binding,
   const bool useCurrent=currentAvailable&&primaryText(currentA,currentNumber);
   char extra[80]={};
   if(useCurrent){
-    int length=snprintf(extra,sizeof(extra),",\\\"current_a\\\":\\\"%s\\\"",currentNumber);
+    int length=snprintf(extra,sizeof(extra),",\"current_a\":\"%s\"",currentNumber);
     if(length<=0||length>=int(sizeof(extra)))return false;
   }
   int idlen=snprintf(out.id,sizeof(out.id),"live_%08lx_%08lx",
     (unsigned long)boot,(unsigned long)sequence);
   if(idlen<=0||idlen>=int(sizeof(out.id)))return false;
   int n=snprintf(out.json,sizeof(out.json),
-    "{\\\"schema_version\\\":1,\\\"event_id\\\":\\\"%s\\\",\\\"device_id\\\":\\\"%s\\\","
-    "\\\"meter_id\\\":\\\"%s\\\",\\\"meter_profile\\\":\\\"%s\\\",\\\"event_type\\\":\\\"telemetry\\\","
-    "\\\"captured_at\\\":\\\"%s\\\",\\\"quality\\\":\\\"valid\\\",\\\"readings\\\":{\\\"active_energy_kwh\\\":\\\"%s\\\"%s}}",
+    "{\"schema_version\":1,\"event_id\":\"%s\",\"device_id\":\"%s\","
+    "\"meter_id\":\"%s\",\"meter_profile\":\"%s\",\"event_type\":\"telemetry\","
+    "\"captured_at\":\"%s\",\"quality\":\"valid\",\"readings\":{\"active_energy_kwh\":\"%s\"%s}}",
     out.id,binding.device,binding.meter,binding.profile,timestamp,number,extra);
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;

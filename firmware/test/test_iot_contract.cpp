@@ -77,6 +77,9 @@ int main(){
   iot::Event zero{};
   assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,4,zero,true,0));
   assert(std::string(zero.json).find("\"current_a\":\"0.000000\"")!=std::string::npos);
+  iot::Event minusZero{};
+  assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,4,minusZero,true,-0.0));
+  assert(!strcmp(minusZero.json,zero.json)); // site's decimal grammar rejects a -0 prefix
   const double invalids[]={-1.0,double(NAN),double(INFINITY)};
   for(double invalid:invalids){
     iot::Event absent{};

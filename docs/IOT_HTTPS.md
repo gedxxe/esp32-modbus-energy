@@ -113,3 +113,21 @@ review the internal/PSRAM largest blocks, and test `heartbeatHttp=200`,
 deployment. Any subsequent HTTP 401/403, Vercel deployment protection or
 invalid server ACK is a separate follow-up to diagnose, not a reason
 to weaken TLS. Modbus kWh remains unavailable until the meter is attached.
+
+### 6 November 2026: SDK Kconfig choice correction
+
+PR #15's first CI attempt passed logic-and-docs and browser checks, but
+the firmware job failed **after the custom SDK finished building**, because
+the generated `sdkconfig.h` did not have the requested Mbed TLS external
+allocator enabled. The upstream ESP-IDF `MBEDTLS_MEM_ALLOC_MODE` option is a
+**single-choice Kconfig setting** with an internal-memory default; the new
+external selection also depends on `SPIRAM_USE_MALLOC` or
+`SPIRAM_USE_CAPS_ALLOC`. Merely writing `CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y`
+was insufficient to ensure the compiled choice changed.
+
+The patch explicitly disables the internal choice, enables the PSRAM heap
+dependency and selects external Mbed TLS allocation. SDK bootstrap now reports
+the **exact missing/forbidden compiled symbols** on failure and verifies them
+*before* writing its cache provenance stamp. It never disables certificate
+verification. Firmware builds and real-device heartbeat ACKs remain distinct
+acceptance requirements.

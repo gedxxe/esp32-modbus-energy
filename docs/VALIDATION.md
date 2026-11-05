@@ -4,6 +4,17 @@
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+## 6 November 2026: follow-up to TLS-memory quality check
+
+Initial PR #15 CI completed with browser and logic/documentation jobs green,
+but the firmware job failed after compiling its SDK: the generated SDK header
+did not reflect the requested external Mbed TLS allocator. Root cause was
+a Kconfig choice/dependency not fully selected; the prior build-time
+guard correctly failed closed. The patch explicitly selects PSRAM-backed
+allocation and deselects the internal choice, then checks all required
+compiled symbols before stamping the SDK cache. CI must prove the result;
+no ESP32 device/website HTTP 200 heartbeat is claimed by this change.
+
 ## 5 November 2026: development HTTPS TLS-memory diagnosis
 
 Field status reported ESP_ERR_HTTP_CONNECT (0x7002) and

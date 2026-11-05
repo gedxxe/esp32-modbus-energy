@@ -96,7 +96,7 @@ jobs:
               '#define IOT_DEV_BEARER "' + 'A' * 43 + '"',
               '',
           ]
-          Path('include/iot_credentials.local.h').write_text('\\n'.join(lines))
+          Path('include/iot_credentials.local.h').write_text('\n'.join(lines))
           PY
           git check-ignore -q include/iot_credentials.local.h
           pio run --target clean

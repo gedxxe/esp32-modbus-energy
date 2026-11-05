@@ -358,7 +358,8 @@ void update(const CaptureDay &active,const CaptureDay &previous,
             bool captureDurable,bool stationOnline,bool clockValid,uint32_t utc,
             uint32_t liveCapturedUTC,bool telemetryValid,double telemetryKWh,uint8_t profile){
   if(!ready)return;
-  Input input{};
+  // One core-0 producer. Keep two capture-day copies off loopTask's 16 KiB stack.
+  static Input input{};
   input.active=active;input.previous=previous;input.durable=captureDurable;
   input.station=stationOnline;input.clock=clockValid;input.utc=utc;
   input.liveCapturedUTC=liveCapturedUTC;

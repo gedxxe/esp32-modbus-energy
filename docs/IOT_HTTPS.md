@@ -50,6 +50,8 @@ Never troubleshoot by printing full build flags, uploading headers, displaying t
 
 ## Connection diagnostics and build verification
 
+The PlatformIO pre-build hook checks a present private header locally (without printing its contents), and switches a nonsecret compiler define when the header appears or disappears. This avoids `__has_include` negative-dependency build-cache surprises. If PlatformIO discovers the header but the compiler cannot include it, the build stops with an explicit diagnostic rather than silently disabling authentication. The private header remains ignored by Git.
+
 The uploader now includes `iot.clientRevision: 2` and `iot.localHeaderPresent` in the local `/api/status` payload. These values prove the flashed app exposes this diagnostic revision and whether `firmware/src/iot_uplink.cpp` included the local header at **build time**. A file merely existing in VS Code is not proof the flashed image saw it. `iot.configured` is the compile-time header format check, *not* an internet or backend connectivity check. `iot.enabled` means a worker was successfully created, not that HTTPS worked.
 
 For failed requests inspect `lastHttp`, `transportError` (ESP-IDF error code), `socketErrno`, `tlsError`, `tlsFlags` and `freeHeapBeforePost`. These fields contain numerical diagnostic codes, not hostnames, headers or secrets. `lastHttp=0` with nonzero transport/TLS errors points to DNS/TCP/TLS before HTTP; 401 means credentials/registration, 403 means source binding, 404 means wrong endpoint, and 503 with `IOT_NOT_CONFIGURED` means website IoT is disabled. A redirect is blocked, never followed with the bearer. Retry status keeps the root-cause category instead of replacing it with generic `retry_scheduled`.

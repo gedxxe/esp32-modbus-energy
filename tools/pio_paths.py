@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import platformio
+import runpy
 from pathlib import Path
 if platformio.__version__ != "6.1.19" or platformio.__title__ != "pioarduino":
     print(f"This release requires PlatformIO Core 6.1.19, but {platformio.__version__} is running. Run python tools/setup-core.py from the repository root, then restart the extension or terminal.")
@@ -19,10 +20,19 @@ repository = next((parent for parent in [project,*project.parents] if (parent/"f
 if repository is None:
     print("Cannot locate the repository SDK dependency lock")
     env.Exit(1)
+# Ensure a newly-added private header changes SCons compiler flags even if
+# __has_include() previously produced no dependency for the absent file.
+# No URL, token or device ID is passed through build flags or printed.
+validator = runpy.run_path(str(repository / "tools" / "check_iot_provision.py"))
+try:
+    header_present = validator["validate_header"](project / "include" / "iot_credentials.local.h")
+except ValueError as error:
+    print("IoT private provisioning build check: " + str(error))
+    env.Exit(1)
+env.Append(CPPDEFINES=[("IOT_EXPECT_LOCAL_PROVISION", int(header_present))])
 lock = repository / "firmware" / "sdk-dependencies.lock"
 project_lock = Path(env.subst("$PROJECT_DIR")) / "dependencies.lock"
 if lock.exists() and (not project_lock.exists() or project_lock.read_bytes() != lock.read_bytes()):
     shutil.copyfile(lock, project_lock)
-import runpy
 module=runpy.run_path(str(repository/"tools/sdk_bootstrap.py"))
 module["ensure_sdk"](env,repository)

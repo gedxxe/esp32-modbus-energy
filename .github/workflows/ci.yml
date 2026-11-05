@@ -25,6 +25,7 @@ jobs:
         run: |
           python tools/security_audit.py --self-test
           python tools/security_audit.py --current --history
+          python tools/check_iot_provision.py --self-test
       - name: Native regression tests
         run: |
           g++ --version

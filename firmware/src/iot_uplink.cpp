@@ -52,6 +52,9 @@
 #ifndef IOT_DEV_BEARER
 #define IOT_DEV_BEARER ""
 #endif
+#if defined(IOT_EXPECT_LOCAL_PROVISION) && IOT_EXPECT_LOCAL_PROVISION && !IOT_LOCAL_HEADER_PRESENT
+#error "Local IoT credential header was found by PlatformIO but not included by firmware/src/iot_uplink.cpp"
+#endif
 #if IOT_DEV_ENABLED && (!defined(CONFIG_MBEDTLS_CERTIFICATE_BUNDLE) || !CONFIG_MBEDTLS_CERTIFICATE_BUNDLE)
 #error "IoT HTTPS requires CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y (TLS verification cannot be disabled)"
 #endif

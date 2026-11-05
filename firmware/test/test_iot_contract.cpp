@@ -62,9 +62,9 @@ int main(){
   // Website v0.11.47 accepts an optional one-channel current_a decimal string.
   iot::Event withCurrent{};
   assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,2,withCurrent,true,12.345678));
-  assert(std::string(withCurrent.json).find("\\\"current_a\\\":\\\"12.345678\\\"")!=std::string::npos);
+  assert(std::string(withCurrent.json).find("\"current_a\":\"12.345678\"")!=std::string::npos);
   assert(std::string(withCurrent.json).find("current_l1_a")==std::string::npos);
-  assert(std::string(withCurrent.json).find("\\\"active_energy_kwh\\\":\\\"7838.900000\\\"")!=std::string::npos);
+  assert(std::string(withCurrent.json).find("\"active_energy_kwh\":\"7838.900000\"")!=std::string::npos);
   assert(withCurrent.size==strlen(withCurrent.json));
   const std::string frozen=withCurrent.json;
   // Retry keeps the already-serialized event, even if a later sample changes.
@@ -76,7 +76,7 @@ int main(){
 
   iot::Event zero{};
   assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,4,zero,true,0));
-  assert(std::string(zero.json).find("\\\"current_a\\\":\\\"0.000000\\\"")!=std::string::npos);
+  assert(std::string(zero.json).find("\"current_a\":\"0.000000\"")!=std::string::npos);
   for(double invalid:{-1.0,NAN,INFINITY}){
     iot::Event absent{};
     assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,5,absent,true,invalid));

@@ -1,7 +1,10 @@
 name: Firmware and documentation
 
 on:
+  # PR branches are tested by pull_request. Avoid a second expensive SDK build
+  # for the same commit, which has caused parallel GitHub Releases downloads.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

@@ -59,6 +59,63 @@ int main(){
   assert(!iot::telemetry(scheduled,1,b,0,1,live));
   iot::Binding different=b;strcpy(different.meter,"meter_2");
   assert(iot::bindingFingerprint(different)!=iot::bindingFingerprint(b));
+  // Website v0.11.47 accepts an optional one-channel current_a decimal string.
+  iot::Event withCurrent{};
+  assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,2,withCurrent,true,12.345678));
+  assert(std::string(withCurrent.json).find("\"current_a\":\"12.345678\"")!=std::string::npos);
+  assert(std::string(withCurrent.json).find("current_l1_a")==std::string::npos);
+  assert(std::string(withCurrent.json).find("\"active_energy_kwh\":\"7838.900000\"")!=std::string::npos);
+  assert(withCurrent.size==strlen(withCurrent.json));
+  const std::string frozen=withCurrent.json;
+  // Retry keeps the already-serialized event, even if a later sample changes.
+  iot::Event laterSample{};
+  assert(iot::telemetry(scheduled+3,7839.0,b,0x1234,3,laterSample,true,40));
+  assert(std::string(withCurrent.json)==frozen);
+  assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,2,laterSample,true,12.345678));
+  assert(std::string(laterSample.json)==frozen); // exact duplicate body and event ID
+
+  iot::Event zero{};
+  assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,4,zero,true,0));
+  assert(std::string(zero.json).find("\"current_a\":\"0.000000\"")!=std::string::npos);
+  iot::Event minusZero{};
+  assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,4,minusZero,true,-0.0));
+  assert(!strcmp(minusZero.json,zero.json)); // site's decimal grammar rejects a -0 prefix
+  const double invalids[]={-1.0,double(NAN),double(INFINITY)};
+  for(double invalid:invalids){
+    iot::Event absent{};
+    assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,5,absent,true,invalid));
+    assert(std::string(absent.json).find("current_a")==std::string::npos);
+  }
+  iot::Event unused{};
+  assert(iot::telemetry(scheduled+2,7838.9,b,0x1234,6,unused,false,10));
+  assert(std::string(unused.json).find("current_a")==std::string::npos);
+  assert(std::string(repeat.json).find("current_a")==std::string::npos); // historical checkpoint stays kWh-only
+  assert(!iot::freshCurrent(false,profiles::FORT,10,900,1000));
+  assert(!iot::freshCurrent(true,profiles::HABUER,10,900,1000)); // no current register
+  assert(!iot::freshCurrent(true,profiles::FORT,10,0,1000));
+  assert(!iot::freshCurrent(true,profiles::FORT,-1,900,1000));
+  assert(!iot::freshCurrent(true,profiles::FORT,NAN,900,1000));
+  assert(!iot::freshCurrent(true,profiles::FORT,10,900,16001));
+  assert(iot::freshCurrent(true,profiles::FORT,0,900,1000)); // measured zero is valid
+  assert(iot::freshCurrent(true,profiles::ACREL_ADL400_VERIFIED,3,900,1000));
+  assert(iot::freshCurrent(true,profiles::ACREL_ACR,3,900,1000));
+  assert(iot::freshCurrent(true,profiles::ACREL_APM,3,900,1000));
+  assert(iot::freshCurrent(true,profiles::FORT,3,UINT32_MAX-1000,100)); // millis wraparound
+
+  // Maximum website identifiers and energy/current decimals still fit in fixed payload.
+  iot::Binding maximum{};
+  const std::string longest(64,'X');
+  strcpy(maximum.device,longest.c_str());strcpy(maximum.meter,longest.c_str());
+  strcpy(maximum.profile,longest.c_str());
+  assert(iot::valid(maximum));
+  char limit[40];assert(iot::primaryText(1000000000000.0,limit));
+  assert(!strcmp(limit,"1000000000000.000000"));
+  assert(!iot::primaryText(1000000000000.1,limit));
+  iot::Event largest{};
+  assert(iot::telemetry(scheduled+2,1000000000000.0,maximum,0xffffffff,0xffffffff,
+                        largest,true,1000000000000.0));
+  assert(largest.size==strlen(largest.json)&&largest.size<sizeof(largest.json));
+  assert(strlen(largest.id)<=64);
   std::cout<<"IoT website v1 wire-contract tests passed\n";
   return 0;
 }

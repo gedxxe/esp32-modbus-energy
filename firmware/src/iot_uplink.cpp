@@ -57,9 +57,9 @@ constexpr size_t CURSOR_SIZE=20;
 constexpr char ACK_A[]="/iot_ack_a.bin",ACK_B[]="/iot_ack_b.bin";
 struct Input {
   CaptureDay active{},previous{};
-  bool durable=false,station=false,clock=false,live=false;
+  bool durable=false,station=false,clock=false,live=false,currentValid=false;
   uint32_t utc=0,liveCapturedUTC=0;
-  double liveEnergy=0;
+  double liveEnergy=0,liveCurrentA=0;
   uint8_t profile=0;
 };
 struct Cursor {
@@ -350,7 +350,8 @@ void worker(void *){
        uint32_t(now-lastLive)>=MIN_TELEMETRY_PERIOD_MS){
       ++liveSequence;
       if(!liveSequence)++liveSequence;
-      if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive))
+      if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive,
+                   input.currentValid,input.liveCurrentA))
         hasOutstandingLive=true;
     }
     if(hasOutstandingLive){
@@ -383,7 +384,8 @@ bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted){
 }
 void update(const CaptureDay &active,const CaptureDay &previous,
             bool captureDurable,bool stationOnline,bool clockValid,uint32_t utc,
-            uint32_t liveCapturedUTC,bool telemetryValid,double telemetryKWh,uint8_t profile){
+            uint32_t liveCapturedUTC,bool telemetryValid,double telemetryKWh,uint8_t profile,
+            bool currentValid,double currentA){
   if(!ready)return;
   // One core-0 producer. Keep two capture-day copies off loopTask's 16 KiB stack.
   static Input input{};
@@ -391,6 +393,7 @@ void update(const CaptureDay &active,const CaptureDay &previous,
   input.station=stationOnline;input.clock=clockValid;input.utc=utc;
   input.liveCapturedUTC=liveCapturedUTC;
   input.live=telemetryValid;input.liveEnergy=telemetryKWh;input.profile=profile;
+  input.currentValid=currentValid;input.liveCurrentA=currentA;
   xQueueOverwrite(incoming,&input);
 }
 Status readStatus(){

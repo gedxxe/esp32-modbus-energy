@@ -77,6 +77,30 @@ jobs:
             firmware/.pio/build/esp32s3/firmware.elf
             firmware/.pio/build/esp32s3/bootloader.bin
             firmware/.pio/build/esp32s3/partitions.bin
+      - name: Build opt-in HTTPS variant with synthetic credentials (never distributed)
+        working-directory: firmware
+        shell: bash
+        run: |
+          # The uploaded release artifact above is the feature-disabled build.
+          # This fake header is ephemeral and must never reach a production device.
+          trap 'rm -f include/iot_credentials.local.h' EXIT
+          python - <<'PY'
+          from pathlib import Path
+          lines = [
+              '#pragma once',
+              '#define IOT_DEV_ENABLED 1',
+              '#define IOT_DEV_ENDPOINT "https://synthetic.invalid/api/iot-ingest"',
+              '#define IOT_DEV_DEVICE_ID "ci_synthetic"',
+              '#define IOT_DEV_METER_ID "ci_meter"',
+              '#define IOT_DEV_METER_PROFILE "fort"',
+              '#define IOT_DEV_BEARER "' + 'A' * 43 + '"',
+              '',
+          ]
+          Path('include/iot_credentials.local.h').write_text('\n'.join(lines))
+          PY
+          git check-ignore -q include/iot_credentials.local.h
+          pio run --target clean
+          pio run
 
   browser:
     runs-on: ubuntu-24.04

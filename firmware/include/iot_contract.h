@@ -53,9 +53,17 @@ inline bool utcText(uint32_t epoch,char (&out)[21]){
   return n==20;
 }
 inline bool primaryText(double energy,char (&out)[40]){
-  if(!std::isfinite(energy)||energy<0||energy>999999999999.0)return false;
-  int n=snprintf(out,sizeof(out),"%.6f",energy);
+  if(!std::isfinite(energy)||energy<0||energy>1000000000000.0)return false;
+  int n=snprintf(out,sizeof(out),"%.6f",energy==0.0?0.0:energy); // normalize IEEE-754 negative zero
   return n>0&&n<int(sizeof(out));
+}
+// Sample-age admission remains independent of the HTTPS task and UART.
+// A single currentA channel is present only if the selected profile defines it.
+inline bool freshCurrent(bool liveEnergyValid,uint8_t profile,double currentA,
+                         uint32_t sampledAtMs,uint32_t nowMs){
+  return liveEnergyValid&&profiles::valid(profile)&&
+    profiles::available(profiles::get(profile).current)&&sampledAtMs&&
+    uint32_t(nowMs-sampledAtMs)<=15000&&std::isfinite(currentA)&&currentA>=0;
 }
 // Immutable capture -> stable event ID + canonical field set expected by website.
 // This routine does not invent readings or modify a capture.
@@ -83,21 +91,29 @@ inline bool checkpoint(const CaptureDay &day,unsigned index,const Binding &bindi
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);out.day=day.number;out.index=uint8_t(index);return true;
 }
-// Live telemetry uses a session-scoped ID; retransmit an unchanged Event on failure.
+// The source has one named current-A channel, not three measured phases.
+// Snapshot inputs are validated once: immutable JSON stays frozen across retries.
 inline bool telemetry(uint32_t captured,double energy,const Binding &binding,
-                      uint32_t boot,uint32_t sequence,Event &out){
+                      uint32_t boot,uint32_t sequence,Event &out,
+                      bool currentAvailable=false,double currentA=0){
   out=Event{};
   if(!valid(binding)||!boot||!sequence)return false;
-  char timestamp[21],number[40];
+  char timestamp[21],number[40],currentNumber[40]={};
   if(!utcText(captured,timestamp)||!primaryText(energy,number))return false;
+  const bool useCurrent=currentAvailable&&primaryText(currentA,currentNumber);
+  char extra[80]={};
+  if(useCurrent){
+    int length=snprintf(extra,sizeof(extra),",\"current_a\":\"%s\"",currentNumber);
+    if(length<=0||length>=int(sizeof(extra)))return false;
+  }
   int idlen=snprintf(out.id,sizeof(out.id),"live_%08lx_%08lx",
     (unsigned long)boot,(unsigned long)sequence);
   if(idlen<=0||idlen>=int(sizeof(out.id)))return false;
   int n=snprintf(out.json,sizeof(out.json),
     "{\"schema_version\":1,\"event_id\":\"%s\",\"device_id\":\"%s\","
     "\"meter_id\":\"%s\",\"meter_profile\":\"%s\",\"event_type\":\"telemetry\","
-    "\"captured_at\":\"%s\",\"quality\":\"valid\",\"readings\":{\"active_energy_kwh\":\"%s\"}}",
-    out.id,binding.device,binding.meter,binding.profile,timestamp,number);
+    "\"captured_at\":\"%s\",\"quality\":\"valid\",\"readings\":{\"active_energy_kwh\":\"%s\"%s}}",
+    out.id,binding.device,binding.meter,binding.profile,timestamp,number,extra);
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;
 }

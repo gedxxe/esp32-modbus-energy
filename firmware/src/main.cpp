@@ -623,11 +623,16 @@ String csvCaptures(const CaptureDay &day){
 }
 
 void saveCheckpoint(bool archive) {
+  // Only the acquisition task calls this. Retain the large buffers off its stack.
+  static Checkpoint c{},verify{};
   if(tracker.day.number&&nvsOK) {
-    Checkpoint c{};c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
-    Checkpoint verify{};checkpointOK=verifiedPut(prefs,"day",&c,&verify,sizeof(c));
+    c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
+    checkpointOK=verifiedPut(prefs,"day",&c,&verify,sizeof(c));
   }else checkpointOK=false;
-  if(archive)saveArchive();saveCaptures();lastSave=millis();
+  esp_task_wdt_reset();
+  if(archive)saveArchive();
+  esp_task_wdt_reset();
+  saveCaptures();lastSave=millis();
 }
 void publish() {
   state.meterConfigured=configOK&&meterSettingsBank.bank>=0;state.meterSettingsDegraded=meterSettingsBank.degraded;state.networkSettingsDegraded=networkSettingsBank.degraded;
@@ -814,9 +819,13 @@ void processCommands(){
         uint32_t effectiveUTC=0;
         auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,retainedDay(),effectiveUTC);
         if(result!=CLOCK_ACCEPTED){error="RTC request expired or precedes retained records. Sync again";break;}
+        Serial.printf("[RTC] sync start utc=%lu stack_min=%lu\n",(unsigned long)effectiveUTC,(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
         interruptRecording();clockKnown=false;rawKnown=false;++state.clockRevision;
         if(!rtcWrite(effectiveUTC)){error="RTC write or verification failed";setError(error,"rtc_write_failed");}
-        saveCheckpoint(true);break;
+        esp_task_wdt_reset();
+        saveCheckpoint(true);
+        Serial.printf("[RTC] sync complete result=%s stack_min=%lu\n",*error?error:"ok",(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
+        break;
       }
       case START_SCAN:
         if(!scanner.begin(cmd.first,cmd.last,state.config,millis(),cmd.currentOnly)){error="Invalid scan request";break;}
@@ -1375,7 +1384,9 @@ void webSetup() {
     Command c{};c.type=APPLY_SCAN;enqueueCommand(c);
   });
   server.on("/api/time",HTTP_POST,[]{
-    if(!authorizePost())return;Snapshot s{};readSnapshot(s);if(s.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
+    // WebServer runs on core 0, one request at a time. Keep the large status
+    // snapshot off loopTask's limited stack during an RTC update.
+    if(!authorizePost())return;static Snapshot s{};readSnapshot(s);if(s.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
     if(!parseNumber(server.arg("epoch"),epoch)||!validClockEpoch(epoch,LOCAL_OFFSET)){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
     if(!protectsRecordedDay(epoch,LOCAL_OFFSET,fmax(s.day.number,fmax(s.captures.number,s.capturePending.number)))){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);

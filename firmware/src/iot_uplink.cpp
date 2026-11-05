@@ -295,7 +295,14 @@ bool transmit(const Event &event,bool checkpointEvent){
     report("accepted",1,code);return true;
   }
   if(code==400||code==401||code==403||code==409||code==413||code==415){
-    report(code==401?"repair_credentials":"review_binding_or_payload",4,code);
+    const char *reason="review_binding_or_payload";
+    if(code==401)reason=serverError(response,"DEVICE_UNAUTHORIZED")?
+      "cloud_device_unauthorized":"http_401_upstream_protection";
+    else if(code==403)reason=serverError(response,"DEVICE_BINDING_MISMATCH")?
+      "cloud_binding_mismatch":"http_403_upstream_protection";
+    else if(code==409)reason="event_id_conflict";
+    else if(code==415)reason="invalid_content_type";
+    report(reason,4,code);
     return false;
   }
   if(code==200||code==201){
@@ -366,7 +373,7 @@ bool uploadNextCheckpoint(const Input &input){
 void worker(void *){
   Input input{};
   if(!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
-  uint32_t lastRead=0;
+  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
@@ -392,7 +399,16 @@ void worker(void *){
       }
       lastRead=now;
     }
-    if(uploadNextCheckpoint(input))continue;
+    // A new captured checkpoint should be offered immediately; with no records,
+    // avoid repeatedly opening 31 days of LittleFS archives every loop tick.
+    if(input.active.number!=observedDay||input.active.revision!=observedRevision){
+      observedDay=input.active.number;observedRevision=input.active.revision;
+      nextArchiveCheck=0;
+    }
+    if(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0){
+      if(uploadNextCheckpoint(input)){nextArchiveCheck=0;continue;}
+      nextArchiveCheck=now+15000UL;
+    }
     if(status.phase==4)continue;
     if(!hasOutstandingLive&&input.live&&
        profiles::valid(input.profile)&&!strcmp(profiles::get(input.profile).key,binding.profile)&&
@@ -405,6 +421,9 @@ void worker(void *){
     }
     if(hasOutstandingLive){
       if(transmit(outstandingLive,false)){hasOutstandingLive=false;lastLive=millis();}
+    }else if(status.phase==1){
+      const char *reason=input.live?"waiting_for_telemetry_interval":"waiting_for_valid_meter_sample";
+      if(strcmp(status.error,reason))report(reason,1);
     }
   }
 }

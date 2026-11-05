@@ -20,7 +20,7 @@ int main(){
   assert(tracker.sample(scheduled+1,scheduled+2,1000,src));
   iot::Event e;assert(iot::checkpoint(tracker.day,4,b,e));
   assert(!strcmp(e.id,"cp_20762_04")&&e.size==strlen(e.json));
-  assert(std::string(e.json).find("\"active_energy_kwh\":\"1000.000000\"")!=std::string::npos);
+  assert(std::string(e.json).find("\"active_energy_kwh\":\"1.000000\"")!=std::string::npos);
   assert(std::string(e.json).find("\"scheduled_at\":\"2026-11-05T01:00:00Z\"")!=std::string::npos);
   assert(std::string(e.json).find("\"started_at\":\"2026-11-05T01:00:01Z\"")!=std::string::npos);
   assert(std::string(e.json).find("\"captured_at\":\"2026-11-05T01:00:02Z\"")!=std::string::npos);

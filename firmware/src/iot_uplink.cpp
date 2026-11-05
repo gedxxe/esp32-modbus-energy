@@ -15,6 +15,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
+#include <strings.h>
 
 #if defined(__has_include)
 # if __has_include("iot_credentials.local.h")

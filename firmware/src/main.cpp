@@ -1226,6 +1226,16 @@ void webSetup() {
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
+    iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;
+    iotState["heartbeatAccepted"]=uplink.heartbeatAccepted;
+    iotState["heartbeatFailures"]=uplink.heartbeatFailures;
+    iotState["lastHeartbeatUTC"]=uplink.lastHeartbeatUTC;
+    iotState["heartbeatHttp"]=uplink.heartbeatHttp;
+    iotState["heartbeatTransportError"]=uplink.heartbeatTransportError;
+    iotState["heartbeatTlsError"]=uplink.heartbeatTlsError;
+    iotState["heartbeatTlsFlags"]=uplink.heartbeatTlsFlags;
+    iotState["heartbeatError"]=uplink.heartbeatError;
+    iotState["archiveError"]=uplink.archiveError;
     iotState["transportError"]=uplink.transportError;
     iotState["socketErrno"]=uplink.socketErrno;
     iotState["tlsError"]=uplink.tlsError;iotState["tlsFlags"]=uplink.tlsFlags;

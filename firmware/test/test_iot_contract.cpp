@@ -116,6 +116,32 @@ int main(){
   assert(iot::freshCurrent(true,profiles::ACREL_APM,3,900,1000));
   assert(iot::freshCurrent(true,profiles::FORT,3,UINT32_MAX-1000,100)); // millis wraparound
 
+  // Presence contract v0.11.48: an authenticated contact, NOT a reading.
+  iot::Event pulse{};
+  assert(iot::heartbeat(b,pulse));
+  assert(pulse.id[0]==0&&pulse.size==strlen(pulse.json));
+  const std::string heartbeatBody=pulse.json;
+  assert(heartbeatBody=="{\"schema_version\":1,\"event_type\":\"heartbeat\",\"device_id\":\"dev_source\",\"meter_id\":\"meter_1\",\"meter_profile\":\"fort\"}");
+  for(const char *forbidden:{"event_id","readings","captured_at","started_at","scheduled_at","timestamp","quality","active_energy_kwh"})
+    assert(heartbeatBody.find(forbidden)==std::string::npos);
+  iot::Binding missingHeartbeatBinding{};
+  assert(!iot::heartbeat(missingHeartbeatBinding,pulse));
+  assert(iot::heartbeat(b,pulse)); // invalid attempt did not retain a partial payload
+  assert(iot::heartbeatAckFields(200,"heartbeat","dev_source",b));
+  assert(!iot::heartbeatAckFields(201,"heartbeat","dev_source",b));
+  assert(!iot::heartbeatAckFields(200,"telemetry","dev_source",b));
+  assert(!iot::heartbeatAckFields(200,"heartbeat","other",b));
+  assert(!iot::heartbeatAckFields(200,nullptr,"dev_source",b));
+  assert(!iot::heartbeatAckFields(200,"heartbeat",nullptr,b));
+  assert(iot::heartbeatDue(12345,0));
+  assert(!iot::heartbeatDue(60999,1000));
+  assert(iot::heartbeatDue(61000,1000));
+  assert(!iot::heartbeatDue(1000,UINT32_MAX-1000)); // wraparound
+  assert(iot::heartbeatDue(61000,UINT32_MAX-1000));
+  // A heartbeat has no day/slot and cannot affect persisted checkpoint IDs.
+  assert(pulse.day==0&&pulse.index==0);
+  assert(std::string(repeat.json).find("\"event_type\":\"checkpoint\"")!=std::string::npos);
+
   // Maximum website identifiers and energy/current decimals still fit in fixed payload.
   iot::Binding maximum{};
   const std::string longest(64,'X');
@@ -130,6 +156,11 @@ int main(){
                         largest,true,1000000000000.0));
   assert(largest.size==strlen(largest.json)&&largest.size<sizeof(largest.json));
   assert(strlen(largest.id)<=64);
+  iot::Event largestHeartbeat{};
+  assert(iot::heartbeat(maximum,largestHeartbeat));
+  assert(largestHeartbeat.size==strlen(largestHeartbeat.json)&&
+         largestHeartbeat.size<sizeof(largestHeartbeat.json));
+  assert(largestHeartbeat.id[0]==0);
   std::cout<<"IoT website v1 wire-contract tests passed\n";
   return 0;
 }

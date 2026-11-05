@@ -117,6 +117,30 @@ inline bool telemetry(uint32_t captured,double energy,const Binding &binding,
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;
 }
+// Heartbeat v1 is an authenticated contact signal, never a measurement.
+// Its body deliberately has no event ID, sampled timestamp or readings.
+inline bool heartbeat(const Binding &binding,Event &out){
+  out=Event{};
+  if(!valid(binding))return false;
+  const int n=snprintf(out.json,sizeof(out.json),
+    "{\"schema_version\":1,\"event_type\":\"heartbeat\",\"device_id\":\"%s\","
+    "\"meter_id\":\"%s\",\"meter_profile\":\"%s\"}",
+    binding.device,binding.meter,binding.profile);
+  if(n<=0||n>=int(sizeof(out.json)))return false;
+  out.size=size_t(n);return true;
+}
+constexpr uint32_t HEARTBEAT_PERIOD_MS=60000UL;
+inline bool heartbeatDue(uint32_t now,uint32_t lastAttempt){
+  return !lastAttempt||uint32_t(now-lastAttempt)>=HEARTBEAT_PERIOD_MS;
+}
+// Caller must parse a complete JSON object and reject malformed/overflow
+// responses. This pure identity rule is tested by native regressions.
+inline bool heartbeatAckFields(int http,const char *type,const char *device,
+                               const Binding &binding){
+  return http==200&&type&&device&&valid(binding)&&
+         strcmp(type,"heartbeat")==0&&strcmp(device,binding.device)==0;
+}
+
 inline uint32_t bindingFingerprint(const Binding &b){
   uint32_t h=2166136261UL;
   for(const char *s:{b.device,b.meter,b.profile}){

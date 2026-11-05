@@ -103,7 +103,8 @@ Status status{};
 Cursor ack{};
 uint32_t fingerprint=0;
 uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0,notBefore=0;
-uint8_t consecutiveFailures=0;
+uint32_t lastHeartbeatAttempt=0,heartbeatNotBefore=0;
+uint8_t consecutiveFailures=0,heartbeatConsecutiveFailures=0;
 Event outstandingLive{};
 bool hasOutstandingLive=false;
 
@@ -214,6 +215,15 @@ bool receiptMatches(const Response &response,const Event &event){
   const char *id=doc["event_id"] | "";
   return strcmp(id,event.id)==0;
 }
+// The website heartbeat ACK is separate from event_id receipt semantics.
+bool heartbeatReceiptMatches(const Response &response,int http){
+  if(response.overflow||!response.used||http!=200)return false;
+  JsonDocument doc;
+  if(deserializeJson(doc,response.body,response.used)||!doc.is<JsonObject>())return false;
+  const char *kind=doc["event_type"] | "";
+  const char *device=doc["device_id"] | "";
+  return heartbeatAckFields(http,kind,device,binding);
+}
 esp_err_t onHttp(esp_http_client_event_t *event){
   Response *r=static_cast<Response*>(event->user_data);
   if(!r)return ESP_OK;
@@ -289,6 +299,100 @@ bool serverError(const Response &response,const char *code){
   if(deserializeJson(doc,response.body,response.used))return false;
   const char *error=doc["error"] | "";
   return strcmp(error,code)==0;
+}
+// Independent heartbeat retry state: failed contact must never postpone a
+// freshly captured reading or mutate the durable checkpoint cursor.
+void heartbeatBackoff(const char *reason,uint32_t retrySeconds=0){
+  ++status.heartbeatFailures;
+  if(heartbeatConsecutiveFailures<7)++heartbeatConsecutiveFailures;
+  uint32_t delayMs=5000UL<<std::min(unsigned(heartbeatConsecutiveFailures-1),6U);
+  if(delayMs>300000UL)delayMs=300000UL;
+  if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
+  delayMs+=esp_random()%1500UL;
+  heartbeatNotBefore=millis()+delayMs;
+  snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
+  report(reason,3,status.heartbeatHttp);
+}
+bool transmitHeartbeat(uint32_t utc){
+  Event contact{};
+  if(!heartbeat(binding,contact)){
+    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s","heartbeat_payload_invalid");
+    report("heartbeat_payload_invalid",4);
+    return false;
+  }
+  ++status.heartbeatAttempts;
+  lastHeartbeatAttempt=millis();
+  lastSend=lastHeartbeatAttempt; // same global minimum request spacing as readings
+  report("heartbeat_uploading",2);
+  Response response{};
+  // request() uses the same verified CA bundle, no redirects, bounded timeout,
+  // X-Device-ID and bearer headers as an ordinary reading POST.
+  const PostResult result=post(contact,response);
+  const int code=result.http;
+  status.httpStatus=code;
+  status.transportError=result.transportError;
+  status.socketErrno=result.socketErrno;
+  status.tlsError=result.tlsError;
+  status.tlsFlags=result.tlsFlags;
+  status.heartbeatHttp=code;
+  status.heartbeatTransportError=result.transportError;
+  status.heartbeatTlsError=result.tlsError;
+  status.heartbeatTlsFlags=result.tlsFlags;
+  if(heartbeatReceiptMatches(response,code)){
+    ++status.heartbeatAccepted;
+    status.lastHeartbeatUTC=utc;
+    heartbeatConsecutiveFailures=0;
+    heartbeatNotBefore=0;
+    status.heartbeatError[0]=0;
+    report(mounted?"heartbeat_accepted":"heartbeat_accepted_storage_unavailable",1,200);
+    return true;
+  }
+  // A 200 without the exact heartbeat and registered device ID is NOT contact.
+  if(code==200){
+    ++status.heartbeatFailures;
+    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s","heartbeat_ack_mismatch");
+    report("heartbeat_ack_mismatch",4,code);
+    return false;
+  }
+  if(code==400||code==401||code==403||code==409||code==413||code==415){
+    ++status.heartbeatFailures;
+    const char *reason="heartbeat_binding_or_payload_invalid";
+    if(code==401)reason=serverError(response,"DEVICE_UNAUTHORIZED")?
+      "heartbeat_device_unauthorized":"heartbeat_401_upstream_protection";
+    else if(code==403)reason=serverError(response,"DEVICE_BINDING_MISMATCH")?
+      "heartbeat_binding_mismatch":"heartbeat_403_upstream_protection";
+    else if(code==415)reason="heartbeat_content_type_invalid";
+    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
+    report(reason,4,code);
+    return false;
+  }
+  if(code==301||code==302||code==303||code==307||code==308||code==404){
+    ++status.heartbeatFailures;
+    const char *reason=code==404?"heartbeat_endpoint_not_found":"heartbeat_redirect_blocked";
+    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
+    report(reason,4,code);
+    return false;
+  }
+  if(code==503&&serverError(response,"IOT_NOT_CONFIGURED")){
+    ++status.heartbeatFailures;
+    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s","heartbeat_cloud_disabled");
+    report("heartbeat_cloud_disabled",4,code);
+    return false;
+  }
+  if(code==429){
+    heartbeatBackoff("heartbeat_rate_limited",response.retrySeconds);
+    return false;
+  }
+  if(!code){
+    const char *reason=result.tlsFlags?"heartbeat_tls_certificate_rejected":
+      result.tlsError?"heartbeat_tls_handshake_failed":
+      result.transportError==ESP_ERR_NO_MEM?"heartbeat_http_no_memory":
+      result.transportError?"heartbeat_transport_failed":"heartbeat_no_response";
+    heartbeatBackoff(reason);
+    return false;
+  }
+  heartbeatBackoff(code>=500?"heartbeat_http_server_error":"heartbeat_unexpected_http_status");
+  return false;
 }
 bool transmit(const Event &event,bool checkpointEvent){
   Response response{};
@@ -388,12 +492,14 @@ bool uploadNextCheckpoint(const Input &input){
 }
 void worker(void *){
   Input input{};
-  if(!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
-  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0,lastProbe=0;
+  // A failed LittleFS mount must not suppress authenticated presence. Archive
+  // transfer stays disabled until a normal boot successfully mounts storage.
+  if(mounted&&!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
+  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
-    if(!input.station||!input.clock||!mounted||!input.utc){
+    if(!input.station||!input.clock||!input.utc){
       if(status.phase!=4)report("waiting_for_wifi_rtc",1);
       continue;
     }
@@ -421,30 +527,14 @@ void worker(void *){
       observedDay=input.active.number;observedRevision=input.active.revision;
       nextArchiveCheck=0;
     }
-    if(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0){
+    if(mounted&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)){
       if(uploadNextCheckpoint(input)){nextArchiveCheck=0;continue;}
       nextArchiveCheck=now+15000UL;
     }
     if(status.phase==4)continue;
-    // A live meter is not necessary to diagnose TLS/DNS/routing. When there is
-    // no valid sample, probe no more than once per five minutes, without a
-    // credential, and never inside the protected checkpoint acquisition window.
-    if(!input.live&&!hasOutstandingLive&&
-       (!status.probeAttempted||uint32_t(now-lastProbe)>=300000UL)){
-      lastProbe=now;
-      Response probeBody{};
-      const PostResult probe=request(nullptr,probeBody);
-      status.probeAttempted=true;status.probeHttp=probe.http;
-      status.probeTransportError=probe.transportError;
-      status.probeTlsError=probe.tlsError;status.probeTlsFlags=probe.tlsFlags;
-      report(probe.tlsFlags?"probe_tls_certificate_rejected":
-             probe.tlsError?"probe_tls_handshake_failed":
-             probe.transportError?"probe_http_transport_failed":
-             probe.http==405?"probe_https_reachable_waiting_for_meter":
-             "probe_unexpected_http_status",1,status.httpStatus);
-      continue;
-    }
-    if(!hasOutstandingLive&&input.live&&
+    // The credential-free GET is replaced by a registered, authenticated
+    // heartbeat. Historical probe fields remain in /api/status for compatibility.
+    if(mounted&&!hasOutstandingLive&&input.live&&
        profiles::valid(input.profile)&&!strcmp(profiles::get(input.profile).key,binding.profile)&&
        uint32_t(now-lastLive)>=MIN_TELEMETRY_PERIOD_MS){
       ++liveSequence;
@@ -453,17 +543,23 @@ void worker(void *){
                    input.currentValid,input.liveCurrentA))
         hasOutstandingLive=true;
     }
+    // A queued reading always has priority; heartbeat cannot starve backlog.
+    // Both use the same request spacing, verified TLS and quiet-window guard.
     if(hasOutstandingLive){
       if(transmit(outstandingLive,false)){hasOutstandingLive=false;lastLive=millis();}
-    }else if(status.phase==1){
-      // Keep the last connection failure visible while no meter sample exists.
-      const char *reason=input.live?"waiting_for_telemetry_interval":
-        !status.probeAttempted?"waiting_for_valid_meter_sample":
-        status.probeTlsFlags?"probe_tls_certificate_rejected":
-        status.probeTlsError?"probe_tls_handshake_failed":
-        status.probeTransportError?"probe_http_transport_failed":
-        status.probeHttp==405?"probe_https_reachable_waiting_for_meter":
-        "probe_unexpected_http_status";
+      continue;
+    }
+    if(heartbeatDue(now,lastHeartbeatAttempt)&&
+       (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0)){
+      transmitHeartbeat(input.utc);
+      continue;
+    }
+    if(status.phase==1){
+      // Keep a failed heartbeat visible until the next genuine signed ACK.
+      const char *reason=status.heartbeatError[0]?status.heartbeatError:
+        !status.heartbeatAccepted?"waiting_for_heartbeat":
+        !mounted?"heartbeat_accepted_storage_unavailable":
+        !input.live?"heartbeat_accepted_waiting_for_meter":"heartbeat_accepted";
       if(strcmp(status.error,reason))report(reason,1);
     }
   }
@@ -480,12 +576,16 @@ bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted){
   if(!IOT_DEV_ENABLED){status.phase=0;return true;}
   if(issue){report(issue,4);return false;}
   filesystem=filesystemMutex;mounted=filesystemMounted;
-  if(!filesystem||!mounted){report("filesystem_unavailable",4);return false;}
+  if(!filesystem){report("filesystem_mutex_unavailable",4);return false;}
   fingerprint=bindingFingerprint(binding);
   bootId=esp_random();if(!bootId)bootId=1;
   incoming=xQueueCreate(1,sizeof(Input));statusQ=xQueueCreate(1,sizeof(Status));
   if(!incoming||!statusQ){report("queue_allocation_failed",4);return false;}
-  status.enabled=true;status.archiveReady=true;report("waiting_for_wifi_rtc",1);
+  status.enabled=true;status.archiveReady=mounted;
+  if(!mounted){
+    snprintf(status.archiveError,sizeof(status.archiveError),"%s","filesystem_unavailable");
+    report("filesystem_unavailable_heartbeat_only",1);
+  }else report("waiting_for_wifi_rtc",1);
   TaskHandle_t handle=nullptr;
   if(xTaskCreatePinnedToCore(worker,"iot-https-uplink",12288,nullptr,1,&handle,0)!=pdPASS){
     status.enabled=false;report("task_allocation_failed",4);return false;

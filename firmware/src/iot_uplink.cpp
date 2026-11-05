@@ -93,20 +93,22 @@ void reportAck(){
   status.lastAckDay=ack.day;status.lastAckSlot=ack.index;
   if(statusQ)xQueueOverwrite(statusQ,&status);
 }
-bool validProvision(){
-  if(!IOT_DEV_ENABLED||!valid(binding))return false;
+// Return a stable reason code only; never reveal credentials or endpoint data.
+const char *provisionIssue(){
+  if(!IOT_DEV_ENABLED)return "iot_disabled";
+  if(!valid(binding))return "iot_binding_invalid";
   const size_t len=strlen(token);
-  if(len!=43)return false;
+  if(len!=43)return "iot_bearer_length_invalid";
   for(size_t i=0;i<len;++i){
-    char c=token[i];
-    if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-'))return false;
+    const char c=token[i];
+    if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-'))return "iot_bearer_format_invalid";
   }
-  const char *prefix="https://";
-  if(strncmp(endpoint,prefix,8))return false;
+  if(strncmp(endpoint,"https://",8))return "iot_endpoint_https_required";
+  if(strlen(endpoint)>=256)return "iot_endpoint_too_long";
   const char *path=strstr(endpoint+8,"/api/iot-ingest");
-  if(!path||strcmp(path,"/api/iot-ingest")||path==endpoint+8)return false;
-  if(strchr(endpoint+8,'@')||strchr(endpoint+8,'#')||strchr(endpoint+8,'?'))return false;
-  return strlen(endpoint)<256;
+  if(!path||strcmp(path,"/api/iot-ingest")||path==endpoint+8)return "iot_endpoint_path_invalid";
+  if(strchr(endpoint+8,'@')||strchr(endpoint+8,'#')||strchr(endpoint+8,'?'))return "iot_endpoint_url_invalid";
+  return nullptr;
 }
 void put32(uint8_t *p,uint32_t v){
   for(unsigned i=0;i<4;++i)p[i]=uint8_t(v>>(8*i));
@@ -366,9 +368,9 @@ bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted){
   snprintf(binding.device,sizeof(binding.device),"%s",deviceId);
   snprintf(binding.meter,sizeof(binding.meter),"%s",meterId);
   snprintf(binding.profile,sizeof(binding.profile),"%s",meterProfile);
-  status=Status{};status.configured=validProvision();
+  status=Status{};const char *issue=provisionIssue();status.configured=issue==nullptr;
   if(!IOT_DEV_ENABLED){status.phase=0;return true;}
-  if(!status.configured){report("invalid_local_provisioning",4);return false;}
+  if(issue){report(issue,4);return false;}
   filesystem=filesystemMutex;mounted=filesystemMounted;
   if(!filesystem||!mounted){report("filesystem_unavailable",4);return false;}
   fingerprint=bindingFingerprint(binding);

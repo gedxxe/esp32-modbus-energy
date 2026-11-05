@@ -3,6 +3,7 @@
 // durable source; the small dual-bank cursor is advanced only on server ACK.
 #include "iot_uplink.h"
 #include "iot_contract.h"
+#include "iot_provision.h"
 #include "iot_archive_path.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -10,6 +11,8 @@
 #include <esp_http_client.h>
 #include <esp_crt_bundle.h>
 #include <esp_system.h>
+#include <esp_err.h>
+#include <sdkconfig.h>
 #include <sys/time.h>
 #include <algorithm>
 #include <cmath>
@@ -19,10 +22,17 @@
 #include <ctime>
 #include <strings.h>
 
+// A positive build marker proves that this translation unit saw the private
+// local header. Neither the marker nor /api/status exposes credentials.
 #if defined(__has_include)
 # if __has_include("iot_credentials.local.h")
 #  include "iot_credentials.local.h"
+#  define IOT_LOCAL_HEADER_PRESENT 1
+# else
+#  define IOT_LOCAL_HEADER_PRESENT 0
 # endif
+#else
+# define IOT_LOCAL_HEADER_PRESENT 0
 #endif
 #ifndef IOT_DEV_ENABLED
 #define IOT_DEV_ENABLED 0
@@ -41,6 +51,12 @@
 #endif
 #ifndef IOT_DEV_BEARER
 #define IOT_DEV_BEARER ""
+#endif
+#if IOT_DEV_ENABLED && (!defined(CONFIG_MBEDTLS_CERTIFICATE_BUNDLE) || !CONFIG_MBEDTLS_CERTIFICATE_BUNDLE)
+#error "IoT HTTPS requires CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y (TLS verification cannot be disabled)"
+#endif
+#if IOT_DEV_ENABLED && (!defined(CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS) || !CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS)
+#error "IoT HTTPS requires CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y"
 #endif
 
 namespace fort { namespace iot {
@@ -72,6 +88,10 @@ struct Response {
   uint32_t retrySeconds=0;
   bool overflow=false;
 };
+struct PostResult {
+  int http=0;
+  int32_t transportError=0,socketErrno=0,tlsError=0,tlsFlags=0;
+};
 QueueHandle_t incoming=nullptr,statusQ=nullptr;
 SemaphoreHandle_t filesystem=nullptr;
 bool mounted=false,ready=false;
@@ -93,22 +113,10 @@ void reportAck(){
   status.lastAckDay=ack.day;status.lastAckSlot=ack.index;
   if(statusQ)xQueueOverwrite(statusQ,&status);
 }
-// Return a stable reason code only; never reveal credentials or endpoint data.
+// Pure validator shared with native regressions. No secret values are logged.
 const char *provisionIssue(){
-  if(!IOT_DEV_ENABLED)return "iot_disabled";
-  if(!valid(binding))return "iot_binding_invalid";
-  const size_t len=strlen(token);
-  if(len!=43)return "iot_bearer_length_invalid";
-  for(size_t i=0;i<len;++i){
-    const char c=token[i];
-    if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-'))return "iot_bearer_format_invalid";
-  }
-  if(strncmp(endpoint,"https://",8))return "iot_endpoint_https_required";
-  if(strlen(endpoint)>=256)return "iot_endpoint_too_long";
-  const char *path=strstr(endpoint+8,"/api/iot-ingest");
-  if(!path||strcmp(path,"/api/iot-ingest")||path==endpoint+8)return "iot_endpoint_path_invalid";
-  if(strchr(endpoint+8,'@')||strchr(endpoint+8,'#')||strchr(endpoint+8,'?'))return "iot_endpoint_url_invalid";
-  return nullptr;
+  return validateProvision(IOT_DEV_ENABLED!=0,binding,token,endpoint,
+                           IOT_LOCAL_HEADER_PRESENT!=0);
 }
 void put32(uint8_t *p,uint32_t v){
   for(unsigned i=0;i<4;++i)p[i]=uint8_t(v>>(8*i));
@@ -218,7 +226,9 @@ esp_err_t onHttp(esp_http_client_event_t *event){
   }
   return ESP_OK;
 }
-int post(const Event &event,Response &response){
+PostResult post(const Event &event,Response &response){
+  PostResult result{};
+  status.freeHeapBeforePost=esp_get_free_heap_size();
   esp_http_client_config_t cfg={};
   cfg.url=endpoint;cfg.method=HTTP_METHOD_POST;
   cfg.crt_bundle_attach=esp_crt_bundle_attach;
@@ -226,20 +236,28 @@ int post(const Event &event,Response &response){
   cfg.timeout_ms=6000;cfg.disable_auto_redirect=true;
   cfg.event_handler=onHttp;cfg.user_data=&response;
   esp_http_client_handle_t client=esp_http_client_init(&cfg);
-  if(!client)return 0;
+  if(!client){result.transportError=ESP_ERR_NO_MEM;return result;}
   char auth[64]={};
   snprintf(auth,sizeof(auth),"Bearer %s",token);
   esp_http_client_set_header(client,"Content-Type","application/json");
   esp_http_client_set_header(client,"Authorization",auth);
   esp_http_client_set_header(client,"X-Device-ID",binding.device);
   esp_http_client_set_post_field(client,event.json,int(event.size));
-  const esp_err_t result=esp_http_client_perform(client);
-  const int http=result==ESP_OK?esp_http_client_get_status_code(client):0;
+  const esp_err_t transport=esp_http_client_perform(client);
+  if(transport==ESP_OK)result.http=esp_http_client_get_status_code(client);
+  else{
+    result.transportError=transport;
+    result.socketErrno=esp_http_client_get_errno(client);
+    int tlsError=0,tlsFlags=0;
+    esp_http_client_get_and_clear_last_tls_error(client,&tlsError,&tlsFlags);
+    result.tlsError=tlsError;
+    result.tlsFlags=tlsFlags;
+  }
   esp_http_client_cleanup(client);
   memset(auth,0,sizeof(auth));
-  return http;
+  return result;
 }
-void backoff(uint32_t retrySeconds=0){
+void backoff(const char *reason,uint32_t retrySeconds=0){
   ++status.failures;
   if(consecutiveFailures<7)++consecutiveFailures;
   uint32_t delayMs=5000UL<<std::min(unsigned(consecutiveFailures-1),6U);
@@ -247,14 +265,26 @@ void backoff(uint32_t retrySeconds=0){
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
   notBefore=millis()+delayMs;
-  report("retry_scheduled",3,status.httpStatus);
+  report(reason,3,status.httpStatus);
+}
+bool serverError(const Response &response,const char *code){
+  if(response.overflow||!response.used)return false;
+  JsonDocument doc;
+  if(deserializeJson(doc,response.body,response.used))return false;
+  const char *error=doc["error"] | "";
+  return strcmp(error,code)==0;
 }
 bool transmit(const Event &event,bool checkpointEvent){
   Response response{};
   report("uploading",2);
   lastSend=millis();
-  const int code=post(event,response);
+  const PostResult result=post(event,response);
+  const int code=result.http;
   status.httpStatus=code;
+  status.transportError=result.transportError;
+  status.socketErrno=result.socketErrno;
+  status.tlsError=result.tlsError;
+  status.tlsFlags=result.tlsFlags;
   if((code==200||code==201)&&receiptMatches(response,event)){
     if(checkpointEvent&&!saveCursor(event.day,event.index)){
       report("ack_storage_failed",4,code);return false;
@@ -271,8 +301,25 @@ bool transmit(const Event &event,bool checkpointEvent){
   if(code==200||code==201){
     report("receipt_id_mismatch",4,code);return false;
   }
-  report("network_or_service_failure",3,code);
-  backoff(code==429?response.retrySeconds:0);
+  // Never follow a redirect: doing so risks sending the device bearer
+  // to a different host. A 404 usually means an invalid deployment/path.
+  if(code==301||code==302||code==303||code==307||code==308||code==404){
+    report(code==404?"endpoint_not_found":"endpoint_redirect_blocked",4,code);
+    return false;
+  }
+  if(code==503&&serverError(response,"IOT_NOT_CONFIGURED")){
+    report("cloud_iot_disabled",4,code);
+    return false;
+  }
+  if(code==429){backoff("http_rate_limited",response.retrySeconds);return false;}
+  if(!code){
+    const char *cause=result.tlsFlags?"tls_certificate_rejected":
+      result.tlsError?"tls_handshake_failed":
+      result.transportError==ESP_ERR_NO_MEM?"http_no_memory":
+      result.transportError?"http_transport_failed":"http_no_response";
+    backoff(cause);return false;
+  }
+  backoff(code>=500?"http_server_error":"http_unexpected_status");
   return false;
 }
 bool uploadNextCheckpoint(const Input &input){
@@ -341,7 +388,7 @@ void worker(void *){
       time_t systemUTC=time(nullptr);
       if(systemUTC<time_t(input.utc-5)||systemUTC>time_t(input.utc+5)){
         timeval tv{};tv.tv_sec=input.utc;
-        if(settimeofday(&tv,nullptr)!=0){report("tls_clock_invalid",3);backoff();continue;}
+        if(settimeofday(&tv,nullptr)!=0){backoff("tls_clock_invalid");continue;}
       }
       lastRead=now;
     }
@@ -368,7 +415,8 @@ bool start(SemaphoreHandle_t filesystemMutex,bool filesystemMounted){
   snprintf(binding.device,sizeof(binding.device),"%s",deviceId);
   snprintf(binding.meter,sizeof(binding.meter),"%s",meterId);
   snprintf(binding.profile,sizeof(binding.profile),"%s",meterProfile);
-  status=Status{};const char *issue=provisionIssue();status.configured=issue==nullptr;
+  status=Status{};status.localHeaderPresent=IOT_LOCAL_HEADER_PRESENT!=0;
+  const char *issue=provisionIssue();status.configured=issue==nullptr;
   if(!IOT_DEV_ENABLED){status.phase=0;return true;}
   if(issue){report(issue,4);return false;}
   filesystem=filesystemMutex;mounted=filesystemMounted;

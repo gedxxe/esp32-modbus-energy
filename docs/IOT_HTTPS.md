@@ -48,6 +48,14 @@ Current status error codes distinguish:
 
 Never troubleshoot by printing full build flags, uploading headers, displaying the bearer in a screenshot or posting `-v` compiler output containing it. The error class alone is enough for next steps. Correct the local ignored header, rebuild **and upload**, then recheck `/api/status`. A `configured=true` status still requires an actual 200/201 receipt and a live meter reading before claiming end-to-end success.
 
+## Connection diagnostics and build verification
+
+The uploader now includes `iot.clientRevision: 2` and `iot.localHeaderPresent` in the local `/api/status` payload. These values prove the flashed app exposes this diagnostic revision and whether `firmware/src/iot_uplink.cpp` included the local header at **build time**. A file merely existing in VS Code is not proof the flashed image saw it. `iot.configured` is the compile-time header format check, *not* an internet or backend connectivity check. `iot.enabled` means a worker was successfully created, not that HTTPS worked.
+
+For failed requests inspect `lastHttp`, `transportError` (ESP-IDF error code), `socketErrno`, `tlsError`, `tlsFlags` and `freeHeapBeforePost`. These fields contain numerical diagnostic codes, not hostnames, headers or secrets. `lastHttp=0` with nonzero transport/TLS errors points to DNS/TCP/TLS before HTTP; 401 means credentials/registration, 403 means source binding, 404 means wrong endpoint, and 503 with `IOT_NOT_CONFIGURED` means website IoT is disabled. A redirect is blocked, never followed with the bearer. Retry status keeps the root-cause category instead of replacing it with generic `retry_scheduled`.
+
+The PlatformIO configuration explicitly enables the verified x509 certificate bundle and HTTPS support. If either is missing in the effective ESP-IDF SDK configuration while IoT is enabled, compilation fails closed. After updating firmware, perform a clean build and flash the *same* `firmware/` project. Neither clean nor upload requires erasing NVS/LittleFS. Test a real HTTPS POST and matching server ACK before treating the link as operational. Never paste the private header, bearer, or verbose compiler command lines into logs/issues.
+
 ## Status values
 
 `iot.phase`: 0 disabled, 1 idle/waiting, 2 upload in progress, 3 retry/backoff, 4 blocked. `accepted` is newly created events and `duplicates` is confirmed idempotent replays. The `lastAckDay` and `lastAckSlot` fields identify the last durably acknowledged checkpoint. A unit running old firmware will not expose the `iot` status field.

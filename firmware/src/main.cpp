@@ -1174,9 +1174,15 @@ void webSetup() {
     addLoRaJSON(d["lora"].to<JsonObject>());
     const auto uplink=iot::readStatus();JsonObject iotState=d["iot"].to<JsonObject>();
     iotState["configured"]=uplink.configured;iotState["enabled"]=uplink.enabled;
+    iotState["localHeaderPresent"]=uplink.localHeaderPresent;
+    iotState["clientRevision"]=uplink.clientRevision;
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
+    iotState["transportError"]=uplink.transportError;
+    iotState["socketErrno"]=uplink.socketErrno;
+    iotState["tlsError"]=uplink.tlsError;iotState["tlsFlags"]=uplink.tlsFlags;
+    iotState["freeHeapBeforePost"]=uplink.freeHeapBeforePost;
     iotState["lastAcceptedUTC"]=uplink.lastAcceptedUTC;
     iotState["lastAckDay"]=uplink.lastAckDay;
     iotState["lastAckSlot"]=uplink.lastAckDay?uplink.lastAckSlot:-1;

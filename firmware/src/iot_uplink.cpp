@@ -446,9 +446,14 @@ void worker(void *){
     if(hasOutstandingLive){
       if(transmit(outstandingLive,false)){hasOutstandingLive=false;lastLive=millis();}
     }else if(status.phase==1){
+      // Keep the last connection failure visible while no meter sample exists.
       const char *reason=input.live?"waiting_for_telemetry_interval":
-        status.probeAttempted&&status.probeHttp==405?
-          "probe_https_reachable_waiting_for_meter":"waiting_for_valid_meter_sample";
+        !status.probeAttempted?"waiting_for_valid_meter_sample":
+        status.probeTlsFlags?"probe_tls_certificate_rejected":
+        status.probeTlsError?"probe_tls_handshake_failed":
+        status.probeTransportError?"probe_http_transport_failed":
+        status.probeHttp==405?"probe_https_reachable_waiting_for_meter":
+        "probe_unexpected_http_status";
       if(strcmp(status.error,reason))report(reason,1);
     }
   }

@@ -12,11 +12,11 @@ int main(){
   assert(iot::utcText(1793836802UL,date)&&!strcmp(date,"2026-11-05T00:00:02Z"));
   assert(!iot::utcText(0,date));
   char decimal[40];assert(iot::primaryText(7838.9,decimal)&&!strcmp(decimal,"7838.900000"));
-  assert(!iot::primaryText(-1,decimal)||!iot::primaryText(NAN,decimal));
+  assert(!iot::primaryText(-1,decimal)&&!iot::primaryText(NAN,decimal));
   CaptureTracker tracker;tracker.newDay(20762);
   CaptureSource src;src.profile=profiles::FORT;src.meterId=1;src.slave=1;src.parity='N';src.baud=9600;src.ptNum=src.ptDen=src.ct=1;
   const uint32_t scheduled=captureTarget(20762,4);
-  assert(scheduled==1793869200UL); // 08:00 WIB is 01:00 UTC.
+  assert(scheduled==1793840400UL); // 08:00 WIB is 01:00 UTC.
   assert(tracker.sample(scheduled+1,scheduled+2,1000,src));
   iot::Event e;assert(iot::checkpoint(tracker.day,4,b,e));
   assert(!strcmp(e.id,"cp_20762_04")&&e.size==strlen(e.json));

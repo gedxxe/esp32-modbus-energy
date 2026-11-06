@@ -20,6 +20,10 @@ inline bool decodeMeterConfig(const uint8_t *p,size_t size,Settings &out,uint16_
   else{if(meterGet16(p+12)!=crc16(p,12)||!migrateLegacySettings(s))return false;}
   // Upgrade the active reader, never rewrite historical profile IDs or captures.
   if(s.profile==profiles::ACREL_ADL400){s.profile=profiles::ACREL_ADL400_VERIFIED;id=0;}
+  // Preserve all historical profile-6 captures as Delivered-only. An existing
+  // Schneider reader now records D+R under immutable profile 7. Detach the old
+  // named-device binding because it attested a different cumulative counter.
+  if(s.profile==profiles::SCHNEIDER_PM5100){s.profile=profiles::SCHNEIDER_PM5100_DR;id=0;}
   out=s;savedId=id;return true;
 }
 } // namespace fort

@@ -68,7 +68,7 @@ inline bool decodeMeterRegistry(const uint8_t *p,size_t size,MeterRegistry &out)
 }
 
 inline bool canActivateSaved(const SavedMeter &m,Settings &settings){
-  if(m.profile==profiles::ACREL_ADL400||!validSavedMeter(m)||!m.verified||!profiles::valid(m.profile)||m.evidence.link.stops!=1)return false;
+  if((m.profile==profiles::ACREL_ADL400||m.profile==profiles::SCHNEIDER_PM5100)||!validSavedMeter(m)||!m.verified||!profiles::valid(m.profile)||m.evidence.link.stops!=1)return false;
   const auto &profile=profiles::get(m.profile);
   DiscoveryQuery required[3];size_t count=profiles::discoveryQueries(profile,required,3);
   for(size_t i=0;i<count;++i)if(!m.evidence.dataAt(required[i].address,required[i].words))return false;
@@ -78,7 +78,7 @@ inline bool canActivateSaved(const SavedMeter &m,Settings &settings){
 }
 // Reuse the existing verified named-device binding. No new credential/record format.
 inline bool productionProfileReady(const Settings &settings,uint16_t id,const MeterRegistry &registry){
-  if(!profiles::valid(settings.profile))return false;
+  if(!profiles::valid(settings.profile)||settings.profile==profiles::SCHNEIDER_PM5100)return false;
   if(!profiles::get(settings.profile).commissioningRequired)return true;
   const auto *saved=registry.find(id);Settings expected;
   return saved&&canActivateSaved(*saved,expected)&&sameMeterSettings(settings,expected);

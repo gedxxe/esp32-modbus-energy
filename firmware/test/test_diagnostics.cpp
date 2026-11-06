@@ -297,7 +297,7 @@ int main(){
   assert(p.energy.address==2699&&p.current.address==2999&&p.voltage.address==3027&&p.power.address==3059);
   assert(p.frequency.address==3109&&p.powerFactor.address==3083&&p.reactiveEnergy.address==2707);
   assert(profiles::directEnergy(p)&&p.ratioWords==0&&p.energy.encoding==profiles::F32);
-  uint8_t id=255;assert(profiles::parse("schneider-pm5100",id)&&id==6);
+  uint8_t id=255;assert(!profiles::selectable(profiles::SCHNEIDER_PM5100)&&!profiles::parse("schneider-pm5100",id));
   auto bits=[](float f){uint32_t raw;memcpy(&raw,&f,4);return raw;};
   auto decode=[&](const profiles::Register &r,float f){uint32_t v=bits(f);uint8_t b[]={uint8_t(v>>24),uint8_t(v>>16),uint8_t(v>>8),uint8_t(v)};return profiles::decode(r,b);};
   assert(fabs(decode(p.powerFactor,1.2f)-.8)<1e-6&&fabs(decode(p.powerFactor,-1.2f)+.8)<1e-6);
@@ -326,7 +326,17 @@ int main(){
    const auto &p=profiles::get(profiles::SCHNEIDER_PM5100_DR);
    assert(legacy.id==6&&legacy.energy.address==2699&&p.id==7&&p.energy.address==2703);
    assert(p.probe.address==2703&&p.probe.words==2&&p.energy.words==2);
-   assert(p.powerFactor.address==3083&&p.reactiveEnergy.address==2711);
+   // Old validated settings auto-migrate, but historical 6 snapshots do not.
+   Settings original;original.profile=profiles::SCHNEIDER_PM5100;
+   original.slave=1;original.baud=19200;original.parity='E';
+   uint8_t savedBytes[METER_CONFIG_BYTES];encodeMeterConfig(original,17,savedBytes);
+   Settings upgraded;uint16_t savedId=999;
+   assert(decodeMeterConfig(savedBytes,sizeof(savedBytes),upgraded,savedId));
+   assert(upgraded.profile==profiles::SCHNEIDER_PM5100_DR&&upgraded.slave==1&&upgraded.baud==19200&&upgraded.parity=='E'&&savedId==0);
+   assert(productionProfileReady(upgraded,0,MeterRegistry{}));
+   assert(!productionProfileReady(original,0,MeterRegistry{}));
+
+   assert(p.powerFactor.address==3083&&p.reactiveEnergy.address==2707);
    assert(profiles::directEnergy(p)&&profiles::isSchneider(p.id)&&p.requiredReadings==FIELD_ENERGY);
    uint8_t id=255;assert(profiles::parse("schneider-pm5100-dr",id)&&id==7);
    uint8_t bytes[]={0x48,0xC9,0x82,0x60};

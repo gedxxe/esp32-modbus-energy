@@ -33,6 +33,7 @@
 #include "verified_record.h"
 #include "settings_bank.h"
 #include "capture_archive.h"
+#include "archive_retention.h"
 #include <esp_timer.h>
 #include "lora_service.h"
 #include "lora_web.h"
@@ -514,10 +515,12 @@ void saveArchive() {
   if(ok){ok=f.print(csv)==csv.length();f.flush();f.close();}
   // Keep old copy if power is lost before the replacement is installed.
   if(ok)ok=installArchive(LittleFS,temp,path,backup);
-  // Prune ONLY the day exactly 31 days old. A corrupted RTC jumping years
-  // forward must never erase a whole history of older genuine measurements.
-  // Older skipped days remain for explicit operator backup/cleanup.
-  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("d")){uint32_t day=name.substring(1).toInt();if(day>0&&uint64_t(day)+31==tracker.day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
+  // Retire just two known paths on the exact expired day, with no directory scan.
+  // A multi-year RTC jump must not sweep historical or quarantined records.
+  if(ok){
+    const uint32_t expired=expiredProductionDay(tracker.day.number);
+    if(expired)retireProductionCopies(LittleFS,dayPath(expired));
+  }
   xSemaphoreGive(fsMutex);archiveOK=ok;
 }
 
@@ -555,7 +558,10 @@ bool writeCaptureFile(const CaptureDay &day){
   if(ok){ok=f.write(bytes,sizeof(bytes))==sizeof(bytes);f.flush();f.close();}
   if(ok){f=LittleFS.open(temp,"r");ok=f&&f.size()==sizeof(bytes)&&f.read(verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));if(f)f.close();}
   if(ok)ok=promoteCapture(LittleFS,temp,path,backup,day,readCapturePathLocked);
-  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("c")){uint32_t n=name.substring(1).toInt();if(n>0&&uint64_t(n)+31==day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
+  if(ok){
+    const uint32_t expired=expiredProductionDay(day.number);
+    if(expired)retireProductionCopies(LittleFS,capturePath(expired));
+  }
   xSemaphoreGive(fsMutex);return ok;
 }
 bool writeCaptureNVS(const char *key,const CaptureDay &day){
@@ -591,8 +597,9 @@ void loadCaptures(){
     File root=LittleFS.open("/");File item=root.openNextFile();
     while(item&&inspected++<256){
       String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);
-      if(name.startsWith("c")&&(name.endsWith(".bin")||name.endsWith(".bin.bak"))){
-        uint32_t n=name.substring(1).toInt();bool duplicate=false;for(unsigned i=0;i<count;++i)if(candidates[i]==n)duplicate=true;
+      uint32_t n=0;
+      if(productionArchiveDay(name.c_str(),ArchiveNameKind::CaptureBinary,n)){
+        bool duplicate=false;for(unsigned i=0;i<count;++i)if(candidates[i]==n)duplicate=true;
         if(validCaptureDayNumber(n)&&!duplicate){
           unsigned position=0;while(position<count&&candidates[position]>n)++position;
           if(position<32){if(count<32)++count;for(unsigned i=count-1;i>position;--i)candidates[i]=candidates[i-1];candidates[position]=n;}
@@ -1770,7 +1777,7 @@ void webSetup() {
     Snapshot &s=webRequestSnapshot;readSnapshot(s);JsonDocument d;JsonArray a=d.to<JsonArray>();
     bool captures=server.arg("kind")=="checkpoints";
     bool locked=fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE;
-    for(uint32_t n=captures?s.captures.number:s.day.number,k=0;n&&k<31;--n,++k){
+    for(uint32_t n=captures?s.captures.number:s.day.number,k=0;n&&k<ARCHIVE_HISTORY_DAYS;--n,++k){
       bool exists=captures?(n==s.captures.number||n==s.capturePending.number||(locked&&(LittleFS.exists(capturePath(n))||LittleFS.exists(capturePath(n)+".bak")))):(locked&&(LittleFS.exists(dayPath(n))||LittleFS.exists(dayPath(n)+".bak")));
       if(exists){JsonObject row=a.add<JsonObject>();row["day"]=n;row["date"]=dateForDay(n);}
     }
@@ -1780,7 +1787,7 @@ void webSetup() {
   server.on("/api/checkpoints",HTTP_GET,[]{
     Snapshot &s=webRequestSnapshot;readSnapshot(s);uint32_t day=s.captures.number;
     if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid checkpoint date","invalid_archive_date");return;}
-    if(!day||day>s.captures.number||s.captures.number-day>=31){jsonReply(404,"Checkpoint record is not available","archive_missing");return;}
+    if(!day||day>s.captures.number||s.captures.number-day>=ARCHIVE_HISTORY_DAYS){jsonReply(404,"Checkpoint record is not available","archive_missing");return;}
     CaptureDay record;bool durable=true,archived=true;
     if(day==s.captures.number){record=s.captures;durable=s.captureDurable;archived=s.captureArchiveOK;}
     else if(day==s.capturePending.number){record=s.capturePending;archived=false;}
@@ -1792,7 +1799,7 @@ void webSetup() {
   server.on("/api/export",HTTP_GET,[]{
     Snapshot &s=webRequestSnapshot;readSnapshot(s);uint32_t day=s.day.number;
     if(server.hasArg("day")&&!parseNumber(server.arg("day"),day)){jsonReply(400,"Invalid archive date","invalid_archive_date");return;}
-    if(!day||day>s.day.number||s.day.number-day>=31){jsonReply(404,"Archive is not available","archive_missing");return;}
+    if(!day||day>s.day.number||s.day.number-day>=ARCHIVE_HISTORY_DAYS){jsonReply(404,"Archive is not available","archive_missing");return;}
     server.sendHeader("Content-Disposition","attachment; filename=meter-"+dateForDay(day)+".csv");
     server.sendHeader("Cache-Control","no-store");
     if(day==s.day.number){server.send(200,"text/csv; charset=utf-8",csvDay(s.day));return;}

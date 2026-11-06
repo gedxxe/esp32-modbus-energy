@@ -293,3 +293,36 @@ The audit found a real historical backfill bug: `main.cpp` archives checkpoints 
 The worker now differentiates a genuinely absent archived day (for example, the ESP32 was powered off) from an existing but unreadable/corrupted file or a temporarily busy filesystem. Busy I/O is retried; an unrecoverable stored archive blocks further cursor advancement rather than silently skipping it. The HTTPS worker also avoids starting requests within the 15-second pre/post margins around each of the ten scheduled WIB checkpoint windows. The Modbus task, RTC writer, capture serialization, Wi-Fi station settings, LoRa protocol and website database are unchanged.
 
 GitHub Actions native logic/documentation tests passed on the audit branch, including archive path and checkpoint quiet-window regressions. The software tests do **not** demonstrate sustained board Wi-Fi connectivity, certificate-chain acceptance against the actual development Vercel hostname, real website receipt persistence, physical Modbus timing under TLS load, unplug/replug recovery or 31-day loss scenarios. The public/default AP recovery credentials and compiled development bearer still require field security review. No on-device or Neon end-to-end result is claimed here; merge only after CI and development hardware acceptance.
+
+## Archive filename and retention hardening (2026-11-06, review-only)
+
+The firmware's filesystem retention and boot recovery must recognize only
+**exact** production paths:
+- Legacy CSV: `/d<local-day>.csv` or `/d<local-day>.csv.bak`.
+- Scheduled kWh captures: `/c<local-day>.bin` or `/c<local-day>.bin.bak`.
+
+The pure filename parser applies to the startup capture-directory scan.
+Archive pruning no longer scans or mutates a live directory iterator:
+it computes only the exact expired local day and checks at most two
+canonical pathnames after the current archive save succeeds.
+Files with suffixes such as `.bad`, `.tmp`, `.old`, quarantined
+`/q*` prefixes, and unrelated/manual files are neither pruned nor
+mistakenly treated as startup capture candidates.
+The day must be a valid 2024–2099 local-day number, without zero padding.
+Only **exactly 31 days old** canonical files can be retired after a
+successful same-day archive write; a multi-year time jump is not a sweep.
+
+The API's history visibility window still covers the current local day plus
+30 previous days; the on-disk binary format, EEPROM/NVS keys, serial
+settings, Modbus timing, HTTPS payload format, and accepted HTTP routes
+are unchanged.
+
+Regression coverage: `firmware/test/test_energy.cpp::testStrictArchiveRetention`.
+CI native C++ tests, PlatformIO ESP32-S3 build and browser tests are
+required before enabling this change on a device. This is a code/CI
+hardening pass, **not** a claim of successful physical power-loss or
+multi-year RTC-jump verification.
+
+The broader separation of acquisition, hardware drivers, and HTTP from
+`firmware/src/main.cpp` remains a separate architectural project.
+Large cross-core moves are deliberately not part of this low-risk change.

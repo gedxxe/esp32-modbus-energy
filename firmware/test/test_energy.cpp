@@ -11,6 +11,7 @@
 #include "trace.h"
 #include "clock_guard.h"
 #include "rtc_repair.h"
+#include "archive_retention.h"
 #include "command_policy.h"
 #include "bounded_write.h"
 #include <set>
@@ -38,6 +39,60 @@ struct FakeFS {
     files[b]=files[a];files.erase(a);return true;
   }
 };
+void testStrictArchiveRetention(){
+  constexpr uint32_t today=20764,expired=today-ARCHIVE_HISTORY_DAYS;
+  static_assert(ARCHIVE_HISTORY_DAYS==31,"Web/API and disk retention must agree");
+  const auto legacy=ArchiveNameKind::LegacyCSV;
+  const auto capture=ArchiveNameKind::CaptureBinary;
+  uint32_t parsed=0;
+  assert(productionArchiveDay("/d20733.csv",legacy,parsed)&&parsed==expired);
+  assert(productionArchiveDay("d20733.csv.bak",legacy,parsed)&&parsed==expired);
+  assert(productionArchiveDay("/c20733.bin",capture,parsed)&&parsed==expired);
+  assert(productionArchiveDay("c20733.bin.bak",capture,parsed)&&parsed==expired);
+  // Startup recovery may read only exact names written by the capture producer.
+  for(const char *name:{"d20733.csv.bad","d20733.csv.tmp","d20733.csv.old",
+                        "/qprev-d20733.csv","d020733.csv","d20733.txt",
+                        "d20733.csv.bak.bad","d9999999999999999.csv",
+                        "d20733.csv/other","pending.csv"}){
+    assert(!productionArchiveDay(name,legacy,parsed));
+  }
+  for(const char *name:{"c20733.bin.bad","c20733.bin.tmp","/qc20733.bin",
+                        "/q2c20733.bin","/capture.pending","c020733.bin",
+                        "c20733.bin.bak.bad","c20733.csv",
+                        "c999999999999999999999.bin"}){
+    assert(!productionArchiveDay(name,capture,parsed));
+  }
+  assert(expiredProductionDay(today)==expired);
+  assert(expiredProductionDay(today+1)==expired+1);
+  assert(expiredProductionDay(23320)==23320-ARCHIVE_HISTORY_DAYS);
+  assert(expiredProductionDay(CLOCK_MIN_UTC/86400)==0);
+  assert(expiredProductionDay(UINT32_MAX)==0);
+  assert(expiredProductionDay(0)==0);
+  assert(!productionArchiveDay(nullptr,legacy,parsed));
+  // Test the actual deletion policy through a fault-test filesystem.
+  FakeFS disk;
+  disk.files["/c20733.bin"]="old";
+  disk.files["/c20733.bin.bak"]="old-backup";
+  disk.files["/c20733.bin.bad"]="forensic";
+  disk.files["/qc20733.bin"]="quarantined";
+  disk.files["/c20732.bin"]="historical";
+  disk.files["/d20733.csv"]="old-csv";
+  disk.files["/d20733.csv.bak"]="backup-csv";
+  disk.files["/d20733.csv.bad"]="csv-forensic";
+  disk.files["/d20732.csv"]="earlier-csv";
+  const std::string binary="/c"+std::to_string(expired)+".bin";
+  const std::string csv="/d"+std::to_string(expired)+".csv";
+  retireProductionCopies(disk,binary);
+  retireProductionCopies(disk,csv);
+  assert(!disk.exists(binary)&&!disk.exists(binary+".bak"));
+  assert(!disk.exists(csv)&&!disk.exists(csv+".bak"));
+  assert(disk.files["/c20733.bin.bad"]=="forensic");
+  assert(disk.files["/qc20733.bin"]=="quarantined");
+  assert(disk.files["/c20732.bin"]=="historical");
+  assert(disk.files["/d20733.csv.bad"]=="csv-forensic");
+  assert(disk.files["/d20732.csv"]=="earlier-csv");
+}
+
 void testBoundedHTTP(){
   char bytes[3000]={};uint32_t time=0;unsigned calls=0,feeds=0;
   auto clock=[&](){return time;};auto ready=[](){return true;};
@@ -153,6 +208,7 @@ void testMeterCheckpoints(){
 }
 
 int main(){
+  testStrictArchiveRetention();
   for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM)}){
     CaptureSource source;source.profile=profile;source.meterId=42;source.slave=1;source.baud=9600;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
     float value=589000.f;uint32_t raw;memcpy(&raw,&value,4);CaptureTracker captures;captures.newDay(20754);uint32_t at=captureTarget(20754,0);

@@ -84,4 +84,4 @@ Habuer memakai ID tetap 2 dengan basis total energi langsung dari meter. Paramet
 
 [Profil Acrel ACR/APM dan commissioning](ACREL_ACR_APM.md) menjelaskan ID tambahan, energi Float32, perbedaan manual serta alur verifikasi perangkat tersimpan.
 
-Schneider PM5100 tersedia dengan ID profil permanen 6 (`schneider-pm5100`). Lihat [pemetaan register dan petunjuk commissioning](SCHNEIDER_PM5100.md).
+Schneider PM5110 mencatat **energi aktif D+R** sebagai kWh utama menggunakan **profil produksi ID 7 (`schneider-pm5100-dr`)** pada PDU `0x0A8F` / Float32 ABCD. ID 6 lama (`schneider-pm5100`) tetap untuk membaca histori Delivered-only, bukan pilihan pencatatan baru. Lihat [pemetaan dan commissioning hasil uji fisik](SCHNEIDER_PM5100.md).

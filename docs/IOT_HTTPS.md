@@ -136,3 +136,32 @@ Neither the green application build nor the standalone build proves the
 physical device has completed an HTTPS heartbeat handshake and received
 a matching application ACK. Do not weaken TLS verification or format LittleFS
 to troubleshoot a transport error.
+
+## RTC held by future-dated records (6 November 2026)
+
+A field device reported `rtc=false`, retained `dayDate=2033-11-06`,
+`iot.error=waiting_for_wifi_rtc` and zero heartbeat attempts even though
+Wi-Fi, LittleFS and external PSRAM TLS were available. That means no HTTPS
+attempt has been made: do not diagnose TLS or bearer credentials yet.
+
+New read-only `/api/status.rtcDiagnostic` fields distinguish:
+- `hardwareReadable=true`, `state=before_retained_records`: the
+  DS3231 time read succeeded, but its calendar precedes persisted
+  checkpoint dates; normal phone RTC sync is blocked with `backward_date`.
+- `state=i2c_read_failed` or `i2c_mutex_busy`: inspect DS3231 0x68
+  power, GPIO8 SDA, GPIO9 SCL, I2C pull-ups, wiring and bus contention.
+- `state=oscillator_stop_flag`: DS3231 time is untrusted; check
+  backup power, then deliberate initialization after reviewing archives.
+- `state=rtc_invalid_bcd`, `rtc_invalid_range`, `rtc_invalid_date`,
+  `rtc_12h_mode`, or `rtc_century_flag`: unsupported or invalid calendar.
+- `state=ok` and `rtc=true`: RTC and retained-date guard both passed.
+
+`rawUTC`/`rawDate` are populated only after a valid DS3231 read.
+`retainedDay`/`retainedDate` show the newest stored tracker or capture
+date. `recordRollbackBlocked` identifies a valid RTC held by this guard.
+USB Serial 115200 prints the reason on state transitions without OLED.
+A Modbus timeout can overwrite generic `error_code`, so these dedicated
+fields are essential. The change does NOT relax the no-backdating rule,
+write a guessed RTC, clear NVS or format LittleFS. Archive and export any
+misdated records before a separate deliberate reconciliation; fixing
+the RTC alone cannot defeat the record-protection gate.

@@ -19,6 +19,10 @@ struct Status {
   uint8_t lastAckSlot=0;
   int32_t httpStatus=0,transportError=0,socketErrno=0,tlsError=0,tlsFlags=0;
   uint32_t freeHeapBeforePost=0,freeHeapBeforeProbe=0;
+  // Aggregate free heap is not the largest contiguous TLS allocation.
+  uint32_t internalFreeBeforePost=0,internalLargestBeforePost=0;
+  uint32_t psramFreeBeforePost=0,psramLargestBeforePost=0;
+  bool tlsAllocatorPsram=false;
   bool probeAttempted=false;
   int32_t probeHttp=0,probeTransportError=0,probeTlsError=0,probeTlsFlags=0;
   char error[40]={};

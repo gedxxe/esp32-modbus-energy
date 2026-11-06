@@ -12,6 +12,11 @@ def ensure_sdk(env,repository):
     keys=["platform","board","board_build.extra_flags","framework","custom_sdkconfig","board_build.arduino.memory_type","board_build.memory_type","board_build.psram_type","board_build.flash_mode","board_upload.flash_size","board_upload.maximum_size","board_build.partitions","build_flags","build_unflags"]
     options={key:env.GetProjectOption(key,None) for key in keys}
     options={key:value for key,value in options.items() if value is not None}
+    # The main HTTPS firmware and the USB-only diagnostic intentionally use
+    # different SDK allocators. Keep the secure TLS choice gate target-aware.
+    main_firmware=(project.resolve()==(repository/"firmware").resolve())
+    if main_firmware and "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y" not in str(options.get("custom_sdkconfig","")):
+        raise RuntimeError("Main HTTPS firmware must select external Mbed TLS allocator")
     config="[platformio]\ndefault_envs = esp32s3\n\n[env:esp32s3]\n"
     for key,value in options.items():
         if isinstance(value,(list,tuple)):
@@ -28,6 +33,46 @@ def ensure_sdk(env,repository):
     files=[sdk/"sdkconfig",sdk/"esp32s3"/variant/"include/sdkconfig.h",sdk/"esp32s3/lib/libmbedx509.a",sdk/"esp32s3/lib/libwpa_supplicant.a"]
     def hashes():
         return {str(path.relative_to(sdk)):hashlib.sha256(path.read_bytes()).hexdigest() for path in files if path.exists()}
+    # Inspect the compiled SDK, not sdkconfig.defaults: mutually exclusive
+    # Kconfig choices can silently retain their old enabled member.
+    def verify_sdk():
+        header_path=files[1]
+        if not header_path.is_file():
+            raise RuntimeError("Verified SDK header missing: re-run managed Core bootstrap")
+        header=header_path.read_text(encoding="utf-8")
+        flags={name for name in [
+            "CONFIG_MBEDTLS_HAVE_TIME_DATE",
+            "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE",
+            "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL",
+            "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC",
+            "CONFIG_SPIRAM",
+            "CONFIG_SPIRAM_USE_MALLOC",
+        ] if ("#define "+name+" 1") in header}
+        required={
+            "CONFIG_MBEDTLS_HAVE_TIME_DATE",
+            "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE",
+            "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL",
+        }
+        if main_firmware:
+            required.update({
+                "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC",
+                "CONFIG_SPIRAM",
+                "CONFIG_SPIRAM_USE_MALLOC",
+            })
+        missing=sorted(required-flags)
+        forbidden=["CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK"]
+        if main_firmware:
+            forbidden.append("CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC")
+        forbidden=[name for name in forbidden if ("#define "+name+" 1") in header]
+        if missing or forbidden:
+            summary="; ".join([
+                "missing="+",".join(missing or ["none"]),
+                "forbidden_enabled="+",".join(forbidden or ["none"]),
+            ])
+            raise RuntimeError("Compiled ESP32-S3 SDK config invalid ("+summary+
+                "). Main firmware requires PSRAM TLS; standalone diagnostic "+
+                "may use internal TLS. CA/date checks always apply. "+
+                "Cache will NOT be marked verified.")
     stamp=cache/"verified-sdk.json"
     ready=False
     if stamp.exists() and (cache/"sdkconfig.defaults").exists() and (cache/"sdkconfig.esp32s3").exists():
@@ -48,17 +93,13 @@ def ensure_sdk(env,repository):
         result=subprocess.run([sys.executable,"-m","platformio","run","-d",str(cache)])
         if result.returncode:
             raise RuntimeError("SDK bootstrap failed. The production application has not been replaced.")
-        header=files[1].read_text()
-        if "#define CONFIG_MBEDTLS_HAVE_TIME_DATE 1" not in header or "#define CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK 1" in header:
-            raise RuntimeError("Compiled SDK certificate validation settings are invalid")
+        verify_sdk()
         values=hashes()
         if len(values)!=len(files):
             raise RuntimeError("Compiled SDK provenance files are missing")
         stamp.write_text(json.dumps(values,indent=2)+"\n",encoding="utf-8")
-    header=files[1].read_text()
-    required=["CONFIG_MBEDTLS_HAVE_TIME_DATE", "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE", "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL"]
-    if any("#define "+name+" 1" not in header for name in required) or "#define CONFIG_ESP_WIFI_DISABLE_KEY_USAGE_CHECK 1" in header:
-        raise RuntimeError("Compiled SDK must validate dates/key usage and include the full public CA bundle")
+    verify_sdk()
     for name in ["sdkconfig.defaults","sdkconfig.esp32s3"]:
         shutil.copyfile(cache/name,project/name)
-    print("PASS: verified custom SDK cache, certificate date checks and unchanged application source",flush=True)
+    allocator="PSRAM TLS" if main_firmware else "standalone default TLS"
+    print("PASS: verified custom SDK cache, certificate date checks, "+allocator+" and unchanged application source",flush=True)

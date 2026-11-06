@@ -1240,6 +1240,11 @@ void webSetup() {
     iotState["socketErrno"]=uplink.socketErrno;
     iotState["tlsError"]=uplink.tlsError;iotState["tlsFlags"]=uplink.tlsFlags;
     iotState["freeHeapBeforePost"]=uplink.freeHeapBeforePost;
+    iotState["internalFreeBeforePost"]=uplink.internalFreeBeforePost;
+    iotState["internalLargestBeforePost"]=uplink.internalLargestBeforePost;
+    iotState["psramFreeBeforePost"]=uplink.psramFreeBeforePost;
+    iotState["psramLargestBeforePost"]=uplink.psramLargestBeforePost;
+    iotState["tlsAllocatorPsram"]=uplink.tlsAllocatorPsram;
     iotState["probeAttempted"]=uplink.probeAttempted;
     iotState["probeHttp"]=uplink.probeHttp;
     iotState["probeTransportError"]=uplink.probeTransportError;

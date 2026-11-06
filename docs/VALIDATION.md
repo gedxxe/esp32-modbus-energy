@@ -4,7 +4,13 @@
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
-## 6 November 2026: Schneider PM5100 profile
+## 6 November 2026: PM5110 D+R hardware evidence and production correction
+
+The owner then supplied **real PM5110 FC03 wire logs**, distinguishing the correct active energy basis from the earlier Delivered-only profile. Hardware was verified at slave 1, 19200 8E1; **D+R register 2704 / PDU 0x0A8F** returned CRC-valid Float32 bytes `48 C9 82 60` = **412691.00000 kWh**. Delivered-only PDU 0x0A8B returned **411196.75000 kWh**. These are separate cumulative bases, not an observed interval jump. Neither the new primary profile nor the separate website/gateway is yet known to be accepted in the complete production firmware. The website's inspected `iot-contract.js` currently does not list the D+R key.
+
+The corrective branch adds ID 7 `schneider-pm5100-dr` as the selectable primary recording source. ID 6 is preserved as archived Delivered-only data; saved settings decode to ID 7 without rewriting historical captures. New regression assertions cover CRC-valid 0x0A8F/2 transport, Float32 decoding, persisted profile separation, reset of incompatible saved-device binding, diagnostic selection, web profile selection, and IoT event payloads. These **new assertions must pass CI** before accepting the branch; merely writing the tests is not evidence of a passing build. See [PM5110 D+R guide](SCHNEIDER_PM5100.md).
+
+## 6 November 2026, earlier software-only audit: Schneider PM5100 profile
 
 The owner-supplied PM51xx/PM53xx R01 XLS was read directly with a temporary xlrd reader, without modifying the source workbook or adding a runtime dependency. The selected rows and workbook SHA256 are recorded in [the profile reference](references/pm5100-registers.json). The new immutable ID is 6, with one-based register 2700 converted to PDU 2699 for Float32 delivered/import kWh. CT/VT is not applied a second time. The shared decoder handles the workbook's four-quadrant PF format, while non-finite kWh is rejected atomically.
 

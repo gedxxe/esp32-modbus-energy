@@ -204,4 +204,4 @@ OLED menampilkan logo Midea, diikuti animasi pemuatan. Orientasi dan durasi spla
 
 Panel komunikasi menganimasikan frame TX/RX yang teramati. Timestamp dan byte mentah tetap tersedia di bawahnya; animasi bukan pengukuran tambahan. [Demo simulasi](docs/assets/ui-flow-demo.mp4) · [Panduan web](docs/id/WEB.md#membaca-diagram-komunikasi).
 
-Schneider PM5100 didukung melalui register Float32 kWh import dan decoding PF empat kuadran. Lihat [pengaturan dan batas ketelitian PM5100](docs/id/SCHNEIDER_PM5100.md).
+Schneider PM5110 memakai **energi aktif D+R (Delivered + Received)** di alamat PDU **0x0A8F** sebagai **kWh utama** pencatatan, Float32 ABCD tanpa pengali CT/PT tambahan. Profil Delivered-only tetap tersedia untuk membaca arsip lama, bukan pencatatan baru. Lihat [hasil uji dan migrasi PM5110](docs/id/SCHNEIDER_PM5100.md).

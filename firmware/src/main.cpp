@@ -1345,7 +1345,7 @@ void acquisition(void *) {
         state.reactiveEnergy=readWordsFor(state.config,profile.reactiveEnergy.address,profile.reactiveEnergy.words,raw,1,true)?profiles::decode(profile.reactiveEnergy,raw):NAN;
         if(!isfinite(state.reactiveEnergy)||state.reactiveEnergy<0)state.reactiveEnergy=NAN;
       }
-      if((profiles::isAdl400(profile.id)||profile.id==profiles::SCHNEIDER_PM5100)&&(!isfinite(state.frequency)||state.frequency<40||state.frequency>70))state.frequency=NAN;
+      if((profiles::isAdl400(profile.id)||profiles::isSchneider(profile.id))&&(!isfinite(state.frequency)||state.frequency<40||state.frequency>70))state.frequency=NAN;
 
     }
     if(millis()-lastSave>=300000)saveCheckpoint(true);

@@ -17,6 +17,17 @@
     },
     {
       "sheet": "Register List",
+      "description": "Active Energy Delivered + Received (D+R)",
+      "register": 2704,
+      "pdu_address": 2703,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "kWh",
+      "pm5110_11": "Y",
+      "verified_by": "CRC-valid physical PM5110 read, 2026-11-06"
+    },
+    {
+      "sheet": "Register List",
       "row": 210,
       "description": "Reactive Energy Delivered",
       "register": 2708,
@@ -81,5 +92,29 @@
       "unit": "Hz",
       "pm5110_11": "Y"
     }
-  ]
+  ],
+  "legacy_profile_semantics": "Delivered-only (D), retained only for archived captures",
+  "primary_profile_id": 7,
+  "primary_profile_key": "schneider-pm5100-dr",
+  "primary_energy_basis": "Active D+R (Delivered + Received), not reactive power",
+  "field_validation": {
+    "date": "2026-11-06",
+    "model": "Schneider PM5110",
+    "product_id": 15270,
+    "slave_id": 1,
+    "baud": 19200,
+    "serial_format": "8E1",
+    "function_code": 3,
+    "energy_register": 2704,
+    "pdu_address": 2703,
+    "encoding": "FLOAT32 ABCD",
+    "words": 2,
+    "unit": "kWh",
+    "raw_registers": "48C9 8260",
+    "tx": "01 03 0A 8F 00 02 F6 38",
+    "rx": "01 03 04 48 C9 82 60 5D 25",
+    "crc": "OK",
+    "observed_kwh": 412691,
+    "delivered_only_kwh": 411196.75
+  }
 }

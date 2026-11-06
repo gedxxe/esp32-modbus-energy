@@ -201,4 +201,4 @@ The OLED shows a Midea boot logo, followed by the loading bar. Set orientation a
 
 The communication view animates observed TX/RX frames; timestamps and raw bytes remain available beneath the replay. Animations are not additional meter measurements. [Simulated demo](docs/assets/ui-flow-demo.mp4) · [Web guide](docs/WEB.md#reading-the-communication-diagram).
 
-Schneider PM5100 support uses the documented Float32 import-kWh map and four-quadrant PF decoding. See [PM5100 setup and precision limits](docs/SCHNEIDER_PM5100.md).
+Schneider PM5110 production recording uses the **D+R (Delivered + Received) active-energy counter** at PDU **0x0A8F**, Float32 ABCD, directly in kWh. The older Delivered-only profile remains archived and is excluded from new meter selection. See [PM5110 D+R field validation and migration](docs/SCHNEIDER_PM5100.md).

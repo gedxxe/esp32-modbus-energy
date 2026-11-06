@@ -2,7 +2,7 @@
 
 ## Unreleased (audit fixes · 5 November 2026)
 
-Schneider PM5100 is added as immutable profile ID 6. Its documented Float32 delivered/import kWh map uses zero-based PDU offsets and a dedicated four-quadrant PF decoder. Existing meter IDs and checkpoint layouts remain unchanged. See [PM5100](docs/SCHNEIDER_PM5100.md) for register references and precision limits.
+Schneider PM5100 was introduced as immutable profile ID 6 for Delivered-only Float32 kWh; historical captures remain on that basis. New **PM5110 D+R production profile ID 7** uses field-verified register 2704 (PDU 0x0A8F), Float32 ABCD and kWh ×1. Legacy ID 6 is hidden from new setup, auto-decoded to ID 7 for the active reader and detached from an old saved-device binding. Archive IDs and schema-3 layout are unchanged. See [PM5110 D+R](docs/SCHNEIDER_PM5100.md).
 
 The Wi-Fi dashboard accepts manually entered/hidden SSIDs, groups scan entries by selectable security family, and preserves saved Enterprise credentials and trusted CA when the same SSID is selected again. An unrelated SSID cannot inherit a saved login. AP-only transitions clean up the Enterprise station before turning the STA radio off. Native/Playwright regressions exercise credential-reuse boundaries. The published gateway target and diagrams now consistently identify the separate ESP32-C3 project. Live corporate RADIUS, physical RF and power-cut tests still require hardware.
 

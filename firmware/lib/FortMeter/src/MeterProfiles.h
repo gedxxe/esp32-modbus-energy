@@ -8,7 +8,7 @@ namespace fort {
 enum ReadingField:uint8_t { FIELD_PF=1,FIELD_FREQUENCY=2,FIELD_ENERGY=4,FIELD_REACTIVE=8 };
 namespace profiles {
 // IDs are stored in settings, checkpoints and the named-device registry.
-enum Id : uint8_t { FORT=0, ACREL_ADL400=1, HABUER=2, ACREL_ACR=3, ACREL_APM=4, ACREL_ADL400_VERIFIED=5, SCHNEIDER_PM5100=6, COUNT=7 };
+enum Id : uint8_t { FORT=0, ACREL_ADL400=1, HABUER=2, ACREL_ACR=3, ACREL_APM=4, ACREL_ADL400_VERIFIED=5, SCHNEIDER_PM5100=6, SCHNEIDER_PM5100_DR=7, COUNT=8 };
 enum RatioLayout : uint8_t { PT_FRACTION_CT, PT_CT, NO_RATIO };
 enum Encoding : uint8_t { U16, U32, I32, F32, I16, PF4Q_F32 };
 struct Register { uint16_t address; uint8_t words; Encoding encoding; double scale; };
@@ -21,12 +21,14 @@ struct Profile {
   uint8_t requiredReadings; bool commissioningRequired;
 };
 inline bool isAdl400(uint8_t id){return id==ACREL_ADL400||id==ACREL_ADL400_VERIFIED;}
+inline bool isSchneider(uint8_t id){return id==SCHNEIDER_PM5100||id==SCHNEIDER_PM5100_DR;}
 inline bool valid(uint8_t id){return id<COUNT;}
-inline bool selectable(uint8_t id){return valid(id)&&id!=ACREL_ADL400;}
+// Keep archived PM5100 delivered-only profile 6 readable, never selectable for new data.
+inline bool selectable(uint8_t id){return valid(id)&&id!=ACREL_ADL400&&id!=SCHNEIDER_PM5100;}
 inline bool available(const Register &reg){return reg.words==1||reg.words==2;}
 inline bool coherentSnapshot(const Profile &profile){return profile.requiredReadings!=FIELD_ENERGY;}
 inline bool directEnergy(const Profile &profile){return profile.ratioLayout==NO_RATIO;}
-inline bool profileDiscovery(const Profile &p){return p.commissioningRequired||p.id==ACREL_ADL400_VERIFIED||p.id==SCHNEIDER_PM5100;}
+inline bool profileDiscovery(const Profile &p){return p.commissioningRequired||p.id==ACREL_ADL400_VERIFIED||isSchneider(p.id);}
 inline const Profile &get(uint8_t id){
   // PDU starting addresses. Habuer parameters require separate two-word requests.
   static const Profile table[]={
@@ -55,11 +57,19 @@ inline const Profile &get(uint8_t id){
       {0x5332,2,F32,1},{0x0000,2,U32,.01},0x008D,0,2,PT_CT,19200,
       {0x0000,2,U32,.01},{0x5330,2,F32,1},{0,0,U16,0},FIELD_ENERGY,false},
     // Schneider workbook register numbers are one-based; descriptors are PDU offsets.
-    // Delivered/import energy is already kWh with the meter's configured CT/VT applied.
-    {SCHNEIDER_PM5100,"schneider-pm5100","Schneider PM5100","RS485 + / - (meter labels)","PM51xx/PM53xx XLS R01, rows 206/210/221/237/255/268/274",
+    // Profile 6 is IMMUTABLE delivered-only history: do not change its address or key.
+    // Float32 counters are primary kWh with meter CT/VT already applied.
+    {SCHNEIDER_PM5100,"schneider-pm5100","Schneider PM5100 (Delivered only)","RS485 + / - (meter labels)","Legacy delivered-only kWh (D), register 2700",
       {2999,2,F32,1},{3027,2,F32,1},{3059,2,F32,1},
       {3109,2,F32,1},{2699,2,F32,1},0,2699,0,NO_RATIO,38400,
-      {2699,2,F32,1},{3083,2,PF4Q_F32,1},{2707,2,F32,1},FIELD_ENERGY,false}
+      {2699,2,F32,1},{3083,2,PF4Q_F32,1},{2707,2,F32,1},FIELD_ENERGY,false},
+    // Field-verified PM5110 D+R = Delivered + Received active energy, NOT reactive energy.
+    // Register 2704 -> PDU 2703 / 0x0A8F, two IEEE754 ABCD words, kWh x1.
+    // A separate immutable ID makes old D-only captures incompatible with new D+R deltas.
+    {SCHNEIDER_PM5100_DR,"schneider-pm5100-dr","Schneider PM5110 (D+R kWh)","RS485 + / - (meter labels)","Active D+R kWh, register 2704; tested PM5110",
+      {2999,2,F32,1},{3027,2,F32,1},{3059,2,F32,1},
+      {3109,2,F32,1},{2703,2,F32,1},0,2703,0,NO_RATIO,38400,
+      {2703,2,F32,1},{3083,2,PF4Q_F32,1},{2707,2,F32,1},FIELD_ENERGY,false}
   };
   static_assert(sizeof(table)/sizeof(table[0])==COUNT,"Every profile ID needs a descriptor");
   static const Profile unknown={255,"unknown","Unconfigured meter","A / B","No verified register profile",

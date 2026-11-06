@@ -136,3 +136,79 @@ Neither the green application build nor the standalone build proves the
 physical device has completed an HTTPS heartbeat handshake and received
 a matching application ACK. Do not weaken TLS verification or format LittleFS
 to troubleshoot a transport error.
+
+## RTC held by future-dated records (6 November 2026)
+
+A field device reported `rtc=false`, retained `dayDate=2033-11-06`,
+`iot.error=waiting_for_wifi_rtc` and zero heartbeat attempts even though
+Wi-Fi, LittleFS and external PSRAM TLS were available. That means no HTTPS
+attempt has been made: do not diagnose TLS or bearer credentials yet.
+
+New read-only `/api/status.rtcDiagnostic` fields distinguish:
+- `hardwareReadable=true`, `state=before_retained_records`: the
+  DS3231 time read succeeded, but its calendar precedes persisted
+  checkpoint dates; normal phone RTC sync is blocked with `backward_date`.
+- `state=i2c_read_failed` or `i2c_mutex_busy`: inspect DS3231 0x68
+  power, GPIO8 SDA, GPIO9 SCL, I2C pull-ups, wiring and bus contention.
+- `state=oscillator_stop_flag`: DS3231 time is untrusted; check
+  backup power, then deliberate initialization after reviewing archives.
+- `state=rtc_invalid_bcd`, `rtc_invalid_range`, `rtc_invalid_date`,
+  `rtc_12h_mode`, or `rtc_century_flag`: unsupported or invalid calendar.
+- `state=ok` and `rtc=true`: RTC and retained-date guard both passed.
+
+`rawUTC`/`rawDate` are populated only after a valid DS3231 read.
+`retainedDay`/`retainedDate` show the newest stored tracker or capture
+date. `recordRollbackBlocked` identifies a valid RTC held by this guard.
+USB Serial 115200 prints the reason on state transitions without OLED.
+A Modbus timeout can overwrite generic `error_code`, so these dedicated
+fields are essential. The change does NOT relax the no-backdating rule,
+write a guessed RTC, clear NVS or format LittleFS. Archive and export any
+misdated records before a separate deliberate reconciliation; fixing
+the RTC alone cannot defeat the record-protection gate.
+
+## Fix: browser RTC sync blocked by an empty 2033 checkpoint (6 November 2026)
+
+The previous protection checked the **latest stored day** rather than
+whether it held real readings. A DS3231 with a valid 2026 clock was marked
+\`rtc=false\` when an old, empty 2033 tracker/capture date remained in
+NVS/LittleFS; the browser's normal **Sync RTC** was then rejected with
+\`backward_date\`. This is a firmware deadlock, not a reason to reset the
+whole flash or disable archive safeguards.
+
+The standard authenticated \`POST /api/time\` now supports a **narrow,
+automatic empty-record repair when the operator presses Sync**:
+- All in-memory future legacy intervals must be empty (no measured kWh).
+- Every in-memory future checkpoint must be waiting/missed with no raw
+  meter measurements; pending rollover backlog or future cloud ACK blocks.
+- Every future \`/c<day>.bin[.bak]\` archive must decode with valid CRC and
+  contain no recorded meter readings; damaged or real records block.
+- The current NVS checkpoint is preserved under \`/qnvsc<day>.bin\`.
+  Future empty archives are renamed into \`/qc<day>.bin[.bak]\`, and
+  \`/capture.pending\` is quarantined if relevant. The /q names are
+  intentionally excluded from the normal boot archive scanner.
+- Only once backups are verified, the existing RTC write/readback runs.
+  If it fails, active NVS is left unchanged. On success, correct day
+  checkpoints are persisted with CRC as before. Never format LittleFS
+  or clear the entire NVS.
+
+The 2033 snapshots remain accessible as preserved flash files until
+separately reviewed; this recovery does not claim they represent
+measurements. Genuine measured future records are **not** reset by this
+automatic path. Existing legitimate records for the requested 2026 day
+must be preserved, not replaced by blank intervals/captures.
+
+After flashing, press the normal Sync RTC button with a trusted device
+clock. Expect \`rtcDiagnostic.state="ok"\`, \`rtc=true\`, and subsequently
+at least one heartbeat attempt; HTTP 200 ACK still requires independent
+real-device testing. A \`rtc_recovery_*\` command error means no automatic
+destructive fallback has occurred. Never run \`erase_flash\`, clear all NVS,
+or format LittleFS to bypass a protected record.
+
+**Retention hardening:** the legacy/capture archivers now prune only the
+date *exactly* 31 days before a successfully saved day. They no longer
+erase every older date in one sweep after an accidental multi-year RTC
+jump. Old records skipped by extended outages therefore remain until
+explicit review/export; filesystem capacity must still be monitored.
+The repair uses a bounded 72-entry static path list and fails closed if
+there are unexpectedly more future files, rather than exhausting stack
+or silently leaving an unexamined archive.

@@ -1,45 +1,66 @@
-# Profil pembacaan Schneider PM5100
+# Schneider PM5110: pembacaan kWh D+R
 
 [Bahasa Indonesia](SCHNEIDER_PM5100.md) · [English](../SCHNEIDER_PM5100.md)
 
-Profil `schneider-pm5100` memakai ID permanen **6**. Definisi profil lama dan arsip checkpoint 446 byte tidak berubah. Pemetaan dibaca dari workbook milik pengguna `PM51xx_PM53xx_PMC Register List_v2011_v2021_R01.xls`, terutama worksheet Register List dan Data Types. File sumber tidak diubah. [Catatan teknis English](../SCHNEIDER_PM5100.md) memuat tabel lengkap, baris sumber dan referensi Schneider, sedangkan [rekaman sumber](../references/pm5100-registers.json) memuat hash workbook serta alamat yang dipakai.
+## Hasil pengujian perangkat pada 6 November 2026
 
-## Register dan decoding
+ESP32-S3 berhasil berkomunikasi dengan **Schneider Electric PM5110** (Product ID 15270 / `0x3BA6`) melalui Modbus RTU **FC03**, Slave ID **1**, **19200 baud**, **8E1**. Wiring tetap TX GPIO17, RX GPIO18, DE dan /RE digabung pada GPIO16.
 
-Nomor register dalam workbook memakai desimal mulai dari satu. Firmware mengirim alamat PDU mulai dari nol, sehingga energi register 2700 dibaca melalui FC03 alamat **2699 (`0x0A8B`) sebanyak dua register**. Parameter lain juga dibaca dua register dengan word paling signifikan lebih dahulu.
+**Nilai kWh utama untuk pencatatan adalah D+R (Delivered + Received), bukan Delivered-only (D) dan bukan energi reaktif (kvarh).**
 
-| Parameter | Nomor di workbook | Alamat PDU | Satuan |
-| --- | --- | --- | --- |
-| Energi aktif delivered/import | 2700 | 2699 | kWh |
-| Energi reaktif delivered | 2708 | 2707 | kvarh |
-| Arus fase A | 3000 | 2999 | A |
-| Tegangan fase A–netral | 3028 | 3027 | V |
-| Daya aktif total | 3060 | 3059 | kW |
-| Power factor total | 3084 | 3083 | cos φ setelah decoding |
-| Frekuensi | 3110 | 3109 | Hz |
+| Sumber | Register Schneider | Alamat PDU | Format | Hasil validasi |
+| --- | ---: | --- | --- | ---: |
+| **Energi aktif D+R, kWh utama** | **2704** | **2703 / `0x0A8F`** | **Float32 ABCD ×2 register** | **412.691,00000 kWh** |
+| Energi aktif D, historis | 2700 | 2699 / `0x0A8B` | Float32 ABCD ×2 register | 411.196,75000 kWh |
 
-Energi yang dicatat adalah delivered/import, bukan ekspor, energi neto, atau jumlah delivered + received pada register 2704. Nilai sudah mengikuti pengukuran dan konfigurasi CT/VT meter, sehingga ESP32 tidak mengalikan CT/PT lagi. Tidak ada penulisan register meter.
+Frame D+R yang terbukti CRC OK: TX `01 03 0A 8F 00 02 F6 38`, RX `01 03 04 48 C9 82 60 5D 25`. Payload `48 C9 82 60` menjadi **412691.0 kWh**. Selisih 1494,25 kWh dengan counter Delivered-only **tidak boleh** dianggap sebagai pemakaian dalam satu interval.
 
-Power factor memakai encoding empat kuadran. Raw di atas +1 diubah menjadi `2 − raw`, sedangkan raw di bawah −1 menjadi `−2 − raw`. Misalnya +1,2 menjadi +0,8 dan −1,2 menjadi −0,8. NaN dan nilai di luar −2…+2 ditolak. Informasi leading/lagging tidak ditampilkan sebagai kolom terpisah.
+Register pada Excel dimulai dari 1; alamat Modbus PDU dimulai dari 0. Nilai energi sudah dalam **kWh**, bukan MWh atau Wh. CT/PT meter tidak boleh dikalikan lagi. Pada sekitar 412 ribu kWh, resolusi Float32 adalah 0,03125 kWh per langkah.
 
-Register energi INT64 pada 3204 memakai empat register dalam Wh. Profil ini tidak memotongnya menjadi 32 bit. Firmware memakai salinan Float32 kWh yang memang disediakan di register 2700 agar penyimpanan tetap kompatibel. Resolusinya terbatas: sekitar satu juta kWh, satu langkah Float32 sebesar 0,0625 kWh. Tiga angka desimal pada layar tidak menambah ketelitian sumber. Dukungan INT64 presisi penuh kelak memerlukan profil dan format penyimpanan baru.
+## Keamanan histori dan profil
 
-Hanya kWh valid yang wajib tersedia untuk checkpoint. PF yang tidak tersedia saat tanpa beban atau tegangan A–N yang tidak tersedia pada rangkaian tanpa netral tidak boleh menggagalkan energi. Parameter tambahan yang gagal tetap tidak tersedia, bukan nol. Pembacaan dilakukan berurutan, sehingga bukan snapshot listrik serentak.
+| ID | Key | Fungsi |
+| --- | --- | --- |
+| 6 | `schneider-pm5100` | Histori **Delivered-only** yang harus tetap dapat dibaca, tetapi tidak boleh dipilih untuk pencatatan baru |
+| **7** | **`schneider-pm5100-dr`** | **Pencatatan PM5110 baru menggunakan D+R** |
 
-## Pemakaian
+Saat konfigurasi tersimpan dengan ID 6 dibuka oleh firmware baru, reader aktif otomatis diarahkan ke ID 7 dan ikatan perangkat lama dilepas. Nilai arsip ID 6 tidak diubah. Perbedaan ID memutus kontinuitas sehingga delta harian tidak mencampur D dan D+R. Konfigurasi NVS lama tidak ditimpa sampai pengaturan meter disimpan lagi secara normal.
 
-Buka **Meter setup** pada dashboard ESP32, pilih **Schneider PM5100**, lalu isi slave ID, baud dan parity sesuai menu komunikasi meter. Baud yang didokumentasikan adalah 9600, 19200 dan 38400. Simpan dan cocokkan kWh dengan halaman delivered/import pada LCD, termasuk satuan dan pengali tampilannya. Wiring UART tetap TX17 ke DI, RX18 dari RO, dan GPIO16 ke DE serta /RE yang disatukan. Gunakan label polaritas RS485 milik Schneider, jangan memakai nomor terminal Fort.
+Checkpoint tetap menyimpan payload Float32 32-bit dalam format arsip yang sama. Counter pembanding 64-bit pada register 3212 memiliki satuan Wh, **bukan** sumber utama yang dipotong menjadi 32-bit.
 
-Scanner memakai PDU 2699/2 dengan bukti respons CRC valid berulang. Respons tidak membuktikan merek perangkat. Untuk diagnostik, ketik perintah berikut satu per satu pada **web Command input lalu Run command**, atau **Arduino IDE Serial Monitor INPUT lalu Enter/Send, baud 115200 dengan Newline**:
+## Register tambahan (bukan syarat pencatatan kWh)
+
+| Parameter | Alamat PDU (HEX) | Format |
+| --- | --- | --- |
+| Energi D+R | **`0x0A8F`** | **Float32, 2 word** |
+| Current A | `0x0BB7` | Float32, 2 word, A |
+| Voltage A-N | `0x0BD3` | Float32, 2 word, V |
+| Active Power Total | `0x0BF3` | Float32, 2 word, kW |
+| Power Factor Total | `0x0C0B` | 4Q Float32, 2 word |
+| Frequency | `0x0C25` | Float32, 2 word, Hz |
+| Reactive Delivered (bukan energi D+R) | `0x0A93` | Float32, 2 word, kvarh |
+
+Scanner LCD memakai arus rata-rata di register 3010 dan tegangan L-L rata-rata di 3026, sedangkan descriptor produksi memakai arus fase A di 3000 dan tegangan A-N di 3028. Keduanya tidak boleh dibandingkan langsung. Decoder power factor tetap mengikuti encoding empat kuadran dari worksheet *Data Types*.
+
+## Pengaturan dan debugging
+
+Pada dashboard ESP32, buka **Meter setup**, pilih **Schneider PM5110 (D+R kWh)**, isi ID **1**, baud **19200**, parity **Even**, arah **Manual GPIO16**, lalu simpan.
+
+Di **Meter setup → Diagnostic console**, masukkan baris berikut **satu per satu** pada kolom **Command input**, tekan **Run command** setiap kali. Alternatifnya gunakan **Arduino IDE Serial Monitor INPUT** dengan baud **115200**, line ending **Newline**, lalu Enter/Send.
 
 ```text
-profile schneider-pm5100
+profile schneider-pm5100-dr
+id 1
+baud 19200
+parity E
 status
 intermediate
 read
 deeper
 ```
 
-Profil diagnostik berada di RAM. `intermediate` memeriksa alamat energi, `read` mendekode kWh dan `deeper` memeriksa rencana register profil. Gunakan kontrol `id`, `baud` dan `parity` yang sudah tersedia bila diperlukan. Salin **OUTPUT** ke chat dukungan bila diminta, lalu resume produksi setelah diagnostik aktif.
+Perintah `read` seharusnya menghasilkan kWh **D+R**, bukan Delivered-only. Angka 412691.0 kWh adalah pembacaan saat pengujian, bukan nilai konstan. Lakukan *Resume measurement* setelah diagnostik aktif selesai.
 
-Binding perangkat di website terpisah harus memakai `schneider-pm5100`. Gateway LoRa terpisah yang membatasi ID profil perlu mengenali ID 6. Pengujian pada PM5100 fisik belum dilakukan untuk perubahan ini.
+Pengiriman website memakai key **`schneider-pm5100-dr`** dan identitas profil internal 7. Apabila website atau registrasi perangkat masih mengunci key `schneider-pm5100`, perlu pembaruan integrasi secara eksplisit; jangan melabeli D+R sebagai D hanya agar data diterima. Gateway LoRa yang memvalidasi ID juga perlu mengenali ID 7.
+
+Uji hardware membuktikan CRC dan decoding counter. Firmware terpasang, gateway, dan website masih memerlukan uji end-to-end sebelum dinyatakan siap produksi.

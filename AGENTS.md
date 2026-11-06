@@ -56,7 +56,7 @@ The only supported build/release target is `esp32s3` for the physical N16R8 boar
 
 Keep the README, wiring SVG, netlist, diagrams, tests and release package consistent with these files. Name the root guide `AGENTS.md` and root overview `README.md` using this exact case for GitHub/Linux portability.
 
-Schneider PM5100 uses immutable profile ID 6 (`schneider-pm5100`). See docs/SCHNEIDER_PM5100.md and docs/references/pm5100-registers.json. Its one-based workbook register 2700 is PDU 2699, two-register Float32 import kWh with no additional CT/VT multiplier. PF uses the explicit PF4Q_F32 decoder. Never truncate its separate four-register INT64 Wh counter into the existing 32-bit raw checkpoint slot.
+Schneider PM5110 field test (6 Nov 2026): production **D+R (Delivered + Received) active kWh** comes from workbook register 2704, PDU 2703 / `0x0A8F`, 2-word Float32 ABCD; the observed CRC-valid value was 412691.0 kWh. New immutable profile ID 7 (`schneider-pm5100-dr`) is the ONLY selectable Schneider recording profile. Legacy ID 6 (`schneider-pm5100`) retains Delivered-only register 2700 / `0x0A8B` for archived captures; never relabel its historical bytes. Decode old active settings as ID 7, detach their saved-device binding and prevent cross-profile consumption deltas. No additional CT/VT multiplier. The optional reactive Delivered value is separately measured in kvarh, NOT D+R. Do not truncate the four-register INT64 Wh counter into the existing 32-bit raw checkpoint slot. See docs/SCHNEIDER_PM5100.md and docs/references/pm5100-registers.json.
 
 ## Firmware invariants
 

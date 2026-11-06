@@ -655,6 +655,12 @@ const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
       }
       String target=name=="/capture.pending"?"/qcapture-pending-"+String(day)+".bin":
                     "/q"+name.substring(1);
+      // A power loss may leave a previous backup while NVS later recreates
+      // the original. Preserve another copy, never overwrite either version.
+      for(unsigned copy=2;copy<=9&&LittleFS.exists(target);++copy){
+        target=name=="/capture.pending"?"/q"+String(copy)+"capture-pending-"+String(day)+".bin":
+               "/q"+String(copy)+name.substring(1);
+      }
       if(name.length()>=sizeof(candidates[count].from)||
          target.length()>=sizeof(candidates[count].to)||LittleFS.exists(target)){
         issue="rtc_recovery_backup_conflict";break;
@@ -673,7 +679,8 @@ const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
     snprintf(path,sizeof(path),"/qnvsc%lu.bin",(unsigned long)captureLog.day.number);
     uint8_t bytes[CAPTURE_RECORD_SIZE],verify[CAPTURE_RECORD_SIZE];
     encodeCaptureDay(captureLog.day,bytes);
-    if(!LittleFS.exists(path)){
+    const bool created=!LittleFS.exists(path);
+    if(created){
       File out=LittleFS.open(path,"w");bool ok=bool(out);
       if(ok){ok=out.write(bytes,sizeof(bytes))==sizeof(bytes);out.flush();out.close();}
       if(!ok)issue="rtc_recovery_nvs_backup_failed";
@@ -683,7 +690,14 @@ const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
       bool ok=copy&&copy.size()==sizeof(bytes)&&
               copy.read(verify,sizeof(verify))==sizeof(verify);
       if(copy)copy.close();
-      if(!ok||memcmp(bytes,verify,sizeof(bytes)))issue="rtc_recovery_nvs_backup_mismatch";
+      CaptureDay recovered{};
+      // Restoring NVS after a reboot increments the in-RAM generation.
+      // An older verified empty backup remains safe and must not deadlock retry.
+      if(!ok||!decodeCaptureDay(verify,sizeof(verify),recovered)||
+         recovered.number!=captureLog.day.number||
+         !clockRecoveryEmptyCapture(recovered,wantedDay)||
+         (created&&memcmp(bytes,verify,sizeof(bytes))))
+        issue="rtc_recovery_nvs_backup_mismatch";
     }
   }
   if(!issue){

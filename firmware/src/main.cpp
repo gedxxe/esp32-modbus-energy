@@ -514,8 +514,10 @@ void saveArchive() {
   if(ok){ok=f.print(csv)==csv.length();f.flush();f.close();}
   // Keep old copy if power is lost before the replacement is installed.
   if(ok)ok=installArchive(LittleFS,temp,path,backup);
-  // Retention is deliberate and bounded; current day's write must succeed first.
-  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("d")){uint32_t day=name.substring(1).toInt();if(day>0&&day+31<=tracker.day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
+  // Prune ONLY the day exactly 31 days old. A corrupted RTC jumping years
+  // forward must never erase a whole history of older genuine measurements.
+  // Older skipped days remain for explicit operator backup/cleanup.
+  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("d")){uint32_t day=name.substring(1).toInt();if(day>0&&uint64_t(day)+31==tracker.day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
   xSemaphoreGive(fsMutex);archiveOK=ok;
 }
 
@@ -553,7 +555,7 @@ bool writeCaptureFile(const CaptureDay &day){
   if(ok){ok=f.write(bytes,sizeof(bytes))==sizeof(bytes);f.flush();f.close();}
   if(ok){f=LittleFS.open(temp,"r");ok=f&&f.size()==sizeof(bytes)&&f.read(verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));if(f)f.close();}
   if(ok)ok=promoteCapture(LittleFS,temp,path,backup,day,readCapturePathLocked);
-  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("c")){uint32_t n=name.substring(1).toInt();if(n>0&&n+31<=day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
+  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(name.startsWith("c")){uint32_t n=name.substring(1).toInt();if(n>0&&uint64_t(n)+31==day.number)LittleFS.remove("/"+name);}item=root.openNextFile();}}
   xSemaphoreGive(fsMutex);return ok;
 }
 bool writeCaptureNVS(const char *key,const CaptureDay &day){

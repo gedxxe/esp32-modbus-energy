@@ -71,7 +71,7 @@ void testNetwork(){
   assert(validNetwork(s));s.mode=NETWORK_CLIENT;assert(!validNetwork(s));
   strcpy(s.ssid,"Plant WiFi");assert(!validNetwork(s));s.auth=NETWORK_OPEN;assert(validNetwork(s));s.auth=NETWORK_PERSONAL;strcpy(s.password,"short");assert(!validNetwork(s));
   strcpy(s.password,"plant-key-123");assert(validNetwork(s));
-  uint32_t recoveryParsed=0;assert(parseAPAddress("192.168.8.1",recoveryParsed)&&recoveryParsed==0xC0A80801);assert(!parseAPAddress("192.168.8.0",recoveryParsed));assert(!parseAPAddress("8.8.8.8",recoveryParsed));assert(!parseAPAddress("192.168.1.256",recoveryParsed));
+  uint32_t parsed=0;assert(parseAPAddress("192.168.8.1",parsed)&&parsed==0xC0A80801);assert(!parseAPAddress("192.168.8.0",parsed));assert(!parseAPAddress("8.8.8.8",parsed));assert(!parseAPAddress("192.168.1.256",parsed));
   s.apIP=0xC0A80801;
   {NetworkSettings tail=s;size_t end=strlen(tail.password)+1;memset(tail.password+end,88,sizeof(tail.password)-end);uint8_t clean[NETWORK_RECORD_SIZE];encodeNetwork(tail,clean);assert(clean[37+end]==0);}
   uint8_t bytes[NETWORK_RECORD_SIZE];encodeNetwork(s,bytes);NetworkSettings restored{};
@@ -232,7 +232,7 @@ int main(){
   light.mode=LED_SOLID;light.brightness=0;assert(ledColor(light,100).green==0);
   light.brightness=128;assert(ledColor(light,100).green==92);
   light.mode=LED_OFF;assert(ledColor(light,100).green==0);
-  LedMode recoveryParsed=LED_OFF;assert(parseLedMode("hue",recoveryParsed)&&recoveryParsed==LED_HUE);assert(!parseLedMode("rainbow",recoveryParsed));
+  LedMode parsed=LED_OFF;assert(parseLedMode("hue",parsed)&&parsed==LED_HUE);assert(!parseLedMode("rainbow",parsed));
   light.mode=LED_HUE;LedAnimation animation;animation.sample(light,UINT32_MAX-999);
   color=animation.sample(light,1000);assert(color.red==0&&color.green==128&&color.blue==0);
   light.mode=LED_SOLID;color=animation.sample(light,1001);assert(color.green==92);
@@ -318,13 +318,13 @@ int main(){
   noPending.number=0;
   assert(clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
   assert(!clockRecoveryAllowed(requested,WIB,Day{},CaptureDay{},CaptureDay{},0));
-  uint32_t recoveryParsed=0;
-  assert(clockRecoveryCaptureFilename("/c23320.bin",recoveryParsed)&&recoveryParsed==FUTURE);
-  assert(clockRecoveryCaptureFilename("c23320.bin.bak",recoveryParsed)&&recoveryParsed==FUTURE);
-  assert(!clockRecoveryCaptureFilename("/capture.pending",recoveryParsed));
-  assert(!clockRecoveryCaptureFilename("/qc23320.bin",recoveryParsed));
-  assert(!clockRecoveryCaptureFilename("/c23320.csv",recoveryParsed));
-  assert(!clockRecoveryCaptureFilename("/c23320.bin.bad",recoveryParsed));
+  uint32_t rtcArchiveDay=0;
+  assert(clockRecoveryCaptureFilename("/c23320.bin",rtcArchiveDay)&&rtcArchiveDay==FUTURE);
+  assert(clockRecoveryCaptureFilename("c23320.bin.bak",rtcArchiveDay)&&rtcArchiveDay==FUTURE);
+  assert(!clockRecoveryCaptureFilename("/capture.pending",rtcArchiveDay));
+  assert(!clockRecoveryCaptureFilename("/qc23320.bin",rtcArchiveDay));
+  assert(!clockRecoveryCaptureFilename("/c23320.csv",rtcArchiveDay));
+  assert(!clockRecoveryCaptureFilename("/c23320.bin.bad",rtcArchiveDay));
   assert(!validClockEpoch(UINT32_MAX,WIB));
   assert(!validClockEpoch(CLOCK_MIN_UTC,UINT32_MAX));
   // Protection depends on retained records, not on an available/valid RTC flag.

@@ -129,6 +129,16 @@ inline bool heartbeat(const Binding &binding,Event &out){
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;
 }
+constexpr uint32_t TELEMETRY_PERIOD_MS=600000UL; // 10-minute accepted-reading cadence
+constexpr uint32_t MANUAL_REQUEST_TTL_SECONDS=120UL;
+// Command is only acted on after a later valid Modbus sample, not a cached
+// local snapshot. Prevent stale/replayed cloud requests from causing uploads.
+inline bool manualRefreshDue(uint32_t requestUTC,uint32_t servedUTC,
+                             uint32_t sampleUTC,uint32_t nowUTC){
+  return requestUTC>=946684800UL&&requestUTC>servedUTC&&
+    nowUTC>=requestUTC&&nowUTC-requestUTC<=MANUAL_REQUEST_TTL_SECONDS&&
+    sampleUTC>requestUTC&&sampleUTC<=nowUTC+5UL;
+}
 constexpr uint32_t HEARTBEAT_PERIOD_MS=60000UL;
 inline bool heartbeatDue(uint32_t now,uint32_t lastAttempt){
   return !lastAttempt||uint32_t(now-lastAttempt)>=HEARTBEAT_PERIOD_MS;

@@ -122,6 +122,16 @@ int main(){
   assert(iot::freshCurrent(true,profiles::ACREL_APM,3,900,1000));
   assert(iot::freshCurrent(true,profiles::FORT,3,UINT32_MAX-1000,100)); // millis wraparound
 
+  // On-demand telemetry is only emitted for a newer, validated sample;
+  // the heartbeat interval and scheduled checkpoint timestamps stay unchanged.
+  assert(iot::TELEMETRY_PERIOD_MS==600000UL);
+  assert(iot::HEARTBEAT_PERIOD_MS==60000UL);
+  assert(iot::manualRefreshDue(1793840400UL,0,1793840402UL,1793840403UL));
+  assert(!iot::manualRefreshDue(1793840400UL,1793840400UL,1793840402UL,1793840403UL));
+  assert(!iot::manualRefreshDue(1793840400UL,0,1793840400UL,1793840403UL));
+  assert(!iot::manualRefreshDue(1793840400UL,0,1793840399UL,1793840403UL));
+  assert(!iot::manualRefreshDue(1793840400UL,0,1793840521UL,1793840521UL));
+  assert(!iot::manualRefreshDue(1793840400UL,0,1793840402UL,1793840399UL));
   // Presence contract v0.11.48: an authenticated contact, NOT a reading.
   iot::Event pulse{};
   assert(iot::heartbeat(b,pulse));

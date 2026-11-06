@@ -295,6 +295,9 @@ struct Snapshot {
   ReadingQuality readingQuality{};bool profileReady=true;
   uint32_t lastContactMs=0,lastMeterMs=0,lastCurrentMs=0,utcSampleMs=0,clockRevision=0;uint8_t modbusStatus=0xE2;
   bool rtc=false,storage=false,ratios=false,haveEnergy=false,online=false,muted=false,discoveryRunning=false;uint16_t savedMeterId=0;char meterName[32]={};
+  // Physical RTC read and protected archived calendar are separate conditions.
+  bool rtcReadable=false;uint32_t rtcRawUTC=0,rtcRetainedDay=0;
+  char rtcIssue[32]="not_checked";
   char error[64]="Waiting for a response";
   char errorCode[32]="waiting_for_meter";
 };
@@ -449,8 +452,11 @@ void scanStep() {
 }
 
 // Check every I2C transaction, OSF, BCD range and calendar round trip.
-bool rtcRead(uint32_t &utc) {
-  if(xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(80))!=pdTRUE)return false;
+bool rtcRead(uint32_t &utc,const char **issue=nullptr) {
+  if(issue)*issue="not_checked";
+  if(xSemaphoreTake(i2cMutex,pdMS_TO_TICKS(80))!=pdTRUE){
+    if(issue)*issue="i2c_mutex_busy";return false;
+  }
   uint8_t b[7]={},status=0;bool ok=false;
   Wire.beginTransmission(0x68);Wire.write(0x0f);
   if(Wire.endTransmission(false)==0&&Wire.requestFrom(uint8_t(0x68),uint8_t(1))==1) {
@@ -460,13 +466,16 @@ bool rtcRead(uint32_t &utc) {
     }
   }
   xSemaphoreGive(i2cMutex);
-  if(!ok||(status&0x80)||(b[2]&0x40)||(b[5]&0x80))return false;
+  if(!ok){if(issue)*issue="i2c_read_failed";return false;}
+  if(status&0x80){if(issue)*issue="oscillator_stop_flag";return false;}
+  if(b[2]&0x40){if(issue)*issue="rtc_12h_mode";return false;}
+  if(b[5]&0x80){if(issue)*issue="rtc_century_flag";return false;}
   auto dec=[](uint8_t v)->int{return (v>>4)*10+(v&15);};
-  for(int i: {0,1,2,4,5,6}) if((b[i]&15)>9||(b[i]>>4)>9)return false;
+  for(int i: {0,1,2,4,5,6}) if((b[i]&15)>9||(b[i]>>4)>9){if(issue)*issue="rtc_invalid_bcd";return false;}
   int sec=dec(b[0]),min=dec(b[1]),hour=dec(b[2]),d=dec(b[4]),m=dec(b[5]),y=2000+dec(b[6]);
-  if(sec>59||min>59||hour>23||d<1||d>31||m<1||m>12||y<2024||y>2099)return false;
-  DateTime dt(y,m,d,hour,min,sec);if(!dt.isValid())return false;
-  utc=dt.unixtime();return true;
+  if(sec>59||min>59||hour>23||d<1||d>31||m<1||m>12||y<2024||y>2099){if(issue)*issue="rtc_invalid_range";return false;}
+  DateTime dt(y,m,d,hour,min,sec);if(!dt.isValid()){if(issue)*issue="rtc_invalid_date";return false;}
+  utc=dt.unixtime();if(issue)*issue="ok";return true;
 }
 bool rtcWrite(uint32_t utc) {
   if(utc<1704067200UL||utc>4102444799UL)return false;
@@ -985,8 +994,23 @@ void acquisition(void *) {
       else if(diagnosticActive){if(!diagnostic.submit(next.line))diagnostic.logf("[CONSOLE_FULL] Command refused. Retry after current work.\n");}
       else{diagnostic.logf("[COMMAND_REJECTED] Production scan or pending controls own UART. Retry after they finish.\n");publishDiagnostic();}
     }
-    uint32_t utc=0;bool rtcOK=rtcRead(utc);
-    if(rtcOK&&!protectsRecordedDay(utc,LOCAL_OFFSET,retainedDay())){rtcOK=false;interruptRecording();rawKnown=false;setError("RTC date precedes retained records. Correct RTC via web","rtc_before_records");}
+    uint32_t utc=0;const char *readIssue="not_checked";
+    const bool rtcReadable=rtcRead(utc,&readIssue);
+    const uint32_t recordedDay=retainedDay();
+    const bool rtcOK=rtcReadable&&protectsRecordedDay(utc,LOCAL_OFFSET,recordedDay);
+    const char *rtcIssue=rtcReadable?(rtcOK?"ok":"before_retained_records"):readIssue;
+    if(strcmp(state.rtcIssue,rtcIssue)){
+      if(rtcReadable)
+        Serial.printf("[RTC] state=%s rawUTC=%lu retainedDay=%lu. No automatic archive erase.\n",
+          rtcIssue,(unsigned long)utc,(unsigned long)recordedDay);
+      else
+        Serial.printf("[RTC] state=%s SDA=%d SCL=%d address=0x68. No clock write.\n",
+          rtcIssue,PIN_SDA,PIN_SCL);
+    }
+    state.rtcReadable=rtcReadable;state.rtcRawUTC=rtcReadable?utc:0;
+    state.rtcRetainedDay=recordedDay;
+    strlcpy(state.rtcIssue,rtcIssue,sizeof(state.rtcIssue));
+    if(rtcReadable&&!rtcOK){interruptRecording();rawKnown=false;setError("RTC precedes protected archive. Back up and reconcile date before clock reset","rtc_before_records");}
     if(!rtcOK&&previousRTC)interruptRecording();previousRTC=rtcOK;state.rtc=rtcOK;
     if(rtcOK) {
       if(clockKnown) {
@@ -1311,6 +1335,14 @@ void webSetup() {
     if(s.scan.phase==SCAN_FOUND){JsonObject result=scan["result"].to<JsonObject>();result["profile"]=profiles::get(s.scan.result.profile).key;result["slave"]=s.scan.result.slave;result["baud"]=s.scan.result.baud;result["parity"]=String(s.scan.result.parity);result["direction"]=s.scan.result.direction==DIRECTION_MANUAL?"manual":"auto";}
     d["busBusy"]=s.busBusy;d["crcErrors"]=s.crcErrors;d["timeouts"]=s.timeouts;d["rejected"]=s.rejected;d["heap"]=ESP.getFreeHeap();d["uptime"]=uint64_t(esp_timer_get_time())/1000000;d["error"]=s.error;d["error_code"]=s.errorCode;
     if(s.rtc){d["clockEpoch"]=s.utc;d["clockSampleAgeMs"]=uint32_t(millis()-s.utcSampleMs);d["clockRevision"]=s.clockRevision;DateTime t(s.utc+LOCAL_OFFSET);char h[12];snprintf(h,sizeof(h),"%02u:%02u:%02u",t.hour(),t.minute(),t.second());d["clock"]=h;d["date"]=dateForDay((s.utc+LOCAL_OFFSET)/86400);}
+    JsonObject rtcInfo=d["rtcDiagnostic"].to<JsonObject>();
+    rtcInfo["state"]=s.rtcIssue;
+    rtcInfo["hardwareReadable"]=s.rtcReadable;
+    if(s.rtcReadable)rtcInfo["rawUTC"]=s.rtcRawUTC;else rtcInfo["rawUTC"]=nullptr;
+    rtcInfo["rawDate"]=s.rtcReadable?dateForDay((s.rtcRawUTC+LOCAL_OFFSET)/86400):"";
+    rtcInfo["retainedDay"]=s.rtcRetainedDay;
+    rtcInfo["retainedDate"]=s.rtcRetainedDay?dateForDay(s.rtcRetainedDay):"";
+    rtcInfo["recordRollbackBlocked"]=s.rtcReadable&&!s.rtc&&s.rtcRetainedDay>0;
     d["dayDate"]=s.day.number?dateForDay(s.day.number):"";
     JsonDocument captures;addCaptureJSON(captures,s.captures,s.captureDurable,s.captureArchiveOK,s.captureBacklog);d["checkpoints"]=captures.as<JsonObject>();
     JsonArray rows=d["slots"].to<JsonArray>();

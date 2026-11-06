@@ -11,6 +11,7 @@
 #include "trace.h"
 #include "clock_guard.h"
 #include "rtc_repair.h"
+#include "archive_retention.h"
 #include "command_policy.h"
 #include "bounded_write.h"
 #include <set>
@@ -38,6 +39,42 @@ struct FakeFS {
     files[b]=files[a];files.erase(a);return true;
   }
 };
+void testStrictArchiveRetention(){
+  constexpr uint32_t today=20764,expired=today-ARCHIVE_HISTORY_DAYS;
+  static_assert(ARCHIVE_HISTORY_DAYS==31,"Web/API and disk retention must agree");
+  uint32_t parsed=0;
+  const auto legacy=ArchiveNameKind::LegacyCSV;
+  const auto capture=ArchiveNameKind::CaptureBinary;
+  assert(productionArchiveDay("/d20733.csv",legacy,parsed)&&parsed==expired);
+  assert(productionArchiveDay("d20733.csv.bak",legacy,parsed)&&parsed==expired);
+  assert(productionArchiveDay("/c20733.bin",capture,parsed)&&parsed==expired);
+  assert(productionArchiveDay("c20733.bin.bak",capture,parsed)&&parsed==expired);
+  for(const char *name:{"d20733.csv","/d20733.csv.bak"})
+    assert(productionArchiveExpired(name,legacy,today));
+  for(const char *name:{"c20733.bin","/c20733.bin.bak"})
+    assert(productionArchiveExpired(name,capture,today));
+  // Never delete corrupted, quarantined, pending, or operator files.
+  for(const char *name:{"d20733.csv.bad","d20733.csv.tmp","d20733.csv.old",
+                        "/qprev-d20733.csv","d020733.csv","d20733.txt",
+                        "d20733.csv.bak.bad","d9999999999999999.csv","d20733.csv/other",
+                        "d20732.csv","d20734.csv","d20733.csv.bak2","pending.csv"}){
+    assert(!productionArchiveExpired(name,legacy,today));
+  }
+  for(const char *name:{"c20733.bin.bad","c20733.bin.tmp","/qc20733.bin",
+                        "/q2c20733.bin","/capture.pending","c020733.bin",
+                        "c20733.bin.bak.bad","c20733.csv","c20732.bin",
+                        "c20734.bin","c999999999999999999999.bin"}){
+    assert(!productionArchiveExpired(name,capture,today));
+  }
+  // No deletion on a multi-year forward RTC jump or invalid calendar.
+  assert(!productionArchiveExpired("c20733.bin",capture,23320));
+  assert(!productionArchiveExpired("d20733.csv",legacy,23320));
+  assert(!productionArchiveExpired("c20733.bin",capture,0));
+  assert(!productionArchiveExpired("d20733.csv",legacy,UINT32_MAX));
+  assert(!productionArchiveDay(nullptr,legacy,parsed));
+  assert(!productionArchiveExpired(nullptr,capture,today));
+}
+
 void testBoundedHTTP(){
   char bytes[3000]={};uint32_t time=0;unsigned calls=0,feeds=0;
   auto clock=[&](){return time;};auto ready=[](){return true;};
@@ -153,6 +190,7 @@ void testMeterCheckpoints(){
 }
 
 int main(){
+  testStrictArchiveRetention();
   for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM)}){
     CaptureSource source;source.profile=profile;source.meterId=42;source.slave=1;source.baud=9600;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
     float value=589000.f;uint32_t raw;memcpy(&raw,&value,4);CaptureTracker captures;captures.newDay(20754);uint32_t at=captureTarget(20754,0);

@@ -318,5 +318,37 @@ int main(){
   bad=true;assert(!readMeterReadings(p,read,reading,&quality)&&reading.meterEnergy==7838.5&&quality.invalid==FIELD_ENERGY);
   assert(std::isnan(profiles::primaryEnergy(p.id,0xFFC00000UL,1,1,1)));
  }
+ // PM5110 field evidence, 2026-11-06: D (0x0A8B) = 411196.75 kWh;
+ // D+R (0x0A8F) = 412691.00 kWh from CRC-valid FC03 at ID 1, 19200 8E1.
+ // These are DIFFERENT accounting bases. Old profile 6 must keep D semantics.
+ {
+   const auto &legacy=profiles::get(profiles::SCHNEIDER_PM5100);
+   const auto &p=profiles::get(profiles::SCHNEIDER_PM5100_DR);
+   assert(legacy.id==6&&legacy.energy.address==2699&&p.id==7&&p.energy.address==2703);
+   assert(p.probe.address==2703&&p.probe.words==2&&p.energy.words==2);
+   assert(p.powerFactor.address==3083&&p.reactiveEnergy.address==2711);
+   assert(profiles::directEnergy(p)&&profiles::isSchneider(p.id)&&p.requiredReadings==FIELD_ENERGY);
+   uint8_t id=255;assert(profiles::parse("schneider-pm5100-dr",id)&&id==7);
+   uint8_t bytes[]={0x48,0xC9,0x82,0x60};
+   assert(profiles::raw32(bytes)==0x48C98260UL);
+   assert(profiles::decode(p.energy,bytes)==412691.0);
+   assert(profiles::primaryEnergy(p.id,0x48C98260UL,1,1,1)==412691.0);
+   assert(profiles::primaryEnergy(legacy.id,0x48C8C798UL,1,1,1)==411196.75);
+   HardwareSerial port(1);FortDiagnostics engine(port);engine.selectProfile(p.id);
+   assert(engine.options.energyAddress==2703&&engine.options.probeAddress==2703);
+   bool invalid=false;
+   port.onWrite=[&](){
+     const auto &tx=port.transmitted.back();
+     assert(tx.size()==8&&tx[0]==1&&tx[1]==3&&tx[2]==0x0A&&tx[3]==0x8F&&tx[4]==0&&tx[5]==2);
+     uint32_t raw=invalid?0x7FC00000UL:0x48C98260UL;
+     for(auto b:response({1,3,4,uint8_t(raw>>24),uint8_t(raw>>16),uint8_t(raw>>8),uint8_t(raw)}))port.incoming.push_back(b);
+   };
+   assert(engine.readEnergy(engine.current));
+   MeterReadings reading;ReadingQuality quality;
+   auto read=[&](const profiles::Register &r,uint8_t *out){return engine.readRegisters(engine.current,r.address,r.words,out);};
+   assert(readMeterReadings(p,read,reading,&quality)&&reading.rawEnergy==0x48C98260UL&&reading.meterEnergy==412691.0);
+   invalid=true;assert(!readMeterReadings(p,read,reading,&quality)&&quality.invalid==FIELD_ENERGY&&reading.meterEnergy==412691.0);
+   assert(std::isnan(profiles::primaryEnergy(p.id,0x7FC00000UL,1,1,1)));
+ }
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";
 }

@@ -703,6 +703,46 @@ const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
   return issue;
 }
 
+// A valid already-recorded target day must survive clock recovery; invalid
+// existing target archives fail closed rather than being overwritten.
+const char *readClockRecoveryTarget(uint32_t wantedDay,CaptureDay &existing,bool &hasExisting){
+  hasExisting=false;
+  if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))!=pdTRUE)return "rtc_recovery_fs_busy";
+  const String base=capturePath(wantedDay);
+  const bool present=LittleFS.exists(base)||LittleFS.exists(base+".bak");
+  xSemaphoreGive(fsMutex);
+  if(!present)return nullptr;
+  if(!readCaptureFile(wantedDay,existing))
+    return "rtc_recovery_target_archive_invalid";
+  hasExisting=true;return nullptr;
+}
+// The old current-day CSV can have legitimate historical intervals. Preserve
+// both copies before writing a replacement; never delete or truncate them.
+const char *quarantineTargetLegacyDay(uint32_t wantedDay){
+  if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))!=pdTRUE)return "rtc_recovery_fs_busy";
+  const String base=dayPath(wantedDay);
+  const String candidates[2]={base,base+".bak"};
+  const char *issue=nullptr;
+  for(const String &oldPath:candidates){
+    if(!LittleFS.exists(oldPath))continue;
+    const String backup="/qprev-"+oldPath.substring(1);
+    if(LittleFS.exists(backup)){issue="rtc_recovery_legacy_backup_conflict";break;}
+    File source=LittleFS.open(oldPath,"r");
+    const size_t oldSize=source?source.size():0;
+    if(source)source.close();
+    if(!oldSize||!LittleFS.rename(oldPath,backup)){
+      issue="rtc_recovery_legacy_backup_failed";break;
+    }
+    File preserved=LittleFS.open(backup,"r");
+    bool ok=preserved&&preserved.size()==oldSize;
+    if(preserved)preserved.close();
+    if(!ok){issue="rtc_recovery_legacy_backup_verify_failed";break;}
+    esp_task_wdt_reset();
+  }
+  xSemaphoreGive(fsMutex);
+  return issue;
+}
+
 bool advanceCaptureDay(uint32_t number){
   if(captureLog.day.number==number)return true;
   if(captureLog.day.number>number||!validCaptureDayNumber(number))return false;
@@ -982,7 +1022,13 @@ void processCommands(){
             error="rtc_recovery_request_expired";break;
           }
           const uint32_t wantedDay=(uint64_t(effectiveUTC)+LOCAL_OFFSET)/86400;
-          const char *issue=quarantineEmptyFutureCaptures(wantedDay);
+          static CaptureDay targetCapture{};
+          bool existing=false;
+          const char *issue=readClockRecoveryTarget(wantedDay,targetCapture,existing);
+          if(issue){error=issue;break;}
+          // This target is read again after hardware verification; no data is
+          // overwritten while it could still be the only valid archived copy.
+          issue=quarantineEmptyFutureCaptures(wantedDay);
           if(issue){error=issue;break;}
         }else if(result!=CLOCK_ACCEPTED){
           error="RTC request expired or precedes retained records. Sync again";break;
@@ -999,8 +1045,26 @@ void processCommands(){
         interruptRecording();clockKnown=false;rawKnown=false;++state.clockRevision;
         if(repairing){
           const uint32_t wantedDay=(uint64_t(effectiveUTC)+LOCAL_OFFSET)/86400;
-          // Quarantined /q* originals survive reboot and cannot be rediscovered.
-          tracker.newDay(wantedDay);captureLog.newDay(wantedDay);
+          const char *issue=quarantineTargetLegacyDay(wantedDay);
+          if(issue){
+            error=issue;
+            setError(error,"rtc_recovery_archive_safety");
+            break;
+          }
+          // Preserve a valid 2026 current day rather than blanking real kWh.
+          if(tracker.day.number>wantedDay)tracker.newDay(wantedDay);
+          if(captureLog.day.number>wantedDay){
+            static CaptureDay targetCapture{};
+            bool existing=false;
+            issue=readClockRecoveryTarget(wantedDay,targetCapture,existing);
+            if(issue){
+              error=issue;
+              setError(error,"rtc_recovery_archive_safety");
+              break;
+            }
+            if(existing)captureLog.restore(targetCapture);
+            else captureLog.newDay(wantedDay);
+          }
           captureNVSDate=0;captureFSDate=0;blockedCaptureDay=0;
           state.rtcRetainedDay=wantedDay;
           Serial.printf("[RTC] future empty day repaired; new day=%lu.\n",

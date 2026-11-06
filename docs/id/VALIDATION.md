@@ -4,7 +4,13 @@
 
 Firmware, FortMeter dan FortSerialDebug menggunakan versi **3.5.0**. Pemeriksaan ini mencakup software rilis terpadu yang mengikuti sketch ModbusMaster dengan GPIO16 ke DE dan /RE. Pengguna melaporkan sketch referensi tersebut berhasil membaca Fort, sedangkan firmware terpadu masih memerlukan penerimaan hardware melalui [COMMISSIONING](COMMISSIONING.md). Riwayat perubahan tersedia di [CHANGELOG](../../CHANGELOG.id.md).
 
-## 6 November 2026: profil Schneider PM5100
+## 6 November 2026: bukti PM5110 fisik dan koreksi D+R
+
+Pemilik kemudian mengirim **log Modbus FC03 dari PM5110 fisik**. Pada ID 1, 19200 8E1, register **D+R 2704 / PDU 0x0A8F** menghasilkan CRC OK dengan payload Float32 `48 C9 82 60` = **412691,00000 kWh**. Counter Delivered-only 0x0A8B menghasilkan **411196,75000 kWh**. Selisih tersebut bukan pemakaian interval, melainkan perbedaan dasar akumulasi. Pengujian scanner ini belum membuktikan bahwa firmware gabungan, website, maupun gateway telah lulus uji perangkat fisik. Daftar profil `iot-contract.js` pada repo website yang diperiksa juga belum memuat key D+R.
+
+Branch koreksi menambahkan profil produksi ID 7 `schneider-pm5100-dr` sebagai sumber kWh utama. ID 6 lama hanya dipakai untuk membaca histori Delivered-only, sementara konfigurasi aktif lama dibaca sebagai ID 7 tanpa mengubah arsip. Tes regresi ditambahkan untuk FC03 0x0A8F/2, Float32, isolasi histori, migrasi binding, diagnostik, pilihan model di web, dan payload IoT. **Tes baru perlu lulus CI** sebelum branch dianggap siap; penambahan tes saja bukan hasil uji. Lihat [panduan PM5110 D+R](SCHNEIDER_PM5100.md).
+
+## 6 November 2026, earlier software-only audit: profil Schneider PM5100
 
 Workbook XLS R01 milik pengguna dibaca langsung tanpa mengubah sumber atau menambah dependency runtime. Baris register dan SHA256 sumber dicatat pada [referensi profil](../references/pm5100-registers.json). ID permanen 6 memakai Float32 kWh delivered/import pada PDU 2699/2, tanpa pengali CT/VT tambahan. Decoder PF empat kuadran mengikuti worksheet Data Types. Energi tidak valid tidak menggantikan snapshot terakhir.
 

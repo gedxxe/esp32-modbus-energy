@@ -86,4 +86,4 @@ Habuer uses immutable ID 2 with a direct meter-total energy basis. Its required-
 
 [Acrel ACR/APM profiles and commissioning](ACREL_ACR_APM.md) describe the additive IDs, Float32 energy, manual conflicts and verified saved-device workflow.
 
-Schneider PM5100 is available as immutable profile ID 6 (`schneider-pm5100`). See the [register mapping, decoding and commissioning guide](SCHNEIDER_PM5100.md).
+Schneider PM5110 **D+R active energy** is the primary cumulative kWh source in **new selectable profile ID 7 (`schneider-pm5100-dr`)**, at PDU `0x0A8F` / Float32 ABCD. Former ID 6 (`schneider-pm5100`) keeps historical Delivered-only captures readable but is not selectable for new acquisition. See the [field-verified address map, migration and commissioning guide](SCHNEIDER_PM5100.md).

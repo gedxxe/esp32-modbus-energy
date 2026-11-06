@@ -620,10 +620,10 @@ void loadCaptures(){
 // Recover only empty, future-dated records, keeping original archives under
 // /q*. An archive with actual meter captures or damaged CRC blocks recovery.
 // Filesystem changes occur ONLY after an explicit browser clock-sync command.
-struct ClockQuarantinePath {char from[48]={},to[48]={};};
+struct ClockQuarantinePath {char from[36]={},to[36]={};};
 const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
   if(!fsOK)return "rtc_recovery_fs_unavailable";
-  static ClockQuarantinePath candidates[96];
+  static ClockQuarantinePath candidates[72];
   size_t count=0,inspected=0;
   if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))!=pdTRUE)return "rtc_recovery_fs_busy";
   const char *issue=nullptr;
@@ -645,7 +645,7 @@ const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
       }
     }
     if(candidate){
-      if(count>=96){issue="rtc_recovery_too_many_archives";break;}
+      if(count>=72){issue="rtc_recovery_too_many_archives";break;}
       CaptureDay archived{};
       if(!readCapturePathLocked(name,archived)||archived.number!=day){
         issue="rtc_recovery_archive_invalid";break;

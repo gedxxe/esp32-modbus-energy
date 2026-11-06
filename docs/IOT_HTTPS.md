@@ -203,3 +203,12 @@ at least one heartbeat attempt; HTTP 200 ACK still requires independent
 real-device testing. A \`rtc_recovery_*\` command error means no automatic
 destructive fallback has occurred. Never run \`erase_flash\`, clear all NVS,
 or format LittleFS to bypass a protected record.
+
+**Retention hardening:** the legacy/capture archivers now prune only the
+date *exactly* 31 days before a successfully saved day. They no longer
+erase every older date in one sweep after an accidental multi-year RTC
+jump. Old records skipped by extended outages therefore remain until
+explicit review/export; filesystem capacity must still be monitored.
+The repair uses a bounded 72-entry static path list and fails closed if
+there are unexpectedly more future files, rather than exhausting stack
+or silently leaving an unexamined archive.

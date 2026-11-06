@@ -37,13 +37,20 @@ inline bool productionArchiveDay(const char *name,ArchiveNameKind kind,uint32_t 
   day=parsed;return true;
 }
 
-// Delete only the *exact* expired production day after the next day is saved.
-// A bogus RTC jump by years may not mass-delete older archives.
-inline bool productionArchiveExpired(const char *name,ArchiveNameKind kind,
-                                     uint32_t currentDay){
-  uint32_t archiveDay=0;
-  return validCaptureDayNumber(currentDay)&&
-         productionArchiveDay(name,kind,archiveDay)&&
-         uint64_t(archiveDay)+ARCHIVE_HISTORY_DAYS==currentDay;
+// Deliberately return a single expiry day, never an age range. A corrupt RTC
+// moving years forward cannot turn one rollover into a mass archive deletion.
+inline uint32_t expiredProductionDay(uint32_t currentDay){
+  if(!validCaptureDayNumber(currentDay)||currentDay<=ARCHIVE_HISTORY_DAYS)return 0;
+  const uint32_t expired=currentDay-ARCHIVE_HISTORY_DAYS;
+  return validCaptureDayNumber(expired)?expired:0;
+}
+
+// Only generated canonical paths are passed here (never directory entries).
+// A failing removal leaves an old copy intact for review and future retries.
+template<class FS,class Path>
+void retireProductionCopies(FS &fs,const Path &canonical){
+  if(fs.exists(canonical))fs.remove(canonical);
+  const Path backup=canonical+".bak";
+  if(fs.exists(backup))fs.remove(backup);
 }
 } // namespace fort

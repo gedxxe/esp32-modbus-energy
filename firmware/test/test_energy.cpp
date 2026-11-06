@@ -42,37 +42,55 @@ struct FakeFS {
 void testStrictArchiveRetention(){
   constexpr uint32_t today=20764,expired=today-ARCHIVE_HISTORY_DAYS;
   static_assert(ARCHIVE_HISTORY_DAYS==31,"Web/API and disk retention must agree");
-  uint32_t parsed=0;
   const auto legacy=ArchiveNameKind::LegacyCSV;
   const auto capture=ArchiveNameKind::CaptureBinary;
+  uint32_t parsed=0;
   assert(productionArchiveDay("/d20733.csv",legacy,parsed)&&parsed==expired);
   assert(productionArchiveDay("d20733.csv.bak",legacy,parsed)&&parsed==expired);
   assert(productionArchiveDay("/c20733.bin",capture,parsed)&&parsed==expired);
   assert(productionArchiveDay("c20733.bin.bak",capture,parsed)&&parsed==expired);
-  for(const char *name:{"d20733.csv","/d20733.csv.bak"})
-    assert(productionArchiveExpired(name,legacy,today));
-  for(const char *name:{"c20733.bin","/c20733.bin.bak"})
-    assert(productionArchiveExpired(name,capture,today));
-  // Never delete corrupted, quarantined, pending, or operator files.
+  // Startup recovery may read only exact names written by the capture producer.
   for(const char *name:{"d20733.csv.bad","d20733.csv.tmp","d20733.csv.old",
                         "/qprev-d20733.csv","d020733.csv","d20733.txt",
-                        "d20733.csv.bak.bad","d9999999999999999.csv","d20733.csv/other",
-                        "d20732.csv","d20734.csv","d20733.csv.bak2","pending.csv"}){
-    assert(!productionArchiveExpired(name,legacy,today));
+                        "d20733.csv.bak.bad","d9999999999999999.csv",
+                        "d20733.csv/other","pending.csv"}){
+    assert(!productionArchiveDay(name,legacy,parsed));
   }
   for(const char *name:{"c20733.bin.bad","c20733.bin.tmp","/qc20733.bin",
                         "/q2c20733.bin","/capture.pending","c020733.bin",
-                        "c20733.bin.bak.bad","c20733.csv","c20732.bin",
-                        "c20734.bin","c999999999999999999999.bin"}){
-    assert(!productionArchiveExpired(name,capture,today));
+                        "c20733.bin.bak.bad","c20733.csv",
+                        "c999999999999999999999.bin"}){
+    assert(!productionArchiveDay(name,capture,parsed));
   }
-  // No deletion on a multi-year forward RTC jump or invalid calendar.
-  assert(!productionArchiveExpired("c20733.bin",capture,23320));
-  assert(!productionArchiveExpired("d20733.csv",legacy,23320));
-  assert(!productionArchiveExpired("c20733.bin",capture,0));
-  assert(!productionArchiveExpired("d20733.csv",legacy,UINT32_MAX));
+  assert(expiredProductionDay(today)==expired);
+  assert(expiredProductionDay(today+1)==expired+1);
+  assert(expiredProductionDay(23320)==23320-ARCHIVE_HISTORY_DAYS);
+  assert(expiredProductionDay(CLOCK_MIN_UTC/86400)==0);
+  assert(expiredProductionDay(UINT32_MAX)==0);
+  assert(expiredProductionDay(0)==0);
   assert(!productionArchiveDay(nullptr,legacy,parsed));
-  assert(!productionArchiveExpired(nullptr,capture,today));
+  // Test the actual deletion policy through a fault-test filesystem.
+  FakeFS disk;
+  disk.files["/c20733.bin"]="old";
+  disk.files["/c20733.bin.bak"]="old-backup";
+  disk.files["/c20733.bin.bad"]="forensic";
+  disk.files["/qc20733.bin"]="quarantined";
+  disk.files["/c20732.bin"]="historical";
+  disk.files["/d20733.csv"]="old-csv";
+  disk.files["/d20733.csv.bak"]="backup-csv";
+  disk.files["/d20733.csv.bad"]="csv-forensic";
+  disk.files["/d20732.csv"]="earlier-csv";
+  const std::string binary="/c"+std::to_string(expired)+".bin";
+  const std::string csv="/d"+std::to_string(expired)+".csv";
+  retireProductionCopies(disk,binary);
+  retireProductionCopies(disk,csv);
+  assert(!disk.exists(binary)&&!disk.exists(binary+".bak"));
+  assert(!disk.exists(csv)&&!disk.exists(csv+".bak"));
+  assert(disk.files["/c20733.bin.bad"]=="forensic");
+  assert(disk.files["/qc20733.bin"]=="quarantined");
+  assert(disk.files["/c20732.bin"]=="historical");
+  assert(disk.files["/d20733.csv.bad"]=="csv-forensic");
+  assert(disk.files["/d20732.csv"]=="earlier-csv");
 }
 
 void testBoundedHTTP(){

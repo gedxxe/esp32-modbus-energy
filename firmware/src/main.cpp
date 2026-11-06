@@ -515,12 +515,12 @@ void saveArchive() {
   if(ok){ok=f.print(csv)==csv.length();f.flush();f.close();}
   // Keep old copy if power is lost before the replacement is installed.
   if(ok)ok=installArchive(LittleFS,temp,path,backup);
-  // Prune ONLY exact production CSV names for the day exactly 31 days old.
-  // Never delete .bad forensic files or quarantine copies.
-  // A corrupted RTC jumping years
-  // forward must never erase a whole history of older genuine measurements.
-  // Older skipped days remain for explicit operator backup/cleanup.
-  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(productionArchiveExpired(name.c_str(),ArchiveNameKind::LegacyCSV,tracker.day.number))LittleFS.remove("/"+name);item=root.openNextFile();}}
+  // Retire just two known paths on the exact expired day, with no directory scan.
+  // A multi-year RTC jump must not sweep historical or quarantined records.
+  if(ok){
+    const uint32_t expired=expiredProductionDay(tracker.day.number);
+    if(expired)retireProductionCopies(LittleFS,dayPath(expired));
+  }
   xSemaphoreGive(fsMutex);archiveOK=ok;
 }
 
@@ -558,7 +558,10 @@ bool writeCaptureFile(const CaptureDay &day){
   if(ok){ok=f.write(bytes,sizeof(bytes))==sizeof(bytes);f.flush();f.close();}
   if(ok){f=LittleFS.open(temp,"r");ok=f&&f.size()==sizeof(bytes)&&f.read(verify,sizeof(verify))==sizeof(verify)&&!memcmp(bytes,verify,sizeof(bytes));if(f)f.close();}
   if(ok)ok=promoteCapture(LittleFS,temp,path,backup,day,readCapturePathLocked);
-  if(ok){File root=LittleFS.open("/");File item=root.openNextFile();while(item){String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);if(productionArchiveExpired(name.c_str(),ArchiveNameKind::CaptureBinary,day.number))LittleFS.remove("/"+name);item=root.openNextFile();}}
+  if(ok){
+    const uint32_t expired=expiredProductionDay(day.number);
+    if(expired)retireProductionCopies(LittleFS,capturePath(expired));
+  }
   xSemaphoreGive(fsMutex);return ok;
 }
 bool writeCaptureNVS(const char *key,const CaptureDay &day){

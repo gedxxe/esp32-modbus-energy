@@ -77,6 +77,26 @@ int main(){
   assert(std::string(live.json).find("\"event_type\":\"telemetry\"")!=std::string::npos);
   assert(std::string(live.json).find("scheduled_at")==std::string::npos);
   assert(!iot::telemetry(scheduled,1,b,0,1,live));
+  // D+R is the sole new Schneider production basis, including website payloads.
+  {
+    iot::Binding dr=b;strcpy(dr.profile,"schneider-pm5100-dr");
+    CaptureTracker capture;capture.newDay(20762);
+    CaptureSource source=src;source.profile=profiles::SCHNEIDER_PM5100_DR;
+    source.baud=19200;source.parity='E';
+    assert(capture.sample(scheduled+1,scheduled+2,0x48C98260UL,source));
+    iot::Event record{};
+    assert(iot::checkpoint(capture.day,4,dr,record));
+    assert(std::string(record.json).find("\\"meter_profile\\":\\"schneider-pm5100-dr\\"")!=std::string::npos);
+    assert(std::string(record.json).find("\\"active_energy_kwh\\":\\"412691.000000\\"")!=std::string::npos);
+    assert(iot::telemetry(scheduled+2,412691.0,dr,0x1234,7,record));
+    assert(std::string(record.json).find("\\"active_energy_kwh\\":\\"412691.000000\\"")!=std::string::npos);
+    iot::Binding legacy=dr;strcpy(legacy.profile,"schneider-pm5100");
+    assert(!iot::checkpoint(capture.day,4,legacy,record));
+    source.profile=profiles::SCHNEIDER_PM5100;
+    CaptureTracker old;old.newDay(20762);
+    assert(old.sample(scheduled+1,scheduled+2,0x48C8C798UL,source));
+    assert(!iot::checkpoint(old.day,4,dr,record));
+  }
   iot::Binding different=b;strcpy(different.meter,"meter_2");
   assert(iot::bindingFingerprint(different)!=iot::bindingFingerprint(b));
   // Website v0.11.47 accepts an optional one-channel current_a decimal string.

@@ -23,7 +23,8 @@ struct Profile {
 inline bool isAdl400(uint8_t id){return id==ACREL_ADL400||id==ACREL_ADL400_VERIFIED;}
 inline bool isSchneider(uint8_t id){return id==SCHNEIDER_PM5100||id==SCHNEIDER_PM5100_DR;}
 inline bool valid(uint8_t id){return id<COUNT;}
-inline bool selectable(uint8_t id){return valid(id)&&id!=ACREL_ADL400;}
+// Keep archived PM5100 delivered-only profile 6 readable, never selectable for new data.
+inline bool selectable(uint8_t id){return valid(id)&&id!=ACREL_ADL400&&id!=SCHNEIDER_PM5100;}
 inline bool available(const Register &reg){return reg.words==1||reg.words==2;}
 inline bool coherentSnapshot(const Profile &profile){return profile.requiredReadings!=FIELD_ENERGY;}
 inline bool directEnergy(const Profile &profile){return profile.ratioLayout==NO_RATIO;}
@@ -68,7 +69,7 @@ inline const Profile &get(uint8_t id){
     {SCHNEIDER_PM5100_DR,"schneider-pm5100-dr","Schneider PM5110 (D+R kWh)","RS485 + / - (meter labels)","Active D+R kWh, register 2704; tested PM5110",
       {2999,2,F32,1},{3027,2,F32,1},{3059,2,F32,1},
       {3109,2,F32,1},{2703,2,F32,1},0,2703,0,NO_RATIO,38400,
-      {2703,2,F32,1},{3083,2,PF4Q_F32,1},{2711,2,F32,1},FIELD_ENERGY,false}
+      {2703,2,F32,1},{3083,2,PF4Q_F32,1},{2707,2,F32,1},FIELD_ENERGY,false}
   };
   static_assert(sizeof(table)/sizeof(table[0])==COUNT,"Every profile ID needs a descriptor");
   static const Profile unknown={255,"unknown","Unconfigured meter","A / B","No verified register profile",

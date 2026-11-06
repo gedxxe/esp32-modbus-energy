@@ -1474,6 +1474,8 @@ void webSetup() {
     iotState["heartbeatTlsError"]=uplink.heartbeatTlsError;
     iotState["heartbeatTlsFlags"]=uplink.heartbeatTlsFlags;
     iotState["heartbeatError"]=uplink.heartbeatError;
+  iotState["lastManualRequestedUTC"]=uplink.lastManualRequestedUTC;
+  iotState["lastManualServedUTC"]=uplink.lastManualServedUTC;
     iotState["archiveError"]=uplink.archiveError;
     iotState["transportError"]=uplink.transportError;
     iotState["socketErrno"]=uplink.socketErrno;

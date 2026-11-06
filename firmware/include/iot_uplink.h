@@ -13,6 +13,7 @@ struct Status {
   // Server presence and reading receipts are independent: heartbeat never
   // modifies accepted/duplicates, lastAcceptedUTC or the archive cursor.
   uint32_t heartbeatAttempts=0,heartbeatAccepted=0,heartbeatFailures=0,lastHeartbeatUTC=0;
+  uint32_t lastManualRequestedUTC=0,lastManualServedUTC=0;
   int32_t heartbeatHttp=0,heartbeatTransportError=0,heartbeatTlsError=0,heartbeatTlsFlags=0;
   char heartbeatError[40]={};
   char archiveError[40]={};

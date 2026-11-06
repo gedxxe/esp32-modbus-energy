@@ -78,7 +78,7 @@ constexpr char token[]=IOT_DEV_BEARER;
 constexpr char deviceId[]=IOT_DEV_DEVICE_ID;
 constexpr char meterId[]=IOT_DEV_METER_ID;
 constexpr char meterProfile[]=IOT_DEV_METER_PROFILE;
-constexpr uint32_t MIN_TELEMETRY_PERIOD_MS=30000;
+// The 60-second authenticated heartbeat remains independent of telemetry.
 constexpr uint32_t MIN_SEND_PERIOD_MS=2100; // well below website's 120/min quota
 constexpr uint32_t BACKFILL_DAYS=30;
 constexpr size_t CURSOR_SIZE=20;
@@ -112,6 +112,7 @@ Status status{};
 Cursor ack{};
 uint32_t fingerprint=0;
 uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0,notBefore=0;
+uint32_t pendingManualUTC=0,outstandingManualUTC=0,servedManualUTC=0;
 uint32_t lastHeartbeatAttempt=0,heartbeatNotBefore=0;
 uint8_t consecutiveFailures=0,heartbeatConsecutiveFailures=0;
 Event outstandingLive{};
@@ -360,6 +361,17 @@ bool transmitHeartbeat(uint32_t utc){
     heartbeatConsecutiveFailures=0;
     heartbeatNotBefore=0;
     status.heartbeatError[0]=0;
+    // Optional command is carried by the existing authenticated heartbeat ACK.
+    // Older website versions omit it; never trust unmatched/overflowed replies.
+    JsonDocument reply;
+    if(!deserializeJson(reply,response.body,response.used)){
+      const uint32_t requested=reply["refresh_after_utc"] | 0UL;
+      if(requested>servedManualUTC&&requested>=946684800UL&&
+         utc>=requested&&utc-requested<=MANUAL_REQUEST_TTL_SECONDS){
+        pendingManualUTC=requested;
+        status.lastManualRequestedUTC=requested;
+      }
+    }
     report(mounted?"heartbeat_accepted":"heartbeat_accepted_storage_unavailable",1,200);
     return true;
   }
@@ -552,19 +564,32 @@ void worker(void *){
     if(status.phase==4)continue;
     // The credential-free GET is replaced by a registered, authenticated
     // heartbeat. Historical probe fields remain in /api/status for compatibility.
+    const bool requested=manualRefreshDue(pendingManualUTC,servedManualUTC,
+                                         input.liveCapturedUTC,input.utc);
+    const bool periodic=!lastLive||uint32_t(now-lastLive)>=TELEMETRY_PERIOD_MS;
     if(mounted&&!hasOutstandingLive&&input.live&&
        profiles::valid(input.profile)&&!strcmp(profiles::get(input.profile).key,binding.profile)&&
-       uint32_t(now-lastLive)>=MIN_TELEMETRY_PERIOD_MS){
+       (periodic||requested)){
       ++liveSequence;
       if(!liveSequence)++liveSequence;
       if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive,
-                   input.currentValid,input.liveCurrentA))
+                   input.currentValid,input.liveCurrentA)){
         hasOutstandingLive=true;
+        outstandingManualUTC=requested?pendingManualUTC:0;
+      }
     }
     // A queued reading always has priority; heartbeat cannot starve backlog.
     // Both use the same request spacing, verified TLS and quiet-window guard.
     if(hasOutstandingLive){
-      if(transmit(outstandingLive,false)){hasOutstandingLive=false;lastLive=millis();}
+      if(transmit(outstandingLive,false)){
+        hasOutstandingLive=false;lastLive=millis();
+        if(outstandingManualUTC){
+          servedManualUTC=outstandingManualUTC;
+          status.lastManualServedUTC=servedManualUTC;
+          if(pendingManualUTC==servedManualUTC)pendingManualUTC=0;
+        }
+        outstandingManualUTC=0;
+      }
       continue;
     }
     if(heartbeatDue(now,lastHeartbeatAttempt)&&

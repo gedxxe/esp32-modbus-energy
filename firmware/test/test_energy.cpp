@@ -10,6 +10,7 @@
 #include "led.h"
 #include "trace.h"
 #include "clock_guard.h"
+#include "rtc_repair.h"
 #include "command_policy.h"
 #include "bounded_write.h"
 #include <set>
@@ -290,6 +291,40 @@ int main(){
   assert(!validClockEpoch(CLOCK_MIN_UTC-1,WIB));
   assert(validClockEpoch(CLOCK_MAX_UTC-WIB,WIB));
   assert(!validClockEpoch(CLOCK_MAX_UTC-WIB+1,WIB));
+  // A phantom 2033 checkpoint with no meter data must allow deliberate 2026
+  // RTC correction, but any reading, pending backlog or cloud ACK blocks it.
+  constexpr uint32_t FUTURE=23320, REAL=20763;
+  Day phantom;phantom.number=FUTURE;
+  CaptureDay empty{};empty.number=FUTURE;
+  CaptureDay noPending{};
+  const uint32_t requested=REAL*86400-WIB+3600;
+  assert(!protectsRecordedDay(requested,WIB,FUTURE));
+  assert(clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  assert(!clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,FUTURE));
+  phantom.slots[0].hasStart=true;
+  assert(!clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  phantom.slots[0].hasStart=false;phantom.slots[0].quality=COMPLETE;
+  assert(!clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  phantom.slots[0].quality=WAITING;
+  empty.points[0].status=CAPTURE_RECORDED;
+  assert(!clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  empty.points[0].status=CAPTURE_MISSED;
+  assert(clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  empty.points[0].raw=1;
+  assert(!clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  empty.points[0].raw=0;
+  noPending.number=FUTURE;
+  assert(!clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  noPending.number=0;
+  assert(clockRecoveryAllowed(requested,WIB,phantom,empty,noPending,0));
+  assert(!clockRecoveryAllowed(requested,WIB,Day{},CaptureDay{},CaptureDay{},0));
+  uint32_t parsed=0;
+  assert(clockRecoveryCaptureFilename("/c23320.bin",parsed)&&parsed==FUTURE);
+  assert(clockRecoveryCaptureFilename("c23320.bin.bak",parsed)&&parsed==FUTURE);
+  assert(!clockRecoveryCaptureFilename("/capture.pending",parsed));
+  assert(!clockRecoveryCaptureFilename("/qc23320.bin",parsed));
+  assert(!clockRecoveryCaptureFilename("/c23320.csv",parsed));
+  assert(!clockRecoveryCaptureFilename("/c23320.bin.bad",parsed));
   assert(!validClockEpoch(UINT32_MAX,WIB));
   assert(!validClockEpoch(CLOCK_MIN_UTC,UINT32_MAX));
   // Protection depends on retained records, not on an available/valid RTC flag.

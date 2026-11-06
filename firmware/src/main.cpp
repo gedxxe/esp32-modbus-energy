@@ -49,6 +49,7 @@
 #include <FortDiagnostics.h>
 #include <MeterReadings.h>
 #include "clock_guard.h"
+#include "rtc_repair.h"
 #include "command_policy.h"
 #include "bounded_write.h"
 #include "network_settings.h"
@@ -614,6 +615,94 @@ void loadCaptures(){
   if(found)captureLog.restore(saved);
   if(hasPending)retryCaptureBacklog();
 }
+// Recover only empty, future-dated records, keeping original archives under
+// /q*. An archive with actual meter captures or damaged CRC blocks recovery.
+// Filesystem changes occur ONLY after an explicit browser clock-sync command.
+struct ClockQuarantinePath {char from[48]={},to[48]={};};
+const char *quarantineEmptyFutureCaptures(uint32_t wantedDay){
+  if(!fsOK)return "rtc_recovery_fs_unavailable";
+  static ClockQuarantinePath candidates[96];
+  size_t count=0,inspected=0;
+  if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(250))!=pdTRUE)return "rtc_recovery_fs_busy";
+  const char *issue=nullptr;
+  File root=LittleFS.open("/");
+  if(!root){xSemaphoreGive(fsMutex);return "rtc_recovery_fs_root_failed";}
+  File item=root.openNextFile();
+  while(item){
+    if(++inspected>256){issue="rtc_recovery_scan_limit";item.close();break;}
+    String name=item.name();item.close();
+    if(!name.startsWith("/"))name="/"+name;
+    uint32_t day=0;
+    bool candidate=clockRecoveryCaptureFilename(name.c_str(),day)&&day>wantedDay;
+    if(name=="/capture.pending"){
+      CaptureDay staged{};
+      if(!readCapturePathLocked(name,staged)){issue="rtc_recovery_pending_corrupt";break;}
+      if(staged.number>wantedDay){
+        if(!clockRecoveryEmptyCapture(staged,wantedDay)){issue="rtc_recovery_pending_has_reading";break;}
+        candidate=true;day=staged.number;
+      }
+    }
+    if(candidate){
+      if(count>=96){issue="rtc_recovery_too_many_archives";break;}
+      CaptureDay archived{};
+      if(!readCapturePathLocked(name,archived)||archived.number!=day){
+        issue="rtc_recovery_archive_invalid";break;
+      }
+      if(!clockRecoveryEmptyCapture(archived,wantedDay)){
+        issue="rtc_recovery_archive_has_reading";break;
+      }
+      String target=name=="/capture.pending"?"/qcapture-pending-"+String(day)+".bin":
+                    "/q"+name.substring(1);
+      if(name.length()>=sizeof(candidates[count].from)||
+         target.length()>=sizeof(candidates[count].to)||LittleFS.exists(target)){
+        issue="rtc_recovery_backup_conflict";break;
+      }
+      name.toCharArray(candidates[count].from,sizeof(candidates[count].from));
+      target.toCharArray(candidates[count].to,sizeof(candidates[count].to));
+      ++count;
+    }
+    esp_task_wdt_reset();
+    item=root.openNextFile();
+  }
+  root.close();
+  if(!issue&&captureLog.day.number>wantedDay){
+    // Back up the verified in-RAM/NVS day, even if its FS archive lagged.
+    char path[40];
+    snprintf(path,sizeof(path),"/qnvsc%lu.bin",(unsigned long)captureLog.day.number);
+    uint8_t bytes[CAPTURE_RECORD_SIZE],verify[CAPTURE_RECORD_SIZE];
+    encodeCaptureDay(captureLog.day,bytes);
+    if(!LittleFS.exists(path)){
+      File out=LittleFS.open(path,"w");bool ok=bool(out);
+      if(ok){ok=out.write(bytes,sizeof(bytes))==sizeof(bytes);out.flush();out.close();}
+      if(!ok)issue="rtc_recovery_nvs_backup_failed";
+    }
+    if(!issue){
+      File copy=LittleFS.open(path,"r");
+      bool ok=copy&&copy.size()==sizeof(bytes)&&
+              copy.read(verify,sizeof(verify))==sizeof(verify);
+      if(copy)copy.close();
+      if(!ok||memcmp(bytes,verify,sizeof(bytes)))issue="rtc_recovery_nvs_backup_mismatch";
+    }
+  }
+  if(!issue){
+    for(size_t i=0;i<count;++i){
+      if(!LittleFS.rename(candidates[i].from,candidates[i].to)){
+        issue="rtc_recovery_archive_quarantine_failed";break;
+      }
+      CaptureDay checked{};
+      if(!readCapturePathLocked(String(candidates[i].to),checked)||
+         !clockRecoveryEmptyCapture(checked,wantedDay)){
+        issue="rtc_recovery_quarantine_verify_failed";break;
+      }
+      esp_task_wdt_reset();
+    }
+  }
+  xSemaphoreGive(fsMutex);
+  if(!issue)Serial.printf("[RTC] preserved %u future archives under /q*.\n",
+                          unsigned(count));
+  return issue;
+}
+
 bool advanceCaptureDay(uint32_t number){
   if(captureLog.day.number==number)return true;
   if(captureLog.day.number>number||!validCaptureDayNumber(number))return false;
@@ -877,14 +966,53 @@ void processCommands(){
       }
       case SET_TIME:{
         uint32_t effectiveUTC=0;
-        auto result=resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,retainedDay(),effectiveUTC);
-        if(result!=CLOCK_ACCEPTED){error="RTC request expired or precedes retained records. Sync again";break;}
-        Serial.printf("[RTC] sync start utc=%lu stack_min=%lu\n",(unsigned long)effectiveUTC,(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
+        const ClockGuardResult result=resolveQueuedClockTime(
+          cmd.epoch,cmd.queuedAt,millis(),LOCAL_OFFSET,retainedDay(),effectiveUTC);
+        const bool repairing=result==CLOCK_BACKWARD_DAY;
+        if(repairing){
+          if(!nvsOK||!fsOK){
+            error="rtc_recovery_requires_healthy_storage";break;
+          }
+          if(!clockRecoveryAllowed(cmd.epoch,LOCAL_OFFSET,tracker.day,
+                                   captureLog.day,capturePending,iot::readStatus().lastAckDay)){
+            error="rtc_recovery_protected_readings";break;
+          }
+          if(resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),
+                                    LOCAL_OFFSET,0,effectiveUTC)!=CLOCK_ACCEPTED){
+            error="rtc_recovery_request_expired";break;
+          }
+          const uint32_t wantedDay=(uint64_t(effectiveUTC)+LOCAL_OFFSET)/86400;
+          const char *issue=quarantineEmptyFutureCaptures(wantedDay);
+          if(issue){error=issue;break;}
+        }else if(result!=CLOCK_ACCEPTED){
+          error="RTC request expired or precedes retained records. Sync again";break;
+        }
+        Serial.printf("[RTC] sync start utc=%lu repair=%u stack_min=%lu\n",
+          (unsigned long)effectiveUTC,unsigned(repairing),
+          (unsigned long)uxTaskGetStackHighWaterMark(nullptr));
+        // Do not change stored dates until DS3231 write AND readback succeed.
+        if(!rtcWrite(effectiveUTC)){
+          error="RTC write or verification failed";setError(error,"rtc_write_failed");
+          Serial.println("[RTC] Hardware verification failed; active NVS kept.");
+          break;
+        }
         interruptRecording();clockKnown=false;rawKnown=false;++state.clockRevision;
-        if(!rtcWrite(effectiveUTC)){error="RTC write or verification failed";setError(error,"rtc_write_failed");}
-        esp_task_wdt_reset();
-        saveCheckpoint(true);
-        Serial.printf("[RTC] sync complete result=%s stack_min=%lu\n",*error?error:"ok",(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
+        if(repairing){
+          const uint32_t wantedDay=(uint64_t(effectiveUTC)+LOCAL_OFFSET)/86400;
+          // Quarantined /q* originals survive reboot and cannot be rediscovered.
+          tracker.newDay(wantedDay);captureLog.newDay(wantedDay);
+          captureNVSDate=0;captureFSDate=0;blockedCaptureDay=0;
+          state.rtcRetainedDay=wantedDay;
+          Serial.printf("[RTC] future empty day repaired; new day=%lu.\n",
+                        (unsigned long)wantedDay);
+        }
+        esp_task_wdt_reset();saveCheckpoint(true);
+        if(repairing&&(!checkpointOK||!archiveOK||!captureNVSOK||!captureFSOK)){
+          error="rtc_recovery_persistence_failed";
+          setError(error,"rtc_recovery_persistence_failed");
+        }
+        Serial.printf("[RTC] sync complete result=%s stack_min=%lu\n",
+          *error?error:"ok",(unsigned long)uxTaskGetStackHighWaterMark(nullptr));
         break;
       }
       case START_SCAN:
@@ -1550,7 +1678,11 @@ void webSetup() {
     // snapshot off loopTask's limited stack during an RTC update.
     if(!authorizePost())return;Snapshot &s=webRequestSnapshot;readSnapshot(s);if(s.diagnosticActive){jsonReply(409,"Resume measurement before setting RTC","diagnostic_busy");return;}uint32_t epoch=0;
     if(!parseNumber(server.arg("epoch"),epoch)||!validClockEpoch(epoch,LOCAL_OFFSET)){jsonReply(400,"Time must be within 2024-2099","invalid_time");return;}
-    if(!protectsRecordedDay(epoch,LOCAL_OFFSET,fmax(s.day.number,fmax(s.captures.number,s.capturePending.number)))){jsonReply(409,"Earlier date rejected to protect existing records","backward_date");return;}
+    if(!protectsRecordedDay(epoch,LOCAL_OFFSET,fmax(s.day.number,fmax(s.captures.number,s.capturePending.number)))&&
+       !clockRecoveryAllowed(epoch,LOCAL_OFFSET,s.day,s.captures,s.capturePending,
+                             iot::readStatus().lastAckDay)){
+      jsonReply(409,"Protected readings or pending archives prevent clock rollback","backward_date");return;
+    }
     Command c{};c.type=SET_TIME;c.epoch=epoch;enqueueCommand(c);
   });
   server.on("/api/mute",HTTP_POST,[]{if(!authorizePost())return;Command c{};c.type=TOGGLE_MUTE;enqueueCommand(c);});

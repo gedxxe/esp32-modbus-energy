@@ -15,19 +15,19 @@ module.exports=async({page,origin,state,calls,root})=>{
   await page.reload();await page.waitForSelector('#commissioning-note');await page.screenshot({path:path.join(root,'output/previews/'+key+'.png'),fullPage:true});await page.locator('#nav-setup').click();await page.waitForFunction(value=>document.querySelector('#meter-profile')?.value===value,key);assert.equal(await page.locator('#meter-profile').inputValue(),key);
  }
  assert(calls.some(c=>c.url==='/api/config'&&c.data.get('profile')==='acrel-apm'));
- await page.locator('#meter-profile').selectOption('schneider-pm5100');
+ await page.locator('#meter-profile').selectOption('schneider-pm5100-dr');
  await page.locator('#config button').last().click();
- await page.waitForFunction(()=>document.querySelector('#scan-probe')?.value.toUpperCase()==='0A8B');
- assert.equal(state.profile,'schneider-pm5100');assert.equal(state.profileReady,true);
+ await page.waitForFunction(()=>document.querySelector('#scan-probe')?.value.toUpperCase()==='0A8F');
+ assert.equal(state.profile,'schneider-pm5100-dr');assert.equal(state.profileReady,true);
  await page.locator('#meter-lab > summary').click();
- await page.waitForSelector('#lab-start:not([disabled])');await page.waitForFunction(()=>document.querySelector('#lab-plan')?.value.toUpperCase()==='0A8B:2');
- Object.assign(state,{haveEnergy:true,energy:7838.5,meterEnergy:7838.5,secondaryEnergy:7838.5,power:2.5,powerFactor:.8,frequency:50,reactiveEnergy:12.5,readingQuality:{required:4,transportFailed:0,invalid:0,complete:true}});
+ await page.waitForSelector('#lab-start:not([disabled])');await page.waitForFunction(()=>document.querySelector('#lab-plan')?.value.toUpperCase()==='0A8F:2');
+ Object.assign(state,{haveEnergy:true,energy:412691,meterEnergy:412691,secondaryEnergy:412691,power:2.5,powerFactor:.8,frequency:50,reactiveEnergy:12.5,readingQuality:{required:4,transportFailed:0,invalid:0,complete:true}});
  await page.locator('#nav-overview').click();await page.waitForSelector('#value-reactiveEnergy');
  await page.locator('#language').selectOption('id');await page.setViewportSize({width:390,height:1000});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.locator('#language').selectOption('en');await page.reload();await page.locator('#nav-setup').click();
- await page.waitForFunction(()=>document.querySelector('#meter-profile')?.value==='schneider-pm5100');
- assert(calls.some(c=>c.url==='/api/config'&&c.data.get('profile')==='schneider-pm5100'));
- await page.screenshot({path:path.join(root,'output/previews/schneider-pm5100.png'),fullPage:true});
+ await page.waitForFunction(()=>document.querySelector('#meter-profile')?.value==='schneider-pm5100-dr');
+ assert(calls.some(c=>c.url==='/api/config'&&c.data.get('profile')==='schneider-pm5100-dr'));
+ await page.screenshot({path:path.join(root,'output/previews/schneider-pm5100-dr.png'),fullPage:true});
  console.log('PASS: generated-byte PM5100 and ACR/APM selection, model-specific plans, commissioning notice, named verification/activation, live fields, EN/ID, reload and mobile');
 };

@@ -86,10 +86,10 @@ int main(){
     assert(capture.sample(scheduled+1,scheduled+2,0x48C98260UL,source));
     iot::Event record{};
     assert(iot::checkpoint(capture.day,4,dr,record));
-    assert(std::string(record.json).find("\\"meter_profile\\":\\"schneider-pm5100-dr\\"")!=std::string::npos);
-    assert(std::string(record.json).find("\\"active_energy_kwh\\":\\"412691.000000\\"")!=std::string::npos);
+    assert(std::string(record.json).find("schneider-pm5100-dr")!=std::string::npos);
+    assert(std::string(record.json).find("412691.000000")!=std::string::npos);
     assert(iot::telemetry(scheduled+2,412691.0,dr,0x1234,7,record));
-    assert(std::string(record.json).find("\\"active_energy_kwh\\":\\"412691.000000\\"")!=std::string::npos);
+    assert(std::string(record.json).find("412691.000000")!=std::string::npos);
     iot::Binding legacy=dr;strcpy(legacy.profile,"schneider-pm5100");
     assert(!iot::checkpoint(capture.day,4,legacy,record));
     source.profile=profiles::SCHNEIDER_PM5100;

@@ -1,0 +1,85 @@
+{
+  "source": "PM51xx_PM53xx_PMC Register List_v2011_v2021_R01.xls",
+  "sha256": "f25a6cf8480f6b578d9e628d599c242938dbc2a4dc3d3f8fa941222d3099d4ef",
+  "profile_id": 6,
+  "profile_key": "schneider-pm5100",
+  "registers": [
+    {
+      "sheet": "Register List",
+      "row": 206,
+      "description": "Active Energy Delivered (Into Load)",
+      "register": 2700,
+      "pdu_address": 2699,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "kWh",
+      "pm5110_11": "Y"
+    },
+    {
+      "sheet": "Register List",
+      "row": 210,
+      "description": "Reactive Energy Delivered",
+      "register": 2708,
+      "pdu_address": 2707,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "kVARh",
+      "pm5110_11": "Y"
+    },
+    {
+      "sheet": "Register List",
+      "row": 221,
+      "description": "Current A",
+      "register": 3000,
+      "pdu_address": 2999,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "A",
+      "pm5110_11": "Y"
+    },
+    {
+      "sheet": "Register List",
+      "row": 237,
+      "description": "Voltage A-N",
+      "register": 3028,
+      "pdu_address": 3027,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "V",
+      "pm5110_11": "Y"
+    },
+    {
+      "sheet": "Register List",
+      "row": 255,
+      "description": "Active Power Total",
+      "register": 3060,
+      "pdu_address": 3059,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "kW",
+      "pm5110_11": "Y"
+    },
+    {
+      "sheet": "Register List",
+      "row": 268,
+      "description": "Power Factor Total",
+      "register": 3084,
+      "pdu_address": 3083,
+      "words": 2,
+      "encoding": "4Q_FP_PF",
+      "unit": "---",
+      "pm5110_11": "Y"
+    },
+    {
+      "sheet": "Register List",
+      "row": 274,
+      "description": "Frequency",
+      "register": 3110,
+      "pdu_address": 3109,
+      "words": 2,
+      "encoding": "FLOAT32",
+      "unit": "Hz",
+      "pm5110_11": "Y"
+    }
+  ]
+}

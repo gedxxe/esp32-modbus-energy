@@ -1340,7 +1340,12 @@ void acquisition(void *) {
         state.powerFactor=readWordsFor(state.config,profile.powerFactor.address,profile.powerFactor.words,raw,1,true)?profiles::decode(profile.powerFactor,raw):NAN;
         if(!isfinite(state.powerFactor)||fabs(state.powerFactor)>1.05)state.powerFactor=NAN;
       }
-      if(profiles::isAdl400(profile.id)&&(!isfinite(state.frequency)||state.frequency<40||state.frequency>70))state.frequency=NAN;
+      // Optional reactive energy must not prevent acceptance of the cumulative kWh counter.
+      if(!profiles::coherentSnapshot(profile)&&profiles::available(profile.reactiveEnergy)){
+        state.reactiveEnergy=readWordsFor(state.config,profile.reactiveEnergy.address,profile.reactiveEnergy.words,raw,1,true)?profiles::decode(profile.reactiveEnergy,raw):NAN;
+        if(!isfinite(state.reactiveEnergy)||state.reactiveEnergy<0)state.reactiveEnergy=NAN;
+      }
+      if((profiles::isAdl400(profile.id)||profile.id==profiles::SCHNEIDER_PM5100)&&(!isfinite(state.frequency)||state.frequency<40||state.frequency>70))state.frequency=NAN;
 
     }
     if(millis()-lastSave>=300000)saveCheckpoint(true);
@@ -1514,13 +1519,13 @@ void webSetup() {
     JsonObject display=d["display"].to<JsonObject>();display["available"]=oledOK;display["idleSeconds"]=s.display.idleSeconds;display["stored"]=s.displayStored;display["storageOK"]=s.displayStorageOK;display["sleeping"]=idleScreen.active();
     d["savedMeterId"]=s.savedMeterId;d["meterName"]=s.meterName;d["discoveryRunning"]=s.discoveryRunning;d["profile"]=profiles::get(s.config.profile).key;
     auto describeProfile=[](JsonObject info,const profiles::Profile &profile){
-      info["commissioningRequired"]=profile.commissioningRequired;info["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";
+      info["commissioningRequired"]=profile.commissioningRequired;info["profileDiscovery"]=profiles::profileDiscovery(profile);info["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";
       info["adl400"]=profiles::isAdl400(profile.id);info["primaryFloat"]=profile.primaryFloat;info["manual"]=profile.manual;info["key"]=profile.key;info["name"]=profile.name;info["terminals"]=profile.terminals;info["maxBaud"]=profile.maxBaud;
       info["energyBasis"]=profiles::directEnergy(profile)?"meter-total":"secondary-with-ratios";info["coherentSnapshot"]=profiles::coherentSnapshot(profile);info["requiredReadings"]=profile.requiredReadings;
       info["energyScale"]=profile.energy.scale;info["ratios"]=profile.ratios;info["ratioWords"]=profile.ratioWords;info["wordOrder"]="high-first";
       const char *names[]={"currentA","voltageA","power","frequency","secondaryEnergy","probe","powerFactor","reactiveEnergy"};
       const profiles::Register registers[]={profile.current,profile.voltage,profile.power,profile.frequency,profile.energy,profile.probe,profile.powerFactor,profile.reactiveEnergy};
-      for(unsigned i=0;i<8;++i){if(!profiles::available(registers[i])){info[names[i]]=nullptr;continue;}JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;reg["function"]=3;reg["wordOrder"]=registers[i].words==2?"ABCD":"AB";reg["basis"]=profile.id==profiles::ACREL_APM?"primary":profile.id==profiles::ACREL_ACR?"candidate-primary":"profile-defined";const char *units[]={"A","V","kW","Hz","kWh","profile-probe","cos phi","kvarh"};reg["unit"]=units[i];reg["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";reg["encoding"]=registers[i].encoding==profiles::F32?"float32":registers[i].encoding==profiles::I32?"int32":registers[i].encoding==profiles::U32?"uint32":registers[i].encoding==profiles::I16?"int16":"uint16";}
+      for(unsigned i=0;i<8;++i){if(!profiles::available(registers[i])){info[names[i]]=nullptr;continue;}JsonObject reg=info[names[i]].to<JsonObject>();reg["address"]=registers[i].address;reg["words"]=registers[i].words;reg["scale"]=registers[i].scale;reg["function"]=3;reg["wordOrder"]=registers[i].words==2?"ABCD":"AB";reg["basis"]=(profile.id==profiles::ACREL_APM||profile.id==profiles::SCHNEIDER_PM5100)?"primary":profile.id==profiles::ACREL_ACR?"candidate-primary":"profile-defined";const char *units[]={"A","V","kW","Hz","kWh","profile-probe","cos phi","kvarh"};reg["unit"]=units[i];reg["validationStatus"]=profile.commissioningRequired?"lcd-verification-required":"existing-profile";reg["encoding"]=registers[i].encoding==profiles::PF4Q_F32?"float32-4q-pf":registers[i].encoding==profiles::F32?"float32":registers[i].encoding==profiles::I32?"int32":registers[i].encoding==profiles::U32?"uint32":registers[i].encoding==profiles::I16?"int16":"uint16";}
       info["meterEnergy"]=info["secondaryEnergy"];
     };
     describeProfile(d["meter"].to<JsonObject>(),profiles::get(s.config.profile));

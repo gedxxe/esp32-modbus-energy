@@ -2,6 +2,8 @@
 
 ## Belum dirilis (perbaikan audit · 5 November 2026)
 
+Schneider PM5100 ditambahkan sebagai ID profil permanen 6. Profil memakai Float32 kWh delivered/import, alamat PDU mulai nol dan decoder PF empat kuadran. ID meter lama serta layout checkpoint tetap. Lihat [PM5100](docs/id/SCHNEIDER_PM5100.md) untuk referensi register dan batas ketelitian.
+
 Dashboard Wi-Fi menerima SSID manual/tersembunyi, mengelompokkan opsi scan menurut keluarga keamanan, dan mempertahankan login serta CA Enterprise ketika SSID tersimpan yang sama dipilih ulang. SSID berbeda tidak boleh memakai ulang login sebelumnya. Perpindahan ke mode AP-only membersihkan sesi Enterprise sebelum radio station dimatikan. Regresi native/Playwright menutup batas pemakaian ulang kredensial. Dokumentasi dan diagram kini konsisten memakai gateway ESP32-C3 di proyek terpisah. Pengujian RADIUS perusahaan, RF fisik dan power-cut tetap memerlukan perangkat asli.
 
 ## 3.5.0

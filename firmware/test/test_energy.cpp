@@ -209,7 +209,7 @@ void testMeterCheckpoints(){
 
 int main(){
   testStrictArchiveRetention();
-  for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM)}){
+  for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM),uint8_t(profiles::SCHNEIDER_PM5100)}){
     CaptureSource source;source.profile=profile;source.meterId=42;source.slave=1;source.baud=9600;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
     float value=589000.f;uint32_t raw;memcpy(&raw,&value,4);CaptureTracker captures;captures.newDay(20754);uint32_t at=captureTarget(20754,0);
     assert(captures.sample(at,at+1,raw,source));near(captures.day.points[0].energy,profile==profiles::ACREL_APM?589.:589000.);

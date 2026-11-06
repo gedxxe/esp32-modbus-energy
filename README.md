@@ -10,7 +10,7 @@ For multi-unit deployment, see [fleet readiness](docs/FLEET_READINESS.md). New s
 
 Configure Wi-Fi (including Enterprise) and LoRa in the local panel. Guides: [Wi-Fi Enterprise](docs/ENTERPRISE_WIFI.md) and [LoRa](docs/LORA.md). An **opt-in development-only** HTTPS exporter for the Energy Record IoT v1 endpoint is documented in [HTTPS uplink](docs/IOT_HTTPS.md); disabled by default.
 
-ESP32-S3 N16R8 reads Fort, Habuer and Acrel meters over RS485 and saves ten daily kWh checkpoints using a DS3231 RTC. Records stay on the device without Wi-Fi; the dashboard handles setup, diagnostics and export.
+ESP32-S3 N16R8 reads Fort, Habuer, Acrel and Schneider PM5100 meters over RS485 and saves ten daily kWh checkpoints using a DS3231 RTC. Records stay on the device without Wi-Fi; the dashboard handles setup, diagnostics and export.
 
 Daily checkpoint times (WIB): **06:00, 06:30, 07:00, 07:30, 08:00; 17:00, 17:30, 18:00, 18:30, 19:00**. Each record keeps its actual reading time. Missed checkpoints are never filled with later values. [Checkpoint details](docs/CHECKPOINTS.md).
 
@@ -200,3 +200,5 @@ Original project code is **GPL-3.0-only**. Dependency terms, the ModbusMaster so
 The OLED shows a Midea boot logo, followed by the loading bar. Set orientation and splash duration in [board.h](firmware/include/board.h). [OLED guide](docs/OLED.md#first-boot-frame).
 
 The communication view animates observed TX/RX frames; timestamps and raw bytes remain available beneath the replay. Animations are not additional meter measurements. [Simulated demo](docs/assets/ui-flow-demo.mp4) · [Web guide](docs/WEB.md#reading-the-communication-diagram).
+
+Schneider PM5100 support uses the documented Float32 import-kWh map and four-quadrant PF decoding. See [PM5100 setup and precision limits](docs/SCHNEIDER_PM5100.md).

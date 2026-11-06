@@ -10,6 +10,8 @@ import sys
 from datetime import datetime,timezone,timedelta
 
 root = Path(__file__).resolve().parent.parent
+if (root / "firmware/include/iot_credentials.local.h").exists():
+    raise SystemExit("Release packaging blocked: private IoT credentials header present. Build and package from a clean checkout without that header; compiled credentials must not enter release binaries or ZIPs.")
 subprocess.run([sys.executable,str(root/'tools/check_docs.py')],check=True)
 version=re.search(r'FIRMWARE_VERSION\[\] = "([^"]+)"',(root/'firmware/include/version.h').read_text(encoding='utf-8')).group(1)
 app = root / "output/firmware/midea-fort-app.bin"
@@ -45,6 +47,8 @@ files=[*(root/name for name in root_names),*sources,
        *(p for p in sorted((root/'tools').glob('*')) if p.suffix in ['.py','.cjs','.ps1']),
        *(root/'output/firmware'/name for name in ['bootloader.bin','partitions.bin','boot_app0.bin','midea-fort-app.bin','midea-fort-factory.bin']),
        root/'output/firmware/FLASHING.md',root/'Fort Power Meter_User Manual_compressed.pdf',root/'Acrel ADL400 Manual.pdf',root/'Acrel ACR Modbus.pdf',root/'Acrel APM Modbus.pdf']
+source_workbook=root/'PM51xx_PM53xx_PMC Register List_v2011_v2021_R01.xls'
+if source_workbook.is_file():files.append(source_workbook)
 manifest = {
     "version": version, "build_date_local": datetime.now(timezone(timedelta(hours=7))).date().isoformat(), "timezone": "Asia/Jakarta",
     "target": "ESP32-S3 N16R8", "build": "PlatformIO SUCCESS, pioarduino 55.03.311, Arduino 3.3.11, ESP-IDF 5.5.5",

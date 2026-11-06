@@ -8,9 +8,9 @@ namespace fort {
 enum ReadingField:uint8_t { FIELD_PF=1,FIELD_FREQUENCY=2,FIELD_ENERGY=4,FIELD_REACTIVE=8 };
 namespace profiles {
 // IDs are stored in settings, checkpoints and the named-device registry.
-enum Id : uint8_t { FORT=0, ACREL_ADL400=1, HABUER=2, ACREL_ACR=3, ACREL_APM=4, ACREL_ADL400_VERIFIED=5, COUNT=6 };
+enum Id : uint8_t { FORT=0, ACREL_ADL400=1, HABUER=2, ACREL_ACR=3, ACREL_APM=4, ACREL_ADL400_VERIFIED=5, SCHNEIDER_PM5100=6, COUNT=7 };
 enum RatioLayout : uint8_t { PT_FRACTION_CT, PT_CT, NO_RATIO };
-enum Encoding : uint8_t { U16, U32, I32, F32, I16 };
+enum Encoding : uint8_t { U16, U32, I32, F32, I16, PF4Q_F32 };
 struct Register { uint16_t address; uint8_t words; Encoding encoding; double scale; };
 struct Profile {
   uint8_t id; const char *key,*name,*terminals,*manual;
@@ -26,6 +26,7 @@ inline bool selectable(uint8_t id){return valid(id)&&id!=ACREL_ADL400;}
 inline bool available(const Register &reg){return reg.words==1||reg.words==2;}
 inline bool coherentSnapshot(const Profile &profile){return profile.requiredReadings!=FIELD_ENERGY;}
 inline bool directEnergy(const Profile &profile){return profile.ratioLayout==NO_RATIO;}
+inline bool profileDiscovery(const Profile &p){return p.commissioningRequired||p.id==ACREL_ADL400_VERIFIED||p.id==SCHNEIDER_PM5100;}
 inline const Profile &get(uint8_t id){
   // PDU starting addresses. Habuer parameters require separate two-word requests.
   static const Profile table[]={
@@ -52,7 +53,13 @@ inline const Profile &get(uint8_t id){
     {ACREL_ADL400_VERIFIED,"acrel-adl400","Acrel ADL400","21 / A1 · 22 / B1","ADL400 V1.3 total energy / user field comparison",
       {0x530C,2,F32,1},{0x5300,2,F32,1},{0x006A,1,I16,.001},
       {0x5332,2,F32,1},{0x0000,2,U32,.01},0x008D,0,2,PT_CT,19200,
-      {0x0000,2,U32,.01},{0x5330,2,F32,1},{0,0,U16,0},FIELD_ENERGY,false}
+      {0x0000,2,U32,.01},{0x5330,2,F32,1},{0,0,U16,0},FIELD_ENERGY,false},
+    // Schneider workbook register numbers are one-based; descriptors are PDU offsets.
+    // Delivered/import energy is already kWh with the meter's configured CT/VT applied.
+    {SCHNEIDER_PM5100,"schneider-pm5100","Schneider PM5100","RS485 + / - (meter labels)","PM51xx/PM53xx XLS R01, rows 206/210/221/237/255/268/274",
+      {2999,2,F32,1},{3027,2,F32,1},{3059,2,F32,1},
+      {3109,2,F32,1},{2699,2,F32,1},0,2699,0,NO_RATIO,38400,
+      {2699,2,F32,1},{3083,2,PF4Q_F32,1},{2707,2,F32,1},FIELD_ENERGY,false}
   };
   static_assert(sizeof(table)/sizeof(table[0])==COUNT,"Every profile ID needs a descriptor");
   static const Profile unknown={255,"unknown","Unconfigured meter","A / B","No verified register profile",
@@ -66,7 +73,15 @@ inline uint32_t raw32(const uint8_t *p){return uint32_t(word(p))<<16|word(p+2);}
 inline double decode(const Register &reg,const uint8_t *p){
   if(!p||!available(reg))return NAN;
   uint32_t raw=reg.words==1?word(p):raw32(p);
-  if(reg.encoding==F32){if(reg.words!=2)return NAN;float value;static_assert(sizeof(value)==sizeof(raw),"IEEE754 binary32 required");memcpy(&value,&raw,sizeof(value));return double(value)*reg.scale;}
+  if(reg.encoding==F32||reg.encoding==PF4Q_F32){
+    if(reg.words!=2)return NAN;
+    float value;static_assert(sizeof(value)==sizeof(raw),"IEEE754 binary32 required");memcpy(&value,&raw,sizeof(value));
+    if(reg.encoding==PF4Q_F32){
+      if(!isfinite(value)||fabsf(value)>2)return NAN;
+      if(value>1)value=2-value;else if(value< -1)value=-2-value;
+    }
+    return double(value)*reg.scale;
+  }
   if(reg.encoding==I16)return double(raw&0x8000?int32_t(raw)-65536:int32_t(raw))*reg.scale;
   double value=reg.encoding==I32&&(raw&0x80000000UL)?double(int64_t(raw)-4294967296LL):double(raw);
   return value*reg.scale;

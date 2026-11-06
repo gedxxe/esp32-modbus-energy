@@ -75,3 +75,5 @@ RadioLib 7.8.1
 The optional SX1262 driver links RadioLib 7.8.1 by Jan Gromes under MIT.
 Its original notice is retained in docs/licenses/RadioLib-MIT.txt and the
 pinned dependency source. This does not relicense RadioLib as GPL.
+
+The owner-supplied Schneider PM51xx/PM53xx register workbook remains Schneider Electric reference material and is not relicensed under the project GPL. The register facts and source fingerprint are documented in docs/SCHNEIDER_PM5100.md and docs/references/pm5100-registers.json.

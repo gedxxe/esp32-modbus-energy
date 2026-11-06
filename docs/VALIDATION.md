@@ -4,6 +4,16 @@
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
 
+## 6 November 2026: Schneider PM5100 profile
+
+The owner-supplied PM51xx/PM53xx R01 XLS was read directly with a temporary xlrd reader, without modifying the source workbook or adding a runtime dependency. The selected rows and workbook SHA256 are recorded in [the profile reference](references/pm5100-registers.json). The new immutable ID is 6, with one-based register 2700 converted to PDU 2699 for Float32 delivered/import kWh. CT/VT is not applied a second time. The shared decoder handles the workbook's four-quadrant PF format, while non-finite kWh is rejected atomically.
+
+The final native suite passed, including the actual standalone INO with the shared ModbusMaster source. PM5100 coverage verifies exact FC03 0x0A8B/2 frames, all selected PDU offsets, positive/negative PF quadrants and limits, no duplicate ratio multiplication, invalid counter isolation, and profile-6 checkpoint encode/decode with original Float32 bits. Existing Fort, ADL400, Habuer, ACR and APM regressions passed. The generated-byte browser test passed PM5100 and ACR/APM selection, profile-specific probe plans, commissioning behavior, reload, EN/ID and mobile overflow checks. Its saved-device scenario now waits for the newly requested candidate rather than interacting with a previous discovery result. Screenshots are simulated, not hardware evidence.
+
+The ESP32-S3 development firmware and an isolated release build without the private IoT credentials header compiled successfully. The sanitized release binary was checked to contain every current generated gzip asset. Dashboard assets total 163,099 gzip bytes, below 160 KiB. No private header was read or copied into the release tree. The working private header and locally deleted public template were preserved; only the public template was restored from Git in the isolated release tree. Packaging now refuses a working tree containing that private header, since headers and compiled credentials must not enter a release ZIP.
+
+No physical PM5100, live RADIUS or LoRa gateway test was performed. Float32 precision limits and delivered/import energy semantics are documented in [the PM5100 guide](SCHNEIDER_PM5100.md). Standalone hardware-target compilation was not repeated because it selects a different shared SDK allocator; the actual INO host build and production shared-library target compilation are the evidence for this change. The separate website/gateway must recognize the profile key/ID when provisioning the new meter. Public release images contain the example IoT configuration, while per-device development uploads can continue using the owner's private local header.
+
 ## 6 November 2026: correct cross-target SDK allocator verification
 
 The PR #15 logic/documentation and browser jobs passed. The main ESP32-S3

@@ -83,3 +83,5 @@ Meter tambahan memerlukan ID profil baru, sumber yang diperiksa, descriptor sert
 Habuer memakai ID tetap 2 dengan basis total energi langsung dari meter. Parameter wajib, Float32 serta ketiadaan register CT/PT dijelaskan pada [Integrasi Habuer](HABUER.md). Formula sebelumnya berlaku untuk profil sekunder Fort/Acrel. Katalog runtime menandai register yang tidak didukung sebagai null, menyediakan probe kontak tersendiri dan membentuk rencana diagnostik/discovery dari descriptor yang sama. Nama API FortMeter serta key NVS lama dipertahankan untuk kompatibilitas tanpa membatasi merek yang dipilih.
 
 [Profil Acrel ACR/APM dan commissioning](ACREL_ACR_APM.md) menjelaskan ID tambahan, energi Float32, perbedaan manual serta alur verifikasi perangkat tersimpan.
+
+Schneider PM5100 tersedia dengan ID profil permanen 6 (`schneider-pm5100`). Lihat [pemetaan register dan petunjuk commissioning](SCHNEIDER_PM5100.md).

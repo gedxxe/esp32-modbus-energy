@@ -368,7 +368,7 @@ export const catalog = {
     manual_note:
       "The selected profile controls register addresses, widths, scale and transformer decoding. Verify the resulting import kWh against the meter LCD before relying on scheduled records.",
     scan_title: "Find your meter",
-    scan_intro: "Discovery starts with the manual phase-A current request and uses the same transaction engine as normal measurement. Keep the ID range small until the saved communication format has been checked.",
+    scan_intro: "Discovery uses the selected profile probe and the same read-only transaction engine as normal measurement. Keep the ID range small until the saved communication format has been checked.",
     first_id: "First slave ID",
     last_id: "Last slave ID",
     quick_range: "Range",
@@ -874,7 +874,7 @@ export const catalog = {
     manual_note:
       "Profil menentukan alamat, jumlah word, skala dan dekode rasio trafo. Cocokkan kWh impor hasil pembacaan dengan LCD meter sebelum mengandalkan checkpoint terjadwal.",
     scan_title: "Cari meter",
-    scan_intro: "Discovery dimulai dari request arus fasa A pada manual dan memakai engine transaksi yang sama dengan pengukuran normal. Gunakan rentang ID kecil sampai format komunikasi tersimpan diperiksa.",
+    scan_intro: "Discovery memakai probe profil yang dipilih dan engine transaksi read-only yang sama dengan pengukuran normal. Gunakan rentang ID kecil sampai format komunikasi tersimpan diperiksa.",
     first_id: "Slave ID awal",
     last_id: "Slave ID akhir",
     quick_range: "Rentang",

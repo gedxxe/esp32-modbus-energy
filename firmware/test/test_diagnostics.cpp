@@ -290,5 +290,33 @@ int main(){
   assert(profiles::get(profiles::ACREL_APM).energy.address==3000&&profiles::get(profiles::ACREL_APM).current.address==1100);
  }
  assert(meter::signed32(0xFFFFFF9CUL)==-100);assert(meter::float32(0x3F80,0)==1.0f);assert(meter::float32(0,0x3F80)!=1.0f);
+ // Schneider PM5100: real FC03 transport, one-based conversion, PF quadrants and invalid counter isolation.
+ {
+  const auto &p=profiles::get(profiles::SCHNEIDER_PM5100);
+  assert(p.id==6&&profiles::FORT==0&&profiles::ACREL_ADL400_VERIFIED==5);
+  assert(p.energy.address==2699&&p.current.address==2999&&p.voltage.address==3027&&p.power.address==3059);
+  assert(p.frequency.address==3109&&p.powerFactor.address==3083&&p.reactiveEnergy.address==2707);
+  assert(profiles::directEnergy(p)&&p.ratioWords==0&&p.energy.encoding==profiles::F32);
+  uint8_t id=255;assert(profiles::parse("schneider-pm5100",id)&&id==6);
+  auto bits=[](float f){uint32_t raw;memcpy(&raw,&f,4);return raw;};
+  auto decode=[&](const profiles::Register &r,float f){uint32_t v=bits(f);uint8_t b[]={uint8_t(v>>24),uint8_t(v>>16),uint8_t(v>>8),uint8_t(v)};return profiles::decode(r,b);};
+  assert(fabs(decode(p.powerFactor,1.2f)-.8)<1e-6&&fabs(decode(p.powerFactor,-1.2f)+.8)<1e-6);
+  assert(decode(p.powerFactor,1)==1&&decode(p.powerFactor,-1)==-1&&decode(p.powerFactor,2)==0&&decode(p.powerFactor,-2)==0);
+  assert(std::isnan(decode(p.powerFactor,2.1f))&&std::isnan(decode(p.powerFactor,NAN)));
+  assert(decode(p.current,12.5f)==12.5&&decode(p.voltage,230)==230&&decode(p.frequency,50)==50&&decode(p.power,-2.5f)==-2.5);
+  assert(profiles::primaryEnergy(p.id,bits(7838.5f),20,2,80)==7838.5);
+  HardwareSerial port(1);FortDiagnostics engine(port);engine.selectProfile(p.id);
+  assert(engine.options.probeAddress==2699&&engine.discoveryOptions.count==1);
+  bool bad=false;
+  port.onWrite=[&](){const auto &tx=port.transmitted.back();assert(tx[1]==3&&tx[2]==0x0A&&tx[3]==0x8B&&tx[4]==0&&tx[5]==2);
+   uint32_t v=bad?0xFFC00000UL:bits(7838.5f);
+   for(auto b:response({tx[0],3,4,uint8_t(v>>24),uint8_t(v>>16),uint8_t(v>>8),uint8_t(v)}))port.incoming.push_back(b);
+  };
+  assert(engine.readEnergy(engine.current));MeterReadings reading;ReadingQuality quality;
+  auto read=[&](const profiles::Register &r,uint8_t *out){return engine.readRegisters(engine.current,r.address,r.words,out);};
+  assert(readMeterReadings(p,read,reading,&quality)&&reading.meterEnergy==7838.5&&quality.complete);
+  bad=true;assert(!readMeterReadings(p,read,reading,&quality)&&reading.meterEnergy==7838.5&&quality.invalid==FIELD_ENERGY);
+  assert(std::isnan(profiles::primaryEnergy(p.id,0xFFC00000UL,1,1,1)));
+ }
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";
 }

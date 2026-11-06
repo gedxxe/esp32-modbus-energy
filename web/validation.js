@@ -17,7 +17,7 @@ const frame = (value) =>
 
 const profileKey=value=>typeof value==="string"&&/^[a-z][a-z0-9-]{0,31}$/.test(value);
 const registerInfo=value=>object(value)&&uint(value.address,65535)&&[1,2].includes(value.words);
-const profileInfo=value=>object(value)&&(value.commissioningRequired===undefined||typeof value.commissioningRequired==="boolean")&&profileKey(value.key)&&typeof value.name==="string"&&typeof value.terminals==="string"&&uint(value.maxBaud,1000000)&&value.maxBaud>0&&Number.isFinite(value.energyScale)&&value.energyScale>0&&uint(value.ratios,65535)&&[0,2,3].includes(value.ratioWords)&&
+const profileInfo=value=>object(value)&&(value.profileDiscovery===undefined||typeof value.profileDiscovery==="boolean")&&(value.commissioningRequired===undefined||typeof value.commissioningRequired==="boolean")&&profileKey(value.key)&&typeof value.name==="string"&&typeof value.terminals==="string"&&uint(value.maxBaud,1000000)&&value.maxBaud>0&&Number.isFinite(value.energyScale)&&value.energyScale>0&&uint(value.ratios,65535)&&[0,2,3].includes(value.ratioWords)&&
   (value.ratioWords!==0||value.energyBasis==="meter-total")&&registerInfo(value.meterEnergy||value.secondaryEnergy)&&registerInfo(value.probe||value.currentA)&&
   ["currentA","voltageA","power","frequency","powerFactor","reactiveEnergy"].every(key=>value[key]===undefined||value[key]===null||registerInfo(value[key]));
 export const validUnitView=v=>object(v)&&[v.identityValid,v.uniqueAP,v.meterConfigured,v.meterSettingsDegraded,v.networkSettingsDegraded].every(x=>typeof x==="boolean")&&

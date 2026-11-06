@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 module.exports=async({page,origin,state,calls})=>{
  await page.goto(origin+'/#setup');await page.waitForSelector('#meter-profile');
- const names=await page.locator('#meter-profile option').allTextContents();assert.equal(names.filter(n=>n.includes('ADL400')).length,1);assert.equal(names.length,5);
+ const names=await page.locator('#meter-profile option').allTextContents();assert.equal(names.filter(n=>n.includes('ADL400')).length,1);assert.equal(names.length,6);
  await page.locator('#meter-profile').selectOption('acrel-adl400');await page.locator('#slave').fill('220');await page.locator('#config button').last().click();
  await page.waitForFunction(()=>document.querySelector('#slave')?.value==='220');
  Object.assign(state,{energy:7838.4,secondaryEnergy:97.98,meterEnergy:97.98,ratio:80,ratios:true,currentA:100,voltageA:235.54956,frequency:49.96,powerFactor:.95,power:1.234});

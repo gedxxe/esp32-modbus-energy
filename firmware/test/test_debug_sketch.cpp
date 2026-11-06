@@ -13,6 +13,7 @@ void submit(const std::string &line){for(char c:line)Serial.input.push_back(c);S
 int main(){
  setup();assert(debug.options.manualDirection&&debug.options.probeAddress==0x58&&debug.options.probeWords==2);
  submit("profile acrel-acr");assert(debug.options.profile==fort::profiles::ACREL_ACR&&debug.options.probeAddress==0x64&&debug.auditCount==7);
+ submit("profile schneider-pm5100");assert(debug.options.profile==fort::profiles::SCHNEIDER_PM5100&&debug.options.energyAddress==2699&&debug.options.probeAddress==2699);
  submit("profile acrel-apm");assert(debug.options.profile==fort::profiles::ACREL_APM&&debug.options.energyAddress==3000&&debug.options.probeAddress==252&&debug.auditCount==7);
  submit("profile habuer");assert(debug.options.probeAddress==0x30&&debug.auditCount==4);
  submit("profile acrel-adl400");assert(debug.options.probeAddress==0&&debug.options.probeWords==2&&debug.options.energyAddress==0&&debug.options.profile==fort::profiles::ACREL_ADL400_VERIFIED);submit("profile fort");

@@ -10,7 +10,7 @@ Untuk pemasangan banyak unit, baca [kesiapan perangkat](docs/id/FLEET_READINESS.
 
 Atur Wi-Fi (termasuk Enterprise) dan LoRa lewat panel lokal. Panduan: [Wi-Fi Enterprise](docs/id/ENTERPRISE_WIFI.md) dan [LoRa](docs/id/LORA.md).
 
-ESP32-S3 N16R8 membaca meter Fort, Habuer dan Acrel lewat RS485, lalu menyimpan sepuluh checkpoint kWh setiap hari memakai RTC DS3231. Data tetap ada tanpa Wi-Fi; dashboard dipakai untuk pengaturan, diagnosis dan ekspor.
+ESP32-S3 N16R8 membaca meter Fort, Habuer, Acrel dan Schneider PM5100 lewat RS485, lalu menyimpan sepuluh checkpoint kWh setiap hari memakai RTC DS3231. Data tetap ada tanpa Wi-Fi; dashboard dipakai untuk pengaturan, diagnosis dan ekspor.
 
 Jadwal checkpoint harian (WIB): **06.00, 06.30, 07.00, 07.30, 08.00; 17.00, 17.30, 18.00, 18.30, 19.00**. Waktu baca aktual disimpan. Checkpoint yang terlewat tidak diisi pembacaan setelahnya. [Detail checkpoint](docs/id/CHECKPOINTS.md).
 
@@ -203,3 +203,5 @@ Animasi wajah 772 frame menjadi screensaver idle dengan waktu 10–3600 detik at
 OLED menampilkan logo Midea, diikuti animasi pemuatan. Orientasi dan durasi splash ada di [board.h](firmware/include/board.h). [Panduan OLED](docs/id/OLED.md#frame-pertama-saat-boot).
 
 Panel komunikasi menganimasikan frame TX/RX yang teramati. Timestamp dan byte mentah tetap tersedia di bawahnya; animasi bukan pengukuran tambahan. [Demo simulasi](docs/assets/ui-flow-demo.mp4) · [Panduan web](docs/id/WEB.md#membaca-diagram-komunikasi).
+
+Schneider PM5100 didukung melalui register Float32 kWh import dan decoding PF empat kuadran. Lihat [pengaturan dan batas ketelitian PM5100](docs/id/SCHNEIDER_PM5100.md).

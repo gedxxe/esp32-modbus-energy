@@ -35,7 +35,7 @@ void selectProfile(uint8_t id){
   options.swappedWords=false;options.decodeEnergy=true;
   auditCount=uint8_t(profiles::auditQueries(p,auditPlan,8));
   discoveryOptions=DiscoveryConfig{};
-  if(p.commissioningRequired||p.id==profiles::ACREL_ADL400_VERIFIED){discoveryOptions.count=uint8_t(profiles::discoveryQueries(p,discoveryOptions.plan,DISCOVERY_PROBES));}
+  if(profiles::profileDiscovery(p)){discoveryOptions.count=uint8_t(profiles::discoveryQueries(p,discoveryOptions.plan,DISCOVERY_PROBES));}
   const uint32_t defaults[]={9600,19200,38400,4800,2400,1200};baudCount=0;
   for(auto b:defaults)if(b<=p.maxBaud)BAUDS[baudCount++]=b;
 }
@@ -381,7 +381,8 @@ void showStatus(){
 }
 void help(){
   LOG("DISCOVERY: discover | discoveryreport | stops 1|2. Current/matrix uses scanmode. Results are observations, not meter identity. Use timeout 350 for initial surveys\n");
-  LOG("PROFILE: profile fort | profile acrel-adl400 | profile habuer. Apply documented map, ratio layout and scan bauds in RAM\n");
+  LOG("PROFILE: profile <key>. Available keys:\n");
+  for(uint8_t id=0;id<profiles::COUNT;++id)if(profiles::selectable(id))LOG("  profile %s\n",profiles::get(id).key);
   LOG("\nMeter diagnostics 3.5.0 | ModbusMaster 2.0.1 + fort hooks | FC03 ONLY | no register/NVS/filesystem writes\n");
   LOG("INPUT: web Command input + Run command, or Serial Monitor INPUT at 115200/Newline + Enter. Use one command at a time.\n");
   LOG("START: status, then intermediate for the selected profile probe. Diagnose runs the configured read plan. Copy OUTPUT to support, not to Command input.\n");
@@ -398,7 +399,7 @@ void help(){
 }
 void command(const char *line) {
   if(!strcmp(line,"resume")){if(onResume)onResume();return;}
-  unsigned a=0,b=0; unsigned long baud=0; char parity=0, extra=0;double scalar=0;char token[16]={};
+  unsigned a=0,b=0; unsigned long baud=0; char parity=0, extra=0;double scalar=0;char token[32]={};
   if (!strcmp(line,"help") || !strcmp(line,"h")) { help(); return; }
   if (!strcmp(line,"x") || !strcmp(line,"stop")) { emergencyStop(); return; }
   if (!strcmp(line,"status")) { showStatus(); return; }
@@ -414,7 +415,7 @@ void command(const char *line) {
   if(sscanf(line,"gap %u %c",&a,&extra)==1&&a>=4&&a<=2000){options.gapMs=uint16_t(a);showStatus();return;}
   if(!strcmp(line,"adl400")){compareAdl400();return;}
   if(!strcmp(line,"primary")){abortRequested=false;polling=false;const auto &p=profiles::get(options.profile);if(p.primaryFloat)dumpRegisters(current,p.primaryFloat,2);else LOG("[UNSUPPORTED] This profile has no documented primary float energy register. Use read for the selected profile energy conversion\n");return;}
-  if(sscanf(line,"profile %15s %c",token,&extra)==1){uint8_t id=0;if(profiles::parse(token,id)){polling=false;selectProfile(id);showStatus();return;}}
+  if(sscanf(line,"profile %31s %c",token,&extra)==1){uint8_t id=0;if(profiles::parse(token,id)){polling=false;selectProfile(id);showStatus();return;}}
   if(!strncmp(line,"discoverplan ",13)){if(parseDiscoveryPlan(line+13,discoveryOptions))LOG("Discovery plan updated in RAM\n");else LOG("Invalid discovery plan. Use HEX:WORDS pairs separated by commas, at most eight\n");return;}
   if(!strcmp(line,"discover")){DiscoveryConfig c=discoveryOptions;c.first=firstID;c.last=lastID;c.preferred.baud=current.baud;c.preferred.slave=current.id;c.preferred.parity=current.parity;c.preferred.stops=current.stops;c.direction=options.manualDirection?0:1;c.matrix=!options.scanCurrent;c.responseMs=uint16_t(options.responseMs>3000?3000:options.responseMs<150?150:options.responseMs);abortRequested=false;polling=false;evidence=Evidence{};uint32_t nextRun=discovery.run+1;if(!nextRun)nextRun=1;discovery.begin(c,nextRun,millis(),0);LOG("[DISCOVERY] FC03 multi-address survey, %lu query slots. No manufacturer identification or energy acceptance\n",(unsigned long)discovery.total);return;}
   if(sscanf(line,"stops %u %c",&a,&extra)==1&&(a==1||a==2)){polling=false;current.stops=uint8_t(a);activeBaud=0;openLink(current);showStatus();return;}

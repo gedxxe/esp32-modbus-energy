@@ -209,7 +209,7 @@ void testMeterCheckpoints(){
 
 int main(){
   testStrictArchiveRetention();
-  for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM),uint8_t(profiles::SCHNEIDER_PM5100)}){
+  for(uint8_t profile: {uint8_t(profiles::ACREL_ACR),uint8_t(profiles::ACREL_APM),uint8_t(profiles::SCHNEIDER_PM5100),uint8_t(profiles::SCHNEIDER_PM5100_DR)}){
     CaptureSource source;source.profile=profile;source.meterId=42;source.slave=1;source.baud=9600;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
     float value=589000.f;uint32_t raw;memcpy(&raw,&value,4);CaptureTracker captures;captures.newDay(20754);uint32_t at=captureTarget(20754,0);
     assert(captures.sample(at,at+1,raw,source));near(captures.day.points[0].energy,profile==profiles::ACREL_APM?589.:589000.);
@@ -220,6 +220,23 @@ int main(){
   {CaptureSource src;src.profile=profiles::ACREL_ADL400_VERIFIED;src.slave=220;src.baud=9600;src.parity='N';src.ptNum=src.ptDen=1;src.ct=80;CaptureTracker tracker;tracker.newDay(20754);uint32_t at=captureTarget(20754,0);
    assert(tracker.sample(at,at+1,9798,src));near(tracker.day.points[0].energy,7838.4);uint8_t bytes[CAPTURE_RECORD_SIZE];encodeCaptureDay(tracker.day,bytes);CaptureDay restored;assert(decodeCaptureDay(bytes,sizeof(bytes),restored)&&restored.points[0].source.profile==profiles::ACREL_ADL400_VERIFIED);near(restored.points[0].energy,7838.4);
    auto legacy=src;legacy.profile=profiles::ACREL_ADL400;assert(!sameCaptureSource(src,legacy));
+
+  // D-only and D+R are distinct capture sources even with identical UART wiring.
+  {CaptureSource source;source.profile=profiles::SCHNEIDER_PM5100;source.slave=1;source.baud=19200;source.parity='E';source.ptNum=source.ptDen=source.ct=1;
+   auto dr=source;dr.profile=profiles::SCHNEIDER_PM5100_DR;
+   assert(validCaptureSource(source)&&validCaptureSource(dr)&&!sameCaptureSource(source,dr));
+   CaptureTracker tracker;tracker.newDay(20754);uint32_t start=captureTarget(20754,0);
+   assert(tracker.sample(start,start,0x48C8C798UL,source));
+   double diff=0;assert(!captureDifference(tracker.day,0,diff));
+   uint32_t next=captureTarget(20754,1);assert(tracker.sample(next,next,0x48C98260UL,dr));
+   assert(!captureDifference(tracker.day,0,diff)); // no artificial +1494.25 kWh interval
+   uint8_t encoded[CAPTURE_RECORD_SIZE];encodeCaptureDay(tracker.day,encoded);
+   CaptureDay decoded;assert(decodeCaptureDay(encoded,sizeof(encoded),decoded));
+   assert(decoded.points[0].source.profile==profiles::SCHNEIDER_PM5100);
+   assert(decoded.points[1].source.profile==profiles::SCHNEIDER_PM5100_DR);
+   near(decoded.points[0].energy,411196.75);near(decoded.points[1].energy,412691.0);
+  }
+
   }
   {CaptureSource source;source.profile=profiles::HABUER;source.meterId=77;source.baud=9600;source.slave=1;source.parity='N';source.ptNum=source.ptDen=source.ct=1;
    assert(validCaptureSource(source));CaptureTracker log;const uint32_t day=20754;log.newDay(day);uint32_t at=captureTarget(day,0);

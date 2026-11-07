@@ -1,8 +1,18 @@
-# Validation record / 5 November 2026
+# Validation record / through 8 November 2026
 
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).
+
+## 8 November 2026: supervised direct Wi-Fi pilot hardening (draft PR #21)
+
+The gateway-independent ESP32-S3 HTTPS uplink was re-audited for long-running failure modes. The new draft branch proposes **non-destructive** recovery changes, without altering radio packets, Modbus polling, meter identities, the ten immutable checkpoint times, NVS/LittleFS layout or website credentials. The separate C3 gateway and website are unchanged.
+
+- A 30-day-out-of-range ACK cursor or corrupt historical archive pauses **historical** checkpoint replay, retaining the exact durable cursor and explicit `iot.archiveError`, while fresh authenticated telemetry and presence continue. After a bounded burst of historical uploads, due telemetry/heartbeat gets service.
+- The HTTPS worker no longer self-deletes because the filesystem mutex was busy on its initial cursor read. A failed local cursor write retries the same immutable event identity with backoff instead of silently skipping it. Ordinary reading backoff does not starve the 60-second heartbeat; server HTTP 429 rate limiting remains globally respected. Nonzero retry sentinels protect a narrowly timed `millis()` rollover.
+- Corrupt `/capture.pending` is preserved in a bounded forensic quarantine before a truncating write. Failure of rename or exhausted quarantine names is a reported filesystem failure, **never automatic deletion**. The archive scanner no longer silently stops after 256 directory entries: it indexes up to 4,096 and blocks day advancement if incomplete, while yielding to the watchdog.
+
+Native tests include historical-window boundaries, backfill fairness, independent retry deadlines and rollover, failed staging rename/exhausted quarantine names, and out-of-order archive candidates beyond the old scan bound. The firmware and browser still require successful **current PR CI** before merging. The tests cannot directly prove every physical DS3231/flash reset interleaving; explicit power-cut, Wi-Fi reconnect, HTTPS receipt, heap/stack and real Modbus endurance tests remain mandatory. For supervised deployment and credential handling see [direct Wi-Fi pilot checklist](DIRECT_WIFI_PILOT.md) and [IoT protocol](IOT_HTTPS.md). Issue [#18](https://github.com/gedxxe/esp32-modbus-energy/issues/18) remains open for unverified hardware and transactional RTC recovery.
 
 ## 6 November 2026: PM5110 D+R hardware evidence and production correction
 

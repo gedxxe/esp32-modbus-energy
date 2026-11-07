@@ -34,6 +34,7 @@
 #include "settings_bank.h"
 #include "capture_archive.h"
 #include "archive_retention.h"
+#include "capture_recovery_scan.h"
 #include <esp_timer.h>
 #include "lora_service.h"
 #include "lora_web.h"
@@ -374,6 +375,7 @@ SettingsBank<METER_CONFIG_BYTES> meterSettingsBank;
 SettingsBank<NETWORK_RECORD_SIZE> networkSettingsBank;
 bool configMissing=true;
 bool fsOK=false,nvsOK=false,archiveOK=true,checkpointOK=true,configOK=false;
+bool captureRecoveryScanComplete=true; // Never assume a partial boot scan is complete.
 const char *storageBootAction="not_checked"; // core 0 at boot, immutable thereafter.
 uint32_t ct=0,ptNum=0,ptDen=0,lastSave=0,lastRatio=0,lastPoll=0,lastGood=0,lastRatioTry=0,lastContactTry=0;
 bool haveSample=false,muted=false;
@@ -548,6 +550,13 @@ bool writeCaptureFile(const CaptureDay &day){
   size_t stagedSize=pending?pending.size():0;
   bool stagedOK=pending&&captureRecordSize(stagedSize)&&pending.read(recovered,stagedSize)==stagedSize&&decodeCaptureDay(recovered,stagedSize,staged);
   if(pending)pending.close();
+  if(!stagedOK&&LittleFS.exists("/capture.pending")){
+    // Corrupt staging may contain partial measurements from a brownout.
+    // Preserve it before opening the same name with truncation.
+    if(!preserveCorruptCaptureStaging(LittleFS,String("/capture.pending"))){
+      xSemaphoreGive(fsMutex);return false;
+    }
+  }
   if(stagedOK){
     if(newerCaptureDay(staged,day)){xSemaphoreGive(fsMutex);return false;}
     String target=capturePath(staged.number),backup=target+".bak";
@@ -593,24 +602,34 @@ void loadCaptures(){
   CaptureDay saved;bool found=readCaptureNVS("captures",saved);captureNVSOK=found;captureRecoverySource=found?"nvs":"none";
   // Also recover the latest complete on-flash record if NVS lagged or was damaged.
   if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
-    uint32_t candidates[32]={};unsigned count=0,inspected=0;
-    File root=LittleFS.open("/");File item=root.openNextFile();
-    while(item&&inspected++<256){
-      String name=item.name();item.close();if(name.startsWith("/"))name.remove(0,1);
-      uint32_t n=0;
-      if(productionArchiveDay(name.c_str(),ArchiveNameKind::CaptureBinary,n)){
-        bool duplicate=false;for(unsigned i=0;i<count;++i)if(candidates[i]==n)duplicate=true;
-        if(validCaptureDayNumber(n)&&!duplicate){
-          unsigned position=0;while(position<count&&candidates[position]>n)++position;
-          if(position<32){if(count<32)++count;for(unsigned i=count-1;i>position;--i)candidates[i]=candidates[i-1];candidates[position]=n;}
-        }
+    CaptureRecoveryIndex index;
+    File root=LittleFS.open("/");
+    if(root){
+      File item=root.openNextFile();
+      while(item){
+        String name=item.name();item.close();
+        if(!index.observe(name.c_str()))break;
+        // Bounded cooperative scan on the acquisition core.
+        if((index.inspected&31u)==0){esp_task_wdt_reset();vTaskDelay(1);}
+        item=root.openNextFile();
       }
-      item=root.openNextFile();
+      root.close();
+    }else index.complete=false;
+    xSemaphoreGive(fsMutex);
+    if(!index.complete){
+      captureRecoveryScanComplete=false;
+      setError("Archive directory scan incomplete. Preserve flash and inspect files",
+               "capture_recovery_scan_limit");
     }
-    if(item)item.close();xSemaphoreGive(fsMutex);
-    for(unsigned i=0;i<count;++i){CaptureDay archived;if(readCaptureFile(candidates[i],archived)){
-      if(!found||newerCaptureDay(archived,saved)){saved=archived;found=true;captureRecoverySource="filesystem";}break;
-    }}
+    for(unsigned i=0;i<index.count;++i){
+      CaptureDay archived;
+      if(readCaptureFile(index.days[i],archived)){
+        if(!found||newerCaptureDay(archived,saved)){
+          saved=archived;found=true;captureRecoverySource="filesystem";
+        }
+        break;
+      }
+    }
   }
   // A flushed temporary record can survive power loss before its final rename.
   if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
@@ -767,6 +786,7 @@ const char *quarantineTargetLegacyDay(uint32_t wantedDay){
 }
 
 bool advanceCaptureDay(uint32_t number){
+  if(!captureRecoveryScanComplete)return false;
   if(captureLog.day.number==number)return true;
   if(captureLog.day.number>number||!validCaptureDayNumber(number))return false;
   if(blockedCaptureDay==number&&uint32_t(millis()-lastCaptureAdvanceTry)<5000)return false;

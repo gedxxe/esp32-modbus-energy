@@ -3,6 +3,20 @@
 #include "checkpoint_log.h"
 #include "recovery.h"
 namespace fort {
+// Never truncate a damaged /capture.pending. Preserve its bytes for offline
+// recovery and root-cause analysis. Fail closed if rename or space is exhausted.
+template<class FS,class Path>
+bool preserveCorruptCaptureStaging(FS &fs,const Path &pending){
+  if(!fs.exists(pending))return true;
+  const char *suffixes[]={".bad",".bad2",".bad3",".bad4",".bad5",
+                          ".bad6",".bad7",".bad8",".bad9"};
+  for(const char *suffix:suffixes){
+    const Path quarantine=pending+suffix;
+    if(fs.exists(quarantine))continue;
+    return fs.rename(pending,quarantine);
+  }
+  return false;
+}
 inline bool captureExtends(const CaptureDay &next,const CaptureDay &previous){
   if(next.number!=previous.number)return false;
   for(unsigned i=0;i<CAPTURE_COUNT;++i){

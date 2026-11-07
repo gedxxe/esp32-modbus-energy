@@ -544,7 +544,10 @@ bool readCapturePathLocked(const String &path,CaptureDay &day){
   if(f)f.close();return ok;
 }
 bool writeCaptureFile(const CaptureDay &day){
-  if(!fsOK||!day.number||xSemaphoreTake(fsMutex,pdMS_TO_TICKS(200))!=pdTRUE)return false;
+  // An incomplete directory recovery is not permission to create or retire
+  // files: the NVS owner can retain verified captures for supervised recovery.
+  if(!captureRecoveryScanComplete||!fsOK||!day.number||
+     xSemaphoreTake(fsMutex,pdMS_TO_TICKS(200))!=pdTRUE)return false;
   // Rescue a fully flushed staging record before opening that name with truncation.
   File pending=LittleFS.open("/capture.pending","r");CaptureDay staged;uint8_t recovered[CAPTURE_RECORD_SIZE];
   size_t stagedSize=pending?pending.size():0;
@@ -602,7 +605,11 @@ void loadCaptures(){
   CaptureDay saved;bool found=readCaptureNVS("captures",saved);captureNVSOK=found;captureRecoverySource=found?"nvs":"none";
   // Also recover the latest complete on-flash record if NVS lagged or was damaged.
   if(fsOK){
-   if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
+   // Startup cursor reads and an active archive recovery can briefly own
+   // fsMutex. Allow a bounded boot handoff rather than permanently disabling
+   // capture advancement after a single 100-ms contention.
+   esp_task_wdt_reset();
+   if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(1000))==pdTRUE){
     CaptureRecoveryIndex index;
     File root=LittleFS.open("/");
     if(root){
@@ -1271,7 +1278,15 @@ void acquisition(void *) {
     }else state.utc=0;
     if(rtcOK){
       uint32_t number=(utc+LOCAL_OFFSET)/86400;
-      if(!advanceCaptureDay(number)){captureBacklog=true;setError("Checkpoint storage is full. Earlier records protected","capture_storage_blocked");}
+      if(!advanceCaptureDay(number)){
+        captureBacklog=true;
+        if(!captureRecoveryScanComplete)
+          setError("Capture recovery incomplete. Flash archive writes paused; inspect storage",
+                   "capture_recovery_scan_limit");
+        else
+          setError("Checkpoint storage is full. Earlier records protected",
+                   "capture_storage_blocked");
+      }
       if(captureLog.tick(utc))saveCaptures();
     }
     if(captureLog.day.number&&uint32_t(millis()-lastCaptureSave)>=5000&&(!captureNVSOK||!captureFSOK||capturePending.number)){retryCaptureBacklog();saveCaptures();}

@@ -21,7 +21,12 @@ struct CaptureRecoveryIndex {
     for(unsigned i=0;i<count;++i)if(days[i]==day)return true;
     unsigned pos=0;
     while(pos<count&&days[pos]>day)++pos;
-    if(pos>=MaxDays)return true;
+    if(pos>=MaxDays){
+      // More than 64 distinct historical days were found. Do not pretend the
+      // newest-day index is a complete view of the filesystem.
+      complete=false;
+      return true;
+    }
     if(count<MaxDays)++count;
     for(unsigned i=count-1;i>pos;--i)days[i]=days[i-1];
     days[pos]=day;

@@ -87,6 +87,17 @@ int main(){
   assert(!index.observe("c20763.bin")&&!index.complete);
   assert(index.days[0]==20761); // A partial scan is never considered complete.
  }
+ // More than 64 distinct canonical days require explicit operator review.
+ {CaptureRecoveryIndex index;
+  for(unsigned n=0;n<CaptureRecoveryIndex::MaxDays;++n){
+    const std::string name="c"+std::to_string(20000+n)+".bin";
+    assert(index.observe(name.c_str()));
+  }
+  assert(index.complete&&index.count==CaptureRecoveryIndex::MaxDays);
+  assert(index.observe("c19999.bin"));
+  assert(!index.complete); // Never silently omit an older distinct day.
+  assert(index.days[0]==20063);
+ }
  {CaptureDay a,b;assert(decodeCaptureDay(old.data(),old.size(),a));b=a;++b.generation;assert(newerCaptureDay(b,a));CaptureTracker reboot;reboot.restore(a);assert(!reboot.continuous&&reboot.day.points[0].status==CAPTURE_RECORDED);}
  Frame sent;sent.type=HELLO;sent.network=1;sent.source=2;sent.destination=1;sent.sequence=7;sent.session=0x0807060504030201ULL;sent.length=3;sent.payload[0]=3;sent.payload[1]=7;sent.payload[2]=0;
  uint8_t frame[MAX_PACKET]={};size_t size=encodeFrame(sent,frame);assert(size==27&&frame[0]=='E'&&frame[2]==1&&frame[12]==7&&frame[16]==1&&frame[23]==8);Frame parsed;assert(decodeFrame(frame,size,parsed)&&parsed.session==sent.session&&parsed.payload[1]==7);

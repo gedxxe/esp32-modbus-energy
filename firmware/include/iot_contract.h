@@ -129,6 +129,17 @@ inline bool heartbeat(const Binding &binding,Event &out){
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;
 }
+// Backfill never moves a verified ACK cursor forward just to catch up.
+// A historic gap may block archive delivery, but not fresh telemetry/presence.
+inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_t days){
+  return acknowledged&&latest>acknowledged&&latest-acknowledged>days;
+}
+// After a short burst of historical sends, allow due heartbeat/telemetry.
+// Both still respect the caller's global HTTP spacing and quiet-window guard.
+constexpr uint8_t BACKFILL_BURST_LIMIT=3;
+inline bool yieldBackfill(uint8_t posts,bool liveDue,bool heartbeatDue){
+  return posts>=BACKFILL_BURST_LIMIT&&(liveDue||heartbeatDue);
+}
 constexpr uint32_t TELEMETRY_PERIOD_MS=600000UL; // 10-minute accepted-reading cadence
 constexpr uint32_t MANUAL_REQUEST_TTL_SECONDS=120UL;
 // Command is only acted on after a later valid Modbus sample, not a cached

@@ -479,12 +479,19 @@ bool transmit(const Event &event,bool checkpointEvent){
   backoff(code>=500?"http_server_error":"http_unexpected_status");
   return false;
 }
-bool uploadNextCheckpoint(const Input &input){
-  if(!input.active.number||!input.durable)return false;
+enum class ArchiveAttempt : uint8_t { None, Sent, Paused };
+ArchiveAttempt uploadNextCheckpoint(const Input &input){
+  if(!input.active.number||!input.durable)return ArchiveAttempt::None;
   const uint32_t latest=input.active.number;
-  if(ack.day&&latest>ack.day+BACKFILL_DAYS){
-    report("archive_window_exceeded",4);return false;
+  if(backfillWindowExceeded(latest,ack.day,BACKFILL_DAYS)){
+    // Retention may no longer contain the oldest unacknowledged day.
+    // Never advance the cursor or fabricate acknowledgements; the operator
+    // must export/reconcile the historical gap, while new traffic continues.
+    snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_window_exceeded");
+    report("archive_window_exceeded",3);
+    return ArchiveAttempt::Paused;
   }
+  status.archiveError[0]=0;
   const uint32_t earliest=ack.day?ack.day:(latest>BACKFILL_DAYS?latest-BACKFILL_DAYS:1);
   for(uint32_t day=earliest;day<=latest;++day){
     CaptureDay record{};
@@ -496,11 +503,12 @@ bool uploadNextCheckpoint(const Input &input){
       if(result==ARCHIVE_RETRY){
         notBefore=millis()+2000UL;
         report("archive_read_retry",3);
-        return true; // Do not advance past a file busy with acquisition.
+        return ArchiveAttempt::Paused; // Never skip a busy archive.
       }
       if(result==ARCHIVE_INVALID){
-        report("archive_corrupt_needs_review",4);
-        return true; // Fail closed: no silent loss of a damaged archived day.
+        snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_corrupt_needs_review");
+        report("archive_corrupt_needs_review",3);
+        return ArchiveAttempt::Paused; // Preserve cursor and require review.
       }
       found=result==ARCHIVE_OK;
     }
@@ -515,10 +523,10 @@ bool uploadNextCheckpoint(const Input &input){
         continue;
       }
       transmit(event,true);
-      return true; // at most one HTTP request per service cycle
+      return ArchiveAttempt::Sent; // at most one HTTP request per cycle
     }
   }
-  return false;
+  return ArchiveAttempt::None;
 }
 void worker(void *){
   Input input{};
@@ -526,6 +534,7 @@ void worker(void *){
   // transfer stays disabled until a normal boot successfully mounts storage.
   if(mounted&&!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
   uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
+  uint8_t backfillBurst=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
@@ -557,19 +566,30 @@ void worker(void *){
       observedDay=input.active.number;observedRevision=input.active.revision;
       nextArchiveCheck=0;
     }
-    if(mounted&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)){
-      if(uploadNextCheckpoint(input)){nextArchiveCheck=0;continue;}
-      nextArchiveCheck=now+15000UL;
-    }
-    if(status.phase==4)continue;
-    // The credential-free GET is replaced by a registered, authenticated
-    // heartbeat. Historical probe fields remain in /api/status for compatibility.
+    // Due real-time traffic must not wait behind hundreds of historic
+    // checkpoint uploads after a long Wi-Fi outage.
     const bool requested=manualRefreshDue(pendingManualUTC,servedManualUTC,
                                          input.liveCapturedUTC,input.utc);
     const bool periodic=!lastLive||uint32_t(now-lastLive)>=TELEMETRY_PERIOD_MS;
-    if(mounted&&!hasOutstandingLive&&input.live&&
-       profiles::valid(input.profile)&&!strcmp(profiles::get(input.profile).key,binding.profile)&&
-       (periodic||requested)){
+    const bool liveDue=mounted&&input.live&&profiles::valid(input.profile)&&
+      !strcmp(profiles::get(input.profile).key,binding.profile)&&(periodic||requested);
+    const bool heartbeatReady=heartbeatDue(now,lastHeartbeatAttempt)&&
+      (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0);
+    if(mounted&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)&&
+       !yieldBackfill(backfillBurst,hasOutstandingLive||liveDue,heartbeatReady)){
+      const ArchiveAttempt attempt=uploadNextCheckpoint(input);
+      if(attempt==ArchiveAttempt::Sent){
+        if(backfillBurst<BACKFILL_BURST_LIMIT)++backfillBurst;
+        nextArchiveCheck=0;
+        continue;
+      }
+      // Do not spin on a missing, invalid or temporarily busy old archive.
+      // Its failure stays visible in archiveError; new data still flows.
+      nextArchiveCheck=now+15000UL;
+    }
+    if(status.phase==4)continue;
+    // Presence uses the same authenticated HTTPS route as readings.
+    if(mounted&&!hasOutstandingLive&&liveDue){
       ++liveSequence;
       if(!liveSequence)++liveSequence;
       if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive,
@@ -581,6 +601,7 @@ void worker(void *){
     // A queued reading always has priority; heartbeat cannot starve backlog.
     // Both use the same request spacing, verified TLS and quiet-window guard.
     if(hasOutstandingLive){
+      backfillBurst=0;
       if(transmit(outstandingLive,false)){
         hasOutstandingLive=false;lastLive=millis();
         if(outstandingManualUTC){
@@ -592,8 +613,8 @@ void worker(void *){
       }
       continue;
     }
-    if(heartbeatDue(now,lastHeartbeatAttempt)&&
-       (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0)){
+    if(heartbeatReady){
+      backfillBurst=0;
       transmitHeartbeat(input.utc);
       continue;
     }

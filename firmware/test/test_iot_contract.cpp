@@ -147,6 +147,12 @@ int main(){
   // Historical backfill must not permanently disable live 10-minute readings
   // or the independent authenticated heartbeat.
   assert(iot::BACKFILL_BURST_LIMIT==3);
+  assert(!iot::retryDelayPending(1000,0));
+  assert(iot::retryDelayPending(1000,2000));
+  assert(!iot::retryDelayPending(2000,2000));
+  assert(!iot::retryDelayPending(2001,2000));
+  assert(iot::retryDelayPending(UINT32_MAX-20,30)); // deadline after millis wrap
+  assert(!iot::retryDelayPending(30,30));
   assert(!iot::backfillWindowExceeded(20762,0,30));
   assert(!iot::backfillWindowExceeded(20762,20761,30));
   assert(!iot::backfillWindowExceeded(20762,20732,30));

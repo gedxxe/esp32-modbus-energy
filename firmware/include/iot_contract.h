@@ -134,6 +134,11 @@ inline bool heartbeat(const Binding &binding,Event &out){
 inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_t days){
   return acknowledged&&latest>acknowledged&&latest-acknowledged>days;
 }
+// A reading timeout must not suppress the independently scheduled heartbeat.
+// Wrap-safe for bounded retry windows (at most minutes, not 2^31 ms).
+inline bool retryDelayPending(uint32_t now,uint32_t deadline){
+  return deadline&&int32_t(now-deadline)<0;
+}
 // After a short burst of historical sends, allow due heartbeat/telemetry.
 // Both still respect the caller's global HTTP spacing and quiet-window guard.
 constexpr uint8_t BACKFILL_BURST_LIMIT=3;

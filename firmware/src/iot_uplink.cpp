@@ -112,6 +112,9 @@ Status status{};
 Cursor ack{};
 uint32_t fingerprint=0;
 uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0,notBefore=0;
+// A server HTTP 429 is shared across event types; ordinary network failures
+// only back off their own reading/heartbeat transport.
+uint32_t serverRateLimitUntil=0;
 uint32_t pendingManualUTC=0,outstandingManualUTC=0,servedManualUTC=0;
 uint32_t lastHeartbeatAttempt=0,heartbeatNotBefore=0;
 uint8_t consecutiveFailures=0,heartbeatConsecutiveFailures=0;
@@ -308,6 +311,8 @@ void backoff(const char *reason,uint32_t retrySeconds=0){
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
   notBefore=millis()+delayMs;
+  if(reason&&!strcmp(reason,"http_rate_limited"))
+    serverRateLimitUntil=notBefore;
   report(reason,3,status.httpStatus);
 }
 bool serverError(const Response &response,const char *code){
@@ -327,6 +332,8 @@ void heartbeatBackoff(const char *reason,uint32_t retrySeconds=0){
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
   heartbeatNotBefore=millis()+delayMs;
+  if(reason&&!strcmp(reason,"heartbeat_rate_limited"))
+    serverRateLimitUntil=heartbeatNotBefore;
   snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
   report(reason,3,status.heartbeatHttp);
 }
@@ -564,7 +571,9 @@ void worker(void *){
     }
     if(status.phase==4)continue;
     uint32_t now=millis();
-    if(int32_t(now-notBefore)<0||uint32_t(now-lastSend)<MIN_SEND_PERIOD_MS)continue;
+    if(retryDelayPending(now,serverRateLimitUntil)||
+       uint32_t(now-lastSend)<MIN_SEND_PERIOD_MS)continue;
+    const bool readingPaused=retryDelayPending(now,notBefore);
     // Keep HTTPS handshakes off the five-second Modbus checkpoint window.
     if(checkpointWindowProtected(input.utc)){
       if(status.phase!=1||strcmp(status.error,"checkpoint_window_hold"))
@@ -591,11 +600,12 @@ void worker(void *){
     const bool requested=manualRefreshDue(pendingManualUTC,servedManualUTC,
                                          input.liveCapturedUTC,input.utc);
     const bool periodic=!lastLive||uint32_t(now-lastLive)>=TELEMETRY_PERIOD_MS;
-    const bool liveDue=mounted&&input.live&&profiles::valid(input.profile)&&
+    const bool liveDue=!readingPaused&&mounted&&input.live&&profiles::valid(input.profile)&&
       !strcmp(profiles::get(input.profile).key,binding.profile)&&(periodic||requested);
     const bool heartbeatReady=heartbeatDue(now,lastHeartbeatAttempt)&&
       (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0);
-    if(mounted&&archiveCursorReady&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)&&
+    if(mounted&&!readingPaused&&archiveCursorReady&&
+       (!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)&&
        !yieldBackfill(backfillBurst,hasOutstandingLive||liveDue,heartbeatReady)){
       const ArchiveAttempt attempt=uploadNextCheckpoint(input);
       if(attempt==ArchiveAttempt::Sent){
@@ -620,7 +630,7 @@ void worker(void *){
     }
     // A queued reading always has priority; heartbeat cannot starve backlog.
     // Both use the same request spacing, verified TLS and quiet-window guard.
-    if(hasOutstandingLive){
+    if(hasOutstandingLive&&!readingPaused){
       backfillBurst=0;
       if(transmit(outstandingLive,false)){
         hasOutstandingLive=false;lastLive=millis();

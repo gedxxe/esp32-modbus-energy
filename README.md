@@ -8,7 +8,7 @@
 
 For multi-unit deployment, see [fleet readiness](docs/FLEET_READINESS.md). New stations require a saved meter profile before recording.
 
-Configure Wi-Fi (including Enterprise) and LoRa in the local panel. Guides: [Wi-Fi Enterprise](docs/ENTERPRISE_WIFI.md) and [LoRa](docs/LORA.md). An **opt-in development-only** HTTPS exporter for the Energy Record IoT v1 endpoint is documented in [HTTPS uplink](docs/IOT_HTTPS.md); disabled by default.
+Configure Wi-Fi (including Enterprise) and LoRa in the local panel. Guides: [Wi-Fi Enterprise](docs/ENTERPRISE_WIFI.md) and [LoRa](docs/LORA.md). An **opt-in development-only** HTTPS exporter for the Energy Record IoT v1 endpoint is documented in [HTTPS uplink](docs/IOT_HTTPS.md); disabled by default. For a no-gateway factory trial, use the [direct Wi-Fi pilot checklist](docs/DIRECT_WIFI_PILOT.md).
 
 ESP32-S3 N16R8 reads Fort, Habuer, Acrel and Schneider PM5100 meters over RS485 and saves ten daily kWh checkpoints using a DS3231 RTC. Records stay on the device without Wi-Fi; the dashboard handles setup, diagnostics and export.
 

@@ -135,9 +135,10 @@ inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_
   return acknowledged&&latest>acknowledged&&latest-acknowledged>days;
 }
 // A reading timeout must not suppress the independently scheduled heartbeat.
-// Wrap-safe for bounded retry windows (at most minutes, not 2^31 ms).
-inline bool retryDelayPending(uint32_t now,uint32_t deadline){
-  return deadline&&int32_t(now-deadline)<0;
+// The IoT worker uses ESP-IDF's 64-bit monotonic time, independent of DS3231,
+// to prevent stale HTTP backoff deadlines from reactivating after months uptime.
+inline bool retryDelayPending(uint64_t now,uint64_t deadline){
+  return deadline&&now<deadline;
 }
 // After a short burst of historical sends, allow due heartbeat/telemetry.
 // Both still respect the caller's global HTTP spacing and quiet-window guard.

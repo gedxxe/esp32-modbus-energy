@@ -151,10 +151,11 @@ int main(){
   assert(iot::retryDelayPending(1000,2000));
   assert(!iot::retryDelayPending(2000,2000));
   assert(!iot::retryDelayPending(2001,2000));
-  assert(iot::retryDelayPending(UINT32_MAX-20,30)); // deadline after millis wrap
-  assert(!iot::retryDelayPending(30,30));
-  assert(iot::retryDelayPending(UINT32_MAX-20,1));
-  assert(!iot::retryDelayPending(2,1));
+  // 64-bit deadlines stay expired even after 25, 50 or 100 days uptime.
+  const uint64_t near32=uint64_t(UINT32_MAX)-20u;
+  assert(iot::retryDelayPending(near32,near32+50u));
+  assert(!iot::retryDelayPending(near32+50u,near32+50u));
+  assert(!iot::retryDelayPending(near32+uint64_t(100)*86400000u,near32+50u));
   assert(!iot::backfillWindowExceeded(20762,0,30));
   assert(!iot::backfillWindowExceeded(20762,20761,30));
   assert(!iot::backfillWindowExceeded(20762,20732,30));

@@ -14,6 +14,7 @@
 #include <esp_system.h>
 #include <esp_err.h>
 #include <esp_heap_caps.h>
+#include <esp_timer.h>
 #include <mbedtls/ssl.h>
 #include <sdkconfig.h>
 #include <sys/time.h>
@@ -73,6 +74,7 @@ static_assert(-MBEDTLS_ERR_SSL_ALLOC_FAILED==0x7F00,"Unexpected Mbed TLS allocat
 
 namespace fort { namespace iot {
 namespace {
+inline uint64_t uptimeMs(){return uint64_t(esp_timer_get_time()/1000LL);}
 constexpr char endpoint[]=IOT_DEV_ENDPOINT;
 constexpr char token[]=IOT_DEV_BEARER;
 constexpr char deviceId[]=IOT_DEV_DEVICE_ID;
@@ -111,12 +113,12 @@ Binding binding{};
 Status status{};
 Cursor ack{};
 uint32_t fingerprint=0;
-uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0,notBefore=0;
-// A server HTTP 429 is shared across event types; ordinary network failures
-// only back off their own reading/heartbeat transport.
-uint32_t serverRateLimitUntil=0;
+uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0;
+// 64-bit monotonic deadlines must not revive after millis() wraps or a long
+// offline outage; DS3231 UTC remains authoritative only for captures/TLS time.
+uint64_t notBefore=0,serverRateLimitUntil=0,heartbeatNotBefore=0;
 uint32_t pendingManualUTC=0,outstandingManualUTC=0,servedManualUTC=0;
-uint32_t lastHeartbeatAttempt=0,heartbeatNotBefore=0;
+uint32_t lastHeartbeatAttempt=0;
 uint8_t consecutiveFailures=0,heartbeatConsecutiveFailures=0;
 Event outstandingLive{};
 bool hasOutstandingLive=false;
@@ -310,8 +312,7 @@ void backoff(const char *reason,uint32_t retrySeconds=0){
   if(delayMs>300000)delayMs=300000;
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
-  notBefore=millis()+delayMs;
-  if(!notBefore)notBefore=1; // zero is the unscheduled sentinel at millis wrap
+  notBefore=uptimeMs()+delayMs;
   if(reason&&!strcmp(reason,"http_rate_limited"))
     serverRateLimitUntil=notBefore;
   report(reason,3,status.httpStatus);
@@ -332,8 +333,7 @@ void heartbeatBackoff(const char *reason,uint32_t retrySeconds=0){
   if(delayMs>300000UL)delayMs=300000UL;
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
-  heartbeatNotBefore=millis()+delayMs;
-  if(!heartbeatNotBefore)heartbeatNotBefore=1;
+  heartbeatNotBefore=uptimeMs()+delayMs;
   if(reason&&!strcmp(reason,"heartbeat_rate_limited"))
     serverRateLimitUntil=heartbeatNotBefore;
   snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
@@ -515,7 +515,7 @@ ArchiveAttempt uploadNextCheckpoint(const Input &input){
     else{
       const ArchiveRead result=readArchive(day,record);
       if(result==ARCHIVE_RETRY){
-        notBefore=millis()+2000UL;
+        notBefore=uptimeMs()+2000UL;
         report("archive_read_retry",3);
         return ArchiveAttempt::Paused; // Never skip a busy archive.
       }
@@ -549,20 +549,21 @@ void worker(void *){
   // Acquisition can own fsMutex during boot archive recovery. A transient
   // lock contention must not permanently delete the HTTPS worker task.
   bool archiveCursorReady=!mounted;
-  uint32_t cursorRetryAt=0;
-  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
+  uint64_t cursorRetryAt=0,nextArchiveCheck=0;
+  uint32_t lastRead=0,observedDay=0,observedRevision=0;
   uint8_t backfillBurst=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
-    if(mounted&&!archiveCursorReady&&(!cursorRetryAt||int32_t(millis()-cursorRetryAt)>=0)){
+    if(mounted&&!archiveCursorReady&&
+       !retryDelayPending(uptimeMs(),cursorRetryAt)){
       if(loadCursor()){
         archiveCursorReady=true;
         cursorRetryAt=0;
         if(!strcmp(status.archiveError,"archive_lock_busy"))status.archiveError[0]=0;
         report("waiting_for_wifi_rtc",1);
       }else{
-        cursorRetryAt=millis()+2000UL;
+        cursorRetryAt=uptimeMs()+2000UL;
         snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_lock_busy");
         report("archive_lock_busy",3);
       }
@@ -573,9 +574,10 @@ void worker(void *){
     }
     if(status.phase==4)continue;
     uint32_t now=millis();
-    if(retryDelayPending(now,serverRateLimitUntil)||
+    const uint64_t monotonic=uptimeMs();
+    if(retryDelayPending(monotonic,serverRateLimitUntil)||
        uint32_t(now-lastSend)<MIN_SEND_PERIOD_MS)continue;
-    const bool readingPaused=retryDelayPending(now,notBefore);
+    const bool readingPaused=retryDelayPending(monotonic,notBefore);
     // Keep HTTPS handshakes off the five-second Modbus checkpoint window.
     if(checkpointWindowProtected(input.utc)){
       if(status.phase!=1||strcmp(status.error,"checkpoint_window_hold"))
@@ -605,9 +607,9 @@ void worker(void *){
     const bool liveDue=!readingPaused&&mounted&&input.live&&profiles::valid(input.profile)&&
       !strcmp(profiles::get(input.profile).key,binding.profile)&&(periodic||requested);
     const bool heartbeatReady=heartbeatDue(now,lastHeartbeatAttempt)&&
-      (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0);
+      !retryDelayPending(monotonic,heartbeatNotBefore);
     if(mounted&&!readingPaused&&archiveCursorReady&&
-       (!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)&&
+       !retryDelayPending(monotonic,nextArchiveCheck)&&
        !yieldBackfill(backfillBurst,hasOutstandingLive||liveDue,heartbeatReady)){
       const ArchiveAttempt attempt=uploadNextCheckpoint(input);
       if(attempt==ArchiveAttempt::Sent){
@@ -617,7 +619,7 @@ void worker(void *){
       }
       // Do not spin on a missing, invalid or temporarily busy old archive.
       // Its failure stays visible in archiveError; new data still flows.
-      nextArchiveCheck=now+15000UL;
+      nextArchiveCheck=monotonic+15000UL;
     }
     if(status.phase==4)continue;
     // Presence uses the same authenticated HTTPS route as readings.

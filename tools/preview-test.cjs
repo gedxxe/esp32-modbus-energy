@@ -867,19 +867,25 @@ async function checkVectors(browser, out) {
     malformedNetwork=false;await refresh();await page.waitForFunction(() => !document.getElementById("network-save")?.disabled);
     assert.equal(await page.locator("#network-ap-ip").inputValue(),"192.168.9.1", "A malformed refresh must not erase the operator draft");
     const rescanWiFi=async()=>{
-      // Wait for a NEW scanning state before the request, then a terminal
-      // result. Waiting only for "!disabled" raced React state updates on CI:
-      // the old ready UI was briefly enabled while the new POST was pending.
+      // A click can trigger its POST before React presents the short-lived
+      // disabled state. Test the actual mock-server generation and the matching
+      // terminal view instead of sampling that fleeting UI transition.
+      const before=wifiScanRequests;
       const posted=page.waitForRequest(request=>request.method()==="POST"&&request.url()===origin+"/api/network/scan");
       await page.locator("#wifi-rescan").click();
-      await page.waitForFunction(()=>document.getElementById("wifi-rescan")?.disabled);
       await posted;
-      await page.waitForFunction(()=>{
+      // The mock increments its generation only after parsing the POST body.
+      for(let attempt=0;attempt<100&&wifiScanRequests===before;++attempt)
+        await new Promise(resolve=>setTimeout(resolve,20));
+      assert(wifiScanRequests>before,"Wi-Fi rescan POST body must be accepted");
+      const expected=wifiScanGeneration;
+      await page.waitForFunction(generation=>{
         const button=document.getElementById("wifi-rescan");
         const message=document.getElementById("wifi-scan-status")?.textContent||"";
-        return button&&!button.disabled&&
+        const detail=document.getElementById("wifi-scan-detail")?.textContent||"";
+        return button&&!button.disabled&&detail.includes("Scan #"+generation+" ")&&
           (message.includes("networks found")||message.includes("radio scan failed"));
-      },null,{timeout:20000});
+      },expected,{timeout:20000});
     };
     const scanRequestsBeforeRefresh=wifiScanRequests;
     await rescanWiFi();

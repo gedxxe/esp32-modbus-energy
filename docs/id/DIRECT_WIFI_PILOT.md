@@ -24,7 +24,7 @@ Panduan ini untuk **pilot terawasi**, bukan bukti perangkat siap beroperasi tanp
 | `iot.lastAckDay` / `iot.lastAckSlot` | Bergerak hanya setelah server ACK dan penyimpanan cursor lokal berhasil |
 | `iot.archiveError` | Ada masalah arsip historis yang perlu diperiksa; telemetry baru/heartbeat belum tentu terganggu |
 
-Jika `archive_window_exceeded`, arsip historis lebih lama daripada jendela backfill 30 hari dan tidak boleh dilewati dengan menggeser cursor secara paksa. Jika `archive_corrupt_needs_review`, backup arsip harus diperiksa. Jika `archive_lock_busy`, worker mencoba kembali saat mutex filesystem tersedia. Error sejarah ini **tidak berarti sejarah sudah tersinkronisasi**, meskipun heartbeat dan telemetry baru berhasil.
+Jika `archive_window_exceeded`, arsip historis lebih lama daripada jendela backfill 30 hari dan tidak boleh dilewati dengan menggeser cursor secara paksa. Jika `archive_corrupt_needs_review`, backup arsip harus diperiksa. Jika `archive_lock_busy`, worker mencoba kembali saat mutex filesystem tersedia. Jika `archive_cursor_corrupt`, file ACK tersimpan ada tetapi tidak dapat divalidasi; unggahan sejarah dihentikan tanpa menggeser cursor atau menghapus file, sementara heartbeat dan telemetri baru dapat tetap berjalan. Error sejarah ini **tidak berarti sejarah sudah tersinkronisasi**, meskipun heartbeat dan telemetry baru berhasil.
 
 ## Skenario trial yang wajib dilakukan secara terawasi
 
@@ -32,7 +32,7 @@ Jika `archive_window_exceeded`, arsip historis lebih lama daripada jendela backf
 - Uji timeout server, 429, 503, sertifikat TLS invalid, ACK tidak cocok dan respons duplikat pada website development. Pastikan tidak ada bearer tersebar, HTTP downgrade, data kWh nol palsu atau angka hasil interpolasi.
 - Matikan dan hidupkan perangkat di luar serta dekat jadwal checkpoint. Periksa catatan raw, waktu RTC, NVS/LittleFS dan idempotency event ID.
 - Pada perangkat uji khusus, buat `/capture.pending` rusak. Pastikan file rusak dikarantina, bukan langsung ditimpa. Ketika rename gagal atau sembilan slot karantina penuh, penyimpanan harus gagal secara aman.
-- Pada filesystem uji, buat lebih dari 256 entri direktori; arsip terbaru harus tetap ditemukan. Bila melebihi 4.096 entri yang diinspeksi, pemulihan harus ditandai tidak lengkap dan pergantian hari checkpoint diblokir.
+- Pada filesystem uji, buat lebih dari 256 entri direktori; arsip terbaru harus tetap ditemukan. Bila melebihi 4.096 entri yang diinspeksi atau ada lebih dari 64 hari arsip berbeda, pemulihan harus ditandai tidak lengkap dan pergantian hari checkpoint **serta penulisan file arsip** diblokir; salinan NVS dipertahankan.
 - Simulasikan outage backfill lebih dari 30 hari menggunakan pengujian terkontrol **tanpa memutar waktu RTC di meter operasional**. Heartbeat dan nilai baru tetap dikirim; sejarah yang tertinggal harus diekspor dan direkonsiliasi oleh operator.
 - Lakukan soak test fisik 24–72 jam: catat reset reason, heap minimum dan largest block, stack watermark, status Modbus, timestamp, missed checkpoint, retry HTTPS, Wi-Fi reconnect, serta penerimaan heartbeat.
 

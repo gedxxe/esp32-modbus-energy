@@ -164,13 +164,19 @@ bool readCursorFile(const char *path,Cursor &candidate){
   bool ok=f.size()==CURSOR_SIZE&&f.read(bytes,sizeof(bytes))==sizeof(bytes);
   f.close();return ok&&decodeCursor(bytes,candidate);
 }
-bool loadCursor(){
-  if(xSemaphoreTake(filesystem,pdMS_TO_TICKS(200))!=pdTRUE)return false;
-  Cursor a{},b{};bool first=readCursorFile(ACK_A,a),second=readCursorFile(ACK_B,b);
+enum class CursorLoad : uint8_t { Ready, Busy, Corrupt };
+CursorLoad loadCursor(){
+  if(xSemaphoreTake(filesystem,pdMS_TO_TICKS(200))!=pdTRUE)return CursorLoad::Busy;
+  const bool existsA=LittleFS.exists(ACK_A),existsB=LittleFS.exists(ACK_B);
+  Cursor a{},b{};
+  const bool first=readCursorFile(ACK_A,a),second=readCursorFile(ACK_B,b);
   xSemaphoreGive(filesystem);
+  if(cursorHistoryUnverifiable(existsA,existsB,first,second))
+    return CursorLoad::Corrupt; // Keep both files for controlled recovery.
+  ack=Cursor{};
   if(first&&(!second||a.sequence>=b.sequence)){ack=a;ack.bank=0;}
   else if(second){ack=b;ack.bank=1;}
-  reportAck();return true;
+  reportAck();return CursorLoad::Ready;
 }
 bool saveCursor(uint32_t day,uint8_t index){
   Cursor next=ack;next.day=day;next.index=index;next.sequence=ack.sequence+1;
@@ -557,15 +563,22 @@ void worker(void *){
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
     if(mounted&&!archiveCursorReady&&
        !retryDelayPending(uptimeMs(),cursorRetryAt)){
-      if(loadCursor()){
+      const CursorLoad result=loadCursor();
+      if(result==CursorLoad::Ready){
         archiveCursorReady=true;
         cursorRetryAt=0;
-        if(!strcmp(status.archiveError,"archive_lock_busy"))status.archiveError[0]=0;
+        if(!strcmp(status.archiveError,"archive_lock_busy")||
+           !strcmp(status.archiveError,"archive_cursor_corrupt"))
+          status.archiveError[0]=0;
         report("waiting_for_wifi_rtc",1);
       }else{
-        cursorRetryAt=uptimeMs()+2000UL;
-        snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_lock_busy");
-        report("archive_lock_busy",3);
+        const char *reason=result==CursorLoad::Corrupt?
+          "archive_cursor_corrupt":"archive_lock_busy";
+        // Corrupt cursor bytes remain intact for offline inspection. Retrying
+        // may recover a transient read failure without ever resetting ACK.
+        cursorRetryAt=uptimeMs()+(result==CursorLoad::Corrupt?30000ULL:2000ULL);
+        snprintf(status.archiveError,sizeof(status.archiveError),"%s",reason);
+        report(reason,3);
       }
     }
     if(!input.station||!input.clock||!input.utc){

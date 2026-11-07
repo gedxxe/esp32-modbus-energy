@@ -129,6 +129,11 @@ inline bool heartbeat(const Binding &binding,Event &out){
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;
 }
+// Missing cursor files are normal for a fresh device. Existing corrupt
+// cursor files are NOT the same thing: do not silently restart history at zero.
+inline bool cursorHistoryUnverifiable(bool existsA,bool existsB,bool validA,bool validB){
+  return (existsA||existsB)&&!validA&&!validB;
+}
 // Backfill never moves a verified ACK cursor forward just to catch up.
 // A historic gap may block archive delivery, but not fresh telemetry/presence.
 inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_t days){

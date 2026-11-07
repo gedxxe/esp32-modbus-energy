@@ -156,6 +156,14 @@ int main(){
   assert(iot::retryDelayPending(near32,near32+50u));
   assert(!iot::retryDelayPending(near32+50u,near32+50u));
   assert(!iot::retryDelayPending(near32+uint64_t(100)*86400000u,near32+50u));
+  // A corrupt persisted ACK cursor must never be treated as first boot.
+  assert(!iot::cursorHistoryUnverifiable(false,false,false,false));
+  assert(iot::cursorHistoryUnverifiable(true,false,false,false));
+  assert(iot::cursorHistoryUnverifiable(false,true,false,false));
+  assert(iot::cursorHistoryUnverifiable(true,true,false,false));
+  assert(!iot::cursorHistoryUnverifiable(true,true,true,false));
+  assert(!iot::cursorHistoryUnverifiable(true,true,false,true));
+  assert(!iot::cursorHistoryUnverifiable(true,true,true,true));
   assert(!iot::backfillWindowExceeded(20762,0,30));
   assert(!iot::backfillWindowExceeded(20762,20761,30));
   assert(!iot::backfillWindowExceeded(20762,20732,30));

@@ -436,8 +436,13 @@ bool transmit(const Event &event,bool checkpointEvent){
   status.tlsFlags=result.tlsFlags;
   if((code==200||code==201)&&receiptMatches(response,event)){
     if(checkpointEvent&&!saveCursor(event.day,event.index)){
-      report("ack_storage_failed",4,code);return false;
+      // A server receipt is not durable until its local ACK cursor is saved.
+      // Retry the SAME immutable event ID (server deduplicates it), rather
+      // than losing all future live telemetry after one transient FS failure.
+      snprintf(status.archiveError,sizeof(status.archiveError),"%s","ack_storage_failed");
+      backoff("ack_storage_failed");return false;
     }
+    if(checkpointEvent)status.archiveError[0]=0;
     if(code==200)++status.duplicates;else ++status.accepted;
     status.lastAcceptedUTC=uint32_t(time(nullptr));
     consecutiveFailures=0;notBefore=0;
@@ -532,12 +537,27 @@ void worker(void *){
   Input input{};
   // A failed LittleFS mount must not suppress authenticated presence. Archive
   // transfer stays disabled until a normal boot successfully mounts storage.
-  if(mounted&&!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
+  // Acquisition can own fsMutex during boot archive recovery. A transient
+  // lock contention must not permanently delete the HTTPS worker task.
+  bool archiveCursorReady=!mounted;
+  uint32_t cursorRetryAt=0;
   uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
   uint8_t backfillBurst=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
+    if(mounted&&!archiveCursorReady&&(!cursorRetryAt||int32_t(millis()-cursorRetryAt)>=0)){
+      if(loadCursor()){
+        archiveCursorReady=true;
+        cursorRetryAt=0;
+        if(!strcmp(status.archiveError,"archive_lock_busy"))status.archiveError[0]=0;
+        report("waiting_for_wifi_rtc",1);
+      }else{
+        cursorRetryAt=millis()+2000UL;
+        snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_lock_busy");
+        report("archive_lock_busy",3);
+      }
+    }
     if(!input.station||!input.clock||!input.utc){
       if(status.phase!=4)report("waiting_for_wifi_rtc",1);
       continue;
@@ -575,7 +595,7 @@ void worker(void *){
       !strcmp(profiles::get(input.profile).key,binding.profile)&&(periodic||requested);
     const bool heartbeatReady=heartbeatDue(now,lastHeartbeatAttempt)&&
       (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0);
-    if(mounted&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)&&
+    if(mounted&&archiveCursorReady&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)&&
        !yieldBackfill(backfillBurst,hasOutstandingLive||liveDue,heartbeatReady)){
       const ArchiveAttempt attempt=uploadNextCheckpoint(input);
       if(attempt==ArchiveAttempt::Sent){

@@ -153,6 +153,8 @@ int main(){
   assert(!iot::retryDelayPending(2001,2000));
   assert(iot::retryDelayPending(UINT32_MAX-20,30)); // deadline after millis wrap
   assert(!iot::retryDelayPending(30,30));
+  assert(iot::retryDelayPending(UINT32_MAX-20,1));
+  assert(!iot::retryDelayPending(2,1));
   assert(!iot::backfillWindowExceeded(20762,0,30));
   assert(!iot::backfillWindowExceeded(20762,20761,30));
   assert(!iot::backfillWindowExceeded(20762,20732,30));

@@ -601,7 +601,8 @@ void saveCaptures(){
 void loadCaptures(){
   CaptureDay saved;bool found=readCaptureNVS("captures",saved);captureNVSOK=found;captureRecoverySource=found?"nvs":"none";
   // Also recover the latest complete on-flash record if NVS lagged or was damaged.
-  if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
+  if(fsOK){
+   if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){
     CaptureRecoveryIndex index;
     File root=LittleFS.open("/");
     if(root){
@@ -630,6 +631,11 @@ void loadCaptures(){
         break;
       }
     }
+   }else{
+     captureRecoveryScanComplete=false;
+     setError("Capture recovery scan cannot acquire filesystem lock",
+              "capture_recovery_scan_busy");
+   }
   }
   // A flushed temporary record can survive power loss before its final rename.
   if(fsOK&&xSemaphoreTake(fsMutex,pdMS_TO_TICKS(100))==pdTRUE){

@@ -311,6 +311,7 @@ void backoff(const char *reason,uint32_t retrySeconds=0){
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
   notBefore=millis()+delayMs;
+  if(!notBefore)notBefore=1; // zero is the unscheduled sentinel at millis wrap
   if(reason&&!strcmp(reason,"http_rate_limited"))
     serverRateLimitUntil=notBefore;
   report(reason,3,status.httpStatus);
@@ -332,6 +333,7 @@ void heartbeatBackoff(const char *reason,uint32_t retrySeconds=0){
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
   heartbeatNotBefore=millis()+delayMs;
+  if(!heartbeatNotBefore)heartbeatNotBefore=1;
   if(reason&&!strcmp(reason,"heartbeat_rate_limited"))
     serverRateLimitUntil=heartbeatNotBefore;
   snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);

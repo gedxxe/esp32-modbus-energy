@@ -16,7 +16,8 @@ static std::vector<std::string> calls;
 static std::string failAt,identity,username,password,domain;
 static bool stationOK=true,clockOK=true,caOK=true,bundle=false,timeDisabled=true,autoConnect=false;
 static unsigned stationConnectCalls=0,espConnectCalls=0,earlyAssocCalls=0;
-static bool corruptReadback=false,stationConfigOK=true,dhcpPrepared=false;
+static bool corruptReadback=false,corruptFinalReadback=false,stationConfigOK=true,dhcpPrepared=false;
+static bool finalConfigWritten=false;
 static int security=0,method=0;
 static int api(const char *step){calls.emplace_back(step);return failAt==step?1234:ESP_OK;}
 bool TestSTA::begin(bool tryConnect){
@@ -32,15 +33,18 @@ bool TestSTA::connect(const char *ssid,const char*,int,const uint8_t*,bool conne
   memcpy(config.sta.ssid,ssid,strlen(ssid));
   config.sta.threshold.rssi=-127;
   config.sta.pmf_cfg.capable=true;
+  finalConfigWritten=false;
   dhcpPrepared=true; // Pinned STA.connect(...,false) configures DHCPC.
   return true;
 }
 void TestWiFi::setMinSecurity(int value){security=value;}
 int esp_wifi_get_config(int,wifi_config_t *out){
-  *out=config;if(corruptReadback)out->sta.bssid_set=true;
+  *out=config;
+  if(corruptReadback&&!finalConfigWritten)out->sta.bssid_set=true;
+  if(corruptFinalReadback&&finalConfigWritten)out->sta.threshold.authmode=WIFI_AUTH_WPA_PSK;
   return api("get_config");
 }
-int esp_wifi_set_config(int,const wifi_config_t *value){config=*value;return api("set_config");}
+int esp_wifi_set_config(int,const wifi_config_t *value){config=*value;finalConfigWritten=true;return api("set_config");}
 int esp_wifi_sta_enterprise_enable(){return api("enterprise_enable");}
 int esp_wifi_sta_enterprise_disable(){return api("enterprise_disable");}
 int esp_wifi_connect(){++espConnectCalls;return dhcpPrepared?api("connect"):4321;}
@@ -101,8 +105,11 @@ int main(){
   assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_prepare"));
   stationConfigOK=true;
   corruptReadback=true;
-  assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_verify"));
+  assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_verify_ssid"));
   corruptReadback=false;
+  corruptFinalReadback=true;
+  assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_verify"));
+  corruptFinalReadback=false;
   // Each new Enterprise attempt must overwrite any stale personal SSID and
   // credentials, even if the previous station driver config was different.
   config=wifi_config_t{};

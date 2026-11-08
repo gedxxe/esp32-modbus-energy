@@ -10,12 +10,12 @@ Software engineering and source-level validation for continuous operation over 3
 
 | Subsystem | Software behavior | Verification |
 | --- | --- | --- |
-| Enterprise WPA2/802.1X | Explicit `STA.begin(false)`, clean station configuration (no stale BSSID/channel/RSSI lock), verify readback and EAP-PEAP/MSCHAPv2 before the only `esp_wifi_connect()`; built-in public CA bundle when no custom CA is selected | Actual production adapter compiled with fault-injection stubs; one-connection call-order assertions |
+| Enterprise WPA2/802.1X | Pinned Arduino 3.3.11 `STA.begin(false)` and `STA.connect(...,false)` prepare SSID and DHCP without association; verify WPA2-Enterprise config and PEAP/MSCHAPv2 before the single `esp_wifi_connect()`; use default public CA bundle or pinned custom CA | Actual production adapter compiled with fault-injection stubs; one-connection call-order assertions |
 | Millisecond uptime | Network retry, preparing, connection and DHCP deadlines use modular unsigned subtraction; HTTPS long-term backoffs use 64-bit monotonic uptime | Synthetic 365-day Wi-Fi retry timeline and existing 64-bit HTTPS native regression |
 | File retention | Exact canonical current-day and 30 previous days; preserve quarantine/forensic names; never mass-delete on RTC jump | Native 365-day daily-rollover test, bounded 31-day canonical set |
 | Flash write frequency | Verified unchanged NVS/CSV snapshots skip identical writes, but corrupt/short/missing copies are rewritten through the recovery path | PR #22 native fault tests and merged CI |
 | Durable captures | Ten immutable scheduled WIB points, atomic per-record schema/CRC, staging and retained backups | Existing corruption, restart and generation tests |
-| HTTPS | Backoff, token binding and frozen immutable checkpoint replay; cloud ACK cursor advance only after verified server receipt and persisted cursor | Existing IoT native tests and separate draft PR #23 for transient live retry expiry |
+| HTTPS | Backoff, token binding and frozen immutable checkpoint replay; cloud ACK cursor advance only after verified server receipt and persisted cursor | Existing IoT native tests and merged PR #23 for transient live retry expiry |
 | LoRa | Optional protocol v1, disabled by default, no radio/Modbus changes in Enterprise PR | Unmodified native radio tests and protocol fixtures |
 
 ## Remaining software limitations requiring separate changes

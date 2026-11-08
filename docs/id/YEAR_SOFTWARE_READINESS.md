@@ -10,12 +10,12 @@ Audit kode untuk target pengoperasian 365 hari. Validasi suplai listrik, RF, aku
 
 | Bagian | Kebijakan software | Bukti pengujian |
 | --- | --- | --- |
-| Wi-Fi Enterprise | `STA.begin(false)` agar tidak ada koneksi prematur; konfigurasi SSID baru tanpa BSSID/channel lama, RSSI bebas, verifikasi baca ulang, PEAP/MSCHAPv2 dan CA; hanya satu `esp_wifi_connect()` setelah EAP aktif | Adapter produksi diuji melalui stub dengan fault injection |
+| Wi-Fi Enterprise | `STA.begin(false)` dan `STA.connect(...,false)` pada Arduino 3.3.11 menyiapkan SSID/DHCP tanpa asosiasi; verifikasi konfigurasi Enterprise, PEAP/MSCHAPv2 dan CA; satu `esp_wifi_connect()` setelah EAP aktif | Adapter produksi diuji melalui stub dengan fault injection |
 | Uptime | Deadline Wi-Fi rollover-safe; timer backoff HTTPS jangka panjang 64-bit monotonic | Simulasi retry 365 hari melewati rollover 32-bit |
 | Retensi | File canonical untuk hari ini dan 30 hari sebelumnya, tanpa menghapus file forensik/karantina | Simulasi 365 hari retensi 31 hari |
 | Flash | NVS/CSV identik tidak ditulis ulang jika isinya diverifikasi sama; data rusak tetap diperbaiki melalui jalur recovery | PR #22, fault test |
 | Capture | Sepuluh checkpoint kWh aktual per hari, timestamp dan CRC, staging/backup | Unit test lama dan regresi |
-| Cloud | ACK cursor setelah tanda terima server dan penulisan lokal terverifikasi; retry checkpoint immutable | IoT native test dan PR #23 terpisah untuk expiry live |
+| Cloud | ACK cursor setelah tanda terima server dan penulisan lokal terverifikasi; retry checkpoint immutable | IoT native test dan PR #23 yang sudah merged untuk expiry live |
 | LoRa | Radio opsional dan protokol v1 tidak diubah | Regression test existing |
 
 ## Risiko software yang belum selesai

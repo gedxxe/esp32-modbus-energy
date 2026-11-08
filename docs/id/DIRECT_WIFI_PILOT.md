@@ -19,7 +19,7 @@ Panduan ini untuk **pilot terawasi**, bukan bukti perangkat siap beroperasi tanp
 | `iot.configured` / `iot.enabled` | Provisioning diterima / task dibuat; belum membuktikan HTTPS berhasil |
 | `iot.heartbeatAccepted` | Server memberikan ACK HTTP 200 yang cocok untuk heartbeat, biasanya setiap 60 detik |
 | `iot.accepted` / `iot.duplicates` | ACK terverifikasi untuk event **pembacaan** (201 baru / 200 duplikat) |
-| Live telemetry | Pada awal pengiriman, lalu sekitar 10 menit setelah keberhasilan terakhir; manual refresh harus mendapat sampel Modbus baru. Retry live yang lebih tua dari 10 menit kedaluwarsa dan diganti sampel terbaru, tanpa mengubah checkpoint historis |
+| Live telemetry | Pada awal pengiriman, lalu sekitar 10 menit setelah keberhasilan terakhir; manual refresh harus mendapat sampel Modbus baru |
 | Checkpoint | Sepuluh jadwal asli dalam WIB, jendela pembacaan lima detik; nilai hilang tidak boleh dibuat-buat |
 | `iot.lastAckDay` / `iot.lastAckSlot` | Bergerak hanya setelah server ACK dan penyimpanan cursor lokal berhasil |
 | `iot.archiveError` | Ada masalah arsip historis yang perlu diperiksa; telemetry baru/heartbeat belum tentu terganggu |

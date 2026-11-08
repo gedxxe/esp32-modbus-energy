@@ -152,20 +152,25 @@ int main(){
   assert(!iot::retryDelayPending(2000,2000));
   assert(!iot::retryDelayPending(2001,2000));
   // 64-bit deadlines stay expired even after 25, 50 or 100 days uptime.
-  // Live snapshots must not remain frozen after an extended Wi-Fi/server
-  // outage. All retries inside the TTL retain the same immutable JSON/ID.
+  // Live snapshots expire on a 64-bit monotonic timeline, never on RTC edits.
   assert(!iot::liveRetryExpired(1000,1000,600000));
   assert(!iot::liveRetryExpired(600999,1000,600000));
   assert(iot::liveRetryExpired(601000,1000,600000));
   assert(iot::liveRetryExpired(86401000,1000,600000));
-  assert(!iot::liveRetryExpired(999,1000,600000)); // monotonic regression
-  assert(!iot::liveRetryExpired(601000,1000,0)); // disabled TTL
+  assert(!iot::liveRetryExpired(999,1000,600000));
+  assert(!iot::liveRetryExpired(601000,1000,0));
   const uint64_t near32=uint64_t(UINT32_MAX)-20u;
   assert(!iot::liveRetryExpired(near32+599999u,near32,600000));
   assert(iot::liveRetryExpired(near32+600000u,near32,600000));
   assert(iot::retryDelayPending(near32,near32+50u));
   assert(!iot::retryDelayPending(near32+50u,near32+50u));
   assert(!iot::retryDelayPending(near32+uint64_t(100)*86400000u,near32+50u));
+  // An RTC backward-day recovery may proceed with disabled IoT, or only
+  // after an enabled uploader proves the on-flash ACK cursor/absence.
+  assert(iot::rtcRepairAckSafe(false,false));
+  assert(iot::rtcRepairAckSafe(false,true));
+  assert(!iot::rtcRepairAckSafe(true,false));
+  assert(iot::rtcRepairAckSafe(true,true));
   // A corrupt persisted ACK cursor must never be treated as first boot.
   assert(!iot::cursorHistoryUnverifiable(false,false,false,false));
   assert(iot::cursorHistoryUnverifiable(true,false,false,false));

@@ -19,7 +19,7 @@ This is a supervised industrial **development pilot**, not certification for una
 | `iot.configured` / `iot.enabled` | Local provisioning accepted / HTTPS worker started; neither proves a successful cloud request |
 | `iot.heartbeatAccepted`, `iot.lastHeartbeatUTC` | Authenticated matching HTTP 200 presence receipt, about every 60 seconds when due and not in a quiet window |
 | `iot.accepted` or `iot.duplicates` | Separate matching 201/200 **reading** receipt; observe the cumulative kWh on the **development** website |
-| Live readings | Once at start and about every 10 minutes **after successful telemetry acceptance**, or after an authorized fresh manual request; frozen transient retries expire after ten minutes so a restored connection can send current data |
+| Live readings | Once at start and about every 10 minutes **after successful telemetry acceptance**, or after an authorized fresh manual request |
 | Checkpoints | Original ten WIB times, 5-second acquisition window; immutable, actual timestamps and source values, not reconstructed missing readings |
 | `iot.lastAckDay` / `iot.lastAckSlot` | Only advances after server receipt **and** verified local cursor write; never advance merely to clear a backlog |
 | `iot.archiveError` | Independent historical problem requiring inspection; presence and live data can continue without claiming historical completeness |

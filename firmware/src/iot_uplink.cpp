@@ -562,10 +562,8 @@ void worker(void *){
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
-    // The website may have committed a POST while its receipt was lost.
-    // Retrying its frozen event ID is useful temporarily, but after a long
-    // outage a *live* sample is no longer current. Discard only this ephemeral
-    // retry: no checkpoint cursor, acknowledged history or manual ACK moves.
+    // Discard only an old transient live retry, not an immutable checkpoint.
+    // After a long outage, the next accepted sample gets a fresh event ID.
     if(hasOutstandingLive&&liveRetryExpired(uptimeMs(),outstandingCreatedAt,
                                              TELEMETRY_PERIOD_MS)){
       hasOutstandingLive=false;
@@ -578,6 +576,7 @@ void worker(void *){
       const CursorLoad result=loadCursor();
       if(result==CursorLoad::Ready){
         archiveCursorReady=true;
+        status.cursorVerified=true;
         cursorRetryAt=0;
         if(!strcmp(status.archiveError,"archive_lock_busy")||
            !strcmp(status.archiveError,"archive_cursor_corrupt"))

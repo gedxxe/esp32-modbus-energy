@@ -1088,8 +1088,14 @@ void processCommands(){
           if(!nvsOK||!fsOK){
             error="rtc_recovery_requires_healthy_storage";break;
           }
+          const iot::Status cloud=iot::readStatus();
+          if(!iot::rtcRepairAckSafe(cloud.enabled,cloud.cursorVerified)){
+            // Never treat an unverified or corrupt persisted cloud ACK as
+            // day zero. The operator can retry after boot cursor recovery.
+            error="rtc_recovery_ack_cursor_unverified";break;
+          }
           if(!clockRecoveryAllowed(cmd.epoch,LOCAL_OFFSET,tracker.day,
-                                   captureLog.day,capturePending,iot::readStatus().lastAckDay)){
+                                   captureLog.day,capturePending,cloud.lastAckDay)){
             error="rtc_recovery_protected_readings";break;
           }
           if(resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),
@@ -1528,6 +1534,7 @@ void webSetup() {
     iotState["localHeaderPresent"]=uplink.localHeaderPresent;
     iotState["clientRevision"]=uplink.clientRevision;
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
+    iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
     iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;

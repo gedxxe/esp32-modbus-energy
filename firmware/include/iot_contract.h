@@ -129,6 +129,12 @@ inline bool heartbeat(const Binding &binding,Event &out){
   if(n<=0||n>=int(sizeof(out.json)))return false;
   out.size=size_t(n);return true;
 }
+// Before intentionally moving the RTC backward, any enabled cloud uploader
+// must first verify its persisted ACK cursor. An unreadable old ACK must not
+// become an implicit "never uploaded" cursor at day zero.
+inline bool rtcRepairAckSafe(bool uplinkEnabled,bool cursorVerified){
+  return !uplinkEnabled||cursorVerified;
+}
 // Missing cursor files are normal for a fresh device. Existing corrupt
 // cursor files are NOT the same thing: do not silently restart history at zero.
 inline bool cursorHistoryUnverifiable(bool existsA,bool existsB,bool validA,bool validB){

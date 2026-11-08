@@ -566,6 +566,7 @@ void worker(void *){
       const CursorLoad result=loadCursor();
       if(result==CursorLoad::Ready){
         archiveCursorReady=true;
+        status.cursorVerified=true;
         cursorRetryAt=0;
         if(!strcmp(status.archiveError,"archive_lock_busy")||
            !strcmp(status.archiveError,"archive_cursor_corrupt"))

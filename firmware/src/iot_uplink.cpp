@@ -14,6 +14,7 @@
 #include <esp_system.h>
 #include <esp_err.h>
 #include <esp_heap_caps.h>
+#include <esp_timer.h>
 #include <mbedtls/ssl.h>
 #include <sdkconfig.h>
 #include <sys/time.h>
@@ -73,6 +74,7 @@ static_assert(-MBEDTLS_ERR_SSL_ALLOC_FAILED==0x7F00,"Unexpected Mbed TLS allocat
 
 namespace fort { namespace iot {
 namespace {
+inline uint64_t uptimeMs(){return uint64_t(esp_timer_get_time()/1000LL);}
 constexpr char endpoint[]=IOT_DEV_ENDPOINT;
 constexpr char token[]=IOT_DEV_BEARER;
 constexpr char deviceId[]=IOT_DEV_DEVICE_ID;
@@ -111,9 +113,12 @@ Binding binding{};
 Status status{};
 Cursor ack{};
 uint32_t fingerprint=0;
-uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0,notBefore=0;
+uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0;
+// 64-bit monotonic deadlines must not revive after millis() wraps or a long
+// offline outage; DS3231 UTC remains authoritative only for captures/TLS time.
+uint64_t notBefore=0,serverRateLimitUntil=0,heartbeatNotBefore=0;
 uint32_t pendingManualUTC=0,outstandingManualUTC=0,servedManualUTC=0;
-uint32_t lastHeartbeatAttempt=0,heartbeatNotBefore=0;
+uint32_t lastHeartbeatAttempt=0;
 uint8_t consecutiveFailures=0,heartbeatConsecutiveFailures=0;
 Event outstandingLive{};
 bool hasOutstandingLive=false;
@@ -159,13 +164,19 @@ bool readCursorFile(const char *path,Cursor &candidate){
   bool ok=f.size()==CURSOR_SIZE&&f.read(bytes,sizeof(bytes))==sizeof(bytes);
   f.close();return ok&&decodeCursor(bytes,candidate);
 }
-bool loadCursor(){
-  if(xSemaphoreTake(filesystem,pdMS_TO_TICKS(200))!=pdTRUE)return false;
-  Cursor a{},b{};bool first=readCursorFile(ACK_A,a),second=readCursorFile(ACK_B,b);
+enum class CursorLoad : uint8_t { Ready, Busy, Corrupt };
+CursorLoad loadCursor(){
+  if(xSemaphoreTake(filesystem,pdMS_TO_TICKS(200))!=pdTRUE)return CursorLoad::Busy;
+  const bool existsA=LittleFS.exists(ACK_A),existsB=LittleFS.exists(ACK_B);
+  Cursor a{},b{};
+  const bool first=readCursorFile(ACK_A,a),second=readCursorFile(ACK_B,b);
   xSemaphoreGive(filesystem);
+  if(cursorHistoryUnverifiable(existsA,existsB,first,second))
+    return CursorLoad::Corrupt; // Keep both files for controlled recovery.
+  ack=Cursor{};
   if(first&&(!second||a.sequence>=b.sequence)){ack=a;ack.bank=0;}
   else if(second){ack=b;ack.bank=1;}
-  reportAck();return true;
+  reportAck();return CursorLoad::Ready;
 }
 bool saveCursor(uint32_t day,uint8_t index){
   Cursor next=ack;next.day=day;next.index=index;next.sequence=ack.sequence+1;
@@ -307,7 +318,9 @@ void backoff(const char *reason,uint32_t retrySeconds=0){
   if(delayMs>300000)delayMs=300000;
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
-  notBefore=millis()+delayMs;
+  notBefore=uptimeMs()+delayMs;
+  if(reason&&!strcmp(reason,"http_rate_limited"))
+    serverRateLimitUntil=notBefore;
   report(reason,3,status.httpStatus);
 }
 bool serverError(const Response &response,const char *code){
@@ -326,7 +339,9 @@ void heartbeatBackoff(const char *reason,uint32_t retrySeconds=0){
   if(delayMs>300000UL)delayMs=300000UL;
   if(retrySeconds)delayMs=std::max(delayMs,std::min(retrySeconds,900UL)*1000UL);
   delayMs+=esp_random()%1500UL;
-  heartbeatNotBefore=millis()+delayMs;
+  heartbeatNotBefore=uptimeMs()+delayMs;
+  if(reason&&!strcmp(reason,"heartbeat_rate_limited"))
+    serverRateLimitUntil=heartbeatNotBefore;
   snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
   report(reason,3,status.heartbeatHttp);
 }
@@ -436,8 +451,13 @@ bool transmit(const Event &event,bool checkpointEvent){
   status.tlsFlags=result.tlsFlags;
   if((code==200||code==201)&&receiptMatches(response,event)){
     if(checkpointEvent&&!saveCursor(event.day,event.index)){
-      report("ack_storage_failed",4,code);return false;
+      // A server receipt is not durable until its local ACK cursor is saved.
+      // Retry the SAME immutable event ID (server deduplicates it), rather
+      // than losing all future live telemetry after one transient FS failure.
+      snprintf(status.archiveError,sizeof(status.archiveError),"%s","ack_storage_failed");
+      backoff("ack_storage_failed");return false;
     }
+    if(checkpointEvent)status.archiveError[0]=0;
     if(code==200)++status.duplicates;else ++status.accepted;
     status.lastAcceptedUTC=uint32_t(time(nullptr));
     consecutiveFailures=0;notBefore=0;
@@ -479,12 +499,19 @@ bool transmit(const Event &event,bool checkpointEvent){
   backoff(code>=500?"http_server_error":"http_unexpected_status");
   return false;
 }
-bool uploadNextCheckpoint(const Input &input){
-  if(!input.active.number||!input.durable)return false;
+enum class ArchiveAttempt : uint8_t { None, Sent, Paused };
+ArchiveAttempt uploadNextCheckpoint(const Input &input){
+  if(!input.active.number||!input.durable)return ArchiveAttempt::None;
   const uint32_t latest=input.active.number;
-  if(ack.day&&latest>ack.day+BACKFILL_DAYS){
-    report("archive_window_exceeded",4);return false;
+  if(backfillWindowExceeded(latest,ack.day,BACKFILL_DAYS)){
+    // Retention may no longer contain the oldest unacknowledged day.
+    // Never advance the cursor or fabricate acknowledgements; the operator
+    // must export/reconcile the historical gap, while new traffic continues.
+    snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_window_exceeded");
+    report("archive_window_exceeded",3);
+    return ArchiveAttempt::Paused;
   }
+  status.archiveError[0]=0;
   const uint32_t earliest=ack.day?ack.day:(latest>BACKFILL_DAYS?latest-BACKFILL_DAYS:1);
   for(uint32_t day=earliest;day<=latest;++day){
     CaptureDay record{};
@@ -494,13 +521,14 @@ bool uploadNextCheckpoint(const Input &input){
     else{
       const ArchiveRead result=readArchive(day,record);
       if(result==ARCHIVE_RETRY){
-        notBefore=millis()+2000UL;
+        notBefore=uptimeMs()+2000UL;
         report("archive_read_retry",3);
-        return true; // Do not advance past a file busy with acquisition.
+        return ArchiveAttempt::Paused; // Never skip a busy archive.
       }
       if(result==ARCHIVE_INVALID){
-        report("archive_corrupt_needs_review",4);
-        return true; // Fail closed: no silent loss of a damaged archived day.
+        snprintf(status.archiveError,sizeof(status.archiveError),"%s","archive_corrupt_needs_review");
+        report("archive_corrupt_needs_review",3);
+        return ArchiveAttempt::Paused; // Preserve cursor and require review.
       }
       found=result==ARCHIVE_OK;
     }
@@ -515,27 +543,54 @@ bool uploadNextCheckpoint(const Input &input){
         continue;
       }
       transmit(event,true);
-      return true; // at most one HTTP request per service cycle
+      return ArchiveAttempt::Sent; // at most one HTTP request per cycle
     }
   }
-  return false;
+  return ArchiveAttempt::None;
 }
 void worker(void *){
   Input input{};
   // A failed LittleFS mount must not suppress authenticated presence. Archive
   // transfer stays disabled until a normal boot successfully mounts storage.
-  if(mounted&&!loadCursor()){report("archive_lock_unavailable",4);vTaskDelete(nullptr);return;}
-  uint32_t lastRead=0,nextArchiveCheck=0,observedDay=0,observedRevision=0;
+  // Acquisition can own fsMutex during boot archive recovery. A transient
+  // lock contention must not permanently delete the HTTPS worker task.
+  bool archiveCursorReady=!mounted;
+  uint64_t cursorRetryAt=0,nextArchiveCheck=0;
+  uint32_t lastRead=0,observedDay=0,observedRevision=0;
+  uint8_t backfillBurst=0;
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
+    if(mounted&&!archiveCursorReady&&
+       !retryDelayPending(uptimeMs(),cursorRetryAt)){
+      const CursorLoad result=loadCursor();
+      if(result==CursorLoad::Ready){
+        archiveCursorReady=true;
+        cursorRetryAt=0;
+        if(!strcmp(status.archiveError,"archive_lock_busy")||
+           !strcmp(status.archiveError,"archive_cursor_corrupt"))
+          status.archiveError[0]=0;
+        report("waiting_for_wifi_rtc",1);
+      }else{
+        const char *reason=result==CursorLoad::Corrupt?
+          "archive_cursor_corrupt":"archive_lock_busy";
+        // Corrupt cursor bytes remain intact for offline inspection. Retrying
+        // may recover a transient read failure without ever resetting ACK.
+        cursorRetryAt=uptimeMs()+(result==CursorLoad::Corrupt?30000ULL:2000ULL);
+        snprintf(status.archiveError,sizeof(status.archiveError),"%s",reason);
+        report(reason,3);
+      }
+    }
     if(!input.station||!input.clock||!input.utc){
       if(status.phase!=4)report("waiting_for_wifi_rtc",1);
       continue;
     }
     if(status.phase==4)continue;
     uint32_t now=millis();
-    if(int32_t(now-notBefore)<0||uint32_t(now-lastSend)<MIN_SEND_PERIOD_MS)continue;
+    const uint64_t monotonic=uptimeMs();
+    if(retryDelayPending(monotonic,serverRateLimitUntil)||
+       uint32_t(now-lastSend)<MIN_SEND_PERIOD_MS)continue;
+    const bool readingPaused=retryDelayPending(monotonic,notBefore);
     // Keep HTTPS handshakes off the five-second Modbus checkpoint window.
     if(checkpointWindowProtected(input.utc)){
       if(status.phase!=1||strcmp(status.error,"checkpoint_window_hold"))
@@ -557,19 +612,31 @@ void worker(void *){
       observedDay=input.active.number;observedRevision=input.active.revision;
       nextArchiveCheck=0;
     }
-    if(mounted&&(!nextArchiveCheck||int32_t(now-nextArchiveCheck)>=0)){
-      if(uploadNextCheckpoint(input)){nextArchiveCheck=0;continue;}
-      nextArchiveCheck=now+15000UL;
-    }
-    if(status.phase==4)continue;
-    // The credential-free GET is replaced by a registered, authenticated
-    // heartbeat. Historical probe fields remain in /api/status for compatibility.
+    // Due real-time traffic must not wait behind hundreds of historic
+    // checkpoint uploads after a long Wi-Fi outage.
     const bool requested=manualRefreshDue(pendingManualUTC,servedManualUTC,
                                          input.liveCapturedUTC,input.utc);
     const bool periodic=!lastLive||uint32_t(now-lastLive)>=TELEMETRY_PERIOD_MS;
-    if(mounted&&!hasOutstandingLive&&input.live&&
-       profiles::valid(input.profile)&&!strcmp(profiles::get(input.profile).key,binding.profile)&&
-       (periodic||requested)){
+    const bool liveDue=!readingPaused&&mounted&&input.live&&profiles::valid(input.profile)&&
+      !strcmp(profiles::get(input.profile).key,binding.profile)&&(periodic||requested);
+    const bool heartbeatReady=heartbeatDue(now,lastHeartbeatAttempt)&&
+      !retryDelayPending(monotonic,heartbeatNotBefore);
+    if(mounted&&!readingPaused&&archiveCursorReady&&
+       !retryDelayPending(monotonic,nextArchiveCheck)&&
+       !yieldBackfill(backfillBurst,hasOutstandingLive||liveDue,heartbeatReady)){
+      const ArchiveAttempt attempt=uploadNextCheckpoint(input);
+      if(attempt==ArchiveAttempt::Sent){
+        if(backfillBurst<BACKFILL_BURST_LIMIT)++backfillBurst;
+        nextArchiveCheck=0;
+        continue;
+      }
+      // Do not spin on a missing, invalid or temporarily busy old archive.
+      // Its failure stays visible in archiveError; new data still flows.
+      nextArchiveCheck=monotonic+15000UL;
+    }
+    if(status.phase==4)continue;
+    // Presence uses the same authenticated HTTPS route as readings.
+    if(mounted&&!hasOutstandingLive&&liveDue){
       ++liveSequence;
       if(!liveSequence)++liveSequence;
       if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive,
@@ -580,7 +647,8 @@ void worker(void *){
     }
     // A queued reading always has priority; heartbeat cannot starve backlog.
     // Both use the same request spacing, verified TLS and quiet-window guard.
-    if(hasOutstandingLive){
+    if(hasOutstandingLive&&!readingPaused){
+      backfillBurst=0;
       if(transmit(outstandingLive,false)){
         hasOutstandingLive=false;lastLive=millis();
         if(outstandingManualUTC){
@@ -592,8 +660,8 @@ void worker(void *){
       }
       continue;
     }
-    if(heartbeatDue(now,lastHeartbeatAttempt)&&
-       (!heartbeatNotBefore||int32_t(now-heartbeatNotBefore)>=0)){
+    if(heartbeatReady){
+      backfillBurst=0;
       transmitHeartbeat(input.utc);
       continue;
     }

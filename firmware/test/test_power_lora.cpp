@@ -4,6 +4,7 @@
 #include "verified_record.h"
 #include "settings_bank.h"
 #include "capture_archive.h"
+#include "capture_recovery_scan.h"
 #include "device_identity.h"
 #include "meter_config.h"
 #include "network_settings.h"
@@ -55,6 +56,47 @@ int main(){
   auto validFile=[&](const std::string &p){auto it=fs.files.find(p);CaptureDay out;return it!=fs.files.end()&&decodeCaptureDay(it->second.data(),it->second.size(),out);};
   assert(!installVerifiedArchive(fs,std::string("next"),std::string("current"),std::string("backup"),validFile));
   assert(!validFile("current")&&validFile("backup")&&fs.files["backup"]==old);
+ }
+ // A partial brownout staging file is preserved instead of truncated.
+ {Disk fs;fs.files["/capture.pending"]={0x43,0x50,0x54};
+  assert(preserveCorruptCaptureStaging(fs,std::string("/capture.pending")));
+  assert(!fs.exists("/capture.pending"));
+  assert(fs.files["/capture.pending.bad"]==std::vector<uint8_t>({0x43,0x50,0x54}));
+  fs.files["/capture.pending"]={0xde,0xad};
+  assert(preserveCorruptCaptureStaging(fs,std::string("/capture.pending")));
+  assert(fs.files["/capture.pending.bad2"]==std::vector<uint8_t>({0xde,0xad}));
+  fs.files["/capture.pending"]={0xbe,0xef};fs.remaining=0;
+  assert(!preserveCorruptCaptureStaging(fs,std::string("/capture.pending")));
+  assert(fs.files["/capture.pending"]==std::vector<uint8_t>({0xbe,0xef}));
+  fs.remaining=-1;
+  for(unsigned n=3;n<=9;++n)
+    fs.files["/capture.pending.bad"+std::to_string(n)]={uint8_t(n)};
+  assert(!preserveCorruptCaptureStaging(fs,std::string("/capture.pending")));
+  assert(fs.files["/capture.pending"]==std::vector<uint8_t>({0xbe,0xef}));
+ }
+ // Directory order, 600 diagnostic files, duplicate backups and saturation.
+ {CaptureRecoveryIndex index;
+  for(unsigned i=0;i<600;++i)assert(index.observe("q-forensic.bin"));
+  assert(index.count==0&&index.inspected==600&&index.complete);
+  assert(index.observe("c20760.bin")&&index.observe("/c20761.bin.bak"));
+  assert(index.observe("c20761.bin")&&index.count==2);
+  assert(index.days[0]==20761&&index.days[1]==20760);
+  assert(index.observe("c20762.bin.bad")&&index.count==2);
+  for(unsigned i=index.inspected;i<CaptureRecoveryIndex::MaxEntries;++i)
+    assert(index.observe("/q-forensic.bin"));
+  assert(!index.observe("c20763.bin")&&!index.complete);
+  assert(index.days[0]==20761); // A partial scan is never considered complete.
+ }
+ // More than 64 distinct canonical days require explicit operator review.
+ {CaptureRecoveryIndex index;
+  for(unsigned n=0;n<CaptureRecoveryIndex::MaxDays;++n){
+    const std::string name="c"+std::to_string(20000+n)+".bin";
+    assert(index.observe(name.c_str()));
+  }
+  assert(index.complete&&index.count==CaptureRecoveryIndex::MaxDays);
+  assert(index.observe("c19999.bin"));
+  assert(!index.complete); // Never silently omit an older distinct day.
+  assert(index.days[0]==20063);
  }
  {CaptureDay a,b;assert(decodeCaptureDay(old.data(),old.size(),a));b=a;++b.generation;assert(newerCaptureDay(b,a));CaptureTracker reboot;reboot.restore(a);assert(!reboot.continuous&&reboot.day.points[0].status==CAPTURE_RECORDED);}
  Frame sent;sent.type=HELLO;sent.network=1;sent.source=2;sent.destination=1;sent.sequence=7;sent.session=0x0807060504030201ULL;sent.length=3;sent.payload[0]=3;sent.payload[1]=7;sent.payload[2]=0;

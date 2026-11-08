@@ -144,6 +144,36 @@ int main(){
 
   // On-demand telemetry is only emitted for a newer, validated sample;
   // the heartbeat interval and scheduled checkpoint timestamps stay unchanged.
+  // Historical backfill must not permanently disable live 10-minute readings
+  // or the independent authenticated heartbeat.
+  assert(iot::BACKFILL_BURST_LIMIT==3);
+  assert(!iot::retryDelayPending(1000,0));
+  assert(iot::retryDelayPending(1000,2000));
+  assert(!iot::retryDelayPending(2000,2000));
+  assert(!iot::retryDelayPending(2001,2000));
+  // 64-bit deadlines stay expired even after 25, 50 or 100 days uptime.
+  const uint64_t near32=uint64_t(UINT32_MAX)-20u;
+  assert(iot::retryDelayPending(near32,near32+50u));
+  assert(!iot::retryDelayPending(near32+50u,near32+50u));
+  assert(!iot::retryDelayPending(near32+uint64_t(100)*86400000u,near32+50u));
+  // A corrupt persisted ACK cursor must never be treated as first boot.
+  assert(!iot::cursorHistoryUnverifiable(false,false,false,false));
+  assert(iot::cursorHistoryUnverifiable(true,false,false,false));
+  assert(iot::cursorHistoryUnverifiable(false,true,false,false));
+  assert(iot::cursorHistoryUnverifiable(true,true,false,false));
+  assert(!iot::cursorHistoryUnverifiable(true,true,true,false));
+  assert(!iot::cursorHistoryUnverifiable(true,true,false,true));
+  assert(!iot::cursorHistoryUnverifiable(true,true,true,true));
+  assert(!iot::backfillWindowExceeded(20762,0,30));
+  assert(!iot::backfillWindowExceeded(20762,20761,30));
+  assert(!iot::backfillWindowExceeded(20762,20732,30));
+  assert(iot::backfillWindowExceeded(20763,20732,30));
+  assert(!iot::backfillWindowExceeded(20732,20763,30)); // clock moved backward: handled elsewhere
+  assert(!iot::yieldBackfill(0,true,true));
+  assert(!iot::yieldBackfill(2,true,true));
+  assert(!iot::yieldBackfill(3,false,false));
+  assert(iot::yieldBackfill(3,true,false));
+  assert(iot::yieldBackfill(3,false,true));
   assert(iot::TELEMETRY_PERIOD_MS==600000UL);
   assert(iot::HEARTBEAT_PERIOD_MS==60000UL);
   assert(iot::manualRefreshDue(1793840400UL,0,1793840402UL,1793840403UL));

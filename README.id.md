@@ -23,7 +23,7 @@ Pada **terminal komputer di root repo**, jalankan `python tools/setup-core.py` s
 
 ADL400 mengikuti hasil scan: total energi 0x0000, UInt32 / 100 × PT × CT dan float listrik ABCD. Pilihan ADL400 tetap satu tanpa submenu sumber energi. [ADL400](docs/id/ADL400_FIX.md).
 
-Pengiriman data IoT ke website Energy Record melalui HTTPS tersedia sebagai **fitur pengembangan opsional yang nonaktif secara default**. Lihat [panduan HTTPS uplink](docs/IOT_HTTPS.md); fitur ini tidak mengubah jalur Modbus, RTC, dan LoRa.
+Pengiriman data IoT ke website Energy Record melalui HTTPS tersedia sebagai **fitur pengembangan opsional yang nonaktif secara default**. Lihat [panduan HTTPS uplink](docs/IOT_HTTPS.md) dan [checklist pilot langsung via Wi-Fi](docs/id/DIRECT_WIFI_PILOT.md); fitur ini tidak mengubah jalur Modbus, RTC, dan LoRa.
 
 ## Listrik terputus dan LoRa opsional
 

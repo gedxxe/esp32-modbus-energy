@@ -520,9 +520,19 @@ void saveArchive() {
   File current=LittleFS.open(path,"r");
   bool ok=current&&verifiedFileMatches(current,csv.c_str(),csv.length());
   if(current)current.close();
+  // A leftover staging file still needs reconciliation; never skip it merely
+  // because the canonical record happens to match the current RAM view.
+  if(LittleFS.exists(temp))ok=false;
   if(!ok){
     File f=LittleFS.open(temp,"w");ok=bool(f);
     if(ok){ok=f.print(csv)==csv.length();f.flush();f.close();}
+    if(ok){
+      // Do not promote an unverified short/corrupt temporary CSV. If readback
+      // fails, leave the previous canonical+backup untouched for recovery.
+      File staged=LittleFS.open(temp,"r");
+      ok=staged&&verifiedFileMatches(staged,csv.c_str(),csv.length());
+      if(staged)staged.close();
+    }
     // Keep old copy if power is lost before the replacement is installed.
     if(ok)ok=installArchive(LittleFS,temp,path,backup);
   }

@@ -174,6 +174,13 @@ void tickNetwork(){
   NetworkEvent event;
   while(xQueueReceive(networkEventQueue,&event,0)==pdTRUE){
     if(activeNetwork.mode==NETWORK_AP||!networkAttempt.accepts(event.at))continue;
+    // A delayed DISCONNECTED callback for the old SSID must not abort the new
+    // connection attempt. A prior LOST_IP cannot belong to a still-addressing
+    // attempt; the latter already has a bounded DHCP timeout.
+    if((event.type==ARDUINO_EVENT_WIFI_STA_CONNECTED||
+        event.type==ARDUINO_EVENT_WIFI_STA_DISCONNECTED)&&
+       !wifiEventMatchesSSID(activeNetwork.ssid,event.ssid))continue;
+    if(event.type==ARDUINO_EVENT_WIFI_STA_LOST_IP&&networkAttempt.stage!=NetworkAttempt::ONLINE)continue;
     if(event.type==ARDUINO_EVENT_WIFI_STA_CONNECTED){
       if(!strcmp(event.ssid,activeNetwork.ssid))networkAttempt.associated(event.at);
     }else if(event.type==ARDUINO_EVENT_WIFI_STA_GOT_IP){
@@ -2072,7 +2079,11 @@ void setup() {
   WiFi.onEvent([](WiFiEvent_t type,WiFiEventInfo_t info){
     if(type!=ARDUINO_EVENT_WIFI_STA_DISCONNECTED&&type!=ARDUINO_EVENT_WIFI_STA_CONNECTED&&type!=ARDUINO_EVENT_WIFI_STA_GOT_IP&&type!=ARDUINO_EVENT_WIFI_STA_LOST_IP)return;
     NetworkEvent event;event.type=type;event.at=millis();
-    if(type==ARDUINO_EVENT_WIFI_STA_DISCONNECTED)event.reason=info.wifi_sta_disconnected.reason;
+    if(type==ARDUINO_EVENT_WIFI_STA_DISCONNECTED){
+      event.reason=info.wifi_sta_disconnected.reason;
+      memcpy(event.ssid,info.wifi_sta_disconnected.ssid,
+             std::min(size_t(info.wifi_sta_disconnected.ssid_len),sizeof(event.ssid)-1));
+    }
     if(type==ARDUINO_EVENT_WIFI_STA_CONNECTED)memcpy(event.ssid,info.wifi_sta_connected.ssid,std::min(size_t(info.wifi_sta_connected.ssid_len),sizeof(event.ssid)-1));
     if(xQueueSend(networkEventQueue,&event,0)!=pdTRUE)++networkEventDrops;
   });

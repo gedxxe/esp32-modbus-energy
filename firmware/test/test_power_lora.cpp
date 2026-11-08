@@ -18,11 +18,22 @@
 #define assert(x) do{if(!(x)){std::cerr<<"FAIL power/LoRa line "<<__LINE__<<": "<<#x<<"\n";std::exit(1);}}while(0)
 using namespace fort;
 struct Store {
- std::map<std::string,std::vector<uint8_t>> data;int cut=-1;bool lie=false,wrongRead=false;
+ std::map<std::string,std::vector<uint8_t>> data;int cut=-1,putCalls=0;bool lie=false,wrongRead=false;
  bool isKey(const char *key){return data.count(key);}
  size_t getBytesLength(const char *key){return data[key].size();}
  size_t getBytes(const char *key,void *p,size_t n){size_t count=std::min(n,data[key].size());memcpy(p,data[key].data(),count);if(wrongRead&&count)static_cast<uint8_t*>(p)[0]^=1;return count;}
- size_t putBytes(const char *key,const void *p,size_t n){size_t count=cut<0?n:std::min(n,size_t(cut));const auto *bytes=static_cast<const uint8_t*>(p);data[key]=std::vector<uint8_t>(bytes,bytes+count);if(lie&&count)data[key][0]^=1;return lie?n:count;}
+ size_t putBytes(const char *key,const void *p,size_t n){++putCalls;size_t count=cut<0?n:std::min(n,size_t(cut));const auto *bytes=static_cast<const uint8_t*>(p);data[key]=std::vector<uint8_t>(bytes,bytes+count);if(lie&&count)data[key][0]^=1;return lie?n:count;}
+};
+struct ByteReader {
+ std::vector<uint8_t> data;size_t position=0;bool shortRead=false;
+ size_t size()const{return data.size();}
+ size_t read(uint8_t *out,size_t n){
+  if(shortRead&&n>1)--n;
+  const size_t available=data.size()-std::min(position,data.size());
+  n=std::min(n,available);
+  if(n)memcpy(out,data.data()+position,n);
+  position+=n;return n;
+ }
 };
 struct Disk {
  std::map<std::string,std::vector<uint8_t>> files;int remaining=-1;bool corruptPromotion=false;
@@ -43,6 +54,29 @@ int main(){
  uint8_t bytes[SETTINGS_SIZE];encodeSettings(base,1,bytes);lora::Settings decoded;uint32_t generation;
  for(size_t i=0;i<sizeof(bytes);++i){bytes[i]^=1;assert(!decodeSettings(bytes,sizeof(bytes),decoded,generation));bytes[i]^=1;}
  {Store s;uint8_t payload[8]={1,2,3,4},verify[8];assert(verifiedPut(s,"record",payload,verify,sizeof(payload)));s.lie=true;assert(!verifiedPut(s,"record",payload,verify,sizeof(payload)));s.lie=false;s.wrongRead=true;assert(!verifiedPut(s,"record",payload,verify,sizeof(payload)));}
+ // Identical verified writes must not consume more NVS cycles; changed or
+ // corrupt records must still take the original readback-verified write path.
+ {Store s;uint8_t payload[8]={1,2,3,4},verify[8]={};assert(verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload)));
+  assert(s.putCalls==1);
+  for(int n=0;n<300;++n)assert(verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload)));
+  assert(s.putCalls==1); // 300 unchanged five-minute checkpoints
+  payload[3]=9;assert(verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload))&&s.putCalls==2);
+  s.data["day"][0]^=1;assert(verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload))&&s.putCalls==3);
+  s.cut=3;payload[2]=8;assert(!verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload)));
+  s.cut=-1;assert(verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload)));
+  s.wrongRead=true;assert(!verifiedPutIfChanged(s,"day",payload,verify,sizeof(payload)));
+ }
+ // Changed CSV must be detected by byte equality, length, and short-read,
+ // not merely by the filename, size, or cache timestamp.
+ {const std::string expected="date,shift,start_wib\r\n"+std::string(140,'x');
+  ByteReader reader;reader.data.assign(expected.begin(),expected.end());
+  assert(verifiedFileMatches(reader,expected.c_str(),expected.size()));
+  reader.position=0;reader.data[99]^=1;assert(!verifiedFileMatches(reader,expected.c_str(),expected.size()));
+  reader.data[99]^=1;reader.position=0;reader.shortRead=true;
+  assert(!verifiedFileMatches(reader,expected.c_str(),expected.size()));
+  reader.shortRead=false;reader.position=0;reader.data.pop_back();
+  assert(!verifiedFileMatches(reader,expected.c_str(),expected.size()));
+ }
  {Day day;day.number=20760;assert(validLegacyDay(day));day.slots[0].quality=COMPLETE;assert(!validLegacyDay(day));day.slots[0].hasStart=day.slots[0].hasEnd=true;day.slots[0].start=10;day.slots[0].end=20;assert(validLegacyDay(day));day.slots[0].end=NAN;assert(!validLegacyDay(day));}
  auto old=record(9798),fresh=record(9800);CaptureDay restored;
  for(size_t cut=0;cut<fresh.size();++cut)assert(!decodeCaptureDay(fresh.data(),cut,restored));
@@ -97,6 +131,19 @@ int main(){
   assert(index.observe("c19999.bin"));
   assert(!index.complete); // Never silently omit an older distinct day.
   assert(index.days[0]==20063);
+ }
+ // Regression: an ascending 65th day used to replace the lowest entry
+ // without marking the scan incomplete. The index may keep the newest 64
+ // for diagnosis but must prevent writes until history is reconciled.
+ {CaptureRecoveryIndex index;
+  for(unsigned n=0;n<CaptureRecoveryIndex::MaxDays;++n){
+   const std::string name="c"+std::to_string(20000+n)+".bin";
+   assert(index.observe(name.c_str()));
+  }
+  assert(index.complete&&index.days[0]==20063&&index.days[63]==20000);
+  assert(index.observe("c20064.bin"));
+  assert(!index.complete&&index.count==64&&index.days[0]==20064&&index.days[63]==20001);
+  assert(index.observe("c20064.bin.bak")&&index.count==64);
  }
  {CaptureDay a,b;assert(decodeCaptureDay(old.data(),old.size(),a));b=a;++b.generation;assert(newerCaptureDay(b,a));CaptureTracker reboot;reboot.restore(a);assert(!reboot.continuous&&reboot.day.points[0].status==CAPTURE_RECORDED);}
  Frame sent;sent.type=HELLO;sent.network=1;sent.source=2;sent.destination=1;sent.sequence=7;sent.session=0x0807060504030201ULL;sent.length=3;sent.payload[0]=3;sent.payload[1]=7;sent.payload[2]=0;

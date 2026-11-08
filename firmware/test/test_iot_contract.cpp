@@ -219,6 +219,25 @@ int main(){
   assert(iot::heartbeatDue(61000,1000));
   assert(!iot::heartbeatDue(1000,UINT32_MAX-1000)); // wraparound
   assert(iot::heartbeatDue(61000,UINT32_MAX-1000));
+  // A transient proxy/captive-portal response is not proof of an invalid
+  // device. Only known server/iot.js rejection codes can permanently block.
+  assert(iot::confirmedIngestRejection(400,"INVALID_IOT_EVENT"));
+  assert(iot::confirmedIngestRejection(400,"INVALID_INPUT"));
+  assert(iot::confirmedIngestRejection(401,"DEVICE_UNAUTHORIZED"));
+  assert(iot::confirmedIngestRejection(403,"DEVICE_BINDING_MISMATCH"));
+  assert(iot::confirmedIngestRejection(409,"EVENT_CONFLICT"));
+  assert(iot::confirmedIngestRejection(413,"BODY_TOO_LARGE"));
+  assert(iot::confirmedIngestRejection(415,"INVALID_CONTENT_TYPE"));
+  assert(!iot::confirmedIngestRejection(200,"heartbeat"));
+  assert(!iot::confirmedIngestRejection(201,""));
+  assert(!iot::confirmedIngestRejection(302,"REDIRECT"));
+  assert(!iot::confirmedIngestRejection(400,"proxy_rejection"));
+  assert(!iot::confirmedIngestRejection(401,"LOGIN_REQUIRED"));
+  assert(!iot::confirmedIngestRejection(403,"CAPTIVE_PORTAL"));
+  assert(!iot::confirmedIngestRejection(404,"NOT_FOUND"));
+  assert(!iot::confirmedIngestRejection(409,"ALREADY_EXISTS"));
+  assert(!iot::confirmedIngestRejection(503,"IOT_NOT_CONFIGURED"));
+  assert(!iot::confirmedIngestRejection(401,nullptr));
   // A heartbeat has no day/slot and cannot affect persisted checkpoint IDs.
   assert(pulse.day==0&&pulse.index==0);
   assert(std::string(repeat.json).find("\"event_type\":\"checkpoint\"")!=std::string::npos);

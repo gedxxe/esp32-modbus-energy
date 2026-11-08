@@ -106,6 +106,7 @@ QueueHandle_t networkCAQueue,networkEventQueue;
 struct NetworkCAInput {uint32_t token=0;char pem[NETWORK_CA_MAX+1]={};};
 struct NetworkEvent {WiFiEvent_t type;uint32_t at=0;uint16_t reason=0;char ssid[33]={};};
 std::atomic<uint32_t> networkEventDrops{0};
+uint32_t networkEventOverflowCount=0; // Core-0 aggregate of callback queue overflow.
 NetworkAttempt networkAttempt;
 EnterpriseWiFi stationDriver;
 // Core-0 clock copy comes only from the existing core-1 snapshot queue.
@@ -150,7 +151,10 @@ bool startAP(uint32_t address){
   if(ready)apAddress=address;else Serial.println("[WiFi] AP start failed. Retrying without stopping acquisition");return ready;
 }
 void applyNetwork(const NetworkSettings &settings){
-  networkAttempt.idle();activeNetwork=settings;networkPolicy.begin(settings.mode,millis(),settings.auth==NETWORK_PEAP?60000:NETWORK_RETRY_MS);
+  networkAttempt.idle();activeNetwork=settings;
+  networkPolicy.begin(settings.mode,millis(),settings.auth==NETWORK_PEAP?60000:NETWORK_RETRY_MS,esp_random()|1UL);
+  if(settings.mode!=NETWORK_AP&&!peapServerNameConfigured(settings))
+    Serial.println("[WiFi] SECURITY WARNING: PEAP RADIUS certificate server-name check is not configured; contact IT for the exact trusted server name");
   WiFi.setAutoReconnect(false);if(WiFi.getMode()&WIFI_MODE_STA)WiFi.disconnectAsync(false,false);
   // Disable the active EAP client while the station interface still exists.
   // Switching to AP-only first can leave an Enterprise session uncleared.
@@ -170,6 +174,13 @@ void tickNetwork(){
   NetworkEvent event;
   while(xQueueReceive(networkEventQueue,&event,0)==pdTRUE){
     if(activeNetwork.mode==NETWORK_AP||!networkAttempt.accepts(event.at))continue;
+    // A delayed DISCONNECTED callback for the old SSID must not abort the new
+    // connection attempt. A prior LOST_IP cannot belong to a still-addressing
+    // attempt; the latter already has a bounded DHCP timeout.
+    if((event.type==ARDUINO_EVENT_WIFI_STA_CONNECTED||
+        event.type==ARDUINO_EVENT_WIFI_STA_DISCONNECTED)&&
+       !wifiEventMatchesSSID(activeNetwork.ssid,event.ssid))continue;
+    if(event.type==ARDUINO_EVENT_WIFI_STA_LOST_IP&&networkAttempt.stage!=NetworkAttempt::ONLINE)continue;
     if(event.type==ARDUINO_EVENT_WIFI_STA_CONNECTED){
       if(!strcmp(event.ssid,activeNetwork.ssid))networkAttempt.associated(event.at);
     }else if(event.type==ARDUINO_EVENT_WIFI_STA_GOT_IP){
@@ -186,7 +197,9 @@ void tickNetwork(){
   }
   uint32_t now=millis();NetworkUpdate update;
   if(networkAttempt.stage==NetworkAttempt::ONLINE&&!stationReady())networkAttempt.fail(now,"link_lost");
-  if(networkEventDrops.exchange(0)&&activeNetwork.mode!=NETWORK_AP){networkAttempt.fail(now,"network_event_overflow");WiFi.disconnectAsync(false,false);}
+  const uint32_t dropped=networkEventDrops.exchange(0);
+  networkEventOverflowCount+=dropped;
+  if(dropped&&activeNetwork.mode!=NETWORK_AP){networkAttempt.fail(now,"network_event_overflow");WiFi.disconnectAsync(false,false);}
   if(xQueueReceive(networkQueue,&update,0)==pdTRUE){
     networkStored=update.stored;networkAwaitingSave=false;
     if(update.deferred){pendingNetwork=update.settings;networkPending=true;networkPendingAt=now;}
@@ -1522,10 +1535,17 @@ void webSetup() {
     network["configuredAPIP"]=ipv4Address(shownNetwork.apIP).toString();network["mode"]=networkModeName(shownNetwork.mode);network["activeMode"]=networkModeName(activeNetwork.mode);network["ssid"]=shownNetwork.ssid;
     network["auth"]=networkAuthName(shownNetwork.auth);network["hasPassword"]=shownNetwork.password[0]!=0;
     network["hasCustomIdentity"]=shownNetwork.identity[0]!=0;network["hasEnterpriseCredentials"]=hasEnterpriseLogin(shownNetwork);network["serverName"]=shownNetwork.serverName;
+    // Descriptive checks only. CA and server-certificate validation remain in
+    // the ESP-IDF PEAP client, not in the UI/status JSON.
+    network["radiusNameCheckConfigured"]=shownNetwork.mode==NETWORK_AP||peapServerNameConfigured(shownNetwork);
+    network["activeRadiusNameCheckConfigured"]=activeNetwork.mode==NETWORK_AP||peapServerNameConfigured(activeNetwork);
+    network["radiusIdentityWarning"]=activeNetwork.mode!=NETWORK_AP&&!peapServerNameConfigured(activeNetwork)?"missing_radius_server_name":"";
     char fingerprint[65];formatCAHash(shownNetwork.caHash,fingerprint);network["caFingerprint"]=shownNetwork.auth==NETWORK_PEAP&&hasCustomNetworkCA(shownNetwork)?fingerprint:"";
     network["error"]=networkAttempt.error;network["disconnectReason"]=networkAttempt.reason;network["apiCode"]=networkAttempt.apiCode;network["attempts"]=stationDriver.attempts;
     JsonObject attempt=network["attempt"].to<JsonObject>();attempt["id"]=networkAttempt.id;attempt["stage"]=networkAttempt.name();attempt["elapsedMs"]=networkAttempt.elapsed(millis());attempt["apiStep"]=stationDriver.apiStep;
     attempt["lastFailedId"]=networkAttempt.lastFailedId;attempt["lastError"]=networkAttempt.lastError;attempt["lastReason"]=networkAttempt.lastReason;attempt["lastApiCode"]=networkAttempt.lastApiCode;
+    attempt["retryStreak"]=networkPolicy.retryStreak();attempt["retryWaitMs"]=networkPolicy.retryWaitMs();
+    attempt["retryRemainingMs"]=networkPolicy.retryRemainingMs(millis());attempt["eventQueueOverflowCount"]=networkEventOverflowCount;
     network["enterpriseProvisioning"]=apOK&&server.client().localIP()==WiFi.softAPIP();network["flashEncrypted"]=esp_flash_encryption_enabled();network["stored"]=networkStored;network["pending"]=networkPending||networkAwaitingSave;
     bool station=stationReady(),associated=WiFi.status()==WL_CONNECTED&&WiFi.SSID()==activeNetwork.ssid;network["associated"]=associated;network["connected"]=station;network["rssi"]=associated?WiFi.RSSI():0;
     network["clientIP"]=station?WiFi.localIP().toString():String();network["apIP"]=apOK?WiFi.softAPIP().toString():String();
@@ -1536,6 +1556,8 @@ void webSetup() {
     iotState["configured"]=uplink.configured;iotState["enabled"]=uplink.enabled;
     iotState["localHeaderPresent"]=uplink.localHeaderPresent;
     iotState["clientRevision"]=uplink.clientRevision;
+    iotState["workerPulseAgeMs"]=uplink.workerPulseMs?uint32_t(millis()-uplink.workerPulseMs):0;
+    iotState["workerPulseSeen"]=uplink.workerPulseMs!=0;
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
     iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
@@ -2057,7 +2079,11 @@ void setup() {
   WiFi.onEvent([](WiFiEvent_t type,WiFiEventInfo_t info){
     if(type!=ARDUINO_EVENT_WIFI_STA_DISCONNECTED&&type!=ARDUINO_EVENT_WIFI_STA_CONNECTED&&type!=ARDUINO_EVENT_WIFI_STA_GOT_IP&&type!=ARDUINO_EVENT_WIFI_STA_LOST_IP)return;
     NetworkEvent event;event.type=type;event.at=millis();
-    if(type==ARDUINO_EVENT_WIFI_STA_DISCONNECTED)event.reason=info.wifi_sta_disconnected.reason;
+    if(type==ARDUINO_EVENT_WIFI_STA_DISCONNECTED){
+      event.reason=info.wifi_sta_disconnected.reason;
+      memcpy(event.ssid,info.wifi_sta_disconnected.ssid,
+             std::min(size_t(info.wifi_sta_disconnected.ssid_len),sizeof(event.ssid)-1));
+    }
     if(type==ARDUINO_EVENT_WIFI_STA_CONNECTED)memcpy(event.ssid,info.wifi_sta_connected.ssid,std::min(size_t(info.wifi_sta_connected.ssid_len),sizeof(event.ssid)-1));
     if(xQueueSend(networkEventQueue,&event,0)!=pdTRUE)++networkEventDrops;
   });

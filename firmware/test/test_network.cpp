@@ -155,6 +155,10 @@ int main(){
   attempt.idle();assert(!attempt.accepts(46000)&&!attempt.active());
   NetworkPolicy policy;policy.begin(NETWORK_CLIENT,0,60000);
   assert(!policy.update(60000,false,false)&&policy.apWanted(60000));assert(policy.update(90000,false,true));
+  assert(wifiEventMatchesSSID("NewCompanySSID","NewCompanySSID"));
+  assert(!wifiEventMatchesSSID("NewCompanySSID","OldCompanySSID"));
+  assert(wifiEventMatchesSSID("NewCompanySSID","")); // unknown association still gets normal recovery
+  assert(wifiEventMatchesSSID("NewCompanySSID",nullptr));
   // Deterministic network recovery tests: per-device jitter, bounded
   // exponential retry, suspended retry, healthy reset, and millis rollover.
   {

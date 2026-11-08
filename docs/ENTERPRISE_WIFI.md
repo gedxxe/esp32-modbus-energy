@@ -41,7 +41,7 @@ The build pins pioarduino 55.03.311, Arduino-ESP32 3.3.11 and ESP-IDF 5.5.5. The
 
 The full public bundle, certificate date checking and key-usage checking are verified by the SDK bootstrap and compile guards. Server validation is never disabled. A profile with a custom CA turns off the public bundle explicitly, uses only its pinned CA and fails if that file cannot be verified. It never silently changes its trust boundary because a file is missing. Ordinary Personal connections disable previous EAP state before using their own settings.
 
-The custom SDK is compiled once in a shared path without spaces because ESP-IDF tooling has path limitations. `tools/sdk_bootstrap.py` verifies configuration and SDK library hashes before reuse, while the application is compiled from its original workspace. Use `python tools/setup-core.py` in the repository-root **computer terminal** to install the pinned pioarduino Core 6.1.19 if the build guard reports a different version.
+The custom SDK is compiled once in a shared path without spaces because ESP-IDF tooling has path limitations. `tools/sdk_bootstrap.py` verifies configuration and SDK library hashes before reuse, while the application is compiled from its original workspace. Use `python tools/setup-core.py` in the repository-root **computer terminal** to install the pinned pioarduino Core 6.2.0 if the build guard reports a different version.
 
 ## Where the certificate comes from
 

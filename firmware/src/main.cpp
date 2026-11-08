@@ -1549,6 +1549,8 @@ void webSetup() {
     iotState["configured"]=uplink.configured;iotState["enabled"]=uplink.enabled;
     iotState["localHeaderPresent"]=uplink.localHeaderPresent;
     iotState["clientRevision"]=uplink.clientRevision;
+    iotState["workerPulseAgeMs"]=uplink.workerPulseMs?uint32_t(millis()-uplink.workerPulseMs):0;
+    iotState["workerPulseSeen"]=uplink.workerPulseMs!=0;
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
     iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;

@@ -151,6 +151,13 @@ inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_
 inline bool retryDelayPending(uint64_t now,uint64_t deadline){
   return deadline&&now<deadline;
 }
+// Live telemetry is a transient snapshot, unlike immutable history checkpoints.
+// Expire an unsent/retried snapshot after one telemetry period, independently
+// of wall-clock edits and the 32-bit millis() rollover. A replacement sample
+// gets a fresh event ID; durable checkpoint event IDs are never discarded.
+inline bool liveRetryExpired(uint64_t now,uint64_t createdAt,uint64_t maxAgeMs){
+  return maxAgeMs&&now>=createdAt&&now-createdAt>=maxAgeMs;
+}
 // After a short burst of historical sends, allow due heartbeat/telemetry.
 // Both still respect the caller's global HTTP spacing and quiet-window guard.
 constexpr uint8_t BACKFILL_BURST_LIMIT=3;

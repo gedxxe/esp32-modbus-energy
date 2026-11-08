@@ -1539,6 +1539,7 @@ void webSetup() {
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
     iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
+    iotState["expiredLiveRetries"]=uplink.expiredLiveRetries;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
     iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;
     iotState["heartbeatAccepted"]=uplink.heartbeatAccepted;

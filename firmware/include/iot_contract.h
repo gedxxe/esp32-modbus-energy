@@ -145,6 +145,23 @@ inline bool cursorHistoryUnverifiable(bool existsA,bool existsB,bool validA,bool
 inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_t days){
   return acknowledged&&latest>acknowledged&&latest-acknowledged>days;
 }
+// Treat an HTTP error as a permanent device fault only when the HTTPS
+// application returned its exact documented rejection code. Reverse proxies,
+// captive portals and rolling deploys may emit the same numeric status with a
+// different body; those are retryable (with bounded backoff), never accepted.
+// The website's ingest contract is in iot-contract.js and server/iot.js.
+inline bool confirmedIngestRejection(int http,const char *error){
+  if(!error)return false;
+  switch(http){
+    case 400:return !strcmp(error,"INVALID_IOT_EVENT")||!strcmp(error,"INVALID_INPUT");
+    case 401:return !strcmp(error,"DEVICE_UNAUTHORIZED");
+    case 403:return !strcmp(error,"DEVICE_BINDING_MISMATCH");
+    case 409:return !strcmp(error,"EVENT_CONFLICT");
+    case 413:return !strcmp(error,"BODY_TOO_LARGE");
+    case 415:return !strcmp(error,"INVALID_CONTENT_TYPE");
+    default:return false;
+  }
+}
 // A reading timeout must not suppress the independently scheduled heartbeat.
 // The IoT worker uses ESP-IDF's 64-bit monotonic time, independent of DS3231,
 // to prevent stale HTTP backoff deadlines from reactivating after months uptime.

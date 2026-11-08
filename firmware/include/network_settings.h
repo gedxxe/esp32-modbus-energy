@@ -144,7 +144,7 @@ class NetworkPolicy {
   uint32_t nextInterval(){
     const uint8_t exponent=consecutiveRetries<3?consecutiveRetries:3;
     const uint64_t candidate=uint64_t(retryMs)<<exponent;
-    const uint32_t base=candidate>300000ULL?300000UL:uint32_t(candidate);
+    const uint32_t base=candidate>290000ULL?290000UL:uint32_t(candidate);
     if(!randomState)return base;
     // Jitter is bounded to at most 10s; never overshoot the 5-minute cap.
     randomState^=randomState<<13;

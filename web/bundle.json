@@ -1,7 +1,7 @@
 {
   "version": "3.5.0",
   "transport": "gzip",
-  "compressed_total": 163099,
+  "compressed_total": 163522,
   "libraries": {
     "gsap": "3.15.0",
     "motion": "14.7.1",
@@ -20,9 +20,9 @@
     "/assets/app.js": {
       "symbol": "WEB_APP_GZIP",
       "mime": "application/javascript; charset=utf-8",
-      "raw": 476478,
-      "gzip": 150534,
-      "sha256": "b6988b04c8d12fd2c3e80c447e6a6bffe7b91460c3ed60aec1c84c33386f897d"
+      "raw": 477952,
+      "gzip": 150957,
+      "sha256": "8a028cc825632fc183f8cde9b68a0c5b85971df38d01ab96a3bc406e85c18c6a"
     },
     "/assets/app.css": {
       "symbol": "WEB_STYLE_GZIP",
@@ -58,14 +58,14 @@
     "web/components/MeterMeasurements.jsx": "a1db54ce8e3908882b0134e8db57fcb03684b1cafe1e0443dce8d964aaafc540",
     "web/components/MideaLogo.jsx": "ce5000e3469bc47aaa00ac8a52c256bea915138785cf88fc8b56cb8bec9eda9a",
     "web/components/NavTabs.jsx": "a2d2d637938cce885823f4ee7c0920adca9cdcdb7318c9c00181917f85aa4957",
-    "web/components/NetworkControls.jsx": "6787c67aa7a0bec11959c76f562a2700e6617e79d3be2fa89fa6218953fb1827",
+    "web/components/NetworkControls.jsx": "e4f42fe69e0efa2e608f86341432bf02aac455c0d6c15bd08a8de89b880815a0",
     "web/components/NetworkResult.jsx": "37ecceee3e277773359742aaa98cf6032fbcc210690559af3e38af60c7dcdf94",
     "web/components/ProcessMonitor.jsx": "ef93e8b037ea45efdb2b5194a86f5cf7881f425f22a2541e30e9a1524d84862d",
     "web/components/RawTrace.jsx": "52bc5b6267bc7f414fbbe33611d56ff80b8cd711d8d3116d369c553021eba050",
     "web/components/UartFlow.jsx": "c2fe24ea4bbb305535266f5d1240ac48d047dd78d68bbbc208b7710cc4f7f2ff",
     "web/components/WifiPicker.jsx": "a426bcdfd28a58574f410ee79e1ffa4e51e28a45127ed21613caa99f8427a434",
     "web/device.js": "c1c1fbec85f1321026635b7c4c97f2fe0289bed16dccb92b3cf8e963b6ba99ce",
-    "web/enterprise-i18n.js": "69531ba160d2ae448b621af688e1010b438bd59771e460ffc920b9072d8ebff0",
+    "web/enterprise-i18n.js": "354381c76323146c1b110d88e4c6a8dd3e58a964ef5a24d8674022d6cf50c2f6",
     "web/flow-playback.js": "bfb3dd0dd5f2861afca60b04d8e9a5800ba17aa25663c4147a3871c1398ed36e",
     "web/form-validation.js": "7609ddbadd3a0a712c9f3a2dc281e55a581384a576bc9b8d1fed0a1d4dcf8c54",
     "web/i18n.js": "4e4c6b79bba0017385e7f737e8b7afe5c1377d8d6fca8b2aa4c9ff65ac859417",
@@ -95,5 +95,5 @@
     "web/views/MeterSetup.jsx": "ea88eecc621326b560b93408770ef3321184a7b3deeeead13b49e50bcd0f4fea",
     "web/views/Overview.jsx": "d9ae3524abf9cdfb64905101e898953ed550ed812e3b9930eda45655695d156a"
   },
-  "header_sha256": "6efbd9b81e76b8ddfe6041a2aaeca9d59800fe102789cccebb9da28a452a7e79"
+  "header_sha256": "30ddc6f3d5051856cb7ad08dd7460e69bebb4b6771eedc8e33516d2ae64833b2"
 }

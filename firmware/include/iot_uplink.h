@@ -10,6 +10,7 @@ struct Status {
   uint8_t clientRevision=3;
   uint8_t phase=0; // 0 disabled, 1 idle, 2 uploading, 3 retry, 4 blocked
   uint32_t accepted=0,duplicates=0,failures=0,lastAcceptedUTC=0,lastAckDay=0;
+  uint32_t expiredLiveRetries=0; // Ephemeral unacknowledged snapshots replaced after TTL
   // Server presence and reading receipts are independent: heartbeat never
   // modifies accepted/duplicates, lastAcceptedUTC or the archive cursor.
   uint32_t heartbeatAttempts=0,heartbeatAccepted=0,heartbeatFailures=0,lastHeartbeatUTC=0;

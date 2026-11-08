@@ -118,6 +118,7 @@ uint32_t bootId=0,liveSequence=0,lastSend=0,lastLive=0;
 // offline outage; DS3231 UTC remains authoritative only for captures/TLS time.
 uint64_t notBefore=0,serverRateLimitUntil=0,heartbeatNotBefore=0;
 uint32_t pendingManualUTC=0,outstandingManualUTC=0,servedManualUTC=0;
+uint64_t outstandingCreatedAt=0;
 uint32_t lastHeartbeatAttempt=0;
 uint8_t consecutiveFailures=0,heartbeatConsecutiveFailures=0;
 Event outstandingLive{};
@@ -561,6 +562,17 @@ void worker(void *){
   for(;;){
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
+    // The website may have committed a POST while its receipt was lost.
+    // Retrying its frozen event ID is useful temporarily, but after a long
+    // outage a *live* sample is no longer current. Discard only this ephemeral
+    // retry: no checkpoint cursor, acknowledged history or manual ACK moves.
+    if(hasOutstandingLive&&liveRetryExpired(uptimeMs(),outstandingCreatedAt,
+                                             TELEMETRY_PERIOD_MS)){
+      hasOutstandingLive=false;
+      outstandingLive=Event{};
+      outstandingManualUTC=0;
+      ++status.expiredLiveRetries;
+    }
     if(mounted&&!archiveCursorReady&&
        !retryDelayPending(uptimeMs(),cursorRetryAt)){
       const CursorLoad result=loadCursor();
@@ -642,6 +654,7 @@ void worker(void *){
       if(telemetry(input.liveCapturedUTC,input.liveEnergy,binding,bootId,liveSequence,outstandingLive,
                    input.currentValid,input.liveCurrentA)){
         hasOutstandingLive=true;
+        outstandingCreatedAt=uptimeMs();
         outstandingManualUTC=requested?pendingManualUTC:0;
       }
     }

@@ -91,6 +91,35 @@ void testStrictArchiveRetention(){
   assert(disk.files["/c20732.bin"]=="historical");
   assert(disk.files["/d20733.csv.bad"]=="csv-forensic");
   assert(disk.files["/d20732.csv"]=="earlier-csv");
+  // One-year rollover software simulation: only canonical and verified
+  // backup files from the latest 31 days should remain, while quarantine
+  // evidence survives every expiry.
+  FakeFS annual;
+  annual.files["/qc20760.bin"]="forensic";
+  constexpr uint32_t firstDay=20760;
+  for(uint32_t elapsed=0;elapsed<365;++elapsed){
+    const uint32_t day=firstDay+elapsed;
+    const std::string canonical="/c"+std::to_string(day)+".bin";
+    const std::string csvPath="/d"+std::to_string(day)+".csv";
+    annual.files[canonical]="readings";
+    annual.files[canonical+".bak"]="backup";
+    annual.files[csvPath]="report";
+    annual.files[csvPath+".bak"]="backup-report";
+    const uint32_t expiredDay=expiredProductionDay(day);
+    if(expiredDay){
+      retireProductionCopies(annual,std::string("/c")+std::to_string(expiredDay)+".bin");
+      retireProductionCopies(annual,std::string("/d")+std::to_string(expiredDay)+".csv");
+    }
+    if(elapsed>=ARCHIVE_HISTORY_DAYS){
+      assert(!annual.exists("/c"+std::to_string(day-ARCHIVE_HISTORY_DAYS)+".bin"));
+      assert(!annual.exists("/d"+std::to_string(day-ARCHIVE_HISTORY_DAYS)+".csv"));
+    }
+    assert(annual.files.size()<=4u*ARCHIVE_HISTORY_DAYS+1u);
+  }
+  assert(annual.files.size()==4u*ARCHIVE_HISTORY_DAYS+1u);
+  assert(annual.files["/qc20760.bin"]=="forensic");
+  assert(annual.exists("/c"+std::to_string(firstDay+365-ARCHIVE_HISTORY_DAYS)+".bin"));
+  assert(annual.exists("/c"+std::to_string(firstDay+364)+".bin"));
 }
 
 void testBoundedHTTP(){

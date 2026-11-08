@@ -70,6 +70,11 @@ int main(){
   NetworkSettings s{};s.mode=NETWORK_DUAL;s.auth=NETWORK_PEAP;
   strcpy(s.ssid,"Arbitrary company SSID");strcpy(s.username,"device-user");strcpy(s.eapPassword,"test-secret");
   assert(validNetwork(s));
+  assert(!peapServerNameConfigured(s)); // Legacy PEAP is readable but lacks server-name binding.
+  NetworkSettings pinned=s;strcpy(pinned.serverName,"radius.example.org");
+  assert(validNetwork(pinned)&&peapServerNameConfigured(pinned));
+  NetworkSettings personal=s;personal.auth=NETWORK_PERSONAL;strcpy(personal.password,"test-personal");
+  assert(peapServerNameConfigured(personal));
   assert(canReuseEnterprise(s,s));
   NetworkSettings newSsid=s;strcpy(newSsid.ssid,"New plant WiFi");
   assert(!canReuseEnterprise(s,newSsid));
@@ -150,6 +155,44 @@ int main(){
   attempt.idle();assert(!attempt.accepts(46000)&&!attempt.active());
   NetworkPolicy policy;policy.begin(NETWORK_CLIENT,0,60000);
   assert(!policy.update(60000,false,false)&&policy.apWanted(60000));assert(policy.update(90000,false,true));
+  // Deterministic network recovery tests: per-device jitter, bounded
+  // exponential retry, suspended retry, healthy reset, and millis rollover.
+  {
+    NetworkPolicy first,second;
+    first.begin(NETWORK_CLIENT,0,NETWORK_RETRY_MS,1);
+    second.begin(NETWORK_CLIENT,0,NETWORK_RETRY_MS,2);
+    assert(first.retryWaitMs()>=30000&&first.retryWaitMs()<=40000);
+    assert(second.retryWaitMs()>=30000&&second.retryWaitMs()<=40000);
+    assert(first.retryWaitMs()!=second.retryWaitMs()); // fleet desynchronization
+    const uint32_t initial=first.retryWaitMs();
+    assert(!first.update(initial-1,false,true));
+    assert(first.retryRemainingMs(initial-1)==1);
+    assert(!first.update(initial,false,false)); // a radio scan owns the station
+    assert(first.retryRemainingMs(initial)==0);
+    assert(first.update(initial,false,true));
+    assert(first.retryStreak()==1&&first.retryWaitMs()>=60000&&first.retryWaitMs()<=70000);
+    uint32_t clock=initial;
+    for(unsigned i=0;i<8;++i){
+      const uint32_t wait=first.retryWaitMs();
+      assert(wait>=60000&&wait<=300000);
+      assert(!first.update(clock+wait-1,false,true));
+      clock+=wait;assert(first.update(clock,false,true));
+      assert(first.retryWaitMs()<=300000);
+    }
+    assert(first.retryStreak()==4&&first.retryWaitMs()>=290000);
+    assert(!first.update(clock+100,true,true));
+    assert(first.retryStreak()==0&&first.retryRemainingMs(clock+100)==0);
+    assert(!first.update(clock+200,false,true));
+    assert(first.retryStreak()==0); // a new outage starts at the base interval
+    assert(first.retryRemainingMs(clock+200)>0);
+    const uint32_t nearWrap=UINT32_MAX-200u;
+    NetworkPolicy rollover;rollover.begin(NETWORK_DUAL,nearWrap,60000,3);
+    const uint32_t due=rollover.retryWaitMs();
+    assert(!rollover.update(nearWrap+due-1u,false,true));
+    assert(rollover.update(nearWrap+due,false,true));
+    assert(rollover.retryWaitMs()>=120000&&rollover.retryWaitMs()<=130000);
+    assert(rollover.apWanted(nearWrap+due)); // AP fallback persists
+  }
   // One-year software timeline: the station retry budget must keep recovering
   // across seven 49.7-day millis() wraps without relying on a reboot.
   // Reconnects remain bounded by the policy, not a signed absolute deadline.

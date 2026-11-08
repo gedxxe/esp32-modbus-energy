@@ -1562,6 +1562,11 @@ void webSetup() {
     iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
     iotState["expiredLiveRetries"]=uplink.expiredLiveRetries;
+    iotState["backfillCursorKnown"]=uplink.backfillCursorKnown;
+    iotState["backfillDaysBehind"]=uplink.backfillDaysBehind;
+    iotState["backfillRemainingDays"]=uplink.backfillRemainingDays;
+    iotState["backfillNearLimit"]=uplink.backfillNearLimit;
+    iotState["backfillWindowExceeded"]=uplink.backfillWindowExceeded;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
     iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;
     iotState["heartbeatAccepted"]=uplink.heartbeatAccepted;

@@ -8,6 +8,7 @@ namespace fort { namespace iot {
 struct Status {
   bool configured=false,enabled=false,archiveReady=false,localHeaderPresent=false;
   bool cursorVerified=false; // HTTPS ACK loaded or proven absent on this boot
+  uint32_t workerPulseMs=0; // monotonic loop liveness, copied via the one-slot status queue
   uint8_t clientRevision=3;
   uint8_t phase=0; // 0 disabled, 1 idle, 2 uploading, 3 retry, 4 blocked
   uint32_t accepted=0,duplicates=0,failures=0,lastAcceptedUTC=0,lastAckDay=0;

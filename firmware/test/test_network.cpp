@@ -16,18 +16,24 @@ static std::vector<std::string> calls;
 static std::string failAt,identity,username,password,domain;
 static bool stationOK=true,clockOK=true,caOK=true,bundle=false,timeDisabled=true,autoConnect=false;
 static unsigned stationConnectCalls=0,espConnectCalls=0,earlyAssocCalls=0;
-static bool corruptReadback=false;
+static bool corruptReadback=false,stationConfigOK=true,dhcpPrepared=false;
 static int security=0,method=0;
 static int api(const char *step){calls.emplace_back(step);return failAt==step?1234:ESP_OK;}
 bool TestSTA::begin(bool tryConnect){
   calls.emplace_back("station_begin");
-  if(tryConnect)++earlyAssocCalls; // Default Arduino-ESP32 begin() autoconnects.
+  if(tryConnect)++earlyAssocCalls;
+  dhcpPrepared=false;
   return stationOK;
 }
 bool TestSTA::connect(const char *ssid,const char*,int,const uint8_t*,bool connect){
   ++stationConnectCalls;calls.emplace_back("station_config");autoConnect=connect;
-  if(!stationOK)return false;
-  config=wifi_config_t{};memcpy(config.sta.ssid,ssid,strlen(ssid));return true;
+  if(!stationOK||!stationConfigOK)return false;
+  config=wifi_config_t{};
+  memcpy(config.sta.ssid,ssid,strlen(ssid));
+  config.sta.threshold.rssi=-127;
+  config.sta.pmf_cfg.capable=true;
+  dhcpPrepared=true; // Pinned STA.connect(...,false) configures DHCPC.
+  return true;
 }
 void TestWiFi::setMinSecurity(int value){security=value;}
 int esp_wifi_get_config(int,wifi_config_t *out){
@@ -37,7 +43,7 @@ int esp_wifi_get_config(int,wifi_config_t *out){
 int esp_wifi_set_config(int,const wifi_config_t *value){config=*value;return api("set_config");}
 int esp_wifi_sta_enterprise_enable(){return api("enterprise_enable");}
 int esp_wifi_sta_enterprise_disable(){return api("enterprise_disable");}
-int esp_wifi_connect(){++espConnectCalls;return api("connect");}
+int esp_wifi_connect(){++espConnectCalls;return dhcpPrepared?api("connect"):4321;}
 int esp_eap_client_set_eap_methods(int value){method=value;return api("set_eap_methods");}
 int esp_eap_client_set_disable_time_check(bool value){timeDisabled=value;return api("set_disable_time_check");}
 int esp_eap_client_set_identity(const uint8_t *p,int size){identity.assign(reinterpret_cast<const char*>(p),size);return api("set_identity");}
@@ -68,11 +74,13 @@ int main(){
   EnterpriseWiFi driver;
   assert(driver.begin(s,nullptr,true,1793750400));
   assert(driver.attempted&&security==WIFI_AUTH_WPA2_ENTERPRISE);
-  // No Arduino connect during Enterprise preparation; one EAP-enabled
-  // esp_wifi_connect() is the only association attempt.
-  assert(earlyAssocCalls==0&&stationConnectCalls==0&&espConnectCalls==1);
+  // Arduino 3.3.11 STA.begin() defaults to false; STA.connect(...,false)
+  // configures SSID and DHCP without associating. The single post-EAP
+  // esp_wifi_connect() must see a prepared DHCP client.
+  assert(earlyAssocCalls==0&&stationConnectCalls==1&&!autoConnect&&dhcpPrepared&&espConnectCalls==1);
   assert(calls.front()=="station_begin");
-  assert(calls[1]=="set_config"&&calls[2]=="get_config");
+  assert(calls[1]=="station_config"&&calls[2]=="get_config");
+  assert(calls[3]=="set_config"&&calls[4]=="get_config");
   assert(config.sta.threshold.authmode==WIFI_AUTH_WPA2_ENTERPRISE&&config.sta.threshold.rssi==-127);
   assert(!config.sta.bssid_set&&!config.sta.channel);
   assert(!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
@@ -88,7 +96,10 @@ int main(){
     assert(trial.apiCode==1234&&!strcmp(trial.apiStep,step)&&!trial.attempted);
     failAt.clear();assert(trial.reset());
   }
-  stationOK=false;assert(!driver.begin(s,nullptr,true,1793750400));assert(!strcmp(driver.error,"station_config_failed")&&!strcmp(driver.apiStep,"station_begin"));stationOK=true;
+  stationOK=false;assert(!driver.begin(s,nullptr,true,1793750400));assert(!strcmp(driver.error,"station_config_failed")&&!strcmp(driver.apiStep,"station_prepare"));stationOK=true;
+  stationConfigOK=false;
+  assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_prepare"));
+  stationConfigOK=true;
   corruptReadback=true;
   assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_verify"));
   corruptReadback=false;
@@ -98,7 +109,7 @@ int main(){
   config.sta.bssid_set=true;config.sta.channel=11;config.sta.threshold.rssi=-40;
   memset(config.sta.password,'X',sizeof(config.sta.password));calls.clear();
   assert(driver.begin(s,nullptr,true,1793750400));
-  assert(earlyAssocCalls==0&&stationConnectCalls==0&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
+  assert(earlyAssocCalls==0&&dhcpPrepared&&!autoConnect&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
   assert(config.sta.channel==0&&!config.sta.bssid_set&&config.sta.threshold.rssi==-127);
   for(unsigned i=0;i<sizeof(config.sta.password);++i)assert(config.sta.password[i]==0);
   assert(calls.back()=="connect"&&espConnectCalls>=2);
@@ -111,10 +122,12 @@ int main(){
   assert(!badCAAPI.begin(s,"test-CA",true,1793750400)&&!strcmp(badCAAPI.apiStep,"set_ca_cert")&&!badCAAPI.attempted);
   failAt.clear();assert(badCAAPI.reset());
   assert(driver.begin(s,"test-CA",true,1793750400)&&!bundle&&domain==s.serverName&&identity==s.identity);
-  assert(stationConnectCalls==0);
+  assert(stationConnectCalls>0&&dhcpPrepared&&!autoConnect);
   failAt="enterprise_disable";assert(!driver.begin(s,"test-CA",true,1793750400)&&!driver.attempted);failAt.clear();assert(driver.reset());
   clearEnterprise(s);s.auth=NETWORK_PERSONAL;strcpy(s.password,"personal-test");
-  assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK&&stationConnectCalls==1&&earlyAssocCalls==0);
+  const unsigned personalConnectBase=stationConnectCalls;
+  assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK&&
+         stationConnectCalls==personalConnectBase+1&&earlyAssocCalls==0);
   NetworkAttempt attempt;attempt.prepare(0xFFFFFF00u,true);assert(attempt.active());
   assert(!attempt.expired(0xFFFFFEFFu)[0]);
   assert(!attempt.expired(0xFFFFFF00u+4999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFF00u+5000u),"station_disconnect_timeout"));
@@ -155,5 +168,5 @@ int main(){
       attempt.online();assert(attempt.stage==NetworkAttempt::ONLINE);
     }
   }
-  std::cout<<"PASS: production Enterprise adapter with exactly one post-EAP association, default public trust/no manual CA, custom CA fail-closed, clean station config, SDK errors, Personal fallback and rollover-safe deadlines\n";
+  std::cout<<"PASS: production Enterprise adapter: correct pinned Arduino 3.3.11 non-associating STA setup with DHCP, one post-EAP association, public/custom CA, SDK faults, Personal fallback and rollover-safe deadlines\n";
 }

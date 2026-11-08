@@ -38,33 +38,33 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   if(customCA&&(!ca||!validateEnterpriseCA(ca,hash)||memcmp(hash,s.caHash,32))){error="enterprise_ca_missing";return false;}
   if(!setEnterpriseSystemClock(utc)){error="enterprise_clock_required";return false;}
   WiFi.setMinSecurity(WIFI_AUTH_WPA2_ENTERPRISE);
-  // Initialize the station interface WITHOUT launching association. The
-  // former STA.connect(..., false) path also configures the Arduino station
-  // and could race EAP provisioning across reconnects/SDK versions. Configure
-  // all Enterprise fields first, then issue exactly one esp_wifi_connect().
-  // Arduino STA.begin() defaults to tryConnect=true. Passing false is
-  // mandatory: otherwise it calls connect() with cached station settings
-  // BEFORE the PEAP identity/trust configuration is installed.
-  if(!WiFi.STA.begin(false)){
-    error="station_config_failed";apiStep="station_begin";return false;
+  // Pinned Arduino-ESP32 3.3.11: STA.begin() already defaults to false.
+  // The prepare-only STA.connect(..., false) is essential: in addition to
+  // configuring SSID it starts DHCP on a dynamic-IP station, while NEVER
+  // calling esp_wifi_connect(). Skipping it can leave Enterprise without IP.
+  if(!WiFi.STA.begin(false)||!WiFi.STA.connect(s.ssid,nullptr,0,nullptr,false)){
+    error="station_config_failed";apiStep="station_prepare";return false;
   }
-  // Do not inherit a previous SSID's BSSID/channel or RSSI threshold. A
-  // stale locked BSSID can prevent roaming across industrial APs for months.
   wifi_config_t config{};
+  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&config),"get_config"))return false;
   const size_t ssidLength=strnlen(s.ssid,sizeof(s.ssid));
-  if(!ssidLength||ssidLength>sizeof(config.sta.ssid)){
-    error="station_config_failed";apiStep="station_ssid";return false;
+  if(!ssidLength||ssidLength>sizeof(config.sta.ssid)||
+     memcmp(config.sta.ssid,s.ssid,ssidLength)||
+     config.sta.bssid_set||config.sta.channel){
+    error="station_config_failed";apiStep="station_verify_ssid";return false;
   }
-  memcpy(config.sta.ssid,s.ssid,ssidLength);
+  // STA.connect(..., false) created a fresh, unpinned configuration. Keep its
+  // scan policy and initialized DHCP, but explicitly enforce Enterprise auth.
+  memset(config.sta.password,0,sizeof(config.sta.password));
   config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;
-  config.sta.threshold.rssi=-127; // Accept full valid RSSI range (no stale threshold).
+  config.sta.threshold.rssi=-127;
   config.sta.pmf_cfg.capable=true;
-  // channel=0 and bssid_set=false permit the driver to select/roam among APs.
   if(!checked(esp_wifi_set_config(WIFI_IF_STA,&config),"set_config"))return false;
   wifi_config_t verified{};
-  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&verified),"get_config"))return false;
+  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&verified),"verify_config"))return false;
   if(memcmp(verified.sta.ssid,config.sta.ssid,sizeof(config.sta.ssid))||
      memcmp(verified.sta.password,config.sta.password,sizeof(config.sta.password))||
+     verified.sta.threshold.authmode!=WIFI_AUTH_WPA2_ENTERPRISE||
      verified.sta.bssid_set||verified.sta.channel){
     error="station_config_failed";apiStep="station_verify";return false;
   }

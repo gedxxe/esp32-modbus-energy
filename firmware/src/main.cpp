@@ -510,7 +510,10 @@ String csvDay(const Day &d) {
   }return s;
 }
 void saveArchive() {
-  if(!fsOK||!tracker.day.number){archiveOK=false;return;}
+  // The same boot-recovery fail-closed rule applies to legacy CSV exports:
+  // an incomplete binary archive index must not permit unrelated filesystem
+  // writes or legacy retention cleanup while operator recovery is pending.
+  if(!captureRecoveryScanComplete||!fsOK||!tracker.day.number){archiveOK=false;return;}
   if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(200))!=pdTRUE){archiveOK=false;return;}
   String path=dayPath(tracker.day.number),temp="/pending.csv",backup=path+".bak",csv=csvDay(tracker.day);
   // Verify the canonical bytes before performing another five-minute write.

@@ -48,17 +48,26 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   if(!WiFi.STA.begin(false)){
     error="station_config_failed";apiStep="station_begin";return false;
   }
+  // Do not inherit a previous SSID's BSSID/channel or RSSI threshold. A
+  // stale locked BSSID can prevent roaming across industrial APs for months.
   wifi_config_t config{};
-  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&config),"get_config"))return false;
   const size_t ssidLength=strnlen(s.ssid,sizeof(s.ssid));
   if(!ssidLength||ssidLength>sizeof(config.sta.ssid)){
     error="station_config_failed";apiStep="station_ssid";return false;
   }
-  memset(config.sta.ssid,0,sizeof(config.sta.ssid));
   memcpy(config.sta.ssid,s.ssid,ssidLength);
-  memset(config.sta.password,0,sizeof(config.sta.password));
-  config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;config.sta.pmf_cfg.capable=true;
+  config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;
+  config.sta.threshold.rssi=-127; // Accept full valid RSSI range (no stale threshold).
+  config.sta.pmf_cfg.capable=true;
+  // channel=0 and bssid_set=false permit the driver to select/roam among APs.
   if(!checked(esp_wifi_set_config(WIFI_IF_STA,&config),"set_config"))return false;
+  wifi_config_t verified{};
+  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&verified),"get_config"))return false;
+  if(memcmp(verified.sta.ssid,config.sta.ssid,sizeof(config.sta.ssid))||
+     memcmp(verified.sta.password,config.sta.password,sizeof(config.sta.password))||
+     verified.sta.bssid_set||verified.sta.channel){
+    error="station_config_failed";apiStep="station_verify";return false;
+  }
   configured=true;
   if(!checked(esp_eap_client_set_eap_methods(ESP_EAP_TYPE_PEAP),"set_eap_methods")||
      !checked(esp_eap_client_set_disable_time_check(false),"set_disable_time_check")||

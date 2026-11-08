@@ -16,6 +16,7 @@ static std::vector<std::string> calls;
 static std::string failAt,identity,username,password,domain;
 static bool stationOK=true,clockOK=true,caOK=true,bundle=false,timeDisabled=true,autoConnect=false;
 static unsigned stationConnectCalls=0,espConnectCalls=0,earlyAssocCalls=0;
+static bool corruptReadback=false;
 static int security=0,method=0;
 static int api(const char *step){calls.emplace_back(step);return failAt==step?1234:ESP_OK;}
 bool TestSTA::begin(bool tryConnect){
@@ -29,7 +30,10 @@ bool TestSTA::connect(const char *ssid,const char*,int,const uint8_t*,bool conne
   memset(&config,0,sizeof(config));memcpy(config.sta.ssid,ssid,strlen(ssid));return true;
 }
 void TestWiFi::setMinSecurity(int value){security=value;}
-int esp_wifi_get_config(int,wifi_config_t *out){*out=config;return api("get_config");}
+int esp_wifi_get_config(int,wifi_config_t *out){
+  *out=config;if(corruptReadback)out->sta.bssid_set=true;
+  return api("get_config");
+}
 int esp_wifi_set_config(int,const wifi_config_t *value){config=*value;return api("set_config");}
 int esp_wifi_sta_enterprise_enable(){return api("enterprise_enable");}
 int esp_wifi_sta_enterprise_disable(){return api("enterprise_disable");}
@@ -68,8 +72,9 @@ int main(){
   // esp_wifi_connect() is the only association attempt.
   assert(earlyAssocCalls==0&&stationConnectCalls==0&&espConnectCalls==1);
   assert(calls.front()=="station_begin");
-  assert(calls[1]=="get_config"&&calls[2]=="set_config");
-  assert(config.sta.threshold.authmode==WIFI_AUTH_WPA2_ENTERPRISE);
+  assert(calls[1]=="set_config"&&calls[2]=="get_config");
+  assert(config.sta.threshold.authmode==WIFI_AUTH_WPA2_ENTERPRISE&&config.sta.threshold.rssi==-127);
+  assert(!config.sta.bssid_set&&!config.sta.channel);
   assert(!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
   assert(identity==s.username&&username==s.username&&password==s.eapPassword&&domain.empty());
   assert(method==ESP_EAP_TYPE_PEAP&&!timeDisabled&&bundle);
@@ -84,11 +89,15 @@ int main(){
     failAt.clear();assert(trial.reset());
   }
   stationOK=false;assert(!driver.begin(s,nullptr,true,1793750400));assert(!strcmp(driver.error,"station_config_failed")&&!strcmp(driver.apiStep,"station_begin"));stationOK=true;
+  corruptReadback=true;
+  assert(!driver.begin(s,nullptr,true,1793750400)&&!strcmp(driver.apiStep,"station_verify"));
+  corruptReadback=false;
   // Each new Enterprise attempt must overwrite any stale personal SSID and
   // credentials, even if the previous station driver config was different.
   memset(&config,0x5a,sizeof(config));calls.clear();
   assert(driver.begin(s,nullptr,true,1793750400));
   assert(earlyAssocCalls==0&&stationConnectCalls==0&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
+  assert(config.sta.channel==0&&!config.sta.bssid_set&&config.sta.threshold.rssi==-127);
   for(unsigned i=0;i<sizeof(config.sta.password);++i)assert(config.sta.password[i]==0);
   assert(calls.back()=="connect"&&espConnectCalls>=2);
   assert(!driver.begin(s,nullptr,false,1793750400)&&!strcmp(driver.error,"enterprise_clock_required"));

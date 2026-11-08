@@ -25,7 +25,9 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   auth=s.auth;
   if(s.auth!=NETWORK_PEAP){
     WiFi.setMinSecurity(s.auth==NETWORK_OPEN?WIFI_AUTH_OPEN:WIFI_AUTH_WPA_PSK);
-    if(!WiFi.STA.begin()||!WiFi.STA.connect(s.ssid,s.password[0]?s.password:nullptr)){
+    // Disable implicit association with cached SSID in every mode. An
+    // explicit Personal connect follows with the requested current SSID.
+    if(!WiFi.STA.begin(false)||!WiFi.STA.connect(s.ssid,s.password[0]?s.password:nullptr)){
       error="station_config_failed";apiStep="station_connect";return false;
     }
     attempted=true;return true;

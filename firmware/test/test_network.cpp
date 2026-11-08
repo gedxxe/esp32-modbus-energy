@@ -103,7 +103,7 @@ int main(){
   assert(stationConnectCalls==0);
   failAt="enterprise_disable";assert(!driver.begin(s,"test-CA",true,1793750400)&&!driver.attempted);failAt.clear();assert(driver.reset());
   clearEnterprise(s);s.auth=NETWORK_PERSONAL;strcpy(s.password,"personal-test");
-  assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK&&stationConnectCalls==1);
+  assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK&&stationConnectCalls==1&&earlyAssocCalls==0);
   NetworkAttempt attempt;attempt.prepare(0xFFFFFF00u,true);assert(attempt.active());
   assert(!attempt.expired(0xFFFFFEFFu)[0]);
   assert(!attempt.expired(0xFFFFFF00u+4999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFF00u+5000u),"station_disconnect_timeout"));

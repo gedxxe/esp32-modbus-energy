@@ -76,6 +76,27 @@ int main(){
   NetworkSettings personal=s;personal.auth=NETWORK_PERSONAL;strcpy(personal.password,"test-personal");
   assert(peapServerNameConfigured(personal));
   assert(canReuseEnterprise(s,s));
+  // A legacy unpinned PEAP login remains boot-decodable and retryable, but
+  // cannot be re-provisioned, moved, rekeyed or re-trusted without a server
+  // certificate DNS name. The UI remains a recovery path for existing login.
+  {
+    NetworkSettings fresh{};
+    assert(!peapProvisioningAllowed(fresh,s,false,true));
+    assert(!peapProvisioningAllowed(s,s,false,true));
+    assert(peapProvisioningAllowed(s,s,true,false));
+    assert(!peapProvisioningAllowed(s,s,true,true));
+    NetworkSettings renamed=s;strcpy(renamed.ssid,"Corporate replacement");
+    assert(!peapProvisioningAllowed(s,renamed,true,false));
+    NetworkSettings changedEap=s;strcpy(changedEap.eapPassword,"new-secret");
+    assert(!peapProvisioningAllowed(s,changedEap,true,false));
+    NetworkSettings changedCA=s;changedCA.caHash[0]=42;
+    assert(!peapProvisioningAllowed(s,changedCA,true,false));
+    NetworkSettings upgraded=s;strcpy(upgraded.serverName,"radius.example.org");
+    assert(peapProvisioningAllowed(s,upgraded,false,true));
+    assert(peapProvisioningAllowed(fresh,upgraded,false,true));
+    NetworkSettings apOnly=s;apOnly.mode=NETWORK_AP;
+    assert(peapProvisioningAllowed(fresh,apOnly,false,true));
+  }
   NetworkSettings newSsid=s;strcpy(newSsid.ssid,"New plant WiFi");
   assert(!canReuseEnterprise(s,newSsid));
   NetworkSettings changedTrust=s;strcpy(changedTrust.serverName,"radius.example.org");

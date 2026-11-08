@@ -7,6 +7,8 @@
 - Before: pioarduino `55.03.311` → Arduino-ESP32 **3.3.11**, ESP-IDF **5.5.5**.
 - After: pioarduino `55.03.312-1` → Arduino-ESP32 **3.3.12**, ESP-IDF **5.5.5**.
 - The `-1` tag fixes SCons 4.11 compatibility compared with `55.03.312` without other release changes.
+- The new platform requires **pioarduino Core >=6.2.0**; the old repository pinned Core 6.1.19. Upgrade the pinned `requirements-dev.txt` to `pioarduino==6.2.0.post1` and update `tools/setup-core.py`'s exact provider/version assertion. This is part of the independent dependency upgrade, not an unrelated firmware refactor.
+- Initial CI failure was **IncompatiblePlatform** (platform rejected Core 6.1.19 before C++ compilation); it was a dependency pin incompatibility, not a firmware-source compile error.
 - Arduino-ESP32 3.3.12 release explicitly incorporates upstream `fix(webserver): Harden security and fix hangs` (espressif/arduino-esp32#12794), including bounded request/header reads rather than indefinite per-byte stream waits.
 
 References:

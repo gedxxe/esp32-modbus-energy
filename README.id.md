@@ -97,8 +97,8 @@ Build biasa memakai header web yang sudah disimpan dan tidak memerlukan Node. Pl
 
 | Komponen | Versi atau konfigurasi |
 | --- | --- |
-| PlatformIO Core | 6.1.19 |
-| pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
+| Core pioarduino | 6.2.0 |
+| Platform pioarduino / Arduino ESP32 | 55.03.312-1 / 3.3.12 |
 | Memori target | Flash 16 MB, OPI PSRAM, ESP32-S3 N16R8 |
 | RadioLib | 7.8.1, MIT, raw LoRa SX1262 |
 | FortMeter / ModbusMaster | 3.5.0 / 2.0.1+fort.1, source lokal |

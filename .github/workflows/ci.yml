@@ -136,22 +136,6 @@ jobs:
           node-version: '24.22.1'
           cache: npm
       - run: npm ci
-      # Temporary non-secret asset export: regenerate exact minified HTML/CSS/JS
-      # and manifest on CI's pinned Node version, then copy into the PR.
-      # REMOVE this step after the artifact source files are committed.
-      - name: Temporary export of public built web assets
-        run: |
-          npm run build:web
-          python - <<'PY'
-          import base64
-          from pathlib import Path
-          for key, path in [('header','firmware/include/web_ui.h'),('manifest','web/bundle.json')]:
-              blob = base64.b64encode(Path(path).read_bytes()).decode('ascii')
-              print(f'GEN_ASSET_BEGIN:{key}:{len(blob)}', flush=True)
-              for n in range(0, len(blob), 2000):
-                  print(f'GEN_ASSET_CHUNK:{key}:{n//2000:05d}:{blob[n:n+2000]}', flush=True)
-              print(f'GEN_ASSET_END:{key}', flush=True)
-          PY
       - name: Verify committed React assets
         run: npm run check:web
       - run: npx playwright install --with-deps chromium

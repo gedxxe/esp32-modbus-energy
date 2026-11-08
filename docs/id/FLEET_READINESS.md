@@ -1,6 +1,6 @@
 # Deployment banyak unit dan kesiapan firmware
 
-[English](../FLEET_READINESS.md) · **Bahasa Indonesia** · [Validasi](VALIDATION.md) · [Gangguan daya](POWER_LOSS.md)
+[English](../FLEET_READINESS.md) · **Bahasa Indonesia** · [Validasi](VALIDATION.md) · [Gangguan daya](POWER_LOSS.md) · [Audit software satu tahun](YEAR_SOFTWARE_READINESS.md)
 
 Versi 3.5.0 menjadi kandidat deployment terkendali pada ESP32-S3 N16R8 dengan pinout yang didokumentasikan. Pengujian software membuktikan perilaku dan aturan pemulihan tertentu, tetapi belum membuktikan kestabilan regulator, kapasitas RF, akurasi meter atau tingkat kegagalan sepanjang umur perangkat. Lakukan pilot kecil sebelum menyatakan satu image diterima untuk seluruh instalasi.
 

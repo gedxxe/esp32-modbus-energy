@@ -1,5 +1,9 @@
 # Validation record / through 8 November 2026
 
+## 8 November 2026: 802.1X station ordering and 365-day host-side audit
+
+The Enterprise adapter was found calling Arduino `STA.begin()` with default `tryConnect=true`, allowing association using stale settings before the EAP identity, server CA bundle and PEAP method were installed. The software-only patch changes this to `STA.begin(false)`, directly writes the chosen station SSID via the official IDF configuration API, and invokes exactly one `esp_wifi_connect()` after `esp_wifi_sta_enterprise_enable()`. It retains the built-in full public CA bundle, clock/date validation and existing optional private CA pinning; it never falls back to unauthenticated TLS. Native mocks check call order and all error branches. Synthetic 365-day native loops exercise reconnect policy across seven 32-bit `millis()` rollovers and one-year archive retirement while preserving forensic copies. CI and actual RADIUS association remain separate gates; see [one-year software review](YEAR_SOFTWARE_READINESS.md).
+
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).

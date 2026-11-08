@@ -1,5 +1,13 @@
 # Koneksi WPA2-Enterprise dan pengisian sertifikat
 
+## November 2026: koreksi urutan koneksi station
+
+Adapter sekarang memanggil `WiFi.STA.begin(false)` secara eksplisit. Dalam Arduino-ESP32 3.3.x, `WiFi.STA.begin()` tanpa parameter dapat langsung mencoba koneksi menggunakan konfigurasi lama sebelum PEAP dan kredensial dipasang. Jalur baru mengaktifkan antarmuka STA tanpa asosiasi, memasang SSID melalui `esp_wifi_set_config()`, mengatur PEAP, identitas, username/password, trust CA, mengaktifkan Enterprise, lalu memanggil **satu kali** `esp_wifi_connect()`. Unit test adapter memverifikasi bahwa tidak ada koneksi sebelum persiapan EAP selesai.
+
+**Sertifikat CA tidak perlu diunggah manual** apabila server RADIUS memakai rantai ke root CA publik yang sudah ada dalam bundle firmware. Windows yang dapat terhubung mungkin mendapatkan CA privat melalui kebijakan perusahaan. Jika RADIUS menggunakan CA internal, ESP32 tetap memerlukan root CA tepercaya yang disetujui IT; tidak boleh mengakali masalah dengan mematikan validasi TLS. Nama DNS RADIUS opsional untuk kompatibilitas awal, tetapi sebaiknya diisi dari informasi IT untuk membatasi identitas server yang diizinkan.
+
+Dukungan saat ini **PEAP/MSCHAPv2**, bukan semua metode 802.1X. EAP-TLS, TTLS dengan aturan phase 2 lain, captive portal atau pembatasan perangkat oleh NAC memerlukan profil/pengaturan berbeda. Pengujian software mensimulasikan retry sepanjang 365 hari melewati rollover `millis()`, bukan bukti autentikasi ke server perusahaan nyata.
+
 ## Hasil koneksi pada 3.4.3
 
 Form mengenali antarmuka yang dipakai sebelum menerima login baru. Bila halaman dibuka melalui IP client perangkat, hubungkan HP atau komputer ke hotspot pemulihan yang ditampilkan perangkat lalu buka IP AP, biasanya `http://192.168.4.1`. Isi username dan password baru di sana, pilih SSID hasil scan lalu simpan. IP client dapat mencoba ulang profil Enterprise tersimpan yang tidak berubah tanpa mengirim ulang kredensial. Penggantian login, server tepercaya atau CA tetap melalui AP terlindungi. Nama AP pemulihan terpisah dari SSID tujuan, yang tidak dibatasi pada nama perusahaan tertentu.

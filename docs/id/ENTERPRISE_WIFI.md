@@ -41,7 +41,7 @@ Build memakai pioarduino 55.03.311, Arduino-ESP32 3.3.11 dan ESP-IDF 5.5.5. Adap
 
 Bootstrap SDK dan compile guard memeriksa keberadaan bundle publik lengkap serta validasi tanggal dan key usage. Pemeriksaan sertifikat tidak dimatikan. Profil CA privat menonaktifkan bundle publik secara eksplisit dan hanya memakai CA yang direferensikan hash tersimpan. Berkas yang hilang membuat koneksi gagal, tanpa mengganti trust secara diam-diam. Saat berpindah ke Personal, konfigurasi EAP sebelumnya dibersihkan terlebih dahulu.
 
-SDK dikompilasi sekali pada cache bersama tanpa spasi untuk menghindari keterbatasan tooling ESP-IDF. Konfigurasi dan hash library diverifikasi sebelum dipakai ulang, sedangkan aplikasi tetap dikompilasi dari direktori sumber aslinya. Bila build melaporkan versi Core berbeda, jalankan `python tools/setup-core.py` di **terminal komputer pada root repository** untuk memasang pioarduino Core 6.1.19 yang dipin.
+SDK dikompilasi sekali pada cache bersama tanpa spasi untuk menghindari keterbatasan tooling ESP-IDF. Konfigurasi dan hash library diverifikasi sebelum dipakai ulang, sedangkan aplikasi tetap dikompilasi dari direktori sumber aslinya. Bila build melaporkan versi Core berbeda, jalankan `python tools/setup-core.py` di **terminal komputer pada root repository** untuk memasang pioarduino Core 6.2.0 yang dipin.
 
 ## Asal sertifikat
 

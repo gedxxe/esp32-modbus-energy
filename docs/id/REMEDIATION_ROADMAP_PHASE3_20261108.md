@@ -17,7 +17,9 @@ Baseline: `main` sesudah PR #26 (`2169021b6681abc16a8676ee0a9e73135086c25a`). Fo
 - Tidak pernah mengarang nama RADIUS, menonaktifkan validasi tanggal/CA, mengubah catatan penyimpanan otomatis, atau memaksa restart.
 - Aturan ditulis sebagai `peapProvisioningAllowed()` yang murni sehingga dapat diuji native. `validNetwork()` tetap menerima rekaman lama saat proses *decode*, dan penolakan dilakukan pada *admission* perubahan konfigurasi baru.
 
-**Catatan UX / syarat sebelum merge:** Frontend hasil bundle yang saat ini dikirim perangkat masih melabeli kolom DNS di bagian **Advanced Wi-Fi settings** sebagai *optional*. Secara keamanan, firmware akan menolak login baru bila kolom ini kosong. Pengguna perlu membuka pengaturan lanjut dan memasukkan nama sertifikat DNS yang diverifikasi IT. Label UI dan penanganan error yang lebih eksplisit harus diperbarui bersamaan dengan regenerasi aset `firmware/include/web_ui.h` sebelum dianggap siap rollout luas. Tidak boleh mengubah sumber JSX saja dan membiarkan bundle perangkat tertinggal.
+**Integrasi UI yang kini diterapkan:** Frontend React `web/components/NetworkControls.jsx` menampilkan syarat nama RADIUS untuk login baru, memvalidasi input sebelum POST, secara otomatis membuka bidang Advanced jika tidak lengkap, dan menampilkan peringatan berbeda untuk profil lama tanpa *server-name binding*. Terjemahan EN/ID diperbarui. Bundle `firmware/include/web_ui.h` dan manifest `web/bundle.json` telah diregenerasi menggunakan Node yang dipin repository di CI, bukan mengubah JSX saja. Browser regression memverifikasi penolakan nama kosong dan penerimaan nama yang diisi. Gzip bundle baru sekitar **163.5 KB**, dekat batas kompilasi 160 KiB (163,840 bytes); fitur UI berikutnya perlu mempertimbangkan budget.
+
+**Syarat sebelum deployment:** Nama DNS nyata dan CA harus diverifikasi dengan IT. Perubahan ini tidak boleh menggunakan nama contoh sebagai konfigurasi produksi; profil lama memerlukan migrasi kredensial secara terencana.
 
 **Keterbatasan keamanan:** Profil lama tetap memiliki risiko *RADIUS identity mismatch* sampai dimigrasikan; PR ini bukan bukti keamanan penuh jaringan Enterprise. Untuk jaringan yang menggunakan EAP-TLS/WPA3 Enterprise, adapter PEAP saat ini bukan implementasi penggantinya.
 
@@ -34,7 +36,7 @@ Baseline: `main` sesudah PR #26 (`2169021b6681abc16a8676ee0a9e73135086c25a`). Fo
 
 - Native: pengecualian **legacy saved retry**, penolakan **fresh PEAP** tanpa nama, penolakan SSID, password, dan CA yang berubah, penerimaan PIN baru, dan mode AP.
 - Native: backlog `unknown`, 0, 25, 30, 31 hari serta backward RTC dan `backfillWindowExceeded` yang tetap konsisten.
-- CI: native suite, source audit, browser bundle (tidak ada perubahan UI pada PR ini), ESP32-S3 build, standalone diagnostic build, dan synthetic HTTPS credentials.
+- CI: native suite, source audit, regenerate/check deterministic React bundle, browser Enterprise regression, ESP32-S3 build, standalone diagnostic build, dan synthetic HTTPS credentials.
 - **Staging wajib:** uji actual Enterprise RADIUS DNS + CA milik IT, migrasi akun lama, 400 error bila nama kosong, client & AP recovery, dan reboot dengan saved profile.
 - **Staging wajib:** putuskan koneksi selama beberapa hari simulasi dengan *synthetic durable snapshots*; verifikasi warning muncul pada 25 hari, tidak melakukan ACK palsu, live/heartbeat tetap berfungsi ketika backlog terlalu tua.
 - **30 hari soak wajib sebelum menyebut production-ready**: tunda fatal reconnect/heap/HTTP hang dan verifikasi tidak ada data capture hilang.
@@ -47,7 +49,7 @@ Pinned `platformio.ini` saat baseline menggunakan `pioarduino/platform-espressif
 
 ## Sisa roadmap
 
-1. **P0**: UI naming + certificate enrollment migration dengan IT, serta test live PEAP. No rollover release without this gate.
+1. **P0**: UI label/validation sudah masuk; **verifikasi IT certificate name/CA**, uji PEAP asli, dan migrasi profil lama masih wajib. No rollout release without this gate.
 2. **P0**: staging website HTTPS ingest dengan token tes, receipt/ACK end-to-end, connection loss, rate limiting, transient proxy.
 3. **P1**: pin update Arduino 3.3.12 / WebServer hardened (PR terpisah), uji slow-client dan watchdog.
 4. **P1**: event-generation WiFi same SSID/BSSID dan replay mock; filter berbeda-SSID bukan bukti total.

@@ -27,7 +27,7 @@ bool TestSTA::begin(bool tryConnect){
 bool TestSTA::connect(const char *ssid,const char*,int,const uint8_t*,bool connect){
   ++stationConnectCalls;calls.emplace_back("station_config");autoConnect=connect;
   if(!stationOK)return false;
-  memset(&config,0,sizeof(config));memcpy(config.sta.ssid,ssid,strlen(ssid));return true;
+  config=wifi_config_t{};memcpy(config.sta.ssid,ssid,strlen(ssid));return true;
 }
 void TestWiFi::setMinSecurity(int value){security=value;}
 int esp_wifi_get_config(int,wifi_config_t *out){
@@ -94,7 +94,9 @@ int main(){
   corruptReadback=false;
   // Each new Enterprise attempt must overwrite any stale personal SSID and
   // credentials, even if the previous station driver config was different.
-  memset(&config,0x5a,sizeof(config));calls.clear();
+  config=wifi_config_t{};
+  config.sta.bssid_set=true;config.sta.channel=11;config.sta.threshold.rssi=-40;
+  memset(config.sta.password,'X',sizeof(config.sta.password));calls.clear();
   assert(driver.begin(s,nullptr,true,1793750400));
   assert(earlyAssocCalls==0&&stationConnectCalls==0&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
   assert(config.sta.channel==0&&!config.sta.bssid_set&&config.sta.threshold.rssi==-127);

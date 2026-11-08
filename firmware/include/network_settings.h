@@ -94,6 +94,12 @@ inline bool decodeNetwork(const uint8_t *bytes,size_t size,NetworkSettings &out)
   if(!validNetwork(s))return false;
   out=s;return true;
 }
+// ESP-IDF STA_DISCONNECTED includes the prior SSID. Ignore a delayed event
+// for a different network after switching profiles; an empty reported SSID
+// remains actionable, so the normal timeout/recovery path is preserved.
+inline bool wifiEventMatchesSSID(const char *expected,const char *reported){
+  return !reported||!reported[0]||(expected&&!strcmp(expected,reported));
+}
 inline bool pauseEnterpriseRetry(uint8_t auth,uint16_t reason){return auth==NETWORK_PEAP&&(reason==23||reason==202);}
 inline const char *networkDisconnectHint(uint16_t reason){
   switch(reason){case 23:case 202:return "authentication_failed";case 201:return "ssid_unavailable";case 15:case 204:return "handshake_timeout";case 200:return "beacon_timeout";case 203:return "association_failed";default:return "link_lost";}

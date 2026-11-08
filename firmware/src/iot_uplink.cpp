@@ -327,9 +327,15 @@ void backoff(const char *reason,uint32_t retrySeconds=0){
 bool serverError(const Response &response,const char *code){
   if(response.overflow||!response.used)return false;
   JsonDocument doc;
-  if(deserializeJson(doc,response.body,response.used))return false;
+  if(deserializeJson(doc,response.body,response.used)||!doc.is<JsonObject>())return false;
   const char *error=doc["error"] | "";
   return strcmp(error,code)==0;
+}
+bool confirmedServerRejection(const Response &response,int http){
+  if(response.overflow||!response.used)return false;
+  JsonDocument doc;
+  if(deserializeJson(doc,response.body,response.used)||!doc.is<JsonObject>())return false;
+  return confirmedIngestRejection(http,doc["error"] | "");
 }
 // Independent heartbeat retry state: failed contact must never postpone a
 // freshly captured reading or mutate the durable checkpoint cursor.
@@ -393,34 +399,33 @@ bool transmitHeartbeat(uint32_t utc){
   }
   // A 200 without the exact heartbeat and registered device ID is NOT contact.
   if(code==200){
-    ++status.heartbeatFailures;
-    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s","heartbeat_ack_mismatch");
-    report("heartbeat_ack_mismatch",4,code);
+    // A portal/proxy may return HTTP 200 without the authenticated heartbeat
+    // identity. Never accept it, but do not permanently freeze the uploader.
+    heartbeatBackoff("heartbeat_ack_mismatch");
     return false;
   }
   if(code==400||code==401||code==403||code==409||code==413||code==415){
-    ++status.heartbeatFailures;
-    const char *reason="heartbeat_binding_or_payload_invalid";
-    if(code==401)reason=serverError(response,"DEVICE_UNAUTHORIZED")?
-      "heartbeat_device_unauthorized":"heartbeat_401_upstream_protection";
-    else if(code==403)reason=serverError(response,"DEVICE_BINDING_MISMATCH")?
-      "heartbeat_binding_mismatch":"heartbeat_403_upstream_protection";
-    else if(code==415)reason="heartbeat_content_type_invalid";
-    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
-    report(reason,4,code);
+    const bool confirmed=confirmedServerRejection(response,code);
+    const char *reason=confirmed?"heartbeat_binding_or_payload_invalid":
+      "heartbeat_unverified_http_error";
+    if(code==401)reason=confirmed?"heartbeat_device_unauthorized":"heartbeat_401_upstream_protection";
+    else if(code==403)reason=confirmed?"heartbeat_binding_mismatch":"heartbeat_403_upstream_protection";
+    else if(code==415&&confirmed)reason="heartbeat_content_type_invalid";
+    if(confirmed){
+      ++status.heartbeatFailures;
+      snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
+      report(reason,4,code);
+    }else heartbeatBackoff(reason);
     return false;
   }
   if(code==301||code==302||code==303||code==307||code==308||code==404){
-    ++status.heartbeatFailures;
-    const char *reason=code==404?"heartbeat_endpoint_not_found":"heartbeat_redirect_blocked";
-    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s",reason);
-    report(reason,4,code);
+    // Never follow redirects (bearer security); retry after a deployment or
+    // intermediary recovers instead of requiring a firmware reboot.
+    heartbeatBackoff(code==404?"heartbeat_endpoint_not_found":"heartbeat_redirect_blocked");
     return false;
   }
   if(code==503&&serverError(response,"IOT_NOT_CONFIGURED")){
-    ++status.heartbeatFailures;
-    snprintf(status.heartbeatError,sizeof(status.heartbeatError),"%s","heartbeat_cloud_disabled");
-    report("heartbeat_cloud_disabled",4,code);
+    heartbeatBackoff("heartbeat_cloud_disabled");
     return false;
   }
   if(code==429){
@@ -466,26 +471,29 @@ bool transmit(const Event &event,bool checkpointEvent){
   }
   if(code==400||code==401||code==403||code==409||code==413||code==415){
     const char *reason="review_binding_or_payload";
-    if(code==401)reason=serverError(response,"DEVICE_UNAUTHORIZED")?
-      "cloud_device_unauthorized":"http_401_upstream_protection";
-    else if(code==403)reason=serverError(response,"DEVICE_BINDING_MISMATCH")?
-      "cloud_binding_mismatch":"http_403_upstream_protection";
-    else if(code==409)reason="event_id_conflict";
-    else if(code==415)reason="invalid_content_type";
-    report(reason,4,code);
+    const bool confirmed=confirmedServerRejection(response,code);
+    if(code==401)reason=confirmed?"cloud_device_unauthorized":"http_401_upstream_protection";
+    else if(code==403)reason=confirmed?"cloud_binding_mismatch":"http_403_upstream_protection";
+    else if(code==409&&confirmed)reason="event_id_conflict";
+    else if(code==415&&confirmed)reason="invalid_content_type";
+    else if(!confirmed)reason="unverified_http_error";
+    // Documented, authenticated application rejections require re-provisioning
+    // or a code fix. Unknown intermediary responses are transient until proven.
+    if(confirmed)report(reason,4,code);
+    else backoff(reason);
     return false;
   }
   if(code==200||code==201){
-    report("receipt_id_mismatch",4,code);return false;
+    backoff("receipt_id_mismatch");return false;
   }
   // Never follow a redirect: doing so risks sending the device bearer
   // to a different host. A 404 usually means an invalid deployment/path.
   if(code==301||code==302||code==303||code==307||code==308||code==404){
-    report(code==404?"endpoint_not_found":"endpoint_redirect_blocked",4,code);
+    backoff(code==404?"endpoint_not_found":"endpoint_redirect_blocked");
     return false;
   }
   if(code==503&&serverError(response,"IOT_NOT_CONFIGURED")){
-    report("cloud_iot_disabled",4,code);
+    backoff("cloud_iot_disabled");
     return false;
   }
   if(code==429){backoff("http_rate_limited",response.retrySeconds);return false;}

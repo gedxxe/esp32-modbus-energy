@@ -9,7 +9,7 @@ For 3.5.0, read [fleet commissioning](FLEET_READINESS.md) before updating multip
 For an installed logger, use PlatformIO upload or the app-only image at 0x10000 with the unchanged partition layout. The merged factory image spans the NVS range at 0x9000–0xDFFF through padding, so it is not the preferred update path when preserving current settings and NVS recovery records. Export available checkpoint CSVs before maintenance, and do not use whole-chip erase or filesystem formatting for a routine update.
 
 
-Version 3 requires the pinned pioarduino integration and Arduino-ESP32 3.3.11. From the repository-root **computer terminal**, run `python tools/setup-core.py` once to install pioarduino Core 6.1.19 into the managed environment used by SDK child builds. Restart the PlatformIO terminal afterward, or use the interpreter path printed by the setup tool. The first build downloads the SDK/compiler and builds the shared custom SDK cache. The partition layout is unchanged, but keep the previous image and export records before a major runtime update.
+Version 3 requires the pinned pioarduino integration and Arduino-ESP32 3.3.12. From the repository-root **computer terminal**, run `python tools/setup-core.py` once to install pioarduino Core 6.2.0 into the managed environment used by SDK child builds. Restart the PlatformIO terminal afterward, or use the interpreter path printed by the setup tool. The first build downloads the SDK/compiler and builds the shared custom SDK cache. The partition layout is unchanged, but keep the previous image and export records before a major runtime update.
 
 ## Physical board
 

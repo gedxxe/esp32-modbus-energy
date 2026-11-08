@@ -15,10 +15,14 @@ static wifi_config_t config{};
 static std::vector<std::string> calls;
 static std::string failAt,identity,username,password,domain;
 static bool stationOK=true,clockOK=true,caOK=true,bundle=false,timeDisabled=true,autoConnect=false;
-static unsigned stationConnectCalls=0,espConnectCalls=0;
+static unsigned stationConnectCalls=0,espConnectCalls=0,earlyAssocCalls=0;
 static int security=0,method=0;
 static int api(const char *step){calls.emplace_back(step);return failAt==step?1234:ESP_OK;}
-bool TestSTA::begin(){calls.emplace_back("station_begin");return stationOK;}
+bool TestSTA::begin(bool tryConnect){
+  calls.emplace_back("station_begin");
+  if(tryConnect)++earlyAssocCalls; // Default Arduino-ESP32 begin() autoconnects.
+  return stationOK;
+}
 bool TestSTA::connect(const char *ssid,const char*,int,const uint8_t*,bool connect){
   ++stationConnectCalls;calls.emplace_back("station_config");autoConnect=connect;
   if(!stationOK)return false;
@@ -62,7 +66,7 @@ int main(){
   assert(driver.attempted&&security==WIFI_AUTH_WPA2_ENTERPRISE);
   // No Arduino connect during Enterprise preparation; one EAP-enabled
   // esp_wifi_connect() is the only association attempt.
-  assert(stationConnectCalls==0&&espConnectCalls==1);
+  assert(earlyAssocCalls==0&&stationConnectCalls==0&&espConnectCalls==1);
   assert(calls.front()=="station_begin");
   assert(calls[1]=="get_config"&&calls[2]=="set_config");
   assert(config.sta.threshold.authmode==WIFI_AUTH_WPA2_ENTERPRISE);
@@ -84,7 +88,7 @@ int main(){
   // credentials, even if the previous station driver config was different.
   memset(&config,0x5a,sizeof(config));calls.clear();
   assert(driver.begin(s,nullptr,true,1793750400));
-  assert(stationConnectCalls==0&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
+  assert(earlyAssocCalls==0&&stationConnectCalls==0&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
   for(unsigned i=0;i<sizeof(config.sta.password);++i)assert(config.sta.password[i]==0);
   assert(calls.back()=="connect"&&espConnectCalls>=2);
   assert(!driver.begin(s,nullptr,false,1793750400)&&!strcmp(driver.error,"enterprise_clock_required"));

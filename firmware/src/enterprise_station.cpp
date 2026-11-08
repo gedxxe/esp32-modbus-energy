@@ -40,7 +40,10 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   // former STA.connect(..., false) path also configures the Arduino station
   // and could race EAP provisioning across reconnects/SDK versions. Configure
   // all Enterprise fields first, then issue exactly one esp_wifi_connect().
-  if(!WiFi.STA.begin()){
+  // Arduino STA.begin() defaults to tryConnect=true. Passing false is
+  // mandatory: otherwise it calls connect() with cached station settings
+  // BEFORE the PEAP identity/trust configuration is installed.
+  if(!WiFi.STA.begin(false)){
     error="station_config_failed";apiStep="station_begin";return false;
   }
   wifi_config_t config{};

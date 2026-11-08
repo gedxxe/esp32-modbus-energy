@@ -94,8 +94,8 @@ A normal firmware build uses the committed web header and does not require Node.
 
 | Component | Pinned version or configuration |
 | --- | --- |
-| PlatformIO Core | 6.1.19 |
-| pioarduino / Arduino ESP32 | 55.03.311 / 3.3.11 |
+| pioarduino Core | 6.2.0 |
+| pioarduino platform / Arduino ESP32 | 55.03.312-1 / 3.3.12 |
 | Target memory | 16 MB flash, OPI PSRAM, ESP32-S3 N16R8 |
 | RadioLib | 7.8.1, MIT, SX1262 raw LoRa |
 | FortMeter / ModbusMaster | 3.5.0 / 2.0.1+fort.1, local source |

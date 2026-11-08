@@ -15,11 +15,12 @@ static wifi_config_t config{};
 static std::vector<std::string> calls;
 static std::string failAt,identity,username,password,domain;
 static bool stationOK=true,clockOK=true,caOK=true,bundle=false,timeDisabled=true,autoConnect=false;
+static unsigned stationConnectCalls=0,espConnectCalls=0;
 static int security=0,method=0;
 static int api(const char *step){calls.emplace_back(step);return failAt==step?1234:ESP_OK;}
-bool TestSTA::begin(){return stationOK;}
+bool TestSTA::begin(){calls.emplace_back("station_begin");return stationOK;}
 bool TestSTA::connect(const char *ssid,const char*,int,const uint8_t*,bool connect){
-  calls.emplace_back("station_config");autoConnect=connect;
+  ++stationConnectCalls;calls.emplace_back("station_config");autoConnect=connect;
   if(!stationOK)return false;
   memset(&config,0,sizeof(config));memcpy(config.sta.ssid,ssid,strlen(ssid));return true;
 }
@@ -28,7 +29,7 @@ int esp_wifi_get_config(int,wifi_config_t *out){*out=config;return api("get_conf
 int esp_wifi_set_config(int,const wifi_config_t *value){config=*value;return api("set_config");}
 int esp_wifi_sta_enterprise_enable(){return api("enterprise_enable");}
 int esp_wifi_sta_enterprise_disable(){return api("enterprise_disable");}
-int esp_wifi_connect(){return api("connect");}
+int esp_wifi_connect(){++espConnectCalls;return api("connect");}
 int esp_eap_client_set_eap_methods(int value){method=value;return api("set_eap_methods");}
 int esp_eap_client_set_disable_time_check(bool value){timeDisabled=value;return api("set_disable_time_check");}
 int esp_eap_client_set_identity(const uint8_t *p,int size){identity.assign(reinterpret_cast<const char*>(p),size);return api("set_identity");}
@@ -58,7 +59,14 @@ int main(){
   assert(!canReuseEnterprise(s,changedTrust));
   EnterpriseWiFi driver;
   assert(driver.begin(s,nullptr,true,1793750400));
-  assert(driver.attempted&&security==WIFI_AUTH_WPA2_ENTERPRISE&&!autoConnect);
+  assert(driver.attempted&&security==WIFI_AUTH_WPA2_ENTERPRISE);
+  // No Arduino connect during Enterprise preparation; one EAP-enabled
+  // esp_wifi_connect() is the only association attempt.
+  assert(stationConnectCalls==0&&espConnectCalls==1);
+  assert(calls.front()=="station_begin");
+  assert(calls[1]=="get_config"&&calls[2]=="set_config");
+  assert(config.sta.threshold.authmode==WIFI_AUTH_WPA2_ENTERPRISE);
+  assert(!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
   assert(identity==s.username&&username==s.username&&password==s.eapPassword&&domain.empty());
   assert(method==ESP_EAP_TYPE_PEAP&&!timeDisabled&&bundle);
   assert(calls.back()=="connect"&&calls[calls.size()-2]=="enterprise_enable");
@@ -71,7 +79,14 @@ int main(){
     assert(trial.apiCode==1234&&!strcmp(trial.apiStep,step)&&!trial.attempted);
     failAt.clear();assert(trial.reset());
   }
-  stationOK=false;assert(!driver.begin(s,nullptr,true,1793750400));assert(!strcmp(driver.error,"station_config_failed"));stationOK=true;
+  stationOK=false;assert(!driver.begin(s,nullptr,true,1793750400));assert(!strcmp(driver.error,"station_config_failed")&&!strcmp(driver.apiStep,"station_begin"));stationOK=true;
+  // Each new Enterprise attempt must overwrite any stale personal SSID and
+  // credentials, even if the previous station driver config was different.
+  memset(&config,0x5a,sizeof(config));calls.clear();
+  assert(driver.begin(s,nullptr,true,1793750400));
+  assert(stationConnectCalls==0&&!memcmp(config.sta.ssid,s.ssid,strlen(s.ssid)));
+  for(unsigned i=0;i<sizeof(config.sta.password);++i)assert(config.sta.password[i]==0);
+  assert(calls.back()=="connect"&&espConnectCalls>=2);
   assert(!driver.begin(s,nullptr,false,1793750400)&&!strcmp(driver.error,"enterprise_clock_required"));
   clockOK=false;assert(!driver.begin(s,nullptr,true,1793750400));clockOK=true;
   strcpy(s.identity,"anonymous@example.org");strcpy(s.serverName,"radius.example.org");memset(s.caHash,1,32);
@@ -81,9 +96,10 @@ int main(){
   assert(!badCAAPI.begin(s,"test-CA",true,1793750400)&&!strcmp(badCAAPI.apiStep,"set_ca_cert")&&!badCAAPI.attempted);
   failAt.clear();assert(badCAAPI.reset());
   assert(driver.begin(s,"test-CA",true,1793750400)&&!bundle&&domain==s.serverName&&identity==s.identity);
+  assert(stationConnectCalls==0);
   failAt="enterprise_disable";assert(!driver.begin(s,"test-CA",true,1793750400)&&!driver.attempted);failAt.clear();assert(driver.reset());
   clearEnterprise(s);s.auth=NETWORK_PERSONAL;strcpy(s.password,"personal-test");
-  assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK);
+  assert(driver.begin(s,nullptr,false,0)&&autoConnect&&security==WIFI_AUTH_WPA_PSK&&stationConnectCalls==1);
   NetworkAttempt attempt;attempt.prepare(0xFFFFFF00u,true);assert(attempt.active());
   assert(!attempt.expired(0xFFFFFEFFu)[0]);
   assert(!attempt.expired(0xFFFFFF00u+4999u)[0]);assert(!strcmp(attempt.expired(0xFFFFFF00u+5000u),"station_disconnect_timeout"));
@@ -99,5 +115,5 @@ int main(){
   attempt.idle();assert(!attempt.accepts(46000)&&!attempt.active());
   NetworkPolicy policy;policy.begin(NETWORK_CLIENT,0,60000);
   assert(!policy.update(60000,false,false)&&policy.apWanted(60000));assert(policy.update(90000,false,true));
-  std::cout<<"PASS: production Enterprise adapter, optional DNS/default trust, PEAP/time checks, API fault injection, credential reset, Personal fallback and rollover-safe connection deadlines/history\n";
+  std::cout<<"PASS: production Enterprise adapter with exactly one post-EAP association, default public trust/no manual CA, custom CA fail-closed, clean station config, SDK errors, Personal fallback and rollover-safe deadlines\n";
 }

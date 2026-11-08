@@ -36,13 +36,21 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   if(customCA&&(!ca||!validateEnterpriseCA(ca,hash)||memcmp(hash,s.caHash,32))){error="enterprise_ca_missing";return false;}
   if(!setEnterpriseSystemClock(utc)){error="enterprise_clock_required";return false;}
   WiFi.setMinSecurity(WIFI_AUTH_WPA2_ENTERPRISE);
-  // Check the bool station API. The legacy begin wrapper returns a possibly stale status.
-  if(!WiFi.STA.begin()||!WiFi.STA.connect(s.ssid,nullptr,0,nullptr,false)){
-    error="station_config_failed";apiStep="station_config";return false;
+  // Initialize the station interface WITHOUT launching association. The
+  // former STA.connect(..., false) path also configures the Arduino station
+  // and could race EAP provisioning across reconnects/SDK versions. Configure
+  // all Enterprise fields first, then issue exactly one esp_wifi_connect().
+  if(!WiFi.STA.begin()){
+    error="station_config_failed";apiStep="station_begin";return false;
   }
   wifi_config_t config{};
   if(!checked(esp_wifi_get_config(WIFI_IF_STA,&config),"get_config"))return false;
-  if(strncmp(reinterpret_cast<const char*>(config.sta.ssid),s.ssid,32)){error="station_config_failed";return false;}
+  const size_t ssidLength=strnlen(s.ssid,sizeof(s.ssid));
+  if(!ssidLength||ssidLength>sizeof(config.sta.ssid)){
+    error="station_config_failed";apiStep="station_ssid";return false;
+  }
+  memset(config.sta.ssid,0,sizeof(config.sta.ssid));
+  memcpy(config.sta.ssid,s.ssid,ssidLength);
   memset(config.sta.password,0,sizeof(config.sta.password));
   config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;config.sta.pmf_cfg.capable=true;
   if(!checked(esp_wifi_set_config(WIFI_IF_STA,&config),"set_config"))return false;

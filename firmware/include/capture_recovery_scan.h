@@ -19,14 +19,14 @@ struct CaptureRecoveryIndex {
     uint32_t day=0;
     if(!productionArchiveDay(name,ArchiveNameKind::CaptureBinary,day))return true;
     for(unsigned i=0;i<count;++i)if(days[i]==day)return true;
+    // Once all slots are occupied, *any* new distinct day proves that
+    // the filesystem contains more history than this index can represent.
+    // This must be reported even when the new day sorts at the front and the
+    // lowest day would otherwise be silently evicted.
+    if(count==MaxDays)complete=false;
     unsigned pos=0;
     while(pos<count&&days[pos]>day)++pos;
-    if(pos>=MaxDays){
-      // More than 64 distinct historical days were found. Do not pretend the
-      // newest-day index is a complete view of the filesystem.
-      complete=false;
-      return true;
-    }
+    if(pos>=MaxDays)return true;
     if(count<MaxDays)++count;
     for(unsigned i=count-1;i>pos;--i)days[i]=days[i-1];
     days[pos]=day;

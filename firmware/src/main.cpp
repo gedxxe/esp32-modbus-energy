@@ -510,13 +510,35 @@ String csvDay(const Day &d) {
   }return s;
 }
 void saveArchive() {
-  if(!fsOK||!tracker.day.number){archiveOK=false;return;}
+  // The same boot-recovery fail-closed rule applies to legacy CSV exports:
+  // an incomplete binary archive index must not permit unrelated filesystem
+  // writes or legacy retention cleanup while operator recovery is pending.
+  if(!captureRecoveryScanComplete||!fsOK||!tracker.day.number){archiveOK=false;return;}
   if(xSemaphoreTake(fsMutex,pdMS_TO_TICKS(200))!=pdTRUE){archiveOK=false;return;}
   String path=dayPath(tracker.day.number),temp="/pending.csv",backup=path+".bak",csv=csvDay(tracker.day);
-  File f=LittleFS.open(temp,"w");bool ok=bool(f);
-  if(ok){ok=f.print(csv)==csv.length();f.flush();f.close();}
-  // Keep old copy if power is lost before the replacement is installed.
-  if(ok)ok=installArchive(LittleFS,temp,path,backup);
+  // Verify the canonical bytes before performing another five-minute write.
+  // A damaged/missing or truncated file always goes through the established
+  // staging+backup promotion path. This avoids needless identical flash writes
+  // while retaining periodic detection and repair of on-disk corruption.
+  File current=LittleFS.open(path,"r");
+  bool ok=current&&verifiedFileMatches(current,csv.c_str(),csv.length());
+  if(current)current.close();
+  // A leftover staging file still needs reconciliation; never skip it merely
+  // because the canonical record happens to match the current RAM view.
+  if(LittleFS.exists(temp))ok=false;
+  if(!ok){
+    File f=LittleFS.open(temp,"w");ok=bool(f);
+    if(ok){ok=f.print(csv)==csv.length();f.flush();f.close();}
+    if(ok){
+      // Do not promote an unverified short/corrupt temporary CSV. If readback
+      // fails, leave the previous canonical+backup untouched for recovery.
+      File staged=LittleFS.open(temp,"r");
+      ok=staged&&verifiedFileMatches(staged,csv.c_str(),csv.length());
+      if(staged)staged.close();
+    }
+    // Keep old copy if power is lost before the replacement is installed.
+    if(ok)ok=installArchive(LittleFS,temp,path,backup);
+  }
   // Retire just two known paths on the exact expired day, with no directory scan.
   // A multi-year RTC jump must not sweep historical or quarantined records.
   if(ok){
@@ -843,7 +865,7 @@ void saveCheckpoint(bool archive) {
   static Checkpoint c{},verify{};
   if(tracker.day.number&&nvsOK) {
     c.day=tracker.day;c.crc=crc16(reinterpret_cast<const uint8_t*>(&c),offsetof(Checkpoint,crc));
-    checkpointOK=verifiedPut(prefs,"day",&c,&verify,sizeof(c));
+    checkpointOK=verifiedPutIfChanged(prefs,"day",&c,&verify,sizeof(c));
   }else checkpointOK=false;
   esp_task_wdt_reset();
   if(archive)saveArchive();
@@ -1069,8 +1091,14 @@ void processCommands(){
           if(!nvsOK||!fsOK){
             error="rtc_recovery_requires_healthy_storage";break;
           }
+          const iot::Status cloud=iot::readStatus();
+          if(!iot::rtcRepairAckSafe(cloud.enabled,cloud.cursorVerified)){
+            // Never treat an unverified or corrupt persisted cloud ACK as
+            // day zero. The operator can retry after boot cursor recovery.
+            error="rtc_recovery_ack_cursor_unverified";break;
+          }
           if(!clockRecoveryAllowed(cmd.epoch,LOCAL_OFFSET,tracker.day,
-                                   captureLog.day,capturePending,iot::readStatus().lastAckDay)){
+                                   captureLog.day,capturePending,cloud.lastAckDay)){
             error="rtc_recovery_protected_readings";break;
           }
           if(resolveQueuedClockTime(cmd.epoch,cmd.queuedAt,millis(),
@@ -1509,6 +1537,7 @@ void webSetup() {
     iotState["localHeaderPresent"]=uplink.localHeaderPresent;
     iotState["clientRevision"]=uplink.clientRevision;
     iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
+    iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
     iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;

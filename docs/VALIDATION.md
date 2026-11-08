@@ -352,3 +352,7 @@ multi-year RTC-jump verification.
 The broader separation of acquisition, hardware drivers, and HTTP from
 `firmware/src/main.cpp` remains a separate architectural project.
 Large cross-core moves are deliberately not part of this low-risk change.
+
+### Long-run Wi-Fi stale-live retry mitigation (draft PR #23)
+
+An outstanding **live** telemetry POST is an ephemeral snapshot rather than a durable checkpoint. Failed or lost-ACK live requests retain their original event ID within a ten-minute, 64-bit monotonic retry window. After expiry, only the frozen live retry is discarded; the next fresh valid Modbus snapshot receives a new event ID when the ordinary Wi-Fi/clock/rate limits permit. `iot.expiredLiveRetries` exposes this count. No historical checkpoint cursor, capture file, website schema, manually served request marker, or LoRa packet changes. Pure native tests cover TTL boundaries, a long outage, disabled TTL and uptime across the 32-bit `millis()` rollover.

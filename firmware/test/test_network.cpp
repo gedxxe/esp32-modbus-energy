@@ -119,5 +119,30 @@ int main(){
   attempt.idle();assert(!attempt.accepts(46000)&&!attempt.active());
   NetworkPolicy policy;policy.begin(NETWORK_CLIENT,0,60000);
   assert(!policy.update(60000,false,false)&&policy.apWanted(60000));assert(policy.update(90000,false,true));
+  // One-year software timeline: the station retry budget must keep recovering
+  // across seven 49.7-day millis() wraps without relying on a reboot.
+  // Reconnects remain bounded by the policy, not a signed absolute deadline.
+  {
+    constexpr uint64_t HOUR=3600000ULL, YEAR=365ULL*24ULL*HOUR;
+    const uint32_t begin=0xFFFFFF00u;
+    NetworkPolicy year;year.begin(NETWORK_CLIENT,begin,NETWORK_RETRY_MS);
+    unsigned retries=0;
+    for(uint64_t elapsed=HOUR;elapsed<=YEAR;elapsed+=HOUR){
+      const uint32_t now=begin+uint32_t(elapsed);
+      if(year.update(now,false,true))++retries;
+      assert(year.apWanted(now)); // recovery hotspot remains available
+    }
+    assert(retries==365u*24u);
+    NetworkAttempt attempt;
+    for(uint64_t elapsed=HOUR;elapsed<=YEAR;elapsed+=31ULL*24ULL*HOUR){
+      const uint32_t now=begin+uint32_t(elapsed);
+      attempt.prepare(now,true);
+      assert(attempt.active()&&!attempt.expired(now+4999u)[0]);
+      attempt.connecting(now+500u);
+      attempt.associated(now+800u);
+      assert(attempt.accepts(now+2000u));
+      attempt.online();assert(attempt.stage==NetworkAttempt::ONLINE);
+    }
+  }
   std::cout<<"PASS: production Enterprise adapter with exactly one post-EAP association, default public trust/no manual CA, custom CA fail-closed, clean station config, SDK errors, Personal fallback and rollover-safe deadlines\n";
 }

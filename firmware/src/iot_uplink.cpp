@@ -567,7 +567,16 @@ void worker(void *){
   uint64_t cursorRetryAt=0,nextArchiveCheck=0;
   uint32_t lastRead=0,observedDay=0,observedRevision=0;
   uint8_t backfillBurst=0;
+  uint32_t lastPulse=0;
   for(;;){
+    // This is a scheduler-progress marker, NOT an API heartbeat or meter
+    // reading. A stalled HTTP task leaves its last pulse visibly stale.
+    const uint32_t pulse=millis();
+    if(!lastPulse||uint32_t(pulse-lastPulse)>=5000){
+      lastPulse=pulse;
+      status.workerPulseMs=pulse;
+      if(statusQ)xQueueOverwrite(statusQ,&status);
+    }
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
     // Discard only an old transient live retry, not an immutable checkpoint.

@@ -1,5 +1,9 @@
 # Validation record / through 8 November 2026
 
+## 8 November 2026: 802.1X station ordering and 365-day host-side audit
+
+A new audit against pinned **Arduino-ESP32 3.3.11** corrected an earlier, inaccurate premise: `WiFi.STA.begin()` already defaults to `tryConnect=false`; the legacy `WiFi.begin()` wrapper differs. The previous PR revision removed `STA.connect(ssid,nullptr,0,nullptr,false)`, but this non-associating method also starts DHCP for dynamic IP. Removing it could break Enterprise IP assignment. The corrected adapter **restores** this prepare-only call after explicit `STA.begin(false)`, checks the resulting SSID/BSSID/channel and WPA2-Enterprise config via the official ESP-IDF API, installs PEAP/MSCHAPv2 and CA trust, and finally performs one `esp_wifi_connect()` after EAP is enabled. Native tests model DHCP preparation, inject config and SDK failures, and test 365-day policy rollover and bounded retention. Validation remains software-only rather than proof of live RADIUS acceptance. See [one-year software review](YEAR_SOFTWARE_READINESS.md).
+
 **English** · [Bahasa Indonesia](id/VALIDATION.md)
 
 Firmware, FortMeter and FortSerialDebug are **3.5.0**. This record covers software checks for the integrated release, which follows the user's successful ModbusMaster reference with GPIO16 driving tied DE and /RE. The user reported that reference working on the Fort, while the integrated release still needs the separate hardware checks in [COMMISSIONING](COMMISSIONING.md). Earlier release records are summarized in [CHANGELOG](../CHANGELOG.md).

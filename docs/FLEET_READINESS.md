@@ -1,6 +1,6 @@
 # Fleet deployment and firmware readiness
 
-**English** · [Bahasa Indonesia](id/FLEET_READINESS.md) · [Validation](VALIDATION.md) · [Power interruption](POWER_LOSS.md)
+**English** · [Bahasa Indonesia](id/FLEET_READINESS.md) · [Validation](VALIDATION.md) · [Power interruption](POWER_LOSS.md) · [One-year software review](YEAR_SOFTWARE_READINESS.md)
 
 Version 3.5.0 is a candidate for controlled deployment on ESP32-S3 N16R8 units with the documented pinout. Software checks can establish bounded behavior and recovery rules, but they do not establish regulator stability, RF capacity, meter accuracy or a lifetime failure rate. Approve a small pilot before treating one firmware image as accepted across an installation.
 

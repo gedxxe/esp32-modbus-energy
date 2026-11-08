@@ -1,5 +1,15 @@
 # Koneksi WPA2-Enterprise dan pengisian sertifikat
 
+## November 2026: koreksi urutan koneksi station
+
+Audit source **Arduino-ESP32 3.3.11** mengoreksi asumsi sebelumnya: `WiFi.STA.begin()` memiliki default `tryConnect=false`. Justru wrapper lama `WiFi.begin()` yang berbeda perilakunya. Pemanggilan lama `STA.connect(ssid,nullptr,0,nullptr,false)` juga tidak melakukan asosiasi: selain memasang SSID, fungsi ini mengaktifkan DHCP untuk IP dinamis. Menghapusnya berisiko membuat perangkat tidak memperoleh IP.
+
+Revisi akhir mempertahankan `STA.begin(false)` secara eksplisit dan **mengembalikan** `STA.connect(...,false)` sebagai persiapan tanpa koneksi. Selanjutnya firmware memeriksa konfigurasi WPA2-Enterprise via ESP-IDF, memasang username/password PEAP dan CA tepercaya, mengaktifkan EAP, baru memanggil **satu** `esp_wifi_connect()`. Regression test memastikan konfigurasi DHCP tersedia dan menguji kegagalan verifikasi. Rujukan source: [WiFiSTA.h](https://github.com/espressif/arduino-esp32/blob/3.3.11/libraries/WiFi/src/WiFiSTA.h), [STA.cpp](https://github.com/espressif/arduino-esp32/blob/3.3.11/libraries/WiFi/src/STA.cpp), [NetworkInterface.cpp](https://github.com/espressif/arduino-esp32/blob/3.3.11/libraries/Network/src/NetworkInterface.cpp). Ini bukan bukti login RADIUS fisik.
+
+**Sertifikat CA tidak perlu diunggah manual** apabila server RADIUS memakai rantai ke root CA publik yang sudah ada dalam bundle firmware. Windows yang dapat terhubung mungkin mendapatkan CA privat melalui kebijakan perusahaan. Jika RADIUS menggunakan CA internal, ESP32 tetap memerlukan root CA tepercaya yang disetujui IT; tidak boleh mengakali masalah dengan mematikan validasi TLS. Nama DNS RADIUS opsional untuk kompatibilitas awal, tetapi sebaiknya diisi dari informasi IT untuk membatasi identitas server yang diizinkan.
+
+Dukungan saat ini **PEAP/MSCHAPv2**, bukan semua metode 802.1X. EAP-TLS, TTLS dengan aturan phase 2 lain, captive portal atau pembatasan perangkat oleh NAC memerlukan profil/pengaturan berbeda. Pengujian software mensimulasikan retry sepanjang 365 hari melewati rollover `millis()`, bukan bukti autentikasi ke server perusahaan nyata.
+
 ## Hasil koneksi pada 3.4.3
 
 Form mengenali antarmuka yang dipakai sebelum menerima login baru. Bila halaman dibuka melalui IP client perangkat, hubungkan HP atau komputer ke hotspot pemulihan yang ditampilkan perangkat lalu buka IP AP, biasanya `http://192.168.4.1`. Isi username dan password baru di sana, pilih SSID hasil scan lalu simpan. IP client dapat mencoba ulang profil Enterprise tersimpan yang tidak berubah tanpa mengirim ulang kredensial. Penggantian login, server tepercaya atau CA tetap melalui AP terlindungi. Nama AP pemulihan terpisah dari SSID tujuan, yang tidak dibatasi pada nama perusahaan tertentu.

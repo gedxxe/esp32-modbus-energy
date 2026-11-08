@@ -25,7 +25,9 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   auth=s.auth;
   if(s.auth!=NETWORK_PEAP){
     WiFi.setMinSecurity(s.auth==NETWORK_OPEN?WIFI_AUTH_OPEN:WIFI_AUTH_WPA_PSK);
-    if(!WiFi.STA.begin()||!WiFi.STA.connect(s.ssid,s.password[0]?s.password:nullptr)){
+    // Disable implicit association with cached SSID in every mode. An
+    // explicit Personal connect follows with the requested current SSID.
+    if(!WiFi.STA.begin(false)||!WiFi.STA.connect(s.ssid,s.password[0]?s.password:nullptr)){
       error="station_config_failed";apiStep="station_connect";return false;
     }
     attempted=true;return true;
@@ -36,16 +38,36 @@ bool EnterpriseWiFi::begin(const NetworkSettings &s,const char *ca,bool clockVal
   if(customCA&&(!ca||!validateEnterpriseCA(ca,hash)||memcmp(hash,s.caHash,32))){error="enterprise_ca_missing";return false;}
   if(!setEnterpriseSystemClock(utc)){error="enterprise_clock_required";return false;}
   WiFi.setMinSecurity(WIFI_AUTH_WPA2_ENTERPRISE);
-  // Check the bool station API. The legacy begin wrapper returns a possibly stale status.
-  if(!WiFi.STA.begin()||!WiFi.STA.connect(s.ssid,nullptr,0,nullptr,false)){
-    error="station_config_failed";apiStep="station_config";return false;
+  // Pinned Arduino-ESP32 3.3.11: STA.begin() already defaults to false.
+  // The prepare-only STA.connect(..., false) is essential: in addition to
+  // configuring SSID it starts DHCP on a dynamic-IP station, while NEVER
+  // calling esp_wifi_connect(). Skipping it can leave Enterprise without IP.
+  if(!WiFi.STA.begin(false)||!WiFi.STA.connect(s.ssid,nullptr,0,nullptr,false)){
+    error="station_config_failed";apiStep="station_prepare";return false;
   }
   wifi_config_t config{};
   if(!checked(esp_wifi_get_config(WIFI_IF_STA,&config),"get_config"))return false;
-  if(strncmp(reinterpret_cast<const char*>(config.sta.ssid),s.ssid,32)){error="station_config_failed";return false;}
+  const size_t ssidLength=strnlen(s.ssid,sizeof(s.ssid));
+  if(!ssidLength||ssidLength>sizeof(config.sta.ssid)||
+     memcmp(config.sta.ssid,s.ssid,ssidLength)||
+     config.sta.bssid_set||config.sta.channel){
+    error="station_config_failed";apiStep="station_verify_ssid";return false;
+  }
+  // STA.connect(..., false) created a fresh, unpinned configuration. Keep its
+  // scan policy and initialized DHCP, but explicitly enforce Enterprise auth.
   memset(config.sta.password,0,sizeof(config.sta.password));
-  config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;config.sta.pmf_cfg.capable=true;
+  config.sta.threshold.authmode=WIFI_AUTH_WPA2_ENTERPRISE;
+  config.sta.threshold.rssi=-127;
+  config.sta.pmf_cfg.capable=true;
   if(!checked(esp_wifi_set_config(WIFI_IF_STA,&config),"set_config"))return false;
+  wifi_config_t verified{};
+  if(!checked(esp_wifi_get_config(WIFI_IF_STA,&verified),"verify_config"))return false;
+  if(memcmp(verified.sta.ssid,config.sta.ssid,sizeof(config.sta.ssid))||
+     memcmp(verified.sta.password,config.sta.password,sizeof(config.sta.password))||
+     verified.sta.threshold.authmode!=WIFI_AUTH_WPA2_ENTERPRISE||
+     verified.sta.bssid_set||verified.sta.channel){
+    error="station_config_failed";apiStep="station_verify";return false;
+  }
   configured=true;
   if(!checked(esp_eap_client_set_eap_methods(ESP_EAP_TYPE_PEAP),"set_eap_methods")||
      !checked(esp_eap_client_set_disable_time_check(false),"set_disable_time_check")||

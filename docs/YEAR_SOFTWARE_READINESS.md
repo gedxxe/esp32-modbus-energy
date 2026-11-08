@@ -10,7 +10,7 @@ Software engineering and source-level validation for continuous operation over 3
 
 | Subsystem | Software behavior | Verification |
 | --- | --- | --- |
-| Enterprise WPA2/802.1X | Explicit `STA.begin(false)`, configure the selected SSID and EAP-PEAP/MSCHAPv2 before the only `esp_wifi_connect()`; built-in public CA bundle when no custom CA is selected | Actual production adapter compiled with fault-injection stubs; one-connection call-order assertions |
+| Enterprise WPA2/802.1X | Explicit `STA.begin(false)`, clean station configuration (no stale BSSID/channel/RSSI lock), verify readback and EAP-PEAP/MSCHAPv2 before the only `esp_wifi_connect()`; built-in public CA bundle when no custom CA is selected | Actual production adapter compiled with fault-injection stubs; one-connection call-order assertions |
 | Millisecond uptime | Network retry, preparing, connection and DHCP deadlines use modular unsigned subtraction; HTTPS long-term backoffs use 64-bit monotonic uptime | Synthetic 365-day Wi-Fi retry timeline and existing 64-bit HTTPS native regression |
 | File retention | Exact canonical current-day and 30 previous days; preserve quarantine/forensic names; never mass-delete on RTC jump | Native 365-day daily-rollover test, bounded 31-day canonical set |
 | Flash write frequency | Verified unchanged NVS/CSV snapshots skip identical writes, but corrupt/short/missing copies are rewritten through the recovery path | PR #22 native fault tests and merged CI |

@@ -97,17 +97,63 @@ inline const char *networkDisconnectHint(uint16_t reason){
 class NetworkPolicy {
  public:
   uint8_t mode=NETWORK_AP;bool connected=false,fallback=false;
-  void begin(uint8_t value,uint32_t now,uint32_t retry=NETWORK_RETRY_MS){retryMs=retry;mode=value;connected=false;fallback=false;started=lastAttempt=now;connectedAt=0;}
+  // The optional per-boot seed spreads reconnection attempts across a fleet.
+  // A zero seed retains deterministic timing for tests and migrations.
+  void begin(uint8_t value,uint32_t now,uint32_t retry=NETWORK_RETRY_MS,uint32_t seed=0){
+    retryMs=retry?retry:NETWORK_RETRY_MS;
+    randomState=seed;mode=value;connected=false;fallback=false;
+    started=lastAttempt=now;connectedAt=0;consecutiveRetries=0;
+    scheduledWaitMs=nextInterval();
+  }
   bool update(uint32_t now,bool ready,bool allowRetry=true){
     if(mode==NETWORK_AP){connected=false;fallback=false;return false;}
-    if(ready){if(!connected)connectedAt=now;connected=true;fallback=false;started=now;return false;}
-    if(connected)started=now;
+    if(ready){
+      if(!connected){
+        connectedAt=now;lastAttempt=now;consecutiveRetries=0;
+        scheduledWaitMs=nextInterval();
+      }
+      connected=true;fallback=false;started=now;return false;
+    }
+    if(connected){
+      // A previously healthy station gets a fresh first-failure budget.
+      // Do not carry the previous outage's exponential delay into a roam.
+      started=lastAttempt=now;consecutiveRetries=0;
+      scheduledWaitMs=nextInterval();
+    }
     connected=false;fallback=uint32_t(now-started)>=retryMs;
-    if(allowRetry&&uint32_t(now-lastAttempt)>=retryMs){lastAttempt=now;return true;}
+    if(allowRetry&&uint32_t(now-lastAttempt)>=scheduledWaitMs){
+      lastAttempt=now;
+      if(consecutiveRetries<4)++consecutiveRetries;
+      scheduledWaitMs=nextInterval();
+      return true;
+    }
     return false;
   }
   bool apWanted(uint32_t now)const{return mode!=NETWORK_CLIENT||!connected||uint32_t(now-connectedAt)<NETWORK_AP_GRACE_MS;}
- private:uint32_t started=0,lastAttempt=0,connectedAt=0,retryMs=NETWORK_RETRY_MS;
+  uint8_t retryStreak()const{return consecutiveRetries;}
+  uint32_t retryWaitMs()const{return scheduledWaitMs;}
+  uint32_t retryRemainingMs(uint32_t now)const{
+    if(mode==NETWORK_AP||connected)return 0;
+    uint32_t elapsed=uint32_t(now-lastAttempt);
+    return elapsed>=scheduledWaitMs?0:scheduledWaitMs-elapsed;
+  }
+ private:
+  uint32_t started=0,lastAttempt=0,connectedAt=0,retryMs=NETWORK_RETRY_MS;
+  uint32_t scheduledWaitMs=NETWORK_RETRY_MS,randomState=0;
+  uint8_t consecutiveRetries=0;
+  uint32_t nextInterval(){
+    const uint8_t exponent=consecutiveRetries<3?consecutiveRetries:3;
+    const uint64_t candidate=uint64_t(retryMs)<<exponent;
+    const uint32_t base=candidate>300000ULL?300000UL:uint32_t(candidate);
+    if(!randomState)return base;
+    // Jitter is bounded to at most 10s; never overshoot the 5-minute cap.
+    randomState^=randomState<<13;
+    randomState^=randomState>>17;
+    randomState^=randomState<<5;
+    const uint32_t room=300000UL-base;
+    const uint32_t spread=room<10000UL?room:10000UL;
+    return base+(spread?randomState%(spread+1UL):0);
+  }
 };
 // A scan owns the station radio until it completes. Association retries must wait.
 class WiFiScanPolicy {

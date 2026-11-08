@@ -183,7 +183,16 @@ int main(){
       clock+=wait;assert(first.update(clock,false,true));
       assert(first.retryWaitMs()<=300000);
     }
-    assert(first.retryStreak()==4&&first.retryWaitMs()>=290000);
+    assert(first.retryStreak()==4&&first.retryWaitMs()>=240000&&first.retryWaitMs()<=250000);
+    // PEAP's 60-second base reaches the five-minute capped window, including
+    // bounded jitter. Personal's 30-second base saturates below that cap.
+    NetworkPolicy peap;peap.begin(NETWORK_CLIENT,0,60000,7);
+    uint32_t peapNow=0;
+    for(unsigned i=0;i<3;++i){
+      peapNow+=peap.retryWaitMs();
+      assert(peap.update(peapNow,false,true));
+    }
+    assert(peap.retryWaitMs()>=290000&&peap.retryWaitMs()<=300000);
     assert(!first.update(clock+100,true,true));
     assert(first.retryStreak()==0&&first.retryRemainingMs(clock+100)==0);
     assert(!first.update(clock+200,false,true));

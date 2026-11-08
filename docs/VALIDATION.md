@@ -352,3 +352,7 @@ multi-year RTC-jump verification.
 The broader separation of acquisition, hardware drivers, and HTTP from
 `firmware/src/main.cpp` remains a separate architectural project.
 Large cross-core moves are deliberately not part of this low-risk change.
+
+### Long-run software storage and RTC ACK safety hardening (PR #22)
+
+The 65th distinct production-day archive now marks the boot recovery scan incomplete even if it sorts newer than all 64 indexed days; this closes an ordering-dependent false `complete=true` result. The legacy five-minute NVS/CSV saver verifies exact existing bytes and avoids writing unchanged data, but retries missing/mismatched/short-read records through the original verified storage path, and reconciles leftover CSV staging before skipping a write. Native tests cover ascending and descending saturation, 300 unchanged NVS calls, forced corruption, torn writes and chunked CSV mismatches. When HTTPS uplink is enabled, an RTC backward-day repair now waits for a verified/absent persisted ACK cursor rather than treating a failed cursor load as a zero cloud ACK. These are software-only changes; the separate LoRa protocol, Modbus register profiles, raw checkpoint schema and normal time-sync rules are unchanged.

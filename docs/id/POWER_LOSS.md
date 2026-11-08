@@ -62,3 +62,7 @@ Suite native menguji semua posisi truncation pada bank LoRa 80 byte dan record p
 Untuk bench, ekspor data lama dan gunakan meter/counter referensi. Lakukan power cycle di luar/dalam jadwal, lalu putuskan suplai pada variasi jeda ketika menyimpan capture/setting. Bandingkan sumber recovery, flag terverifikasi, raw/source dan CSV. Hasil harus sama dengan salah satu versi lengkap atau tetap missing, tanpa NaN, nol buatan atau interval complete palsu. Ulangi dengan storage penuh/tidak dapat di-mount dan pastikan hari sebelumnya terlindungi. Untuk power dip, catat tegangan rail dan alasan reset pada pengujian suplai rendah yang terkendali.
 
 Pengujian software tidak melakukan pemutusan daya fisik, endurance, transien regulator atau TX RF. [VALIDATION](VALIDATION.md) memuat hasil aktual dan pekerjaan hardware yang tersisa.
+
+### Cursor ACK HTTPS dan perbaikan RTC mundur
+
+Jika uplink HTTPS langsung aktif, perbaikan RTC menuju hari yang lebih awal hanya diizinkan ketika `iot.cursorVerified=true`: cursor ACK tersimpan sudah lulus validasi, atau kedua file ACK telah dipastikan tidak ada oleh pemindaian boot normal. `archiveReady=true` hanya menandakan filesystem berhasil di-mount, bukan bukti cursor ACK sehat. Bila ACK rusak atau gagal dibaca sementara, perbaikan diblokir dengan `rtc_recovery_ack_cursor_unverified` tanpa mengubah DS3231 maupun arsip. Sinkronisasi waktu biasa tidak terpengaruh; schema flash dan LoRa tidak berubah.

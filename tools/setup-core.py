@@ -17,6 +17,6 @@ if old.returncode==0:
     subprocess.run([str(python),"-m","pip","uninstall","-y","platformio"],check=True)
 subprocess.run([str(python),"-m","pip","install","--force-reinstall","--no-deps",pin],check=True)
 subprocess.run([str(python),"-m","pip","install","-r",str(root/"requirements-dev.txt")],check=True)
-subprocess.run([str(python),"-c","import platformio; assert platformio.__version__ == '6.2.0.post1' and platformio.__title__ == 'pioarduino'"],check=True)
+subprocess.run([str(python),"-c","import platformio; assert platformio.__version__ == '6.2.0' and platformio.__title__ == 'pioarduino'"],check=True)
 print("Pinned Core ready. Restart the PlatformIO terminal or use:")
 print(str(python)+" -m platformio run -d firmware")

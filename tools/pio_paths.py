@@ -6,8 +6,8 @@ import sys
 import platformio
 import runpy
 from pathlib import Path
-if platformio.__version__ != "6.1.19" or platformio.__title__ != "pioarduino":
-    print(f"This release requires PlatformIO Core 6.1.19, but {platformio.__version__} is running. Run python tools/setup-core.py from the repository root, then restart the extension or terminal.")
+if platformio.__version__ != "6.2.0" or platformio.__title__ != "pioarduino":
+    print(f"This release requires pioarduino Core 6.2.0, but {platformio.__version__} is running. Run python tools/setup-core.py from the repository root, then restart the extension or terminal.")
     print(f'Python interpreter: {sys.executable}')
     env.Exit(1)
 managed = Path(env.subst("$PROJECT_CORE_DIR"))/"penv"/("Scripts/python.exe" if os.name=="nt" else "bin/python")

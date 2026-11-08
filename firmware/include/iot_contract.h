@@ -145,6 +145,23 @@ inline bool cursorHistoryUnverifiable(bool existsA,bool existsB,bool validA,bool
 inline bool backfillWindowExceeded(uint32_t latest,uint32_t acknowledged,uint32_t days){
   return acknowledged&&latest>acknowledged&&latest-acknowledged>days;
 }
+// Conservative early-warning signal derived only from the last durable ACK
+// day and the latest durable archive day. No ACK cursor or file is mutated.
+// A missing/future ACK day is UNKNOWN, not evidence of a healthy backlog.
+struct BackfillHealth {
+  uint32_t lagDays=0,remainingDays=0;
+  bool cursorKnown=false,nearLimit=false,windowExceeded=false;
+};
+inline BackfillHealth backfillHealth(uint32_t latest,uint32_t acknowledged,
+                                    uint32_t windowDays,uint32_t warnDays=5){
+  BackfillHealth h{};
+  if(!latest||!acknowledged||latest<acknowledged||!windowDays)return h;
+  h.cursorKnown=true;h.lagDays=latest-acknowledged;
+  h.remainingDays=h.lagDays>=windowDays?0:windowDays-h.lagDays;
+  h.nearLimit=h.lagDays>=((windowDays>warnDays)?windowDays-warnDays:0);
+  h.windowExceeded=h.lagDays>windowDays;
+  return h;
+}
 // Treat an HTTP error as a permanent device fault only when the HTTPS
 // application returned its exact documented rejection code. Reverse proxies,
 // captive portals and rolling deploys may emit the same numeric status with a

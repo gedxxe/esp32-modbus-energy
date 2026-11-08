@@ -32,6 +32,12 @@ inline bool validRadiusName(const char *p){
     else {if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='-')||(!label&&c=='-'))return false;++label;}previous=c;}
   return label&&label<=63&&previous!='-';
 }
+// An empty PEAP RADIUS certificate name is supported only for reading old
+// stored profiles. It is a security warning, not a verified server identity.
+// This predicate does not validate the certificate itself.
+inline bool peapServerNameConfigured(const NetworkSettings &s){
+  return s.auth!=NETWORK_PEAP||(s.serverName[0]&&validRadiusName(s.serverName));
+}
 inline bool validAPAddress(uint32_t ip){
   uint8_t a=uint8_t(ip>>24),b=uint8_t(ip>>16),host=uint8_t(ip);
   return host>0&&host<255&&(a==10||(a==172&&b>=16&&b<=31)||(a==192&&b==168));

@@ -39,6 +39,7 @@
 #include "lora_service.h"
 #include "lora_web.h"
 #include "iot_uplink.h"
+#include "iot_status_web.h"
 #include "iot_contract.h"
 #include "scan.h"
 #include "meter_config.h"
@@ -1529,52 +1530,7 @@ void webSetup() {
     network["apSSID"]=unitIdentity.apSSID;network["apActive"]=apOK;network["address"]=preferredAddress();network["stationStatus"]=int(WiFi.status());
     network["phase"]=networkPending||networkAwaitingSave?"applying":activeNetwork.mode==NETWORK_AP?(apOK?"ap":"ap_unavailable"):station?"online":networkAttempt.stage==NetworkAttempt::FAILED?"failed":networkAttempt.stage==NetworkAttempt::PREPARING?"preparing":associated?"addressing":networkPolicy.fallback?"fallback":"connecting";
     addLoRaJSON(d["lora"].to<JsonObject>());
-    const auto uplink=iot::readStatus();JsonObject iotState=d["iot"].to<JsonObject>();
-    iotState["configured"]=uplink.configured;iotState["enabled"]=uplink.enabled;
-    iotState["localHeaderPresent"]=uplink.localHeaderPresent;
-    iotState["clientRevision"]=uplink.clientRevision;
-    iotState["workerPulseAgeMs"]=uplink.workerPulseMs?uint32_t(millis()-uplink.workerPulseMs):0;
-    iotState["workerPulseSeen"]=uplink.workerPulseMs!=0;
-    iotState["phase"]=uplink.phase;iotState["archiveReady"]=uplink.archiveReady;
-    iotState["cursorVerified"]=uplink.cursorVerified;
-    iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
-    iotState["expiredLiveRetries"]=uplink.expiredLiveRetries;
-    iotState["backfillCursorKnown"]=uplink.backfillCursorKnown;
-    iotState["backfillDaysBehind"]=uplink.backfillDaysBehind;
-    iotState["backfillRemainingDays"]=uplink.backfillRemainingDays;
-    iotState["backfillNearLimit"]=uplink.backfillNearLimit;
-    iotState["backfillWindowExceeded"]=uplink.backfillWindowExceeded;
-    iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
-    iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;
-    iotState["heartbeatAccepted"]=uplink.heartbeatAccepted;
-    iotState["heartbeatFailures"]=uplink.heartbeatFailures;
-    iotState["lastHeartbeatUTC"]=uplink.lastHeartbeatUTC;
-    iotState["heartbeatHttp"]=uplink.heartbeatHttp;
-    iotState["heartbeatTransportError"]=uplink.heartbeatTransportError;
-    iotState["heartbeatTlsError"]=uplink.heartbeatTlsError;
-    iotState["heartbeatTlsFlags"]=uplink.heartbeatTlsFlags;
-    iotState["heartbeatError"]=uplink.heartbeatError;
-  iotState["lastManualRequestedUTC"]=uplink.lastManualRequestedUTC;
-  iotState["lastManualServedUTC"]=uplink.lastManualServedUTC;
-    iotState["archiveError"]=uplink.archiveError;
-    iotState["transportError"]=uplink.transportError;
-    iotState["socketErrno"]=uplink.socketErrno;
-    iotState["tlsError"]=uplink.tlsError;iotState["tlsFlags"]=uplink.tlsFlags;
-    iotState["freeHeapBeforePost"]=uplink.freeHeapBeforePost;
-    iotState["internalFreeBeforePost"]=uplink.internalFreeBeforePost;
-    iotState["internalLargestBeforePost"]=uplink.internalLargestBeforePost;
-    iotState["psramFreeBeforePost"]=uplink.psramFreeBeforePost;
-    iotState["psramLargestBeforePost"]=uplink.psramLargestBeforePost;
-    iotState["tlsAllocatorPsram"]=uplink.tlsAllocatorPsram;
-    iotState["probeAttempted"]=uplink.probeAttempted;
-    iotState["probeHttp"]=uplink.probeHttp;
-    iotState["probeTransportError"]=uplink.probeTransportError;
-    iotState["probeTlsError"]=uplink.probeTlsError;iotState["probeTlsFlags"]=uplink.probeTlsFlags;
-    iotState["freeHeapBeforeProbe"]=uplink.freeHeapBeforeProbe;
-    iotState["lastAcceptedUTC"]=uplink.lastAcceptedUTC;
-    iotState["lastAckDay"]=uplink.lastAckDay;
-    iotState["lastAckSlot"]=uplink.lastAckDay?uplink.lastAckSlot:-1;
-    iotState["error"]=uplink.error;
+    addIoTStatusJSON(d["iot"].to<JsonObject>(),iot::readStatus(),millis());
     const esp_partition_t *fsPartition=esp_partition_find_first(
       ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_SPIFFS,nullptr);
     JsonObject storageDiagnostic=d["storageRecovery"].to<JsonObject>();

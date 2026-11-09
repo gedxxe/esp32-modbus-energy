@@ -42,6 +42,7 @@ export default function NetworkControls({ device }) {
     if(mode!=="ap"&&auth==="peap"){
       const validText=value=>new TextEncoder().encode(value).length>0&&new TextEncoder().encode(value).length<=127&&!/[\x00-\x1f\x7f]/.test(value);
       if(!ssid||(!keepEnterprise&&(![username,eapPassword].every(validText)||(!autoIdentity&&!validText(identity))))||serverName.length>253||(serverName&&!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(serverName))||new TextEncoder().encode(ca).length>4096){explain("invalid_enterprise");return;}
+      if(!keepEnterprise&&!serverName){event.currentTarget.querySelector("#enterprise-advanced")?.setAttribute("open","");explain("enterprise_radius_name_required");return;}
     }
     if (mode !== "ap" && auth!=="peap" && (!ssid || new TextEncoder().encode(ssid).length > 32 ||
       /[\x00-\x1f\x7f]/.test(ssid) || (!open && !keep &&
@@ -71,6 +72,7 @@ export default function NetworkControls({ device }) {
         <div><dt>{t("network_ap_ip")}</dt><dd>{network.apIP || "—"}</dd></div>
       </dl>
       <p className="small muted">{t("network_recovery", { ssid: network.apSSID })}</p>
+      {network.radiusIdentityWarning==="missing_radius_server_name"&&<p id="enterprise-runtime-identity-warning" className="hint" role="status">{t("enterprise_legacy_name_warning")}</p>}
       {!network.stored && <p className="hint">{t("network_storage_failed")}</p>}
     </>}
     <form id="network-form" onSubmit={submit} onChange={()=>setFeedback(null)} noValidate>
@@ -88,13 +90,15 @@ export default function NetworkControls({ device }) {
             {apAddress&&<a id="enterprise-ap-link" href={`http://${apAddress}/#device`}>{t("enterprise_open_ap")}</a>}
           </div>}
           {!keepCA&&!ca&&<p id="enterprise-trust-note" className="small muted">{t("enterprise_public_trust")}</p>}
+          {!keepEnterprise&&!serverName&&<p id="enterprise-radius-required" className="hint">{t("enterprise_radius_name_required")}</p>}
+          {keepEnterprise&&!serverName&&<p id="enterprise-radius-legacy" className="hint">{t("enterprise_legacy_name_warning")}</p>}
           {network?.hasEnterpriseCredentials&&ssid===network.ssid&&network.auth==="peap"&&<label className="checkbox-line"><input id="enterprise-keep" type="checkbox" checked={keepEnterprise} disabled={blocked} onChange={e=>{setKeepEnterprise(e.target.checked);if(!e.target.checked&&!identity)setAutoIdentity(true);}}/>{t("enterprise_keep_credentials")}</label>}
           <label htmlFor="enterprise-username">{t("enterprise_username")}</label><input id="enterprise-username" autoComplete="off" maxLength={127} value={username} required={!keepEnterprise} disabled={blocked||!network?.enterpriseProvisioning} onChange={e=>{setUsername(e.target.value);setKeepEnterprise(false);if(keepEnterprise)setAutoIdentity(true);}}/>
           <label htmlFor="enterprise-password">{t("network_password")}</label><input id="enterprise-password" type="password" autoComplete="new-password" maxLength={127} value={eapPassword} required={!keepEnterprise} disabled={blocked||!network?.enterpriseProvisioning} onChange={e=>{setEapPassword(e.target.value);setKeepEnterprise(false);if(keepEnterprise)setAutoIdentity(true);}}/>
           <details id="enterprise-advanced"><summary>{t("enterprise_advanced")}</summary><p className="small muted">{t("enterprise_method_note")}</p>
           <label className="checkbox-line"><input id="enterprise-auto-identity" type="checkbox" checked={autoIdentity} disabled={blocked} onChange={e=>{setAutoIdentity(e.target.checked);setKeepEnterprise(false);}}/>{t("enterprise_auto_identity")}</label>
           <label htmlFor="enterprise-identity">{t("enterprise_identity")}</label><input id="enterprise-identity" autoComplete="off" maxLength={127} value={identity} required={!keepEnterprise&&!autoIdentity} disabled={blocked||keepEnterprise||autoIdentity} onChange={e=>setIdentity(e.target.value)}/>
-          <label htmlFor="enterprise-server">{t("enterprise_server")}</label><input id="enterprise-server" autoComplete="off" maxLength={253} value={serverName} disabled={blocked} onChange={e=>{setServerName(e.target.value);setKeepEnterprise(false);}}/>
+          <label htmlFor="enterprise-server">{t("enterprise_server")}</label><input id="enterprise-server" autoComplete="off" maxLength={253} value={serverName} required={!keepEnterprise} disabled={blocked} onChange={e=>{setServerName(e.target.value);setKeepEnterprise(false);}}/>
           <p className="small muted">{t("enterprise_server_note")}</p>
           {network?.caFingerprint&&<><p className="small mono enterprise-fingerprint">CA SHA256 {network.caFingerprint}</p><label className="checkbox-line"><input id="enterprise-keep-ca" type="checkbox" checked={keepCA} disabled={blocked} onChange={e=>{setKeepCA(e.target.checked);setKeepEnterprise(false);setCA("");}}/>{t("enterprise_keep_ca")}</label></>}
           <label htmlFor="enterprise-ca-file">{t("enterprise_ca")}</label><input id="enterprise-ca-file" type="file" accept=".pem,.crt,.cer,text/plain" disabled={blocked||keepCA} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>4096){device.setNotice({key:"invalid_enterprise_ca"});e.target.value="";return;}try{setCA(await file.text());setKeepEnterprise(false);}catch{device.setNotice({key:"invalid_enterprise_ca"});}}}/>

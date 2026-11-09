@@ -579,6 +579,15 @@ void worker(void *){
     }
     Input next{};
     if(xQueueReceive(incoming,&next,pdMS_TO_TICKS(1000))==pdTRUE)input=next;
+    // Warn locally even while offline. A missing/corrupt cursor is UNKNOWN,
+    // not a reason to invent an ACK or advance history to today's date.
+    const BackfillHealth archiveHealth=archiveCursorReady&&input.durable?
+      backfillHealth(input.active.number,ack.day,BACKFILL_DAYS):BackfillHealth{};
+    status.backfillCursorKnown=archiveHealth.cursorKnown;
+    status.backfillDaysBehind=archiveHealth.lagDays;
+    status.backfillRemainingDays=archiveHealth.remainingDays;
+    status.backfillNearLimit=archiveHealth.nearLimit;
+    status.backfillWindowExceeded=archiveHealth.windowExceeded;
     // Discard only an old transient live retry, not an immutable checkpoint.
     // After a long outage, the next accepted sample gets a fresh event ID.
     if(hasOutstandingLive&&liveRetryExpired(uptimeMs(),outstandingCreatedAt,

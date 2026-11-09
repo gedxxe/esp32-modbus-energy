@@ -1562,6 +1562,11 @@ void webSetup() {
     iotState["cursorVerified"]=uplink.cursorVerified;
     iotState["accepted"]=uplink.accepted;iotState["duplicates"]=uplink.duplicates;
     iotState["expiredLiveRetries"]=uplink.expiredLiveRetries;
+    iotState["backfillCursorKnown"]=uplink.backfillCursorKnown;
+    iotState["backfillDaysBehind"]=uplink.backfillDaysBehind;
+    iotState["backfillRemainingDays"]=uplink.backfillRemainingDays;
+    iotState["backfillNearLimit"]=uplink.backfillNearLimit;
+    iotState["backfillWindowExceeded"]=uplink.backfillWindowExceeded;
     iotState["failures"]=uplink.failures;iotState["lastHttp"]=uplink.httpStatus;
     iotState["heartbeatAttempts"]=uplink.heartbeatAttempts;
     iotState["heartbeatAccepted"]=uplink.heartbeatAccepted;
@@ -1819,6 +1824,14 @@ void webSetup() {
     }
     if(c.network.mode!=NETWORK_AP&&c.network.auth==NETWORK_PEAP&&server.arg("keepEnterprise")=="1"&&
        !canReuseEnterprise(activeNetwork,c.network)){jsonReply(400,"Re-enter credentials when changing the trusted server or CA","enterprise_reenter_credentials");return;}
+    const bool newEapFields=server.arg("username").length()||server.arg("eapPassword").length()||
+                            server.arg("identity").length()||server.arg("ca").length();
+    if(!peapProvisioningAllowed(activeNetwork,c.network,server.arg("keepEnterprise")=="1",newEapFields)){
+      // Reuse of a legacy name-less profile is a recovery-only exception.
+      // Never allow newly supplied PEAP credentials to disable RADIUS name matching.
+      jsonReply(400,"New Enterprise logins require the exact RADIUS certificate DNS name supplied by IT. Open Advanced Wi-Fi settings; unchanged saved logins can still be retried.","invalid_enterprise");
+      return;
+    }
     if(!validNetwork(c.network)){jsonReply(400,"Check the selected network authentication fields","invalid_network");return;}
     if(c.caToken&&xQueueSend(networkCAQueue,&caStage,0)!=pdTRUE){memset(&caStage,0,sizeof(caStage));jsonReply(409,"Certificate provisioning is still pending","network_pending");return;}
     memset(&caStage,0,sizeof(caStage));

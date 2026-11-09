@@ -13,6 +13,10 @@ struct Status {
   uint8_t phase=0; // 0 disabled, 1 idle, 2 uploading, 3 retry, 4 blocked
   uint32_t accepted=0,duplicates=0,failures=0,lastAcceptedUTC=0,lastAckDay=0;
   uint32_t expiredLiveRetries=0; // Ephemeral unacknowledged snapshots replaced after TTL
+  // Warning only, independent of network availability and durable ACK writes.
+  // cursorKnown=false means the distance cannot yet be calculated.
+  uint32_t backfillDaysBehind=0,backfillRemainingDays=0;
+  bool backfillCursorKnown=false,backfillNearLimit=false,backfillWindowExceeded=false;
   // Server presence and reading receipts are independent: heartbeat never
   // modifies accepted/duplicates, lastAcceptedUTC or the archive cursor.
   uint32_t heartbeatAttempts=0,heartbeatAccepted=0,heartbeatFailures=0,lastHeartbeatUTC=0;

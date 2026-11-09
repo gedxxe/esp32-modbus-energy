@@ -20,12 +20,17 @@ module.exports=async({page,origin,state,calls,root})=>{
   await page.waitForFunction(()=>!document.querySelector("#network-save")?.disabled);await page.locator("#enterprise-password").blur();
   await page.locator("#network-panel").screenshot({path:path.join(root,"docs/assets/ui-enterprise-desktop.png"),style:".main-nav{visibility:hidden}"});
   const beforePublic=calls.filter(c=>c.url==="/api/network").length;
+  await page.locator("#network-save").click();await page.waitForSelector("#enterprise-advanced[open]");
+  assert.equal(calls.filter(c=>c.url==="/api/network").length,beforePublic,"New PEAP must not submit without RADIUS certificate DNS name");
+  assert(await page.locator("#enterprise-radius-required").count(),"Name requirement must be visible without expanding advanced fields");
+  await page.locator("#enterprise-server").fill("radius.example.org");
+  await page.locator("#enterprise-advanced > summary").click();
   await page.locator("#network-save").click();await page.waitForFunction(()=>document.querySelector("#enterprise-keep")?.checked);
-  assert.equal(calls.filter(c=>c.url==="/api/network").length,beforePublic+1,"Username/password must submit using the built-in CA bundle");
+  assert.equal(calls.filter(c=>c.url==="/api/network").length,beforePublic+1,"Named PEAP must submit using the built-in CA bundle");
   assert((await page.locator("#network-feedback").innerText()).includes("Wi-Fi settings saved"));
   const defaultLogin=calls.filter(c=>c.url==="/api/network").at(-1).data;
   assert.equal(defaultLogin.get("ssid"),"Corporate test");assert.equal(defaultLogin.get("ca"),"");assert.equal(defaultLogin.get("keepCA"),"0");
-  assert.equal(defaultLogin.get("serverName"),"");assert.equal(defaultLogin.get("identity"),"");assert.equal(defaultLogin.get("autoIdentity"),"1");
+  assert.equal(defaultLogin.get("serverName"),"radius.example.org");assert.equal(defaultLogin.get("identity"),"");assert.equal(defaultLogin.get("autoIdentity"),"1");
   assert.equal(state.network.caFingerprint,"");
   await page.reload();await page.waitForSelector("#enterprise-keep:checked");
   assert.equal(await page.locator("#enterprise-password").inputValue(),"");assert.equal(await page.locator("#enterprise-username").inputValue(),"");
@@ -113,5 +118,5 @@ module.exports=async({page,origin,state,calls,root})=>{
   Object.assign(state.network,{mode:"ap",activeMode:"ap",connected:false,associated:false,pending:false,apActive:false,apIP:"",clientIP:"",address:"",phase:"ap_unavailable",error:""});
   await page.waitForFunction(()=>document.querySelector("#network-result-stage")?.innerText.includes("retrying")||document.querySelector("#network-result-stage")?.innerText.includes("mencoba kembali"));
   assert(!(await page.locator("#network-status").innerText()).includes("Client connected"));
-  console.log("PASS: shipped Enterprise scan classification, username-first PEAP form, optional DNS/default identity, public-bundle login/reload without CA upload, exact-name guard, credentials and CA submission, reuse/reload without secret echo, clock diagnostics, visible connection progress/timeout/history, replacement credentials, secret-free client retry, actionable AP-only provisioning, EN/ID and mobile layout");
+  console.log("PASS: shipped Enterprise scan classification, username-first PEAP, mandatory DNS server name on new enrollment, trusted public/custom CA, legacy reuse, exact-name guard, credentials and CA submission, reuse/reload without secret echo, clock diagnostics, visible connection progress/timeout/history, replacement credentials, AP-only provisioning, EN/ID and mobile layout");
 };

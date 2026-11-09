@@ -184,6 +184,24 @@ int main(){
   assert(!iot::backfillWindowExceeded(20762,20732,30));
   assert(iot::backfillWindowExceeded(20763,20732,30));
   assert(!iot::backfillWindowExceeded(20732,20763,30)); // clock moved backward: handled elsewhere
+  // Day-distance warning is independent of station and HTTPS response state.
+  // Missing/future ACKs must never look like a known healthy archive window.
+  {
+    const auto missing=iot::backfillHealth(20760,0,30);
+    assert(!missing.cursorKnown&&!missing.nearLimit&&!missing.windowExceeded);
+    const auto reversed=iot::backfillHealth(20730,20760,30);
+    assert(!reversed.cursorKnown&&reversed.lagDays==0);
+    const auto fresh=iot::backfillHealth(20760,20760,30);
+    assert(fresh.cursorKnown&&fresh.lagDays==0&&fresh.remainingDays==30&&!fresh.nearLimit);
+    const auto warning=iot::backfillHealth(20760,20735,30);
+    assert(warning.cursorKnown&&warning.lagDays==25&&warning.remainingDays==5&&warning.nearLimit&&!warning.windowExceeded);
+    const auto boundary=iot::backfillHealth(20760,20730,30);
+    assert(boundary.remainingDays==0&&boundary.nearLimit&&!boundary.windowExceeded);
+    const auto beyond=iot::backfillHealth(20761,20730,30);
+    assert(beyond.lagDays==31&&beyond.windowExceeded&&beyond.nearLimit);
+    assert(beyond.windowExceeded==iot::backfillWindowExceeded(20761,20730,30));
+    assert(!iot::backfillHealth(20760,20730,0).cursorKnown);
+  }
   assert(!iot::yieldBackfill(0,true,true));
   assert(!iot::yieldBackfill(2,true,true));
   assert(!iot::yieldBackfill(3,false,false));

@@ -1,4 +1,5 @@
 #include "lora_protocol.h"
+#include "lora_irq_policy.h"
 #include "checkpoint_log.h"
 #include "recovery.h"
 #include "verified_record.h"
@@ -45,6 +46,14 @@ struct Disk {
 std::vector<uint8_t> record(uint32_t raw){CaptureTracker t;t.newDay(20760);CaptureSource src;src.slave=220;src.baud=9600;src.parity='N';src.ptNum=src.ptDen=1;src.ct=80;src.profile=profiles::ACREL_ADL400_VERIFIED;assert(t.sample(captureTarget(20760,0),captureTarget(20760,0)+1,raw,src));std::vector<uint8_t> bytes(CAPTURE_RECORD_SIZE);encodeCaptureDay(t.day,bytes.data());return bytes;}
 int main(){
  using namespace fort::lora;
+ // ISR notifications and DIO1 level are redundant wakeup paths. A burst
+ // coalesces into one service pass; a lost edge is recovered by HIGH DIO1.
+ assert(!irqServiceDue(0,false));
+ assert(irqServiceDue(1,false)&&irqServiceDue(7,false));
+ assert(irqServiceDue(0,true)&&irqServiceDue(7,true));
+ assert(irqRecoveredFromLevel(0,true));
+ assert(!irqRecoveredFromLevel(0,false)&&!irqRecoveredFromLevel(1,true));
+ assert(!irqRecoveredFromLevel(UINT32_MAX,true));
  lora::Settings base;assert(base.frequencyHz==915000000&&!base.enabled&&valid(base));base.enabled=true;assert(!valid(base));for(unsigned i=0;i<KEY_SIZE;++i)base.key[i]=uint8_t(i+1);assert(valid(base));
  {lora::Settings bad=base;bad.nodeId=bad.gatewayId;assert(!valid(bad));bad=base;bad.frequencyHz=802999999;assert(!valid(bad));bad.frequencyHz=921400000;assert(valid(bad));bad.bandwidthKHz=126;assert(!valid(bad));}
  Store disk;SettingsStore first;assert(first.load(disk));assert(first.save(disk,base));lora::Settings next=base;next.frequencyHz=921400000;next.nodeId=77;

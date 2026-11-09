@@ -53,7 +53,7 @@
 #include "clock_guard.h"
 #include "rtc_repair.h"
 #include "command_policy.h"
-#include "bounded_write.h"
+#include "bounded_web_server.h"
 #include "network_settings.h"
 #include "network_attempt.h"
 #include "enterprise_wifi.h"
@@ -67,30 +67,7 @@ static_assert(ARDUINO_RUNNING_CORE==0,"UI must run on core 0");
 HardwareSerial bus(1);
 Adafruit_SSD1306 oled(128,64,&Wire,-1);
 void serviceHTTP();
-class BoundedWebServer:public WebServer {
- public:
-  explicit BoundedWebServer(uint16_t port):WebServer(port){}
-  void handleClient()override{
-    // A browser may open an empty speculative socket ahead of real API requests.
-    // Do not let that socket occupy this single-client server for five seconds.
-    if(_currentStatus==HC_WAIT_READ&&!_currentClient.available()&&
-       uint32_t(millis()-_statusChange)>250&&_server.hasClient()){
-      _currentClient.stop();_currentStatus=HC_NONE;
-    }
-    requestStarted=millis();WebServer::handleClient();
-  }
- protected:
-  uint32_t requestStarted=0;
-  size_t _currentClientWrite(const char *data,size_t size)override{
-    size_t sent=boundedWrite(data,size,requestStarted,5000,[](){return millis();},
-      [this](){return bool(_currentClient.connected());},
-      [this](const char *bytes,size_t count){int n=::send(_currentClient.fd(),bytes,count,MSG_DONTWAIT);return n>=0?n:(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR?0:-1);},
-      [](){serviceHTTP();});
-    if(sent<size)_currentClient.stop();return sent;
-  }
-  size_t _currentClientWrite_P(PGM_P data,size_t size)override{return _currentClientWrite(data,size);}
-};
-BoundedWebServer server(80);
+BoundedWebServer server(80,serviceHTTP);
 SemaphoreHandle_t i2cMutex,fsMutex;
 QueueHandle_t snapshotQueue,commandQueue,networkQueue;
 bool oledOK=false,apOK=false;

@@ -103,7 +103,10 @@ void openLink(const Link &link) {
   transport.options.rx=options.rx;transport.options.tx=options.tx;transport.options.dir=options.dir;
   transport.options.manual=options.manualDirection;transport.options.settleUs=options.settleUs;
   transport.options.responseMs=uint16_t(options.responseMs);transport.options.gapMs=options.gapMs;
-  transport.options.rawFC03=profiles::isAdl400(options.profile);
+  // PM5110 D+R is field-verified with the bounded CRC-checked FC03 RTU path.
+  // Reuse that existing parser (also used by ADL400); do not alter the generic
+  // ModbusMaster path for Fort/Habuer/ACR/APM or any meter register/scale.
+  transport.options.rawFC03=profiles::isAdl400(options.profile)||profiles::isSchneider(options.profile);
   if(!activeBaud)transport.invalidate();
   if(!transport.open(link)){activeBaud=0;return;}
   meter.onReceiveError([this](hardwareSerial_error_t error){uartError(error);});

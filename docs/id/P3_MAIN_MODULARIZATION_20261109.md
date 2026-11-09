@@ -2,7 +2,7 @@
 
 ## Ruang lingkup
 
-Baseline: sesudah PR #27, `main` SHA `109946cd4b748817770019ebc4fdc9808dfca300`. **Tidak mengubah framework**, versi SDK, toolchain, dependency, isi ESP32 IoT cloud payload, jadwal pencatatan, endpoint atau website.
+Baseline awal: sesudah PR #27 (`109946cd4b748817770019ebc4fdc9808dfca300`). **Disinkronkan kembali dengan `main` sesudah merge PR #29** (commit `d79a202d0a12c5ac7edcc2a44e9f80fe8830e7a1`). **Tidak mengubah framework**, versi SDK, toolchain, dependency, isi ESP32 IoT cloud payload, jadwal pencatatan, endpoint atau website.
 
 ## Pemisahan yang selesai di PR ini
 
@@ -24,7 +24,15 @@ Memindahkan serialisasi **51 field** `/api/status.iot` ke modul tanpa state. API
 
 ### 3. Regression gate
 
-`tools/test_iot_status_schema.py` membekukan daftar 51 field status dan mengecek bahwa hanya satu titik pemanggilan serializer pada `main.cpp`. Ini **static contract test**, bukan simulasi ESP32. Native test `boundedWrite` yang lama, browser regression dan full ESP32-S3 build tetap wajib.
+`tools/test_iot_status_schema.py` membekukan daftar 51 field status, mengecek bahwa hanya satu titik pemanggilan serializer pada `main.cpp`, dan mengunci integrasi `addLoRaJSON()` dari PR #29: field `irqNotifications` / `irqPinFallbacks` serta pola notifikasi ISR FreeRTOS tidak boleh hilang. Test juga memeriksa pin **pioarduino platform 55.03.311 / Core 6.1.19**, agar refactoring tidak meng-upgrade framework. Ini **static contract test**, bukan simulasi ESP32. Native test `boundedWrite` yang lama, browser regression dan full ESP32-S3 build tetap wajib.
+
+### 4. Reaudit kompatibilitas pasca merge PR #29
+
+- PR #29 mengubah `firmware/include/lora_irq_policy.h`, `lora_service.h`, `firmware/src/lora_service.cpp`, `lora_web.cpp`, `firmware/test/test_power_lora.cpp` serta dokumentasi P2. PR #30 tidak mengubah satu pun file itu: **nol tumpang tindih path**, sehingga merge branch dapat mempertahankan seluruh blob LoRa persis seperti `main`.
+- Sinkronisasi dilakukan dengan **merge commit dua-parent** (branch PR #30 + `main` hasil PR #29), bukan menyalin ulang versi LoRa lama. Perbedaan `main...PR30` kembali tinggal delapan file P3. Kontrak endpoint `d["lora"]` tetap dipanggil via `addLoRaJSON()` sebelum `d["iot"]` didelegasikan ke `addIoTStatusJSON()`.
+- Perubahan LoRa ISR tetap milik task `sx1262-link`; pemisahan HTTP tidak memindahkan thread, callback ISR, antrean, SPI, atau pemrosesan HMAC. Status IRQ baru otomatis tersedia dari serializer LoRa yang sudah ter-merge.
+- Verifikasi GitHub menyatakan PR **mergeable**, tetapi **kompatibilitas operasional baru dapat diklaim setelah CI gabungan + staging**; status CI harus direkam pada commit terbaru.
+- Tidak ada modifikasi pada `firmware/platformio.ini`, `requirements-dev.txt`, source framework, skema penyimpanan NVS atau repository website.
 
 ## Batas keamanan
 

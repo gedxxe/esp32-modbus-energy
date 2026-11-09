@@ -45,6 +45,14 @@ The physical validation sketch used Current Average at 3010 and Voltage L-L Aver
 
 PF uses the four-quadrant encoding from workbook worksheet *Data Types*: for a finite raw float >1, use `2 - raw`; for raw <-1, use `-2 - raw`; reject out-of-range values. The existing API stores decoded cos φ without a separate lead/lag flag.
 
+## Restoring the known-good acquisition path (9 November 2026)
+
+The standalone ESP32-S3 scanner confirmed ID **1**, **19200 8E1**, manual GPIO16 direction, FC03 PDU **0x0A8F** ×2. Latest field capture: `48C9 EE18` = **413552.750 kWh** (D+R Float32) and independent Int64 Wh counter = **413552.798 kWh**. The two reads are sequential; Float32 quantization and intervening energy usage explain small differences. Neither D-only register 2700 nor reactive kvarh should ever be forwarded as active D+R kWh.
+
+The production firmware now selects the existing **bounded CRC-validated raw FC03 reader** for Schneider profiles, matching the successful scanner's RTU transaction style. It preserves the shared strict ID/function/count/CRC checks and keeps Fort, Habuer, ACR and APM on their pre-existing ModbusMaster path. Schneider D+R continues using immutable profile **7**, `schneider-pm5100-dr`, without changing the checkpoint/archive or website/LoRa payload contracts. A native regression replays the verified D+R frame, asserts successful production decoding, and rejects CRC corruption, wrong slave and TX echo. The full firmware still needs on-device acceptance; a native test cannot prove physical UART timing.
+
+**Windows build blocker is separate from meter communication:** firmware platform `55.03.311` is pinned to **pioarduino Core 6.1.19**. If the upload terminal says `6.2.0 is running`, run `python tools/setup-core.py` **from the repository root**, restart VS Code, and repeat the build/upload from `firmware`. This reinstalls the pinned Core in `%USERPROFILE%\\.platformio\\penv` without upgrading Arduino/ESP-IDF. Do not delete NVS, change CT/PT, or modify power-meter wiring to address a host-side build-version error.
+
 ## Commissioning and website integration
 
 1. Open ESP32 **Meter setup**. Choose **Schneider PM5110 (D+R kWh)** and set slave **1**, baud **19200**, parity **Even**, one stop bit, and manual GPIO16 direction according to the validated installation. Save the configuration.

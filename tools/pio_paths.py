@@ -7,8 +7,11 @@ import platformio
 import runpy
 from pathlib import Path
 if platformio.__version__ != "6.1.19" or platformio.__title__ != "pioarduino":
-    print(f"This release requires PlatformIO Core 6.1.19, but {platformio.__version__} is running. Run python tools/setup-core.py from the repository root, then restart the extension or terminal.")
-    print(f'Python interpreter: {sys.executable}')
+    print(f"INCOMPATIBLE PLATFORMIO CORE: installed {platformio.__version__} ({platformio.__title__}); expected pioarduino 6.1.19.")
+    print("No firmware compilation or upload was attempted. Do NOT upgrade the Arduino/ESP-IDF framework to fix this.")
+    print("From the repository root, run: python tools/setup-core.py")
+    print("Then restart VS Code/PlatformIO and run: pio run -d firmware -e esp32s3 -t upload")
+    print(f"Core Python currently used: {sys.executable}")
     env.Exit(1)
 managed = Path(env.subst("$PROJECT_CORE_DIR"))/"penv"/("Scripts/python.exe" if os.name=="nt" else "bin/python")
 if os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(managed)):

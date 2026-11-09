@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "lora_service.h"
+#include "lora_irq_policy.h"
 #include "board.h"
 #include "version.h"
 #include <Arduino.h>
@@ -165,8 +166,8 @@ void run(void *){
         const uint32_t notifications=ulTaskNotifyTake(pdTRUE,0);
         const bool pinHigh=digitalRead(LORA_DIO1)==HIGH;
         view.irqNotifications+=notifications;
-        if(pinHigh&&!notifications)++view.irqPinFallbacks;
-        if(notifications||pinHigh){uint32_t irq=radio.getIrqFlags();
+        if(irqRecoveredFromLevel(notifications,pinHigh))++view.irqPinFallbacks;
+        if(irqServiceDue(notifications,pinHigh)){uint32_t irq=radio.getIrqFlags();
           if(cadChecking&&(irq&(RADIOLIB_SX126X_IRQ_CAD_DONE|RADIOLIB_SX126X_IRQ_CAD_DETECTED))){
             cadChecking=false;int16_t scan=radio.getChannelScanResult();
             if(scan==RADIOLIB_CHANNEL_FREE){++view.cadClear;sendAfterCad(now);}

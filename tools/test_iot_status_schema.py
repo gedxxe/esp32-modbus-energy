@@ -24,4 +24,24 @@ assert 'boundedWrite(data,size,requestStarted_,5000' in (
 assert 'WebServer::handleClient();' in (
     ROOT / "firmware/src/bounded_web_server.cpp"
 ).read_text()
-print(f"PASS: {len(EXPECTED)} immutable IoT status keys, pulse-age, ACK-null semantics and unchanged HTTP write bound")
+
+# Post-PR#29 composition: main.cpp must preserve both independent JSON
+# adapters. In particular the IRQ counters from the merged LoRa fix must not
+# disappear when the IoT status serializer is moved out of main.cpp.
+assert main.count('addLoRaJSON(d["lora"].to<JsonObject>())') == 1
+assert main.index('addLoRaJSON(d["lora"].to<JsonObject>())') < main.index(
+    'addIoTStatusJSON(d["iot"].to<JsonObject>(),iot::readStatus(),millis())'
+)
+lora_json = (ROOT / "firmware/src/lora_web.cpp").read_text()
+lora_task = (ROOT / "firmware/src/lora_service.cpp").read_text()
+for field in ("irqNotifications", "irqPinFallbacks"):
+    assert f'd["{field}"]=v.{field}' in lora_json, f"Lost PR#29 LoRa field: {field}"
+assert "vTaskNotifyGiveFromISR(target,&higherPriorityWoken)" in lora_task
+assert "ulTaskNotifyTake(pdTRUE,0)" in lora_task
+
+# Owner explicitly freezes the installed dependency versions.
+platform = (ROOT / "firmware/platformio.ini").read_text()
+requirements = (ROOT / "requirements-dev.txt").read_text()
+assert "releases/download/55.03.311/platform-espressif32.zip" in platform
+assert "pioarduino==6.1.19" in requirements
+print(f"PASS: {len(EXPECTED)} IoT fields, PR#29 LoRa ISR/JSON integration, unchanged HTTP bounds and pinned framework")

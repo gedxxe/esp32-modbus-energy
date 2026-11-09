@@ -360,5 +360,43 @@ int main(){
    invalid=true;assert(!readMeterReadings(p,read,reading,&quality)&&quality.invalid==FIELD_ENERGY&&reading.meterEnergy==412691.0);
    assert(std::isnan(profiles::primaryEnergy(p.id,0x7FC00000UL,1,1,1)));
  }
+ // Operator's 2026-11-09 PM5110 capture through the actual production reader.
+ // ID=1, 19200 8E1, FC03 0x0A8F x2, Float32 ABCD, D+R active kWh.
+ {
+   HardwareSerial port(1);
+   char log[4096];
+   FortDiagnostics engine(port,log,sizeof(log));
+   engine.selectProfile(profiles::SCHNEIDER_PM5100_DR);
+   engine.current.id=1;engine.current.baud=19200;engine.current.parity='E';
+   engine.options.responseMs=50;
+   const auto &p=profiles::get(profiles::SCHNEIDER_PM5100_DR);
+   const std::vector<uint8_t> request={0x01,0x03,0x0A,0x8F,0x00,0x02,0xF6,0x38};
+   auto reply=response({1,3,4,0x48,0xC9,0xEE,0x18}); // 413552.75000 kWh
+   assert(reply.size()==9&&reply[7]==0x70&&reply[8]==0x07);
+   port.onWrite=[&](){for(auto byte:reply)port.incoming.push_back(byte);};
+   assert(engine.readEnergy(engine.current));
+   assert(engine.transport.options.rawFC03&&port.transmitted.back()==request);
+   assert(engine.transport.last.frameSize==9&&engine.transport.last.frameOffset==0);
+   char output[4097];engine.copyLog(output,sizeof(output));
+   assert(std::string(output).find("413552.750000 kWh")!=std::string::npos);
+   MeterReadings accepted;ReadingQuality quality;
+   assert(readMeterReadings(p,[&](const profiles::Register &reg,uint8_t *bytes){
+     return engine.readRegisters(engine.current,reg.address,reg.words,bytes);
+   },accepted,&quality));
+   assert(quality.complete&&accepted.rawEnergy==0x48C9EE18UL&&accepted.meterEnergy==413552.75);
+   assert(profiles::primaryEnergy(p.id,accepted.rawEnergy,1,1,1)==413552.75);
+   // Reject corrupt CRC, wrong slave ID and echoed TX, retaining prior good data.
+   port.onWrite=[&](){auto corrupt=reply;corrupt.back()^=1;
+     for(auto byte:corrupt)port.incoming.push_back(byte);};
+   uint8_t raw[4]={};
+   assert(!engine.readRegisters(engine.current,p.energy.address,2,raw)&&engine.lastStatus==0xE3);
+   port.onWrite=[&](){for(auto byte:response({2,3,4,0x48,0xC9,0xEE,0x18}))port.incoming.push_back(byte);};
+   assert(!engine.readRegisters(engine.current,p.energy.address,2,raw)&&engine.lastStatus==0xE6);
+   port.onWrite=[&](){for(auto byte:request)port.incoming.push_back(byte);};
+   assert(!engine.readRegisters(engine.current,p.energy.address,2,raw)&&engine.lastStatus==0xE6);
+   assert(accepted.meterEnergy==413552.75);
+   engine.selectProfile(profiles::FORT);engine.openLink(engine.current);
+   assert(!engine.transport.options.rawFC03); // No Fort/Habuer/ACR/APM regression.
+ }
  std::cout<<"PASS: real ModbusMaster FC03 reference bytes, manual callback order, immediate length completion, CRC/ID/function/count/echo/overflow/exception rejection, timeout/cancel, UART recovery and decoding\n";
 }

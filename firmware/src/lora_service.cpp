@@ -14,8 +14,15 @@ using namespace lora;
 struct Update {uint32_t revision=0;Settings settings{};bool stored=false;};
 QueueHandle_t settingsQ=nullptr,controlQ=nullptr,telemetryQ=nullptr,viewQ=nullptr,queryQ=nullptr,replyQ=nullptr;
 TaskHandle_t worker=nullptr;
-volatile bool irqPending=false;
-void IRAM_ATTR radioIRQ(){irqPending=true;}
+// ISR->task communication uses FreeRTOS notifications, not a volatile
+// cross-context flag. No SPI/RadioLib call may execute inside this ISR.
+void IRAM_ATTR radioIRQ(){
+  TaskHandle_t target=worker;
+  if(!target)return;
+  BaseType_t higherPriorityWoken=pdFALSE;
+  vTaskNotifyGiveFromISR(target,&higherPriorityWoken);
+  if(higherPriorityWoken==pdTRUE)portYIELD_FROM_ISR();
+}
 SPIClass radioSPI(FSPI);
 Module radioModule(LORA_NSS,LORA_DIO1,LORA_RESET,LORA_BUSY,radioSPI,SPISettings(2000000,MSBFIRST,SPI_MODE0));
 SX1262 radio=&radioModule;
@@ -62,7 +69,10 @@ void initializeRadio(){
   if(code==RADIOLIB_ERR_NONE)code=radio.setDio2AsRfSwitch(true);
   if(code==RADIOLIB_ERR_NONE)code=radio.setCRC(2);
   if(code!=RADIOLIB_ERR_NONE){view.code=code;view.phase=LORA_ERROR;Serial.printf("[LoRa] SX1262 init failed code=%d\n",code);return;}
-  irqPending=false;radio.setDio1Action(radioIRQ);view.available=true;
+  // Discard notifications from the prior session before arming DIO1 again.
+  // Level polling below handles an IRQ already asserted during re-arming.
+  ulTaskNotifyTake(pdTRUE,0);
+  radio.setDio1Action(radioIRQ);view.available=true;
   if(receiveMode()){lastCycle=millis()-view.settings.intervalMs;view.phase=LORA_LISTENING;Serial.printf("[LoRa] SX1262 ready node=%u gateway=%u frequency=%lu Hz\n",view.settings.nodeId,view.settings.gatewayId,(unsigned long)view.settings.frequencyHz);}
 }
 void hello(){uint8_t p[24]={};p[0]=3;p[1]=0x07;strncpy(reinterpret_cast<char*>(p+2),FIRMWARE_VERSION,21);makeFrame(HELLO,p,24);}
@@ -149,7 +159,14 @@ void run(void *){
     if(view.settings.enabled&&view.configured){
       if(!view.available){if(uint32_t(now-lastInit)>=30000)initializeRadio();}
       else {
-        if(irqPending||digitalRead(LORA_DIO1)==HIGH){irqPending=false;uint32_t irq=radio.getIrqFlags();
+        // Notifications cannot be lost between an ISR and a read/clear of a
+        // volatile flag. A HIGH DIO1 also covers IRQs asserted before the
+        // callback was armed or delivered while scheduling the task.
+        const uint32_t notifications=ulTaskNotifyTake(pdTRUE,0);
+        const bool pinHigh=digitalRead(LORA_DIO1)==HIGH;
+        view.irqNotifications+=notifications;
+        if(pinHigh&&!notifications)++view.irqPinFallbacks;
+        if(notifications||pinHigh){uint32_t irq=radio.getIrqFlags();
           if(cadChecking&&(irq&(RADIOLIB_SX126X_IRQ_CAD_DONE|RADIOLIB_SX126X_IRQ_CAD_DETECTED))){
             cadChecking=false;int16_t scan=radio.getChannelScanResult();
             if(scan==RADIOLIB_CHANNEL_FREE){++view.cadClear;sendAfterCad(now);}
